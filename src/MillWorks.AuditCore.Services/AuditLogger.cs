@@ -1,0 +1,341 @@
+﻿using System.Collections.Concurrent;
+using System.Text.Json;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
+
+namespace MillWorks.AuditCore.Services.Core;
+
+/// <summary>
+/// Core audit logger implementation 
+/// </summary>
+public sealed class AuditLogger(
+    ILogger<AuditLogger> logger,
+    IAuditEventFactory eventFactory,
+    IAuditEventRepository auditEventRepository,
+    IAuditContext auditContext,
+    ITamperDetectionService? tamperDetectionService = null)
+    : IAuditLogger
+{
+    /// <summary>
+    /// Active audit operations tracked by their operation Id
+    /// </summary>
+    private readonly ConcurrentDictionary<Guid, CustomAuditScope> _activeOperations = new();
+
+    /// <summary>
+    /// Logs an audit event asynchronously
+    /// </summary>
+    public async Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Convert to database entity
+            var entity = ConvertToEntity(auditEvent);
+
+            // Save to database
+            await auditEventRepository.AddAsync(entity, cancellationToken);
+            await auditEventRepository.SaveChangesAsync(cancellationToken);
+
+            // Create integrity record for tamper detection (if enabled)
+            if (tamperDetectionService is not null)
+            {
+                try
+                {
+                    AuditIntegrityDto record = new()
+                    {
+                        EventId = entity.EventId,
+                        InsertedDate = entity.InsertedDate,
+                        LastUpdatedDate = entity.LastUpdatedDate,
+                        JsonData = entity.JsonData,
+                        EventType = entity.EventType,
+                        User = entity.User
+                    };
+                    await tamperDetectionService.CreateIntegrityRecordAsync(record, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Integrity record is optional - log warning but don't fail the audit
+                    logger.LogWarning(ex,
+                        "Failed to create integrity record for event {EventId}",
+                        entity.EventId);
+                }
+            }
+
+            logger.LogDebug(
+                "Logged audit event of type {EventType} with ID {EventId}",
+                auditEvent.EventType,
+                auditEvent.EventId);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyError(ex))
+        {
+            // Duplicate key error - this can happen in race conditions or retries
+            // Treat as success (idempotent operation)
+            logger.LogDebug(
+                "Duplicate key for event {EventId}. Treating as success.",
+                auditEvent.EventId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Failed to log audit event of type {EventType}",
+                auditEvent.EventType);
+
+            // THROW so ResilientAuditLogger can retry and use DLQ
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Checks if an exception is a duplicate key error (provider-agnostic)
+    /// </summary>
+    private static bool IsDuplicateKeyError(DbUpdateException ex)
+    {
+        return ex.InnerException switch
+        {
+            SqlException { Number: 2627 or 2601 } => true, // SQL Server
+            _ when ex.InnerException?.Message.Contains("UNIQUE constraint") == true => true, // SQLite
+            _ when ex.InnerException?.GetType().Name == "PostgresException"
+                   && ex.InnerException.Data["SqlState"]?.ToString() == "23505" => true, // PostgreSQL
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Logs an audit event with the specified type and data
+    /// </summary>
+    public async Task LogAsync(string eventType, object? data, CancellationToken cancellationToken = default)
+    {
+        var auditEvent = eventFactory.CreateEvent(eventType, data);
+        await LogAsync(auditEvent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Logs an audit event with the specified type, message, and data
+    /// </summary>
+    public async Task LogAsync(string eventType, string message, Dictionary<string, object?> data,
+        CancellationToken cancellationToken)
+    {
+        var auditEvent = eventFactory.CreateEvent(eventType, data);
+        auditEvent.CustomFields["Message"] = message;
+        await LogAsync(auditEvent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Begins a new audit operation and returns its Id
+    /// </summary>
+    public async Task<Guid> BeginOperationAsync(string operationType, object? metadata = null)
+    {
+        var operationId = Guid.NewGuid();
+
+        try
+        {
+            var auditEvent = eventFactory.CreateOperationEvent(operationType, operationId, "Started", metadata);
+
+            // Store in context for child operations
+            auditContext.OperationId = operationId;
+
+            var scope = new CustomAuditScope(auditEvent, this, logger);
+            _activeOperations[operationId] = scope;
+
+            // Log the start event
+            await LogAsync(auditEvent);
+
+            logger.LogDebug("Started audit operation {OperationId} of type {OperationType}",
+                operationId, operationType);
+
+            return operationId;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to begin audit operation {OperationType}", operationType);
+            throw; 
+        }
+    }
+
+    /// <summary>
+    /// Ends an audit operation
+    /// </summary>
+    public async Task EndOperationAsync(Guid operationId, bool success = true, object? result = null)
+    {
+        try
+        {
+            if (_activeOperations.TryRemove(operationId, out var scope))
+            {
+                // Extract operation type from the original event
+                var operationType = scope.Event.CustomFields.TryGetValue("OperationType", out var opType)
+                    ? opType?.ToString() ?? "UnknownOperation"
+                    : scope.Event.EventType.Replace(".Started", "");
+
+                // Create a NEW event for the completion (the start event's EventId is already persisted)
+                var completionEvent = eventFactory.CreateOperationEvent(
+                    operationType, operationId, success ? "Completed" : "Failed", result);
+
+                completionEvent.EndDate = DateTimeOffset.UtcNow;
+                completionEvent.CalculateDuration();
+                completionEvent.Success = success;
+
+                // Copy relevant context from the original start event
+                foreach (var field in scope.Event.CustomFields)
+                {
+                    if (!completionEvent.CustomFields.ContainsKey(field.Key))
+                        completionEvent.CustomFields[field.Key] = field.Value;
+                }
+
+                completionEvent.CustomFields["Status"] = success ? "Completed" : "Failed";
+
+                // Save the completion event
+                await LogAsync(completionEvent);
+
+                // Clear from context if this was the current operation
+                if (auditContext.OperationId == operationId)
+                {
+                    auditContext.OperationId = null;
+                }
+
+                logger.LogDebug("Ended audit operation {OperationId} with success={Success}",
+                    operationId, success);
+            }
+            else
+            {
+                // Log as a separate event if scope not found
+                var auditEvent = eventFactory.CreateOperationEvent("UnknownOperation", operationId,
+                    success ? "Completed" : "Failed", result);
+                auditEvent.CustomFields["Warning"] = "Original operation scope not found";
+
+                await LogAsync(auditEvent);
+
+                logger.LogWarning(
+                    "Audit operation {OperationId} scope not found, logged as separate event",
+                    operationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to end audit operation {OperationId}", operationId);
+            throw; // Throw for operations
+        }
+    }
+
+    /// <summary>
+    /// Creates a new audit scope for the specified event type and target object
+    /// </summary>
+    public ICustomAuditScope CreateScope(string eventType, object? target = null)
+    {
+        var auditEvent = eventFactory.CreateEvent(eventType, target);
+        return new CustomAuditScope(auditEvent, this, logger);
+    }
+
+    /// <summary>
+    /// Converts a CustomAuditEvent to an AuditEventEntity for database storage
+    /// </summary>
+    private AuditEventEntity ConvertToEntity(AuditEvent auditEvent)
+    {
+        var entity = new AuditEventEntity
+        {
+            EventId = auditEvent.EventId,
+            EventType = auditEvent.EventType,
+            InsertedDate = auditEvent.StartDate,
+            LastUpdatedDate = auditEvent.EndDate ?? auditEvent.StartDate,
+            Duration = auditEvent.Duration,
+            User = auditEvent.Environment.UserName,
+            UserEnvName = auditEvent.Environment.UserName,
+            MachineName = auditEvent.Environment.MachineName,
+            CallingMethodName = auditEvent.Environment.CallingMethodName,
+            AssemblyName = auditEvent.Environment.AssemblyName,
+            Environment = auditEvent.CustomFields.GetValueOrDefault("Environment")?.ToString() ?? "Production"
+        };
+
+        // Extract specific fields from CustomFields
+        if (auditEvent.CustomFields.TryGetValue("UserId", out var userId) && userId is Guid guid)
+            entity.UserId = guid;
+
+        if (auditEvent.CustomFields.TryGetValue("AspNetUserId", out var aspNetUserId))
+            entity.AspNetUserId = aspNetUserId?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("UserFullName", out var fullName))
+            entity.UserFullName = fullName?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("TenantId", out var tenantId) && tenantId is Guid tenantGuid)
+            entity.TenantId = tenantGuid;
+
+        if (auditEvent.CustomFields.TryGetValue("EntityType", out var entityType))
+            entity.EntityType = entityType?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("EntityId", out var entityId))
+            entity.EntityId = entityId?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("Action", out var action))
+            entity.Action = action?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("CorrelationId", out var correlationId))
+            entity.CorrelationId = correlationId?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress))
+            entity.IpAddress = ipAddress?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent))
+            entity.UserAgent = userAgent?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("RequestPath", out var requestPath))
+            entity.RequestPath = requestPath?.ToString();
+
+        if (auditEvent.CustomFields.TryGetValue("RequestMethod", out var requestMethod))
+            entity.RequestMethod = requestMethod?.ToString();
+
+        // Build additional data (unmapped custom fields) in a single pass
+        Dictionary<string, object?>? additionalData = null;
+        foreach (var field in auditEvent.CustomFields)
+        {
+            if (IsFieldMapped(field.Key)) continue;
+            additionalData ??= new();
+            additionalData[field.Key] = field.Value;
+        }
+
+        // Serialize the entire event as JSON for JsonData field
+        entity.JsonData = JsonSerializer.Serialize(new
+        {
+            auditEvent.EventId,
+            auditEvent.EventType,
+            auditEvent.StartDate,
+            auditEvent.EndDate,
+            auditEvent.Duration,
+            auditEvent.Environment,
+            auditEvent.Target,
+            auditEvent.CustomFields,
+            auditEvent.Success,
+            auditEvent.ErrorMessage
+        });
+
+        // Store additional data (only serialize if non-empty)
+        if (additionalData is { Count: > 0 })
+        {
+            entity.AdditionalData = JsonSerializer.Serialize(additionalData);
+        }
+
+        return entity;
+    }
+
+    /// <summary>
+    /// Standard mapped field names for O(1) lookup
+    /// </summary>
+    private static readonly HashSet<string> MappedFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "UserId", "AspNetUserId", "UserFullName", "TenantId", "EntityType",
+        "EntityId", "Action", "CorrelationId", "IpAddress", "UserAgent",
+        "RequestPath", "RequestMethod", "Environment"
+    };
+
+    /// <summary>
+    /// Is the specified field name one of the standard mapped fields?
+    /// </summary>
+    /// <param name="fieldName"></param>
+    /// <returns></returns>
+    private static bool IsFieldMapped(string fieldName) => MappedFields.Contains(fieldName);
+}

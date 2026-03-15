@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Description>DTOs, interfaces, core models, and contracts for MillWorks AuditCore</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+</Project>

@@ -1,0 +1,236 @@
+using Microsoft.EntityFrameworkCore;
+using MillWorks.AuditCore.EntityFramework.Data;
+using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+
+namespace MillWorks.AuditCore.EntityFramework.Repositories;
+
+/// <summary>
+/// AuditIntegrityRepository provides methods to interact with audit integrity records for tamper evidence and blockchain-style verification.
+/// </summary>
+/// <param name="context"></param>
+public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
+    : Repository<AuditIntegrityEntity>(context), IAuditIntegrityRepository
+{
+    /// <summary>
+    /// Gets the audit integrity record for a specific event.
+    /// </summary>
+    /// <param name="eventId"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<AuditIntegrityEntity?> GetByEventIdAsync(Guid eventId,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .FirstOrDefaultAsync(ai => ai.EventId == eventId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the latest audit integrity record by sequence number.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<AuditIntegrityEntity?> GetLatestBySequenceAsync(CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .OrderByDescending(static ai => ai.SequenceNumber)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets audit integrity records within a sequence number range.
+    /// </summary>
+    /// <param name="startSequence"></param>
+    /// <param name="endSequence"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<AuditIntegrityEntity>> GetBySequenceRangeAsync(long startSequence, long endSequence,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .Where(ai => ai.SequenceNumber >= startSequence && ai.SequenceNumber <= endSequence)
+            .OrderBy(static ai => ai.SequenceNumber)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Validates the integrity chain by checking hash linkage between consecutive records.
+    /// </summary>
+    /// <param name="startSequence"></param>
+    /// <param name="endSequence"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<bool> ValidateIntegrityChainAsync(long startSequence, long endSequence,
+        CancellationToken cancellationToken = default)
+    {
+        var records = await DbSet.AsNoTracking()
+            .Where(ai => ai.SequenceNumber >= startSequence && ai.SequenceNumber <= endSequence)
+            .OrderBy(static ai => ai.SequenceNumber)
+            .ToListAsync(cancellationToken);
+
+        if (!records.Any())
+            return true; // Empty chain is valid
+
+        // Validate chain linkage
+        for (int i = 1; i < records.Count; i++)
+        {
+            var current = records[i];
+            var previous = records[i - 1];
+
+            // Check if current record's PreviousEventHash matches previous record's EventHash
+            if (current.PreviousEventHash != previous.EventHash)
+            {
+                return false;
+            }
+
+            // Verify sequence continuity
+            if (current.SequenceNumber != previous.SequenceNumber + 1)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Gets the next sequence number for a new audit integrity record.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    [Obsolete("SequenceNumber is a database-generated identity column. Manually reading MAX+1 is racy under concurrency. Let the database assign sequence numbers on insert.")]
+    public async Task<long> GetNextSequenceNumberAsync(CancellationToken cancellationToken = default)
+    {
+        var maxSequence = await DbSet.AsNoTracking()
+            .MaxAsync(static ai => (long?)ai.SequenceNumber, cancellationToken);
+
+        return (maxSequence ?? 0) + 1;
+    }
+
+    /// <summary>
+    /// Gets audit integrity records by algorithm version.
+    /// </summary>
+    /// <param name="algorithmVersion"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<AuditIntegrityEntity>> GetByAlgorithmVersionAsync(int algorithmVersion,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .Where(ai => ai.AlgorithmVersion == algorithmVersion)
+            .OrderBy(static ai => ai.SequenceNumber)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets audit integrity records within a trusted timestamp range.
+    /// </summary>
+    /// <param name="startDate"></param>
+    /// <param name="endDate"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<AuditIntegrityEntity>> GetByTrustedTimestampRangeAsync(DateTimeOffset startDate,
+        DateTimeOffset endDate, CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .Where(ai => ai.TrustedTimestamp >= startDate && ai.TrustedTimestamp <= endDate)
+            .OrderBy(static ai => ai.TrustedTimestamp)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets audit integrity records with their associated audit events ordered by sequence number.
+    /// </summary>
+    /// <param name="startDate"></param>
+    /// <param name="endDate"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<AuditIntegrityEntity>> GetWithAuditEventsAsync(DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null, CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking()
+            .Include(static i => i.AuditEvent)
+            .AsQueryable();
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp <= endDate.Value);
+        }
+
+        return await query
+            .OrderBy(static i => i.SequenceNumber)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets a page of audit integrity records with their associated audit events, ordered by sequence number.
+    /// </summary>
+    public async Task<List<AuditIntegrityEntity>> GetWithAuditEventsPagedAsync(
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking()
+            .Include(static i => i.AuditEvent)
+            .AsQueryable();
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp <= endDate.Value);
+        }
+
+        return await query
+            .OrderBy(static i => i.SequenceNumber)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the count of audit integrity records within an optional date range.
+    /// </summary>
+    public async Task<int> GetCountAsync(
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking().AsQueryable();
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp <= endDate.Value);
+        }
+
+        return await query.CountAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets all sequence numbers in order for integrity verification.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<long>> GetAllSequenceNumbersAsync(CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .OrderBy(static ai => ai.SequenceNumber)
+            .Select(static ai => ai.SequenceNumber)
+            .ToListAsync(cancellationToken);
+    }
+}
