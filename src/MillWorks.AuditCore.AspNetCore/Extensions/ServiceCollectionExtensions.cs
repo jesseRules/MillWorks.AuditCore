@@ -31,6 +31,10 @@ public static class ServiceCollectionExtensions
             services.TryAddScoped<IAuditEventFactory, AuditEventFactory>();
             services.TryAddScoped<IAuditLogger, AuditLogger>();
 
+            // Default no-op redactor — consumers can register their own IAuditFieldRedactor
+            // before calling AddMillWorksAudit() and TryAdd will not overwrite it.
+            services.TryAddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
+
             // Register HTTP context accessor for middleware
             services.AddHttpContextAccessor();
 

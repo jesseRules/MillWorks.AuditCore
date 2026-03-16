@@ -14,52 +14,49 @@ namespace MillWorks.AuditCore.AspNetCore.Configuration;
 /// </summary>
 public static class EncryptionConfigurationExtensions
 {
-    /// <summary>
-    /// Enables field-level encryption with Azure Key Vault
-    /// </summary>
-    public static MillWorksAuditBuilder UseFieldEncryption(
-        this MillWorksAuditBuilder builder,
-        string keyVaultUrl)
+    extension(MillWorksAuditBuilder builder)
     {
-        builder.Services.AddSingleton<IEncryptionKeyProvider>(sp =>
-            new AzureKeyVaultProvider(
-                keyVaultUrl,
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureKeyVaultProvider>>()));
+        /// <summary>
+        /// Enables field-level encryption with Azure Key Vault
+        /// </summary>
+        public MillWorksAuditBuilder UseFieldEncryption(string keyVaultUrl)
+        {
+            builder.Services.AddSingleton<IEncryptionKeyProvider>(sp =>
+                new AzureKeyVaultProvider(
+                    keyVaultUrl,
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<AzureKeyVaultProvider>>()));
 
-        builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
+            builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
 
-        return builder;
-    }
+            return builder;
+        }
 
-    /// <summary>
-    /// Enables field-level encryption with file-based key storage (for DMZ/air-gapped)
-    /// </summary>
-    public static MillWorksAuditBuilder UseFieldEncryptionWithFileStorage(
-        this MillWorksAuditBuilder builder,
-        string keyStorePath,
-        string masterKeyBase64)
-    {
-        builder.Services.AddSingleton<IEncryptionKeyProvider>(sp =>
-            new FileBasedKeyProvider(
-                keyStorePath,
-                masterKeyBase64,
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FileBasedKeyProvider>>()));
+        /// <summary>
+        /// Enables field-level encryption with file-based key storage (for DMZ/air-gapped)
+        /// </summary>
+        public MillWorksAuditBuilder UseFieldEncryptionWithFileStorage(string keyStorePath,
+            string masterKeyBase64)
+        {
+            builder.Services.AddSingleton<IEncryptionKeyProvider>(sp =>
+                new FileBasedKeyProvider(
+                    keyStorePath,
+                    masterKeyBase64,
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FileBasedKeyProvider>>()));
 
-        builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
+            builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
 
-        return builder;
-    }
+            return builder;
+        }
 
-    /// <summary>
-    /// Enables field-level encryption with a custom key provider
-    /// </summary>
-    public static MillWorksAuditBuilder UseFieldEncryption(
-        this MillWorksAuditBuilder builder,
-        IEncryptionKeyProvider keyProvider)
-    {
-        builder.Services.AddSingleton(keyProvider);
-        builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
+        /// <summary>
+        /// Enables field-level encryption with a custom key provider
+        /// </summary>
+        public MillWorksAuditBuilder UseFieldEncryption(IEncryptionKeyProvider keyProvider)
+        {
+            builder.Services.AddSingleton(keyProvider);
+            builder.Services.AddSingleton<IFieldEncryptionService, FieldEncryptionService>();
 
-        return builder;
+            return builder;
+        }
     }
 }

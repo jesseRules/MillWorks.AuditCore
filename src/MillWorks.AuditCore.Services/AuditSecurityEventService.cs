@@ -151,12 +151,10 @@ public sealed class AuditSecurityEventService(
         logger.LogCritical(
             "SECURITY ALERT: {EventType} - {Message} - Event ID: {EventId}",
             securityEvent.EventType, securityEvent.Message, securityEvent.Id);
-        return Task.CompletedTask;
 
-        // TODO: Implement actual alert delivery
-        // - Send email to security team
-        // - Post to Slack/Teams channel
-        // - Trigger PagerDuty/Opsgenie
-        // - Log to SIEM system
+        // Alert delivery is intentionally limited to structured logging in v1.0.
+        // Consumers should forward these log entries to their existing alerting
+        // infrastructure (SIEM, PagerDuty, Slack, etc.) via a log sink.
+        return Task.CompletedTask;
     }
 }

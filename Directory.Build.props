@@ -10,7 +10,7 @@
         <Company>MillWorks</Company>
         <Product>MillWorks AuditCore</Product>
         <Description>Tamper-evident audit logging and compliance platform for .NET</Description>
-        <Copyright>Copyright © 2025 MillWorks</Copyright>
+        <Copyright>Copyright © 2025-2026 MillWorks</Copyright>
 
         <!-- Package Settings -->
         <PackageProjectUrl>https://github.com/jesserules/millworks.auditcore</PackageProjectUrl>

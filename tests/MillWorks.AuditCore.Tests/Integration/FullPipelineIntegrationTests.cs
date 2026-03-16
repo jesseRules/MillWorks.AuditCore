@@ -71,6 +71,7 @@ public class FullPipelineIntegrationTests : IDisposable
         services.AddScoped<IAuditContext, AuditContext>();
         services.AddScoped<IAuditEventFactory, AuditEventFactory>();
         services.AddScoped<IAuditLogger, AuditLogger>();
+        services.AddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
         services.AddScoped<AuditContextMiddleware>();
 
         // Repositories (same as UseEntityFramework)

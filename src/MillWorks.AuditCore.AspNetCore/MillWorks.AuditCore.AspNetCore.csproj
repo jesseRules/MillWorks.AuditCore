@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Description>ASP.NET Core integration, middleware, and fluent configuration for MillWorks AuditCore</Description>
+        <PackageId>MillWorks.AuditCore</PackageId>
+        <Description>Tamper-evident audit logging and compliance platform for .NET — batteries-included package with EF Core and ASP.NET Core integration</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 

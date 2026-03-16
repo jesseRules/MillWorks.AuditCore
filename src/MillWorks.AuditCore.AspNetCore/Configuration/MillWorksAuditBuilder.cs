@@ -81,7 +81,7 @@ public sealed class MillWorksAuditBuilder
         // Register the audit interceptor as a singleton.
         // ComplianceOptions and IConsentVerificationService may not be registered
         // (UseCompliance() is optional). GetService returns null when not registered.
-        Services.AddSingleton<AuditSaveChangesInterceptor>(sp =>
+        Services.AddSingleton<AuditSaveChangesInterceptor>(static sp =>
         {
             var logger = sp.GetRequiredService<ILogger<AuditSaveChangesInterceptor>>();
             var complianceOptions = sp.GetService<ComplianceOptions>();
@@ -152,10 +152,10 @@ public sealed class MillWorksAuditBuilder
     private void ConfigureMapster()
     {
         var config = new TypeAdapterConfig();
-    
+
         // Apply mapping configurations
         config.Apply(new AuditMappingConfiguration());
-    
+
         // Register using modern Mapster.DependencyInjection approach
         Services.AddSingleton(config);
         Services.AddMapster();

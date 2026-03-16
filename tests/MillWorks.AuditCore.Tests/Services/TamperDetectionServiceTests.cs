@@ -586,30 +586,9 @@ public class TamperDetectionServiceTests
         Assert.That(ex!.Message, Does.Contain("after 10 attempts"));
     }
 
-    /// <summary>
-    /// Verifies that when the event is not found, InvalidOperationException is thrown
-    /// </summary>
-    [Test]
-    public void CreateIntegrityRecordAsync_WhenEventNotFound_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var eventId = Guid.NewGuid();
-        var dto = new AuditIntegrityDto { EventId = eventId };
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditEventEntity?)null);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await _tamperDetectionService.CreateIntegrityRecordAsync(dto));
-
-        Assert.That(ex!.Message, Does.Contain("not found"));
-    }
+    // Test removed: CreateIntegrityRecordAsync no longer re-fetches the entity from the DB.
+    // The DTO now carries all fields needed for hashing, eliminating the "event not found" path.
+    // See P1 fix in LogAsyncTrace.md.
 
     #endregion
 

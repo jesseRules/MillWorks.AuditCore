@@ -67,22 +67,4 @@ public sealed class RealTimeAuditConfiguration
     /// Whether real-time auditing is enabled
     /// </summary>
     public bool Enabled { get; set; } = false;
-
-    ///// <summary>
-    ///// Azure Event Hub configuration
-    ///// </summary>
-    //[ValidateObjectMembers]
-    //public EventHubConfiguration EventHub { get; set; } = new();
-
-    ///// <summary>
-    ///// Azure Service Bus configuration
-    ///// </summary>
-    //[ValidateObjectMembers]
-    //public ServiceBusConfiguration ServiceBus { get; set; } = new();
-
-    ///// <summary>
-    ///// Webhook configuration
-    ///// </summary>
-    //[ValidateObjectMembers]
-    //public WebhookConfiguration Webhook { get; set; } = new();
 }

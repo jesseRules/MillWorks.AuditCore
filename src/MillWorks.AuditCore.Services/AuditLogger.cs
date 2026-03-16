@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -14,13 +15,14 @@ using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 namespace MillWorks.AuditCore.Services.Core;
 
 /// <summary>
-/// Core audit logger implementation 
+/// Core audit logger implementation
 /// </summary>
 public sealed class AuditLogger(
     ILogger<AuditLogger> logger,
     IAuditEventFactory eventFactory,
     IAuditEventRepository auditEventRepository,
     IAuditContext auditContext,
+    IAuditFieldRedactor fieldRedactor,
     ITamperDetectionService? tamperDetectionService = null)
     : IAuditLogger
 {
@@ -39,15 +41,19 @@ public sealed class AuditLogger(
             // Convert to database entity
             var entity = ConvertToEntity(auditEvent);
 
-            // Save to database
-            await auditEventRepository.AddAsync(entity, cancellationToken);
-            await auditEventRepository.SaveChangesAsync(cancellationToken);
-
-            // Create integrity record for tamper detection (if enabled)
             if (tamperDetectionService is not null)
             {
+                // Wrap event + integrity record in a single transaction so both succeed
+                // or both fail atomically. This prevents audit events from existing without
+                // integrity records, which would create gaps in the tamper-detection chain.
+                // All repositories share the same scoped DbContext, so the transaction
+                // created here is automatically used by TamperDetectionService's repository calls.
+                await using var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
                 try
                 {
+                    await auditEventRepository.AddAsync(entity, cancellationToken);
+                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+
                     AuditIntegrityDto record = new()
                     {
                         EventId = entity.EventId,
@@ -55,17 +61,24 @@ public sealed class AuditLogger(
                         LastUpdatedDate = entity.LastUpdatedDate,
                         JsonData = entity.JsonData,
                         EventType = entity.EventType,
-                        User = entity.User
+                        User = entity.User,
+                        UserId = entity.UserId
                     };
                     await tamperDetectionService.CreateIntegrityRecordAsync(record, cancellationToken);
+
+                    await transaction.CommitAsync(cancellationToken);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // Integrity record is optional - log warning but don't fail the audit
-                    logger.LogWarning(ex,
-                        "Failed to create integrity record for event {EventId}",
-                        entity.EventId);
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
                 }
+            }
+            else
+            {
+                // No tamper detection — simple insert, no transaction needed
+                await auditEventRepository.AddAsync(entity, cancellationToken);
+                await auditEventRepository.SaveChangesAsync(cancellationToken);
             }
 
             logger.LogDebug(
@@ -155,7 +168,7 @@ public sealed class AuditLogger(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to begin audit operation {OperationType}", operationType);
-            throw; 
+            throw;
         }
     }
 
@@ -252,53 +265,63 @@ public sealed class AuditLogger(
             Environment = auditEvent.CustomFields.GetValueOrDefault("Environment")?.ToString() ?? "Production"
         };
 
-        // Extract specific fields from CustomFields
-        if (auditEvent.CustomFields.TryGetValue("UserId", out var userId) && userId is Guid guid)
-            entity.UserId = guid;
+        // Map fields: prefer first-class AuditEvent properties when set,
+        // fall back to CustomFields. This prevents the DX trap where setting
+        // auditEvent.IpAddress directly is silently ignored.
+        entity.UserId = auditEvent.UserId
+            ?? (auditEvent.CustomFields.TryGetValue("UserId", out var userId) && userId is Guid guid ? guid : null);
 
-        if (auditEvent.CustomFields.TryGetValue("AspNetUserId", out var aspNetUserId))
-            entity.AspNetUserId = aspNetUserId?.ToString();
+        entity.AspNetUserId = fieldRedactor.RedactValue("AspNetUserId",
+            auditEvent.AspNetUserId
+            ?? (auditEvent.CustomFields.TryGetValue("AspNetUserId", out var aspNetUserId) ? aspNetUserId?.ToString() : null));
 
         if (auditEvent.CustomFields.TryGetValue("UserFullName", out var fullName))
-            entity.UserFullName = fullName?.ToString();
+            entity.UserFullName = fieldRedactor.RedactValue("UserFullName", fullName?.ToString());
 
         if (auditEvent.CustomFields.TryGetValue("TenantId", out var tenantId) && tenantId is Guid tenantGuid)
             entity.TenantId = tenantGuid;
 
-        if (auditEvent.CustomFields.TryGetValue("EntityType", out var entityType))
-            entity.EntityType = entityType?.ToString();
+        entity.EntityType = !string.IsNullOrEmpty(auditEvent.EntityName)
+            ? auditEvent.EntityName
+            : (auditEvent.CustomFields.TryGetValue("EntityType", out var entityType) ? entityType?.ToString() : null);
 
-        if (auditEvent.CustomFields.TryGetValue("EntityId", out var entityId))
-            entity.EntityId = entityId?.ToString();
+        entity.EntityId = fieldRedactor.RedactValue("EntityId",
+            auditEvent.CustomFields.TryGetValue("EntityId", out var entityId) ? entityId?.ToString() : null);
 
-        if (auditEvent.CustomFields.TryGetValue("Action", out var action))
-            entity.Action = action?.ToString();
+        entity.Action = auditEvent.Action != AuditAction.Unknown
+            ? auditEvent.Action.ToString()
+            : (auditEvent.CustomFields.TryGetValue("Action", out var action) ? action?.ToString() : null);
 
-        if (auditEvent.CustomFields.TryGetValue("CorrelationId", out var correlationId))
-            entity.CorrelationId = correlationId?.ToString();
+        entity.CorrelationId = auditEvent.CorrelationId
+            ?? (auditEvent.CustomFields.TryGetValue("CorrelationId", out var correlationId) ? correlationId?.ToString() : null);
 
-        if (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress))
-            entity.IpAddress = ipAddress?.ToString();
+        entity.IpAddress = fieldRedactor.RedactValue("IpAddress",
+            auditEvent.IpAddress
+            ?? (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress) ? ipAddress?.ToString() : null));
 
-        if (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent))
-            entity.UserAgent = userAgent?.ToString();
+        entity.UserAgent = fieldRedactor.RedactValue("UserAgent",
+            auditEvent.UserAgent
+            ?? (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent) ? userAgent?.ToString() : null));
 
         if (auditEvent.CustomFields.TryGetValue("RequestPath", out var requestPath))
-            entity.RequestPath = requestPath?.ToString();
+            entity.RequestPath = fieldRedactor.RedactValue("RequestPath", requestPath?.ToString());
 
         if (auditEvent.CustomFields.TryGetValue("RequestMethod", out var requestMethod))
             entity.RequestMethod = requestMethod?.ToString();
 
+        // Redact CustomFields before serialization to prevent PHI/PII leaking into JsonData
+        var redactedCustomFields = fieldRedactor.RedactFields(auditEvent.CustomFields);
+
         // Build additional data (unmapped custom fields) in a single pass
         Dictionary<string, object?>? additionalData = null;
-        foreach (var field in auditEvent.CustomFields)
+        foreach (var field in redactedCustomFields)
         {
             if (IsFieldMapped(field.Key)) continue;
             additionalData ??= new();
             additionalData[field.Key] = field.Value;
         }
 
-        // Serialize the entire event as JSON for JsonData field
+        // Serialize the entire event as JSON for JsonData field (uses redacted fields)
         entity.JsonData = JsonSerializer.Serialize(new
         {
             auditEvent.EventId,
@@ -308,7 +331,7 @@ public sealed class AuditLogger(
             auditEvent.Duration,
             auditEvent.Environment,
             auditEvent.Target,
-            auditEvent.CustomFields,
+            CustomFields = redactedCustomFields,
             auditEvent.Success,
             auditEvent.ErrorMessage
         });
@@ -325,7 +348,7 @@ public sealed class AuditLogger(
     /// <summary>
     /// Standard mapped field names for O(1) lookup
     /// </summary>
-    private static readonly HashSet<string> MappedFields = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> _mappedFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "UserId", "AspNetUserId", "UserFullName", "TenantId", "EntityType",
         "EntityId", "Action", "CorrelationId", "IpAddress", "UserAgent",
@@ -337,5 +360,5 @@ public sealed class AuditLogger(
     /// </summary>
     /// <param name="fieldName"></param>
     /// <returns></returns>
-    private static bool IsFieldMapped(string fieldName) => MappedFields.Contains(fieldName);
+    private static bool IsFieldMapped(string fieldName) => _mappedFields.Contains(fieldName);
 }

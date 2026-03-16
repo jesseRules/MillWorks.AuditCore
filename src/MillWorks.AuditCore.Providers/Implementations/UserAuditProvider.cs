@@ -58,24 +58,6 @@ public sealed class UserAuditProvider(
 
         switch (entity)
         {
-            // case ApplicationUser appUser:
-            //     auditEvent.CustomFields["AspNetUserId"] = appUser.Id;
-            //     auditEvent.CustomFields["Email"] = appUser.Email;
-            //     auditEvent.CustomFields["UserName"] = appUser.UserName;
-            //     auditEvent.CustomFields["IsActive"] = appUser.IsActive;
-            //     auditEvent.CustomFields["TwoFactorEnabled"] = appUser.TwoFactorEnabled;
-            //     auditEvent.CustomFields["EmailConfirmed"] = appUser.EmailConfirmed;
-            //     auditEvent.CustomFields["PhoneNumberConfirmed"] = appUser.PhoneNumberConfirmed;
-            //     auditEvent.CustomFields["LockoutEnabled"] = appUser.LockoutEnabled;
-            //     auditEvent.CustomFields["LockoutEnd"] = appUser.LockoutEnd;
-            //
-            //     // Security-related fields (without exposing sensitive data)
-            //     auditEvent.CustomFields["HasRefreshToken"] = !string.IsNullOrEmpty(appUser.RefreshToken);
-            //     auditEvent.CustomFields["MustChangePassword"] = appUser.MustChangePassword;
-            //     auditEvent.CustomFields["SsoUserOnly"] = appUser.SsoUserOnly;
-            //     break;
-            //
-
             case Dictionary<string, object> entityDict:
                 // Handle dictionary from EF change tracking
                 // For ApplicationUser fields

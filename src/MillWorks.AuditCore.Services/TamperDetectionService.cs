@@ -64,7 +64,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// Static to ensure consistency across Scoped service lifetimes within the same process.
     /// </summary>
     private static readonly Lazy<string> DefaultHmacKey = new(GenerateDefaultHmacKey);
-    
+
     /// <summary>
     /// Local fallback lock for single-instance scenarios.
     /// Static because TamperDetectionService is Scoped — an instance lock would be
@@ -83,7 +83,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// </summary>
     private static RSAParameters? _cachedSigningKey;
     private static RSAParameters? _cachedVerifyKey;
-    private static readonly Lock KeyLoadLock = new();
+    private static readonly Lock _keyLoadLock = new();
 
     /// <summary>
     /// Tamper detection service for audit events with distributed locking support
@@ -183,21 +183,16 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 // Get the latest sequence number and previous hash
                 var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
 
-                var auditEventEntity = await _auditEventRepository.GetByIdAsync(auditEvent.EventId, cancellationToken);
-                if (auditEventEntity == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Audit event {auditEvent.EventId} not found. Cannot create integrity record for a non-existent event.");
-                }
-
+                // Use the DTO fields directly for hashing — the caller (AuditLogger) populates
+                // all required fields from the just-saved entity, eliminating a redundant DB re-fetch.
                 var integrity = new AuditIntegrityEntity
                 {
                     EventId = auditEvent.EventId,
-                    EventHash = ComputeEventHash(auditEventEntity),
+                    EventHash = ComputeEventHash(auditEvent),
                     PreviousEventHash = previousIntegrity?.EventHash,
                     TrustedTimestamp = _timeProvider.GetUtcNow(),
-                    HmacSignature = ComputeHmac(auditEventEntity),
-                    Checksum = ComputeChecksum(auditEventEntity),
+                    HmacSignature = ComputeHmac(auditEvent),
+                    Checksum = ComputeChecksum(auditEvent),
                     AlgorithmVersion = AuditCanonicalizer.CurrentVersion
                 };
 
@@ -569,45 +564,64 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// avoiding a single large concatenated string that could land on the LOH when JsonData is large.
     /// Canonicalizes JsonData and normalizes dates for deterministic hashing.
     /// </summary>
-    private static string ComputeEventHash(AuditEventEntity auditEvent)
+    private static string ComputeEventHash(Guid eventId, string? eventType, string? user,
+        DateTimeOffset? insertedDate, string? jsonData)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.UTF8.GetBytes(auditEvent.EventId.ToString()));
+        hash.AppendData(Encoding.UTF8.GetBytes(eventId.ToString()));
         hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(auditEvent.EventType ?? string.Empty));
+        hash.AppendData(Encoding.UTF8.GetBytes(eventType ?? string.Empty));
         hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(auditEvent.User ?? string.Empty));
+        hash.AppendData(Encoding.UTF8.GetBytes(user ?? string.Empty));
         hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.NormalizeDate(auditEvent.InsertedDate)));
+        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.NormalizeDate(insertedDate)));
         hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.Canonicalize(auditEvent.JsonData)));
+        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.Canonicalize(jsonData)));
 
         return Convert.ToBase64String(hash.GetHashAndReset());
     }
+
+    private static string ComputeEventHash(AuditIntegrityDto e) =>
+        ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
+
+    private static string ComputeEventHash(AuditEventEntity e) =>
+        ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
 
     /// <summary>
     /// Computes an HMAC signature for critical fields of the audit event.
     /// Uses canonical UTC date format for deterministic signing.
     /// </summary>
-    private string ComputeHmac(AuditEventEntity auditEvent)
+    private string ComputeHmac(Guid eventId, string? eventType, DateTimeOffset? insertedDate)
     {
-        var dateString = AuditCanonicalizer.NormalizeDate(auditEvent.InsertedDate);
-        var dataToSign = $"{auditEvent.EventId}|{auditEvent.EventType}|{dateString}";
+        var dateString = AuditCanonicalizer.NormalizeDate(insertedDate);
+        var dataToSign = $"{eventId}|{eventType}|{dateString}";
 
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_hmacKey));
         var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(dataToSign));
         return Convert.ToBase64String(hashBytes);
     }
 
+    private string ComputeHmac(AuditIntegrityDto e) =>
+        ComputeHmac(e.EventId, e.EventType, e.InsertedDate);
+
+    private string ComputeHmac(AuditEventEntity e) =>
+        ComputeHmac(e.EventId, e.EventType, e.InsertedDate);
+
     /// <summary>
     /// Computes a checksum for critical fields of the audit event using SHA-256.
     /// </summary>
-    private static string ComputeChecksum(AuditEventEntity auditEvent)
+    private static string ComputeChecksum(Guid eventId, string? eventType, Guid? userId)
     {
-        var criticalFields = $"{auditEvent.EventId}{auditEvent.EventType}{auditEvent.UserId}";
+        var criticalFields = $"{eventId}{eventType}{userId}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(criticalFields));
         return Convert.ToBase64String(hashBytes);
     }
+
+    private static string ComputeChecksum(AuditIntegrityDto e) =>
+        ComputeChecksum(e.EventId, e.EventType, e.UserId);
+
+    private static string ComputeChecksum(AuditEventEntity e) =>
+        ComputeChecksum(e.EventId, e.EventType, e.UserId);
 
     /// <summary>
     /// Creates a digital signature for the given data using the configured private key.
@@ -657,7 +671,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     {
         if (_cachedSigningKey.HasValue) return _cachedSigningKey.Value;
 
-        lock (KeyLoadLock)
+        lock (_keyLoadLock)
         {
             if (_cachedSigningKey.HasValue) return _cachedSigningKey.Value;
 
@@ -684,7 +698,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     {
         if (_cachedVerifyKey.HasValue) return _cachedVerifyKey.Value;
 
-        lock (KeyLoadLock)
+        lock (_keyLoadLock)
         {
             if (_cachedVerifyKey.HasValue) return _cachedVerifyKey.Value;
 

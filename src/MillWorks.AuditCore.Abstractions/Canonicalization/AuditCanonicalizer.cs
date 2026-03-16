@@ -120,13 +120,9 @@ public static class AuditCanonicalizer
         writer.WriteStartObject();
 
         // Sort properties alphabetically by key (ordinal comparison for determinism)
-        var properties = new List<JsonProperty>();
-        foreach (var prop in element.EnumerateObject())
-        {
-            properties.Add(prop);
-        }
+        var properties = element.EnumerateObject().ToList();
 
-        properties.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+        properties.Sort(static (a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
 
         foreach (var prop in properties)
         {
@@ -223,11 +219,5 @@ public static class AuditCanonicalizer
     /// <summary>
     /// Normalizes a <see cref="DateTimeOffset"/> to canonical UTC ISO 8601 string.
     /// </summary>
-    public static string NormalizeDate(DateTimeOffset? value)
-    {
-        if (!value.HasValue)
-            return string.Empty;
-
-        return value.Value.UtcDateTime.ToString(Iso8601Format, CultureInfo.InvariantCulture);
-    }
+    public static string NormalizeDate(DateTimeOffset? value) => !value.HasValue ? string.Empty : value.Value.UtcDateTime.ToString(Iso8601Format, CultureInfo.InvariantCulture);
 }

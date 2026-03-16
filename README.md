@@ -3,11 +3,36 @@
 *Tamper-evident audit logging and compliance platform for .NET*
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/jesserules/millworks.auditcore/ci.yml?branch=main)](https://github.com/jesserules/millworks.auditcore/actions)
-[![NuGet](https://img.shields.io/nuget/v/MillWorks.AuditCore.AspNetCore)](https://www.nuget.org/packages/MillWorks.AuditCore.AspNetCore)
+[![NuGet](https://img.shields.io/nuget/v/MillWorks.AuditCore)](https://www.nuget.org/packages/MillWorks.AuditCore)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
+[![Tests](https://img.shields.io/badge/tests-1%2C138_passing-brightgreen)](tests/)
 
 MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and IRB requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing every entity change with zero modifications to existing application code.
+
+## Compatibility
+
+| Component | Requirement |
+|---|---|
+| **.NET** | .NET 10.0+ |
+| **Entity Framework Core** | 10.0+ |
+| **SQL Server** | 2016+ (or Azure SQL) |
+| **Redis** (optional) | 6.0+ — required only for distributed locking and Redis dead letter queue |
+| **Azure Blob Storage** (optional) | Required only for archival |
+
+**Versioning policy:** This project follows [Semantic Versioning 2.0](https://semver.org/). The public API surface consists of the builder API (`AddMillWorksAudit`), the `IAuditProvider` contract, and all types in the `MillWorks.AuditCore.Abstractions` package.
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| **`MillWorks.AuditCore`** | Primary install — batteries included, pulls in EF Core + ASP.NET Core wiring |
+| `MillWorks.AuditCore.Abstractions` | Pure .NET — models, DTOs, interfaces. No EF or ASP.NET dependencies. Reference this from shared libraries or non-web hosts. |
+| `MillWorks.AuditCore.EntityFramework` | EF Core data layer without ASP.NET host dependencies |
+| `MillWorks.AuditCore.Services` | Business logic — compliance, encryption, dead letter queue, query/reporting |
+| `MillWorks.AuditCore.Providers` | Entity-specific audit enrichment via `IAuditProvider` |
+
+Most consumers install only `MillWorks.AuditCore`. The other packages are available for advanced scenarios (e.g., referencing `Abstractions` from a shared domain library that should not depend on ASP.NET).
 
 ## Features
 
@@ -21,10 +46,26 @@ Every audit event is linked into a cryptographic hash chain. Each record's SHA-2
 AES-256-GCM encryption for sensitive audit fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
 
 ### Compliance Validation
-Built-in validators for seven regulatory standards: GDPR (Articles 17, 25, 30, 32), HIPAA (45 CFR Part 164), FERPA (34 CFR Part 99), SOC 2 (Trust Services Criteria), ISO 27001 (Annex A), PCI-DSS, and STIG. Validators inspect the audit log for required controls and produce structured compliance reports with pass/fail per rule, severity, regulation references, and remediation recommendations. Enforcement mode can block non-compliant operations at the interceptor level.
+Built-in validators for seven regulatory standards: GDPR (Articles 17, 25, 30, 32), HIPAA (45 CFR Part 164), FERPA (34 CFR Part 99), SOC 2 (Trust Services Criteria), ISO 27001 (Annex A), PCI-DSS, and STIG. Validators inspect the audit log for required controls and produce structured compliance reports with pass/fail per rule, severity, regulation references, and remediation recommendations.
+
+**Enforcement modes** control what happens when a non-compliant operation is intercepted:
+
+| Mode | Behavior |
+|---|---|
+| `Advisory` (default) | Log a warning. The operation proceeds normally. |
+| `AuditOnly` | Log a warning and create an `AuditSecurityEvent` record. The operation proceeds. |
+| `Enforce` | Block the operation by throwing a `ComplianceViolationException`. The exception includes the standard name, entity type, user ID, and regulation reference (e.g., `"34 CFR §99.30"`). Callers should catch this exception and return an appropriate error response. |
 
 ### Dead Letter Queue
-Audit events that fail to persist (database timeout, transient fault) are captured in a dead letter queue rather than lost. Supports in-memory, file-system, and Redis-backed providers. A background processor automatically retries failed events with configurable retry policies.
+Audit events that fail to persist (database timeout, transient fault) are captured in a dead letter queue rather than lost. A background processor automatically retries failed events with configurable retry policies.
+
+All three providers ship in v1.0:
+
+| Provider | Backing Store | Best For |
+|---|---|---|
+| `InMemory` | `ConcurrentDictionary` | Development and testing |
+| `FileSystem` | JSON files with semaphore locking | Single-instance production without Redis |
+| `Redis` | Sorted sets with 30-day expiry | Multi-instance production deployments |
 
 ### Distributed Coordination
 Redis-based distributed locking ensures hash chain consistency across multiple application instances writing audit events concurrently. Falls back to in-memory locking for single-instance deployments.
@@ -40,10 +81,10 @@ Full-text search, date-range filtering, entity trail reconstruction, user activi
 
 ## Quick Start
 
-Install the ASP.NET Core integration package (pulls in all dependencies):
+Install the primary package (pulls in all dependencies):
 
 ```shell
-dotnet add package MillWorks.AuditCore.AspNetCore
+dotnet add package MillWorks.AuditCore
 ```
 
 ### Minimal Setup
@@ -121,6 +162,67 @@ await dbContext.SaveChangesAsync();
 // and a full snapshot of the new property values -- no code changes needed.
 ```
 
+## The `IAuditProvider` Contract
+
+`IAuditProvider` is the primary extensibility point for per-entity audit behavior. Implement this interface to control what gets audited and how audit events are enriched for a given entity type.
+
+```csharp
+public interface IAuditProvider
+{
+    /// The entity type name this provider handles (e.g., "Patient", "FinancialRecord")
+    string EntityType { get; }
+
+    /// Create an audit event for the given action and entity state
+    Task<AuditEvent> CreateAuditEventAsync(string action, object? entity, object? oldValues = null);
+
+    /// Return false to suppress auditing for a specific action/entity combination
+    Task<bool> ShouldAuditAsync(string action, object entity);
+
+    /// Add domain-specific metadata to an audit event after creation
+    Task EnrichAuditEventAsync(AuditEvent auditEvent, object? entity);
+
+    /// Compute a property-level diff between old and new entity state
+    Dictionary<string, object?> GetChanges(object? oldValues, object? newValues);
+}
+```
+
+A `BaseAuditProvider` abstract class provides default implementations for change tracking, HTTP context integration (IP address, user agent, request ID), and reflection-based property comparison. Most providers only need to override `EntityType` and optionally `ShouldAuditAsync`:
+
+```csharp
+public class PatientAuditProvider : BaseAuditProvider
+{
+    public PatientAuditProvider(IHttpContextAccessor httpContextAccessor)
+        : base(httpContextAccessor) { }
+
+    public override string EntityType => "Patient";
+
+    public override Task<bool> ShouldAuditAsync(string action, object entity)
+    {
+        // Audit all actions on Patient entities
+        return Task.FromResult(true);
+    }
+}
+```
+
+Register providers in the builder:
+
+```csharp
+audit.RegisterProviders(registry =>
+{
+    registry.AddProvider<PatientAuditProvider>("Patient");
+    registry.AddProvider<FinancialRecordAuditProvider>("FinancialRecord");
+});
+```
+
+## Opting Out with `[NoAudit]`
+
+The `[NoAudit]` attribute can be applied at two levels:
+
+- **Entity level** (`[NoAudit] class TempCache { ... }`) — the entire entity type is excluded from automatic audit capture.
+- **Property level** (`[NoAudit] public string InternalNotes { get; set; }`) — the property is excluded from change tracking and will not appear in old/new value diffs.
+
+`[NoAudit]` applies only to the decorated target. It does not cascade to navigation properties or owned entities. If you need to exclude a related entity, apply `[NoAudit]` to that entity's class directly.
+
 ## Architecture
 
 ```
@@ -154,25 +256,25 @@ builder.Services.AddMillWorksAudit(audit =>
 {
     // Application identity
     audit.Options.ApplicationName = "MyApp";
-    audit.Options.Environment = "Production";
+    audit.Options.Environment = "Production";     // Default: "Production"
     audit.Options.EnableDigitalSignatures = true;
-    audit.Options.HmacKey = "<base64-hmac-key>";
+    audit.Options.HmacKey = builder.Configuration["Audit:HmacKey"]!;
 
     // Entity Framework storage (required)
     audit.UseEntityFramework(ef =>
     {
         ef.ConnectionString = "Server=...";
-        ef.Schema = "audit";              // SQL Server schema
-        ef.MigrateOnStartup = true;       // Apply EF migrations on startup
-        ef.EnsureDatabaseCreated = false;  // Or use EnsureCreated for dev
-        ef.MigrationTimeoutSeconds = 120;
+        ef.Schema = "audit";                // SQL Server schema (default: "audit")
+        ef.MigrateOnStartup = true;         // Apply EF migrations on startup (default: false)
+        ef.EnsureDatabaseCreated = false;    // Use EnsureCreated for dev (default: true)
+        ef.MigrationTimeoutSeconds = 120;    // Default: 300
     });
 
     // Security and tamper detection
     audit.UseSecurity(security =>
     {
-        security.EnableTamperDetection = true;
-        security.UseRedisLocking = true;
+        security.EnableTamperDetection = true;   // Default: true
+        security.UseRedisLocking = true;         // Default: false
         security.RedisConnectionString = "localhost:6379";
     });
 
@@ -182,8 +284,9 @@ builder.Services.AddMillWorksAudit(audit =>
         compliance.Standards.Add(ComplianceStandard.HIPAA);
         compliance.Standards.Add(ComplianceStandard.FERPA);
         compliance.Standards.Add(ComplianceStandard.SOC2);
-        compliance.EnableAutomaticValidation = true;
-        compliance.DataRetentionDays = 2555; // 7 years for HIPAA
+        compliance.EnableAutomaticValidation = true;  // Default: true
+        compliance.DataRetentionDays = 2555;          // 7 years for HIPAA (default: 365)
+        compliance.EnforcementMode = ComplianceEnforcementMode.Enforce;  // Default: Advisory
     });
 
     // Archival to Azure Blob Storage
@@ -200,9 +303,10 @@ builder.Services.AddMillWorksAudit(audit =>
     // Resilience and dead letter queue
     audit.UseResilience(resilience =>
     {
-        resilience.EnableDeadLetterQueue = true;
-        resilience.DeadLetterProvider = DeadLetterProvider.FileSystem;
-        resilience.EnableBackgroundProcessor = true;
+        resilience.EnableDeadLetterQueue = true;                        // Default: true
+        resilience.DeadLetterProvider = DeadLetterProvider.FileSystem;   // Default: InMemory
+        resilience.EnableBackgroundProcessor = true;                     // Default: true
+        resilience.MaxRetries = 3;                                      // Default: 3
     });
 
     // Field-level encryption (Azure Key Vault)
@@ -219,6 +323,17 @@ builder.Services.AddMillWorksAudit(audit =>
     });
 });
 ```
+
+> **Security note:** The HMAC key is a cryptographic secret. Do not hard-code it in source or check it into version control. Use [.NET User Secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets) for local development, and a secrets manager (Azure Key Vault, AWS Secrets Manager, environment variables) in deployed environments.
+
+### Database Initialization Defaults
+
+| Option | Default | Behavior |
+|---|---|---|
+| `EnsureDatabaseCreated` | `true` | Calls `EnsureCreated()` on startup — creates the schema if the database does not exist. Suitable for development. |
+| `MigrateOnStartup` | `false` | Applies EF Core migrations on startup. Use this in production for schema evolution. |
+
+If both are set to `false`, the application assumes the audit schema already exists. The first audit write will throw a `DbUpdateException` if the tables are missing. For production deployments, either enable `MigrateOnStartup` or apply migrations as part of your deployment pipeline (`dotnet ef database update`).
 
 ## Compliance Standards
 

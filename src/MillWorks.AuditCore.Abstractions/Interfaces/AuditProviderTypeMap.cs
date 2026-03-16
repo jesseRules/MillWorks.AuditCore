@@ -6,6 +6,9 @@ namespace MillWorks.AuditCore.Abstractions.Interfaces;
 /// </summary>
 public sealed class AuditProviderTypeMap
 {
+    /// <summary>
+    /// Internal mapping of entity type name to provider type.
+    /// </summary>
     private readonly Dictionary<string, Type> _map = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
