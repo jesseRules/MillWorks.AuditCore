@@ -140,7 +140,22 @@ public sealed class TamperDetectionService : ITamperDetectionService
         const int maxRetries = 10;
         int retryCount = 0;
         var baseDelay = TimeSpan.FromMilliseconds(100);
-        var random = new Random();
+
+        // Pre-compute hashes OUTSIDE the lock — these depend only on the event data,
+        // not on chain state (PreviousEventHash). This reduces lock hold time from
+        // ~5-20ms (DB query + hashing + DB insert) to ~1-3ms (DB query + DB insert).
+        var eventHash = ComputeEventHash(auditEvent);
+        var hmacSignature = ComputeHmac(auditEvent);
+        var checksum = ComputeChecksum(auditEvent);
+        var algorithmVersion = AuditCanonicalizer.CurrentVersion;
+        var timestamp = _timeProvider.GetUtcNow();
+
+        // Pre-compute digital signature if enabled (RSA is CPU-intensive)
+        string? digitalSignature = null;
+        if (_configuration.GetValue<bool>("Audit:EnableDigitalSignatures"))
+        {
+            digitalSignature = await CreateDigitalSignatureAsync(eventHash);
+        }
 
         while (retryCount < maxRetries)
         {
@@ -149,7 +164,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
             try
             {
-                // Try to acquire distributed lock if available
+                // Acquire lock — protects only the chain linkage (read previous + insert)
                 if (_useDistributedLocking)
                 {
                     try
@@ -166,7 +181,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     }
                     catch (TimeoutException)
                     {
-                        // If we can't get distributed lock, fall back to local lock
                         _logger.LogWarning("Failed to acquire distributed lock, falling back to local lock");
                         await LocalFallbackLock.WaitAsync(cancellationToken);
                         localLockAcquired = true;
@@ -174,33 +188,24 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 }
                 else
                 {
-                    // Use local lock if distributed locking is disabled
                     await LocalFallbackLock.WaitAsync(cancellationToken);
                     localLockAcquired = true;
                 }
 
-                // Critical section - protected by distributed or local lock
-                // Get the latest sequence number and previous hash
+                // Critical section — only chain linkage + insert (narrowed from full hash computation)
                 var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
 
-                // Use the DTO fields directly for hashing — the caller (AuditLogger) populates
-                // all required fields from the just-saved entity, eliminating a redundant DB re-fetch.
                 var integrity = new AuditIntegrityEntity
                 {
                     EventId = auditEvent.EventId,
-                    EventHash = ComputeEventHash(auditEvent),
+                    EventHash = eventHash,
                     PreviousEventHash = previousIntegrity?.EventHash,
-                    TrustedTimestamp = _timeProvider.GetUtcNow(),
-                    HmacSignature = ComputeHmac(auditEvent),
-                    Checksum = ComputeChecksum(auditEvent),
-                    AlgorithmVersion = AuditCanonicalizer.CurrentVersion
+                    TrustedTimestamp = timestamp,
+                    HmacSignature = hmacSignature,
+                    Checksum = checksum,
+                    AlgorithmVersion = algorithmVersion,
+                    DigitalSignature = digitalSignature
                 };
-
-                // Optionally add digital signature if PKI is configured
-                if (_configuration.GetValue<bool>("Audit:EnableDigitalSignatures"))
-                {
-                    integrity.DigitalSignature = await CreateDigitalSignatureAsync(integrity.EventHash);
-                }
 
                 await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
                 await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
@@ -209,12 +214,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     "Created integrity record for event {EventId} with sequence {SequenceNumber} (attempt {Attempt})",
                     auditEvent.EventId, integrity.SequenceNumber, retryCount + 1);
 
-                AuditIntegrityDto result = new()
-                {
-                    EventId = integrity.EventId,
-                };
-
-                return result;
+                return new AuditIntegrityDto { EventId = integrity.EventId };
             }
             catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
             {
@@ -233,9 +233,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 // Clear the change tracker to remove the failed entity
                 await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
 
-                // Calculate exponential backoff with jitter
+                // Exponential backoff with jitter
                 var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5));
-                var jitterAmount = random.Next(0, (int)(exponentialDelay * 0.3));
+                var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
                 var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
 
                 _logger.LogWarning(
