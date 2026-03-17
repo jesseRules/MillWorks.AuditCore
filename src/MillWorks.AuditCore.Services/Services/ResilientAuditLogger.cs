@@ -126,6 +126,85 @@ public sealed class ResilientAuditLogger(
     }
 
     /// <summary>
+    /// Logs a batch of audit events with resilience and dead letter queue fallback.
+    /// Retries the entire batch on failure. On exhaustion, sends each event individually to DLQ.
+    /// </summary>
+    public async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
+    {
+        if (auditEvents.Count == 0)
+            return BatchAuditResult.Succeeded(0);
+
+        Exception? lastException = null;
+
+        for (int retry = 0; retry <= _maxRetries; retry++)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (retry > 0)
+                {
+                    var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
+                    var jitter = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
+                    await Task.Delay(TimeSpan.FromMilliseconds(exponentialDelay + jitter), cancellationToken);
+                    logger.LogDebug("Retrying batch audit log ({Count} events), attempt {Attempt}",
+                        auditEvents.Count, retry + 1);
+                }
+
+                var result = await innerLogger.LogBatchAsync(auditEvents, cancellationToken);
+
+                if (retry > 0)
+                {
+                    logger.LogInformation("Successfully logged batch of {Count} audit events after {Attempts} attempts",
+                        auditEvents.Count, retry + 1);
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            {
+                logger.LogWarning("Batch contains duplicate keys. Treating as success.");
+                return BatchAuditResult.Succeeded(auditEvents.Count);
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                logger.LogWarning(ex, "Failed to log batch of {Count} audit events, attempt {Attempt} of {MaxAttempts}",
+                    auditEvents.Count, retry + 1, _maxRetries + 1);
+            }
+        }
+
+        // All retries failed — send each event individually to DLQ
+        logger.LogError(lastException,
+            "Batch of {Count} audit events failed after all retries. Sending individually to DLQ.",
+            auditEvents.Count);
+
+        foreach (var auditEvent in auditEvents)
+        {
+            try
+            {
+                await deadLetterQueue.StoreFailedEventAsync(
+                    auditEvent,
+                    lastException,
+                    $"Batch failed after {_maxRetries + 1} attempts");
+            }
+            catch (Exception dlqEx)
+            {
+                logger.LogCritical(dlqEx,
+                    "CRITICAL: Failed to store audit event {EventId} in dead letter queue. Event data: {@Event}",
+                    auditEvent.EventId, auditEvent);
+                await EmergencyFallbackAsync(auditEvent, dlqEx);
+            }
+        }
+
+        return BatchAuditResult.Failed(auditEvents, lastException!);
+    }
+
+    /// <summary>
     /// Logs an audit event with the specified type and data
     /// </summary>
     public async Task LogAsync(string eventType, object? data = null, CancellationToken cancellationToken = default)

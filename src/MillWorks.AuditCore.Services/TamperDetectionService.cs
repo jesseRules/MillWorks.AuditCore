@@ -275,6 +275,164 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
 
     /// <summary>
+    /// Creates integrity records for a batch of audit events atomically.
+    /// Pre-computes per-event hashes outside the lock, then acquires the lock once
+    /// to read the latest sequence and build the entire chain in memory before a single bulk write.
+    /// </summary>
+    public async Task<IReadOnlyList<AuditIntegrityDto>> CreateIntegrityRecordBatchAsync(
+        IReadOnlyList<AuditIntegrityDto> auditEvents,
+        CancellationToken cancellationToken = default)
+    {
+        if (auditEvents.Count == 0)
+            return [];
+
+        // Single event: delegate to existing method to avoid regression risk
+        if (auditEvents.Count == 1)
+        {
+            var single = await CreateIntegrityRecordAsync(auditEvents[0], cancellationToken);
+            return [single];
+        }
+
+        const int maxRetries = 10;
+        int retryCount = 0;
+        var baseDelay = TimeSpan.FromMilliseconds(100);
+        var timestamp = _timeProvider.GetUtcNow();
+        var algorithmVersion = AuditCanonicalizer.CurrentVersion;
+        var enableDigitalSignatures = _configuration.GetValue<bool>("Audit:EnableDigitalSignatures");
+
+        // Pre-compute all per-event hashes OUTSIDE the lock
+        var precomputed = new (string EventHash, string Hmac, string Checksum, string? DigitalSignature)[auditEvents.Count];
+        for (int i = 0; i < auditEvents.Count; i++)
+        {
+            var evt = auditEvents[i];
+            var eventHash = ComputeEventHash(evt);
+            var hmac = ComputeHmac(evt);
+            var checksum = ComputeChecksum(evt);
+            string? digitalSignature = enableDigitalSignatures
+                ? await CreateDigitalSignatureAsync(eventHash)
+                : null;
+            precomputed[i] = (eventHash, hmac, checksum, digitalSignature);
+        }
+
+        while (retryCount < maxRetries)
+        {
+            IDisposable? distributedLock = null;
+            bool localLockAcquired = false;
+
+            try
+            {
+                // Acquire lock once for the entire batch
+                if (_useDistributedLocking)
+                {
+                    try
+                    {
+                        const string lockKey = "audit:integrity:sequence";
+                        var lockTimeout = TimeSpan.FromSeconds(5);
+                        distributedLock = await _distributedLockService.AcquireLockAsync(
+                            lockKey, lockTimeout, cancellationToken);
+                        _logger.LogDebug("Acquired distributed lock for batch audit integrity sequence ({Count} events)",
+                            auditEvents.Count);
+                    }
+                    catch (TimeoutException)
+                    {
+                        _logger.LogWarning("Failed to acquire distributed lock for batch, falling back to local lock");
+                        await LocalFallbackLock.WaitAsync(cancellationToken);
+                        localLockAcquired = true;
+                    }
+                }
+                else
+                {
+                    await LocalFallbackLock.WaitAsync(cancellationToken);
+                    localLockAcquired = true;
+                }
+
+                // Critical section: read latest sequence, build chain, bulk write
+                var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                string? previousHash = previousIntegrity?.EventHash;
+
+                var entities = new List<AuditIntegrityEntity>(auditEvents.Count);
+                for (int i = 0; i < auditEvents.Count; i++)
+                {
+                    var entity = new AuditIntegrityEntity
+                    {
+                        EventId = auditEvents[i].EventId,
+                        EventHash = precomputed[i].EventHash,
+                        PreviousEventHash = previousHash,
+                        TrustedTimestamp = timestamp,
+                        HmacSignature = precomputed[i].Hmac,
+                        Checksum = precomputed[i].Checksum,
+                        AlgorithmVersion = algorithmVersion,
+                        DigitalSignature = precomputed[i].DigitalSignature
+                    };
+                    entities.Add(entity);
+
+                    // Chain: next event links to this event's hash
+                    previousHash = entity.EventHash;
+                }
+
+                await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
+                await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
+
+                _logger.LogDebug(
+                    "Created {Count} integrity records in batch (attempt {Attempt})",
+                    auditEvents.Count, retryCount + 1);
+
+                return auditEvents.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList();
+            }
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            {
+                retryCount++;
+
+                if (retryCount >= maxRetries)
+                {
+                    _logger.LogError(ex,
+                        "Failed to create batch integrity records after {MaxRetries} attempts",
+                        maxRetries);
+                    throw new InvalidOperationException(
+                        $"Failed to create batch integrity records after {maxRetries} attempts. " +
+                        "This may indicate high concurrency or a systemic issue.", ex);
+                }
+
+                await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
+
+                var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5));
+                var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
+                var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
+
+                _logger.LogWarning(
+                    "Duplicate sequence number detected in batch. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
+                    retryCount, maxRetries, delay.TotalMilliseconds);
+
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error creating batch integrity records");
+                throw;
+            }
+            finally
+            {
+                if (localLockAcquired)
+                {
+                    try
+                    {
+                        LocalFallbackLock.Release();
+                    }
+                    catch (SemaphoreFullException ex)
+                    {
+                        _logger.LogWarning(ex, "Attempted to release local lock that was not held");
+                    }
+                }
+
+                distributedLock?.Dispose();
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to create batch integrity records after {maxRetries} retries");
+    }
+
+    /// <summary>
     /// Verifies the integrity of a specific audit event by its ID.
     /// </summary>
     public async Task<bool> VerifyIntegrityAsync(Guid eventId, CancellationToken cancellationToken = default)

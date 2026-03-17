@@ -106,6 +106,75 @@ public sealed class AuditLogger(
 
 
     /// <summary>
+    /// Logs a batch of audit events atomically.
+    /// </summary>
+    public async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
+    {
+        if (auditEvents.Count == 0)
+            return BatchAuditResult.Succeeded(0);
+
+        // Single event: delegate to existing LogAsync to avoid regression risk
+        if (auditEvents.Count == 1)
+        {
+            await LogAsync(auditEvents[0], cancellationToken);
+            return BatchAuditResult.Succeeded(1);
+        }
+
+        try
+        {
+            var entities = auditEvents.Select(ConvertToEntity).ToList();
+
+            if (tamperDetectionService is not null)
+            {
+                await using var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
+                try
+                {
+                    await auditEventRepository.AddRangeAsync(entities, cancellationToken);
+                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+
+                    var dtos = entities.Select(e => new AuditIntegrityDto
+                    {
+                        EventId = e.EventId,
+                        InsertedDate = e.InsertedDate,
+                        LastUpdatedDate = e.LastUpdatedDate,
+                        JsonData = e.JsonData,
+                        EventType = e.EventType,
+                        User = e.User,
+                        UserId = e.UserId
+                    }).ToList();
+
+                    await tamperDetectionService.CreateIntegrityRecordBatchAsync(dtos, cancellationToken);
+
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
+                }
+            }
+            else
+            {
+                await auditEventRepository.AddRangeAsync(entities, cancellationToken);
+                await auditEventRepository.SaveChangesAsync(cancellationToken);
+            }
+
+            logger.LogDebug("Logged batch of {Count} audit events", auditEvents.Count);
+            return BatchAuditResult.Succeeded(auditEvents.Count);
+        }
+        catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+        {
+            logger.LogDebug("Duplicate key in batch. Treating as success.");
+            return BatchAuditResult.Succeeded(auditEvents.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to log batch of {Count} audit events", auditEvents.Count);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Logs an audit event with the specified type and data
     /// </summary>
     public async Task LogAsync(string eventType, object? data, CancellationToken cancellationToken = default)

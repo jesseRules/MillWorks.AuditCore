@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.Services.Interfaces;
 
@@ -20,6 +21,8 @@ public sealed class AuditProviderDispatcher(
     /// <inheritdoc />
     public async Task DispatchAsync(IReadOnlyList<PendingProviderDispatch> dispatches, CancellationToken cancellationToken)
     {
+        var auditEvents = new List<AuditEvent>(dispatches.Count);
+
         foreach (var dispatch in dispatches)
         {
             try
@@ -35,7 +38,7 @@ public sealed class AuditProviderDispatcher(
                 var auditEvent = await provider.CreateAuditEventAsync(
                     dispatch.Action, dispatch.Entity, dispatch.OldValues);
 
-                await logger.LogAsync(auditEvent, cancellationToken);
+                auditEvents.Add(auditEvent);
             }
             catch (Exception ex)
             {
@@ -43,6 +46,11 @@ public sealed class AuditProviderDispatcher(
                     dispatch.EntityTypeName, dispatch.Action);
                 // Non-fatal — the AuditLogEntity was already saved by ProcessAuditableEntries
             }
+        }
+
+        if (auditEvents.Count > 0)
+        {
+            await logger.LogBatchAsync(auditEvents, cancellationToken);
         }
     }
 }

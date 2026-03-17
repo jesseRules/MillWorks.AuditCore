@@ -14,6 +14,11 @@ public interface IAuditLogger
     Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Logs a batch of audit events atomically (single transaction, single lock acquisition).
+    /// </summary>
+    Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Logs an audit event with the specified type and data
     /// </summary>
     Task LogAsync(string eventType, object? data = null, CancellationToken cancellationToken = default);

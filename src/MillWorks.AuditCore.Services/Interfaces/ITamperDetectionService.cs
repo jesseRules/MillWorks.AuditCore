@@ -17,6 +17,13 @@ public interface ITamperDetectionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Creates integrity records for a batch of audit events atomically.
+    /// All events are chained sequentially within a single lock acquisition.
+    /// </summary>
+    Task<IReadOnlyList<AuditIntegrityDto>> CreateIntegrityRecordBatchAsync(
+        IReadOnlyList<AuditIntegrityDto> auditEvents, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Verifies the integrity of a specific audit event by its ID.
     /// </summary>
     /// <param name="eventId"></param>

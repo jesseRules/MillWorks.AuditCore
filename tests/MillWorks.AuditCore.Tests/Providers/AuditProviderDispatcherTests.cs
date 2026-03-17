@@ -55,7 +55,7 @@ public class AuditProviderDispatcherTests
 
         mockProvider.Verify(p => p.ShouldAuditAsync("Create", It.IsAny<object>()), Times.Once);
         mockProvider.Verify(p => p.CreateAuditEventAsync("Create", It.IsAny<object>(), null), Times.Once);
-        _mockLogger.Verify(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockLogger.Verify(l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 1), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -68,7 +68,7 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        _mockLogger.Verify(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockLogger.Verify(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -90,7 +90,7 @@ public class AuditProviderDispatcherTests
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
         mockProvider.Verify(p => p.CreateAuditEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<object>()), Times.Never);
-        _mockLogger.Verify(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockLogger.Verify(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -136,7 +136,7 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        _mockLogger.Verify(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockLogger.Verify(l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 3), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
