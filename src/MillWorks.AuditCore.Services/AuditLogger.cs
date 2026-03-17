@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -86,7 +85,7 @@ public sealed class AuditLogger(
                 auditEvent.EventType,
                 auditEvent.EventId);
         }
-        catch (DbUpdateException ex) when (IsDuplicateKeyError(ex))
+        catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
             // Duplicate key error - this can happen in race conditions or retries
             // Treat as success (idempotent operation)
@@ -105,20 +104,6 @@ public sealed class AuditLogger(
         }
     }
 
-    /// <summary>
-    /// Checks if an exception is a duplicate key error (provider-agnostic)
-    /// </summary>
-    private static bool IsDuplicateKeyError(DbUpdateException ex)
-    {
-        return ex.InnerException switch
-        {
-            SqlException { Number: 2627 or 2601 } => true, // SQL Server
-            _ when ex.InnerException?.Message.Contains("UNIQUE constraint") == true => true, // SQLite
-            _ when ex.InnerException?.GetType().Name == "PostgresException"
-                   && ex.InnerException.Data["SqlState"]?.ToString() == "23505" => true, // PostgreSQL
-            _ => false
-        };
-    }
 
     /// <summary>
     /// Logs an audit event with the specified type and data
@@ -295,16 +280,16 @@ public sealed class AuditLogger(
         entity.CorrelationId = auditEvent.CorrelationId
             ?? (auditEvent.CustomFields.TryGetValue("CorrelationId", out var correlationId) ? correlationId?.ToString() : null);
 
-        entity.IpAddress = fieldRedactor.RedactValue("IpAddress",
+        entity.IpAddress = SanitizeInput(fieldRedactor.RedactValue("IpAddress",
             auditEvent.IpAddress
-            ?? (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress) ? ipAddress?.ToString() : null));
+            ?? (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress) ? ipAddress?.ToString() : null)));
 
-        entity.UserAgent = fieldRedactor.RedactValue("UserAgent",
+        entity.UserAgent = SanitizeInput(fieldRedactor.RedactValue("UserAgent",
             auditEvent.UserAgent
-            ?? (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent) ? userAgent?.ToString() : null));
+            ?? (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent) ? userAgent?.ToString() : null)));
 
         if (auditEvent.CustomFields.TryGetValue("RequestPath", out var requestPath))
-            entity.RequestPath = fieldRedactor.RedactValue("RequestPath", requestPath?.ToString());
+            entity.RequestPath = SanitizeInput(fieldRedactor.RedactValue("RequestPath", requestPath?.ToString()));
 
         if (auditEvent.CustomFields.TryGetValue("RequestMethod", out var requestMethod))
             entity.RequestMethod = requestMethod?.ToString();
@@ -358,7 +343,26 @@ public sealed class AuditLogger(
     /// <summary>
     /// Is the specified field name one of the standard mapped fields?
     /// </summary>
-    /// <param name="fieldName"></param>
-    /// <returns></returns>
     private static bool IsFieldMapped(string fieldName) => _mappedFields.Contains(fieldName);
+
+    /// <summary>
+    /// Strips control characters (newlines, tabs, etc.) from user-controlled input
+    /// to prevent log injection attacks where attackers embed forged log entries
+    /// via HTTP headers like User-Agent.
+    /// </summary>
+    private static string? SanitizeInput(string? value)
+    {
+        if (value is null) return null;
+
+        // Fast path: check if any control characters exist before allocating
+        bool hasControlChars = value.Any(char.IsControl);
+
+        if (!hasControlChars) return value;
+
+        return string.Create(value.Length, value, static (span, src) =>
+        {
+            for (int i = 0; i < src.Length; i++)
+                span[i] = char.IsControl(src[i]) ? ' ' : src[i];
+        });
+    }
 }

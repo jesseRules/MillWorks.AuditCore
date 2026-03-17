@@ -1,4 +1,3 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -24,9 +23,9 @@ public sealed class ResilientAuditLogger(
     private readonly int _maxRetries = 3;
 
     /// <summary>
-    /// Retry delay between attempts
+    /// Base delay for exponential backoff between retry attempts
     /// </summary>
-    private readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
+    private readonly TimeSpan _baseRetryDelay = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
     /// Logs an audit event with resilience and dead letter queue fallback
@@ -59,7 +58,10 @@ public sealed class ResilientAuditLogger(
                         return; // Don't retry saves
                     }
 
-                    await Task.Delay(_retryDelay * retry, cancellationToken);
+                    // Exponential backoff with jitter to avoid thundering herd
+                    var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
+                    var jitter = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
+                    await Task.Delay(TimeSpan.FromMilliseconds(exponentialDelay + jitter), cancellationToken);
                     logger.LogDebug("Retrying audit log for event {EventId}, attempt {Attempt}",
                         auditEvent.EventId, retry + 1);
                 }
@@ -80,7 +82,7 @@ public sealed class ResilientAuditLogger(
                 // Don't retry or send to DLQ on cancellation - just propagate
                 throw;
             }
-            catch (DbUpdateException ex) when (IsDuplicateKeyError(ex))
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
                 // Duplicate key error - event was already saved
                 logger.LogWarning(
@@ -265,18 +267,4 @@ public sealed class ResilientAuditLogger(
         }
     }
 
-    /// <summary>
-    /// Checks if an exception is a duplicate key error (provider-agnostic)
-    /// </summary>
-    private static bool IsDuplicateKeyError(DbUpdateException ex)
-    {
-        return ex.InnerException switch
-        {
-            SqlException { Number: 2627 or 2601 } => true, // SQL Server
-            _ when ex.InnerException?.Message.Contains("UNIQUE constraint") == true => true, // SQLite
-            _ when ex.InnerException?.GetType().Name == "PostgresException"
-                   && ex.InnerException.Data["SqlState"]?.ToString() == "23505" => true, // PostgreSQL
-            _ => false
-        };
-    }
 }

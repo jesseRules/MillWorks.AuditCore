@@ -216,7 +216,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
                 return new AuditIntegrityDto { EventId = integrity.EventId };
             }
-            catch (DbUpdateException ex) when (IsDuplicateKeyException(ex))
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
                 retryCount++;
 
@@ -273,24 +273,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
             $"Failed to create integrity record for event {auditEvent.EventId} after {maxRetries} retries");
     }
 
-    /// <summary>
-    /// Checks if the exception is a duplicate key violation
-    /// </summary>
-    private static bool IsDuplicateKeyException(DbUpdateException ex)
-    {
-        // SQL Server error 2601 is "Cannot insert duplicate key row"
-        // SQL Server error 2627 is "Violation of UNIQUE KEY constraint"
-        if (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx)
-        {
-            return sqlEx.Number is 2601 or 2627;
-        }
-
-        // For other database providers, check the message
-        var message = ex.InnerException?.Message ?? ex.Message;
-        return message.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("IX_AuditIntegrity_SequenceNumber", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// Verifies the integrity of a specific audit event by its ID.

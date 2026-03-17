@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -526,8 +527,7 @@ public class TamperDetectionServiceTests
             {
                 callCount++;
                 if (callCount == 1)
-                    throw new DbUpdateException("duplicate key",
-                        new Exception("Cannot insert duplicate key row"));
+                    throw new DbUpdateException("duplicate key", CreateSqlException(2627));
                 return Task.FromResult(1);
             });
 
@@ -576,8 +576,7 @@ public class TamperDetectionServiceTests
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new DbUpdateException("duplicate key",
-                new Exception("Cannot insert duplicate key row")));
+            .ThrowsAsync(new DbUpdateException("duplicate key", CreateSqlException(2627)));
 
         // Act & Assert
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
@@ -903,5 +902,52 @@ public class TamperDetectionServiceTests
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(dataToHash));
         return Convert.ToBase64String(hashBytes);
+    }
+
+    /// <summary>
+    /// Helper to create a SqlException via reflection (no public constructor)
+    /// </summary>
+    private static SqlException CreateSqlException(int number)
+    {
+        var errorCollectionCtor = typeof(SqlErrorCollection)
+            .GetConstructor(
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
+                null, [], null)!;
+        var errorCollection = errorCollectionCtor.Invoke([]);
+
+        var sqlErrorCtor = typeof(SqlError)
+            .GetConstructors(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .OrderByDescending(static c => c.GetParameters().Length)
+            .First(static c => c.GetParameters().Length >= 8);
+
+        var ctorParams = sqlErrorCtor.GetParameters();
+        var args = new object?[ctorParams.Length];
+        for (int i = 0; i < ctorParams.Length; i++)
+        {
+            var paramType = ctorParams[i].ParameterType;
+            if (i == 0)
+                args[i] = Convert.ChangeType(number, paramType);
+            else if (paramType == typeof(byte))
+                args[i] = (byte)0;
+            else if (paramType == typeof(int))
+                args[i] = 0;
+            else if (paramType == typeof(uint))
+                args[i] = (uint)0;
+            else if (paramType == typeof(string))
+                args[i] = "test";
+            else
+                args[i] = null;
+        }
+
+        var sqlError = sqlErrorCtor.Invoke(args);
+
+        typeof(SqlErrorCollection)
+            .GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(errorCollection, [sqlError]);
+
+        return (SqlException)typeof(SqlException)
+            .GetConstructors(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .First(static c => c.GetParameters().Length >= 4)
+            .Invoke(["Duplicate key", (SqlErrorCollection)errorCollection, null, Guid.NewGuid()]);
     }
 }
