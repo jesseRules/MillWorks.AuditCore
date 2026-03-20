@@ -47,8 +47,9 @@ public sealed class AuditLogger(
                 // integrity records, which would create gaps in the tamper-detection chain.
                 // All repositories share the same scoped DbContext, so the transaction
                 // created here is automatically used by TamperDetectionService's repository calls.
-                await using var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
-                try
+                // ExecuteInTransactionAsync handles execution strategy compatibility
+                // (e.g. SqlServerRetryingExecutionStrategy) automatically.
+                await auditEventRepository.ExecuteInTransactionAsync(async () =>
                 {
                     await auditEventRepository.AddAsync(entity, cancellationToken);
                     await auditEventRepository.SaveChangesAsync(cancellationToken);
@@ -64,14 +65,7 @@ public sealed class AuditLogger(
                         UserId = entity.UserId
                     };
                     await tamperDetectionService.CreateIntegrityRecordAsync(record, cancellationToken);
-
-                    await transaction.CommitAsync(cancellationToken);
-                }
-                catch
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
+                }, cancellationToken);
             }
             else
             {
@@ -126,8 +120,7 @@ public sealed class AuditLogger(
 
             if (tamperDetectionService is not null)
             {
-                await using var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
-                try
+                await auditEventRepository.ExecuteInTransactionAsync(async () =>
                 {
                     await auditEventRepository.AddRangeAsync(entities, cancellationToken);
                     await auditEventRepository.SaveChangesAsync(cancellationToken);
@@ -144,14 +137,7 @@ public sealed class AuditLogger(
                     }).ToList();
 
                     await tamperDetectionService.CreateIntegrityRecordBatchAsync(dtos, cancellationToken);
-
-                    await transaction.CommitAsync(cancellationToken);
-                }
-                catch
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
-                }
+                }, cancellationToken);
             }
             else
             {

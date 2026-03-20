@@ -97,11 +97,11 @@ public sealed class MillWorksAuditBuilder
         {
             options.UseSqlServer(efOptions.ConnectionString, sqlOptions =>
             {
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorNumbersToAdd: null);
-
+                // Note: EnableRetryOnFailure is intentionally NOT used here because
+                // AuditCore uses explicit transactions (for tamper-detection atomicity,
+                // archival, and compliance operations) which are incompatible with
+                // SqlServerRetryingExecutionStrategy. Retry logic is handled at a
+                // higher level by ResilientAuditLogger and the dead letter queue.
                 sqlOptions.CommandTimeout(efOptions.MigrationTimeoutSeconds);
                 sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
             });

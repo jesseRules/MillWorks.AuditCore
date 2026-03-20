@@ -269,5 +269,27 @@ public interface IRepository<T> where T : class
     /// </summary>
     IDbContextTransaction? CurrentTransaction { get; }
 
+    /// <summary>
+    /// Executes an action within a transaction with automatic rollback on failure.
+    /// Uses the configured execution strategy to support retrying execution strategies.
+    /// </summary>
+    /// <param name="action">The action to execute</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task ExecuteInTransactionAsync(
+        Func<Task> action,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a function within a transaction with automatic rollback on failure.
+    /// Uses the configured execution strategy to support retrying execution strategies.
+    /// </summary>
+    /// <typeparam name="TResult">The return type</typeparam>
+    /// <param name="func">The function to execute</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The result of the function</returns>
+    Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<Task<TResult>> func,
+        CancellationToken cancellationToken = default);
+
     #endregion
 }

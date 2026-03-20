@@ -686,21 +686,25 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
         Func<Task> action,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await BeginTransactionAsync(cancellationToken);
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            await action();
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-        finally
-        {
-            _currentTransaction = null;
-        }
+            await using var transaction = await BeginTransactionAsync(cancellationToken);
+            try
+            {
+                await action();
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+            finally
+            {
+                _currentTransaction = null;
+            }
+        });
     }
 
     /// <summary>
@@ -714,22 +718,26 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
         Func<Task<TResult>> func,
         CancellationToken cancellationToken = default)
     {
-        await using var transaction = await BeginTransactionAsync(cancellationToken);
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            var result = await func();
-            await transaction.CommitAsync(cancellationToken);
-            return result;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-        finally
-        {
-            _currentTransaction = null;
-        }
+            await using var transaction = await BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var result = await func();
+                await transaction.CommitAsync(cancellationToken);
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+            finally
+            {
+                _currentTransaction = null;
+            }
+        });
     }
 
     #endregion

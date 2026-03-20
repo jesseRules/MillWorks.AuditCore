@@ -59,7 +59,6 @@ public class AuditEventEntity : AuditAggregateRoot
     [Column("JsonData")]
     [JsonPropertyName("json_data")]
     [DisplayName("Json Data")]
-    [MaxLength(4000)]
     public string? JsonData { get; set; }
 
     /// <summary>
@@ -163,7 +162,6 @@ public class AuditEventEntity : AuditAggregateRoot
     [Column("AdditionalData")]
     [JsonPropertyName("additional_data")]
     [DisplayName("Additional Data")]
-    [MaxLength(4000)]
     public string? AdditionalData { get; set; }
 
     /// <summary>

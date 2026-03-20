@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -78,10 +77,9 @@ public class AuditComplianceServiceTests
         };
 
         // Setup transaction mock for methods that use transactions
-        var mockTransaction = new Mock<IDbContextTransaction>();
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         _complianceService = new AuditComplianceService(
             _mockAuditEventRepository.Object,

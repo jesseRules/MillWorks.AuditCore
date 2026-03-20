@@ -71,16 +71,9 @@ public class AuditArchivalServiceTests
         var archiveBefore = DateTimeOffset.UtcNow.AddDays(-90);
 
         // Mock transaction
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        mockTransaction.Setup(static x => x.CommitAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        mockTransaction.Setup(static x => x.Dispose());
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         // Mock archive record operations
         _mockArchiveRecordRepository
@@ -115,8 +108,6 @@ public class AuditArchivalServiceTests
         Assert.That(result, Is.Not.Null);
         Assert.That(result.Message, Does.Contain("No events"));
 
-        // Verify transaction was rolled back
-        mockTransaction.Verify(static x => x.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     /// <summary>
@@ -129,13 +120,9 @@ public class AuditArchivalServiceTests
         var archiveBefore = DateTimeOffset.UtcNow.AddDays(-90);
         var eventId = Guid.NewGuid();
 
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         var events = new List<AuditEventEntity>
         {
@@ -204,8 +191,6 @@ public class AuditArchivalServiceTests
         Assert.That(result, Is.Not.Null);
         Assert.That(result.Success, Is.False);
         Assert.That(result.Message, Does.Contain("failed"));
-
-        mockTransaction.Verify(static x => x.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     /// <summary>
@@ -219,13 +204,9 @@ public class AuditArchivalServiceTests
         var eventId = Guid.NewGuid();
 
         // Mock transaction
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         // Mock events
         var events = new List<AuditEventEntity>
@@ -281,8 +262,6 @@ public class AuditArchivalServiceTests
         Assert.That(result.Success, Is.False);
         Assert.That(result.Message, Does.Contain("failed"));
 
-        // Verify transaction was rolled back
-        mockTransaction.Verify(static x => x.RollbackAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     /// <summary>
@@ -521,13 +500,9 @@ public class AuditArchivalServiceTests
         var archiveBefore = DateTimeOffset.UtcNow.AddDays(-90);
         var eventId = Guid.NewGuid();
 
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        mockTransaction.Setup(static x => x.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         _mockArchiveRecordRepository
             .Setup(static x => x.AddAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))
@@ -637,12 +612,9 @@ public class AuditArchivalServiceTests
         // Arrange
         var archiveBefore = DateTimeOffset.UtcNow.AddDays(-90);
 
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         _mockArchiveRecordRepository
             .Setup(static x => x.AddAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))

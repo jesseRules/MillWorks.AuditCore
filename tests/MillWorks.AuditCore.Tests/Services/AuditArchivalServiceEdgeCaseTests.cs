@@ -143,15 +143,9 @@ public class AuditArchivalServiceEdgeCaseTests
         const int eventCount = 100;
         var archiveBefore = DateTimeOffset.UtcNow.AddDays(-90);
 
-        var mockTransaction = new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>();
-        mockTransaction.Setup(static x => x.RollbackAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        mockTransaction.Setup(static x => x.CommitAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         _mockArchiveRecordRepository
             .Setup(static x => x.AddAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))
@@ -227,10 +221,6 @@ public class AuditArchivalServiceEdgeCaseTests
         Assert.That(result.Success, Is.False);
         Assert.That(result.Message, Does.Contain("failed"));
 
-        // Transaction must have been rolled back after the blob failure
-        mockTransaction.Verify(
-            static x => x.RollbackAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     #endregion

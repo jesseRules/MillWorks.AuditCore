@@ -92,122 +92,120 @@ public sealed class AuditArchivalService(
             await archiveRecordRepository.AddAsync(archiveRecord, cancellationToken);
             await archiveRecordRepository.SaveChangesAsync(cancellationToken);
 
-            // Begin transaction for consistency
-            var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
+            // Get events to archive (before transaction to allow early exit)
+            IEnumerable<AuditEventDto> eventsToArchive =
+                await GetEventsToArchiveAsync(archiveBefore, cancellationToken);
+            List<AuditEventDto> eventsList = eventsToArchive.ToList();
 
-            try
+            if (!eventsList.Any())
             {
-                // Get events to archive
-                IEnumerable<AuditEventDto> eventsToArchive =
-                    await GetEventsToArchiveAsync(archiveBefore, cancellationToken);
-                List<AuditEventDto> eventsList = eventsToArchive.ToList();
+                result.Message = "No events to archive";
+                await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId, MillWorksArchiveStatus.Completed,
+                    "No events found to archive", cancellationToken);
+                return result;
+            }
 
-                if (!eventsList.Any())
+            result.EventCount = eventsList.Count;
+
+            // Verify integrity before archiving
+            logger.LogInformation("Verifying integrity of {Count} events before archival", eventsList.Count);
+
+            foreach (var evt in eventsList)
+            {
+                if (!evt.EventId.HasValue || evt.EventId == Guid.Empty)
                 {
-                    result.Message = "No events to archive";
-                    await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId, MillWorksArchiveStatus.Completed,
-                        "No events found to archive", cancellationToken);
-                    await transaction.RollbackAsync(cancellationToken);
-                    return result;
+                    logger.LogError("Event with empty EventId found, aborting archive");
+                    await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId, MillWorksArchiveStatus.Failed,
+                        "Event with empty EventId found", cancellationToken);
+                    throw new InvalidOperationException("Cannot archive - event with empty EventId found");
                 }
 
-                result.EventCount = eventsList.Count;
-
-                // Verify integrity before archiving
-                logger.LogInformation("Verifying integrity of {Count} events before archival", eventsList.Count);
-
-                foreach (var evt in eventsList)
+                if (tamperDetectionService is not null)
                 {
-                    if (!evt.EventId.HasValue || evt.EventId == Guid.Empty)
+                    var isValid =
+                        await tamperDetectionService.VerifyIntegrityAsync(evt.EventId.Value, cancellationToken);
+                    if (!isValid)
                     {
-                        logger.LogError("Event with empty EventId found, aborting archive");
-                        await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId, MillWorksArchiveStatus.Failed,
-                            "Event with empty EventId found", cancellationToken);
-                        throw new InvalidOperationException("Cannot archive - event with empty EventId found");
-                    }
-
-                    if (tamperDetectionService is not null)
-                    {
-                        var isValid =
-                            await tamperDetectionService.VerifyIntegrityAsync(evt.EventId.Value, cancellationToken);
-                        if (!isValid)
-                        {
-                            logger.LogError("Event {EventId} failed integrity check, aborting archive", evt.EventId);
-                            await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId,
-                                MillWorksArchiveStatus.Failed,
-                                $"Event {evt.EventId} integrity check failed", cancellationToken);
-                            throw new InvalidOperationException(
-                                $"Cannot archive - event {evt.EventId} integrity check failed");
-                        }
+                        logger.LogError("Event {EventId} failed integrity check, aborting archive", evt.EventId);
+                        await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId,
+                            MillWorksArchiveStatus.Failed,
+                            $"Event {evt.EventId} integrity check failed", cancellationToken);
+                        throw new InvalidOperationException(
+                            $"Cannot archive - event {evt.EventId} integrity check failed");
                     }
                 }
+            }
 
-                if (tamperDetectionService is null)
-                {
-                    logger.LogWarning(
-                        "Tamper detection is not configured — archiving {Count} events without integrity verification",
-                        eventsList.Count);
-                }
+            if (tamperDetectionService is null)
+            {
+                logger.LogWarning(
+                    "Tamper detection is not configured — archiving {Count} events without integrity verification",
+                    eventsList.Count);
+            }
 
-                // Get integrity records for events to archive
-                var eventEntities = mapper.Map<List<AuditEventEntity>>(eventsList);
-                var integrityRecords = await GetIntegrityRecordsForEventsAsync(eventEntities, cancellationToken);
-                var integrityList = integrityRecords.ToList();
+            // Get integrity records for events to archive
+            var eventEntities = mapper.Map<List<AuditEventEntity>>(eventsList);
+            var integrityRecords = await GetIntegrityRecordsForEventsAsync(eventEntities, cancellationToken);
+            var integrityList = integrityRecords.ToList();
 
-                // Update archive record with event details
-                archiveRecord.EventCount = eventsList.Count;
-                archiveRecord.DateRangeStart = eventsList.Min(static e => e.InsertedDate) ?? DateTimeOffset.MinValue;
-                archiveRecord.DateRangeEnd = eventsList.Max(static e => e.InsertedDate) ?? DateTimeOffset.MaxValue;
+            // Update archive record with event details
+            archiveRecord.EventCount = eventsList.Count;
+            archiveRecord.DateRangeStart = eventsList.Min(static e => e.InsertedDate) ?? DateTimeOffset.MinValue;
+            archiveRecord.DateRangeEnd = eventsList.Max(static e => e.InsertedDate) ?? DateTimeOffset.MaxValue;
 
-                // Create archive
-                var archive = new AuditArchive
+            // Create archive
+            var archive = new AuditArchive
+            {
+                ArchiveId = result.ArchiveId,
+                CreatedAt = DateTimeOffset.UtcNow,
+                DateRangeStart = archiveRecord.DateRangeStart,
+                DateRangeEnd = archiveRecord.DateRangeEnd,
+                EventCount = eventsList.Count,
+                Events = eventsList,
+                IntegrityRecords = mapper.Map<List<AuditIntegrityDto>>(integrityList),
+                Metadata = new ArchiveMetadata
                 {
                     ArchiveId = result.ArchiveId,
+                    ArchiveVersion = "1.0",
+                    CompressionType = "gzip",
+                    ArchiveHash = ComputeArchiveHash(eventsList),
                     CreatedAt = DateTimeOffset.UtcNow,
+                    EventCount = eventsList.Count,
                     DateRangeStart = archiveRecord.DateRangeStart,
                     DateRangeEnd = archiveRecord.DateRangeEnd,
-                    EventCount = eventsList.Count,
-                    Events = eventsList,
-                    IntegrityRecords = mapper.Map<List<AuditIntegrityDto>>(integrityList),
-                    Metadata = new ArchiveMetadata
-                    {
-                        ArchiveId = result.ArchiveId,
-                        ArchiveVersion = "1.0",
-                        CompressionType = "gzip",
-                        ArchiveHash = ComputeArchiveHash(eventsList),
-                        CreatedAt = DateTimeOffset.UtcNow,
-                        EventCount = eventsList.Count,
-                        DateRangeStart = archiveRecord.DateRangeStart,
-                        DateRangeEnd = archiveRecord.DateRangeEnd,
-                        Status = "InProgress"
-                    }
-                };
-
-                // Serialize and compress
-                var archiveJson = JsonSerializer.Serialize(archive, new JsonSerializerOptions
-                {
-                    WriteIndented = false,
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-                });
-
-                var compressedData = await CompressDataAsync(archiveJson);
-                var archiveHash = ComputeBytesHash(compressedData);
-
-                // Upload to blob storage
-                if (blobServiceClient is null)
-                {
-                    throw new InvalidOperationException(
-                        "Blob storage client is not configured. Archive storage requires UseArchival() with ArchivalProvider.AzureBlob and a connection string.");
+                    Status = "InProgress"
                 }
+            };
 
-                var containerClient = blobServiceClient.GetBlobContainerClient(_containerName);
-                await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+            // Serialize and compress
+            var archiveJson = JsonSerializer.Serialize(archive, new JsonSerializerOptions
+            {
+                WriteIndented = false,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            });
 
-                var blobClient = containerClient.GetBlobClient(archiveRecord.BlobName);
+            var compressedData = await CompressDataAsync(archiveJson);
+            var archiveHash = ComputeBytesHash(compressedData);
 
-                using var stream = new MemoryStream(compressedData);
-                await blobClient.UploadAsync(stream, cancellationToken);
+            // Upload to blob storage
+            if (blobServiceClient is null)
+            {
+                throw new InvalidOperationException(
+                    "Blob storage client is not configured. Archive storage requires UseArchival() with ArchivalProvider.AzureBlob and a connection string.");
+            }
 
+            var containerClient = blobServiceClient.GetBlobContainerClient(_containerName);
+            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+
+            var blobClient = containerClient.GetBlobClient(archiveRecord.BlobName);
+
+            using var stream = new MemoryStream(compressedData);
+            await blobClient.UploadAsync(stream, cancellationToken);
+
+            // Execute the database mutations (delete + update) inside a transaction
+            // that is compatible with retrying execution strategies.
+            await auditEventRepository.ExecuteInTransactionAsync(async () =>
+            {
                 // Update archive record with final details
                 archiveRecord.SizeBytes = compressedData.Length;
                 archiveRecord.Hash = archiveHash;
@@ -221,62 +219,56 @@ public sealed class AuditArchivalService(
                 // Delete associated integrity records
                 await auditIntegrityRepository.DeleteRangeAsync(integrityList, cancellationToken);
 
-                // Save changes and commit transaction
+                // Save changes
                 await auditEventRepository.SaveChangesAsync(cancellationToken);
                 await auditIntegrityRepository.SaveChangesAsync(cancellationToken);
                 await archiveRecordRepository.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
+            }, cancellationToken);
 
-                result.Success = true;
-                result.EndTime = DateTimeOffset.UtcNow;
-                result.Message = $"Successfully archived {eventsList.Count} events";
-                result.ArchiveSize = compressedData.Length;
+            result.Success = true;
+            result.EndTime = DateTimeOffset.UtcNow;
+            result.Message = $"Successfully archived {eventsList.Count} events";
+            result.ArchiveSize = compressedData.Length;
 
-                logger.LogInformation("Archive completed: {ArchiveId} with {Count} events",
-                    result.ArchiveId, result.EventCount);
+            logger.LogInformation("Archive completed: {ArchiveId} with {Count} events",
+                result.ArchiveId, result.EventCount);
 
-                // Emit an audit event for the completed archive (STIG AU-9(2) compliance).
-                // Wrapped in its own try/catch so a failure here doesn't mark the
-                // already-committed archive as failed.
-                try
-                {
-                    var archiveAuditEvent = new AuditEventEntity
-                    {
-                        EventType = "Audit.Archived",
-                        Action = "Added",
-                        InsertedDate = DateTimeOffset.UtcNow,
-                        User = "system",
-                        EntityType = "AuditArchiveRecord",
-                        EntityId = result.ArchiveId,
-                        AdditionalData = JsonSerializer.Serialize(new
-                        {
-                            result.ArchiveId,
-                            result.EventCount,
-                            result.ArchiveSize,
-                            archiveRecord.DateRangeStart,
-                            archiveRecord.DateRangeEnd,
-                            archiveRecord.ContainerName,
-                            archiveRecord.BlobName
-                        })
-                    };
-
-                    await auditEventRepository.AddAsync(archiveAuditEvent, cancellationToken);
-                    await auditEventRepository.SaveChangesAsync(cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex,
-                        "Failed to emit audit event for archive {ArchiveId} — archive itself completed successfully",
-                        result.ArchiveId);
-                }
-
-                return result;
-            }
-            catch
+            // Emit an audit event for the completed archive (STIG AU-9(2) compliance).
+            // Wrapped in its own try/catch so a failure here doesn't mark the
+            // already-committed archive as failed.
+            try
             {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
+                var archiveAuditEvent = new AuditEventEntity
+                {
+                    EventType = "Audit.Archived",
+                    Action = "Added",
+                    InsertedDate = DateTimeOffset.UtcNow,
+                    User = "system",
+                    EntityType = "AuditArchiveRecord",
+                    EntityId = result.ArchiveId,
+                    AdditionalData = JsonSerializer.Serialize(new
+                    {
+                        result.ArchiveId,
+                        result.EventCount,
+                        result.ArchiveSize,
+                        archiveRecord.DateRangeStart,
+                        archiveRecord.DateRangeEnd,
+                        archiveRecord.ContainerName,
+                        archiveRecord.BlobName
+                    })
+                };
+
+                await auditEventRepository.AddAsync(archiveAuditEvent, cancellationToken);
+                await auditEventRepository.SaveChangesAsync(cancellationToken);
             }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Failed to emit audit event for archive {ArchiveId} — archive itself completed successfully",
+                    result.ArchiveId);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -370,10 +362,9 @@ public sealed class AuditArchivalService(
                 return result;
             }
 
-            // Restore events to database using repositories
-            var transaction = await auditEventRepository.BeginTransactionAsync(cancellationToken);
-
-            try
+            // Restore events to database using repositories within a transaction
+            // that is compatible with retrying execution strategies.
+            await auditEventRepository.ExecuteInTransactionAsync(async () =>
             {
                 foreach (var evt in archive.Events)
                 {
@@ -398,22 +389,16 @@ public sealed class AuditArchivalService(
 
                 await auditEventRepository.SaveChangesAsync(cancellationToken);
                 await auditIntegrityRepository.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
+            }, cancellationToken);
 
-                result.Success = true;
-                result.RestoredEventCount = archive.Events.Count;
-                result.Message = $"Successfully restored {archive.Events.Count} events";
+            result.Success = true;
+            result.RestoredEventCount = archive.Events.Count;
+            result.Message = $"Successfully restored {archive.Events.Count} events";
 
-                logger.LogInformation("Restore completed: {ArchiveId} with {Count} events",
-                    archiveId, archive.Events.Count);
+            logger.LogInformation("Restore completed: {ArchiveId} with {Count} events",
+                archiveId, archive.Events.Count);
 
-                return result;
-            }
-            catch
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
-            }
+            return result;
         }
         catch (Exception ex)
         {

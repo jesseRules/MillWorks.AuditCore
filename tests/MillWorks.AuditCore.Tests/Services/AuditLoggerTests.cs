@@ -1,6 +1,5 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -60,12 +59,11 @@ public class AuditLoggerTests
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockAuditContext = new Mock<IAuditContext>();
 
-        // LogAsync wraps event + integrity in a transaction when tamper detection is enabled.
-        // The mock must return a transaction object so await using doesn't NullRef.
-        var mockTransaction = new Mock<IDbContextTransaction>();
+        // LogAsync wraps event + integrity in ExecuteInTransactionAsync when tamper detection is enabled.
+        // The mock must invoke the lambda so the inner logic actually executes.
         _mockAuditEventRepository
-            .Setup(static x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockTransaction.Object);
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
 
         _auditLogger = new AuditLogger(
             _mockLogger.Object,

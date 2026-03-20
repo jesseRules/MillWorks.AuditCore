@@ -116,50 +116,50 @@ public sealed class AuditComplianceService : IAuditComplianceService
     {
         var result = new AnonymizationResult { UserId = userId };
 
-        await using var transaction = await _auditEventRepository.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Use a capped limit instead of int.MaxValue to bound memory usage.
-            // 100k is generous for a single user's audit trail; if exceeded, the
-            // remaining records are not anonymized and a warning is logged.
-            const int maxAnonymize = 100_000;
-            var events = await _auditEventRepository.GetByUserIdAsync(userId,
-                maxResults: maxAnonymize, cancellationToken: cancellationToken);
-            var eventsList = events.ToList();
-
-            result.EventCount = eventsList.Count;
-
-            if (eventsList.Count == maxAnonymize)
+            await _auditEventRepository.ExecuteInTransactionAsync(async () =>
             {
-                _logger.LogWarning(
-                    "User {UserId} has {MaxAnonymize}+ audit events; anonymization capped. " +
-                    "Run again to process remaining records.",
-                    userId, maxAnonymize);
-            }
+                // Use a capped limit instead of int.MaxValue to bound memory usage.
+                // 100k is generous for a single user's audit trail; if exceeded, the
+                // remaining records are not anonymized and a warning is logged.
+                const int maxAnonymize = 100_000;
+                var events = await _auditEventRepository.GetByUserIdAsync(userId,
+                    maxResults: maxAnonymize, cancellationToken: cancellationToken);
+                var eventsList = events.ToList();
 
-            foreach (var evt in eventsList)
-            {
-                evt.User = "ANONYMIZED";
-                evt.UserFullName = "ANONYMIZED";
-                evt.IpAddress = AnonymizeIpAddress(evt.IpAddress);
-                evt.UserAgent = "ANONYMIZED";
+                result.EventCount = eventsList.Count;
 
-                if (!string.IsNullOrEmpty(evt.JsonData))
+                if (eventsList.Count == maxAnonymize)
                 {
-                    evt.JsonData = AnonymizeJsonData(evt.JsonData, userId);
+                    _logger.LogWarning(
+                        "User {UserId} has {MaxAnonymize}+ audit events; anonymization capped. " +
+                        "Run again to process remaining records.",
+                        userId, maxAnonymize);
                 }
-            }
 
-            await _auditEventRepository.UpdateRangeAsync(eventsList, cancellationToken);
-            await _auditEventRepository.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+                foreach (var evt in eventsList)
+                {
+                    evt.User = "ANONYMIZED";
+                    evt.UserFullName = "ANONYMIZED";
+                    evt.IpAddress = AnonymizeIpAddress(evt.IpAddress);
+                    evt.UserAgent = "ANONYMIZED";
+
+                    if (!string.IsNullOrEmpty(evt.JsonData))
+                    {
+                        evt.JsonData = AnonymizeJsonData(evt.JsonData, userId);
+                    }
+                }
+
+                await _auditEventRepository.UpdateRangeAsync(eventsList, cancellationToken);
+                await _auditEventRepository.SaveChangesAsync(cancellationToken);
+            }, cancellationToken);
 
             result.Success = true;
-            result.Message = $"Successfully anonymized {eventsList.Count} audit events";
+            result.Message = $"Successfully anonymized {result.EventCount} audit events";
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Failed to anonymize user data for {UserId}", userId);
             result.Success = false;
             result.Message = ex.Message;
