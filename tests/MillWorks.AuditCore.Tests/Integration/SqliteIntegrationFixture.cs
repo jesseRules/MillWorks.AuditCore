@@ -23,7 +23,7 @@ public abstract class SqliteIntegrationFixture : IDisposable
 
         Options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
             .UseSqlite(_connection)
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 
         // Create schema from model (not migrations)

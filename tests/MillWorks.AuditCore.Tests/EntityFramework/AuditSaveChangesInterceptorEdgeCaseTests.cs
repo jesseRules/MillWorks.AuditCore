@@ -209,9 +209,8 @@ public class AuditSaveChangesInterceptorEdgeCaseTests
             "A detached entity's local mutation must not appear in the change tracker.");
 
         // Only the first save's Created log should exist in the database
-        var entityId = entity.Id;
         var auditLogs = await _dbContext.AuditLogs.AsNoTracking()
-            .Where(l => l.EntityId == entityId)
+            .Where(l => l.EntityId == entity.Id)
             .ToListAsync();
 
         Assert.That(auditLogs, Has.Count.EqualTo(1),

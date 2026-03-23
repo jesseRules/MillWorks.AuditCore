@@ -1,13 +1,13 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.0.2</Version>
-        <AssemblyVersion>1.0.2.0</AssemblyVersion>
-        <FileVersion>1.0.2.0</FileVersion>
+        <Version>1.0.4</Version>
+        <AssemblyVersion>1.0.4.0</AssemblyVersion>
+        <FileVersion>1.0.4.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
-        <Company>MillWorks</Company>
+        <Company>Jesse Carlberg Production LLC</Company>
         <Product>MillWorks AuditCore</Product>
         <Description>Tamper-evident audit logging and compliance platform for .NET</Description>
         <Copyright>Copyright © 2025-2026 MillWorks</Copyright>

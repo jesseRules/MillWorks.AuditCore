@@ -138,9 +138,9 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
 
         // Create a mock compliance validator
         var mockValidator = new Mock<IComplianceValidator>();
-        mockValidator.Setup(v => v.Standard).Returns(ComplianceStandard.SOC2);
+        mockValidator.Setup(static v => v.Standard).Returns(ComplianceStandard.SOC2);
         mockValidator
-            .Setup(v => v.ValidateAsync(It.IsAny<List<AuditEventEntity>>()))
+            .Setup(static v => v.ValidateAsync(It.IsAny<List<AuditEventEntity>>()))
             .ReturnsAsync(new List<AuditValidationResult>
             {
                 new()
@@ -151,7 +151,7 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
                 }
             });
         mockValidator
-            .Setup(v => v.GenerateRecommendations(It.IsAny<IEnumerable<AuditValidationResult>>()))
+            .Setup(static v => v.GenerateRecommendations(It.IsAny<IEnumerable<AuditValidationResult>>()))
             .Returns(new List<string> { "Continue monitoring" });
 
         var service = new AuditComplianceService(

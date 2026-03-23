@@ -42,11 +42,31 @@ public class AuditEventRepositoryAdvancedTests
         const string correlationId = "corr-123";
 
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), CorrelationId = "other-corr-1", EventType = "D", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), CorrelationId = "other-corr-2", EventType = "E", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "A",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "B",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), CorrelationId = correlationId, EventType = "C",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), CorrelationId = "other-corr-1", EventType = "D",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), CorrelationId = "other-corr-2", EventType = "E",
+                InsertedDate = DateTimeOffset.UtcNow
+            });
         await _context.SaveChangesAsync();
 
         // Act
@@ -54,7 +74,7 @@ public class AuditEventRepositoryAdvancedTests
 
         // Assert
         Assert.That(results, Has.Count.EqualTo(3));
-        Assert.That(results.All(e => e.CorrelationId == correlationId), Is.True);
+        Assert.That(results.All(static e => e.CorrelationId == correlationId), Is.True);
     }
 
     #endregion
@@ -72,10 +92,20 @@ public class AuditEventRepositoryAdvancedTests
         var otherTenant = Guid.NewGuid();
 
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), TenantId = tenantGuid, EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), TenantId = tenantGuid, EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), TenantId = otherTenant, EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), TenantId = null, EventType = "D", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), TenantId = tenantGuid, EventType = "A", InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), TenantId = tenantGuid, EventType = "B", InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), TenantId = otherTenant, EventType = "C", InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), TenantId = null, EventType = "D", InsertedDate = DateTimeOffset.UtcNow });
         await _context.SaveChangesAsync();
 
         // Act
@@ -98,11 +128,18 @@ public class AuditEventRepositoryAdvancedTests
     {
         // Arrange
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), Action = "Created", EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Action = "Created", EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Action = "Updated", EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Action = "Updated", EventType = "D", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Action = "Deleted", EventType = "E", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Action = "Created", EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Action = "Created", EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Action = "Updated", EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Action = "Updated", EventType = "D", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Action = "Deleted", EventType = "E", InsertedDate = DateTimeOffset.UtcNow
+            });
         await _context.SaveChangesAsync();
 
         // Act
@@ -110,7 +147,7 @@ public class AuditEventRepositoryAdvancedTests
 
         // Assert
         Assert.That(results, Has.Count.EqualTo(2));
-        Assert.That(results.All(e => e.Action == "Created"), Is.True);
+        Assert.That(results.All(static e => e.Action == "Created"), Is.True);
     }
 
     #endregion
@@ -126,11 +163,23 @@ public class AuditEventRepositoryAdvancedTests
     {
         // Arrange
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), Duration = 50, EventType = "VeryFast", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Duration = 100, EventType = "Fast", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Duration = 200, EventType = "Slow", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Duration = 500, EventType = "VerySlow", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Duration = null, EventType = "NoDuration", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Duration = 50, EventType = "VeryFast", InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Duration = 100, EventType = "Fast", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), Duration = 200, EventType = "Slow", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Duration = 500, EventType = "VerySlow", InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Duration = null, EventType = "NoDuration",
+                InsertedDate = DateTimeOffset.UtcNow
+            });
         await _context.SaveChangesAsync();
 
         // Act
@@ -138,9 +187,9 @@ public class AuditEventRepositoryAdvancedTests
 
         // Assert
         Assert.That(results, Has.Count.EqualTo(2));
-        Assert.That(results.All(e => e.Duration.HasValue && e.Duration.Value >= 150), Is.True);
-        Assert.That(results.Any(e => e.EventType == "Slow"), Is.True);
-        Assert.That(results.Any(e => e.EventType == "VerySlow"), Is.True);
+        Assert.That(results.All(static e => e.Duration is >= 150), Is.True);
+        Assert.That(results.Any(static e => e.EventType == "Slow"), Is.True);
+        Assert.That(results.Any(static e => e.EventType == "VerySlow"), Is.True);
     }
 
     #endregion
@@ -155,10 +204,26 @@ public class AuditEventRepositoryAdvancedTests
     {
         // Arrange
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), Environment = "Production", EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Environment = "Production", EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Environment = "Development", EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), Environment = "Development", EventType = "D", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Environment = "Production", EventType = "A",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Environment = "Production", EventType = "B",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Environment = "Development", EventType = "C",
+                InsertedDate = DateTimeOffset.UtcNow
+            },
+            new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(), Environment = "Development", EventType = "D",
+                InsertedDate = DateTimeOffset.UtcNow
+            });
         await _context.SaveChangesAsync();
 
         // Act
@@ -166,7 +231,7 @@ public class AuditEventRepositoryAdvancedTests
 
         // Assert
         Assert.That(results, Has.Count.EqualTo(2));
-        Assert.That(results.All(e => e.Environment == "Production"), Is.True);
+        Assert.That(results.All(static e => e.Environment == "Production"), Is.True);
     }
 
     #endregion
@@ -223,10 +288,14 @@ public class AuditEventRepositoryAdvancedTests
         var fromDate = DateTimeOffset.UtcNow.AddDays(-3);
 
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Old", InsertedDate = DateTimeOffset.UtcNow.AddDays(-10) },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "First", InsertedDate = DateTimeOffset.UtcNow.AddDays(-2) },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Second", InsertedDate = DateTimeOffset.UtcNow.AddDays(-1) },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Third", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "Old", InsertedDate = DateTimeOffset.UtcNow.AddDays(-10) },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "First", InsertedDate = DateTimeOffset.UtcNow.AddDays(-2) },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "Second", InsertedDate = DateTimeOffset.UtcNow.AddDays(-1) },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "Third", InsertedDate = DateTimeOffset.UtcNow });
         await _context.SaveChangesAsync();
 
         // Act
@@ -252,12 +321,18 @@ public class AuditEventRepositoryAdvancedTests
     {
         // Arrange
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = "user1", EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = "user1", EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = "user2", EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = "user3", EventType = "D", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = null, EventType = "E", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), User = "", EventType = "F", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user1", EventType = "A", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user1", EventType = "B", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user2", EventType = "C", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user3", EventType = "D", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = null, EventType = "E", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "", EventType = "F", InsertedDate = DateTimeOffset.UtcNow });
         await _context.SaveChangesAsync();
 
         // Act
@@ -280,12 +355,18 @@ public class AuditEventRepositoryAdvancedTests
     {
         // Arrange
         await _context.AuditEvents.AddRangeAsync(
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Order.Created", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Order.Created", InsertedDate = DateTimeOffset.UtcNow },
-            new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "User.Logout", InsertedDate = DateTimeOffset.UtcNow });
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "Order.Created", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "Order.Created", InsertedDate = DateTimeOffset.UtcNow },
+            new AuditEventEntity
+                { EventId = Guid.NewGuid(), EventType = "User.Logout", InsertedDate = DateTimeOffset.UtcNow });
         await _context.SaveChangesAsync();
 
         // Act
@@ -294,9 +375,9 @@ public class AuditEventRepositoryAdvancedTests
         // Assert
         Assert.That(counts, Is.Not.Empty);
 
-        var loginCount = counts.FirstOrDefault(kvp => kvp.Key == "User.Login");
-        var orderCount = counts.FirstOrDefault(kvp => kvp.Key == "Order.Created");
-        var logoutCount = counts.FirstOrDefault(kvp => kvp.Key == "User.Logout");
+        var loginCount = counts.FirstOrDefault(static kvp => kvp.Key == "User.Login");
+        var orderCount = counts.FirstOrDefault(static kvp => kvp.Key == "Order.Created");
+        var logoutCount = counts.FirstOrDefault(static kvp => kvp.Key == "User.Logout");
 
         Assert.That(loginCount.Value, Is.EqualTo(3));
         Assert.That(orderCount.Value, Is.EqualTo(2));
@@ -321,13 +402,16 @@ public class AuditEventRepositoryAdvancedTests
         var events = new List<AuditEventEntity>();
 
         for (var i = 0; i < 5; i++)
-            events.Add(new AuditEventEntity { EventId = Guid.NewGuid(), User = "user1", EventType = "A", InsertedDate = DateTimeOffset.UtcNow });
+            events.Add(new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user1", EventType = "A", InsertedDate = DateTimeOffset.UtcNow });
 
         for (var i = 0; i < 2; i++)
-            events.Add(new AuditEventEntity { EventId = Guid.NewGuid(), User = "user2", EventType = "B", InsertedDate = DateTimeOffset.UtcNow });
+            events.Add(new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user2", EventType = "B", InsertedDate = DateTimeOffset.UtcNow });
 
         for (var i = 0; i < 8; i++)
-            events.Add(new AuditEventEntity { EventId = Guid.NewGuid(), User = "user3", EventType = "C", InsertedDate = DateTimeOffset.UtcNow });
+            events.Add(new AuditEventEntity
+                { EventId = Guid.NewGuid(), User = "user3", EventType = "C", InsertedDate = DateTimeOffset.UtcNow });
 
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
@@ -385,16 +469,16 @@ public class AuditEventRepositoryAdvancedTests
         // Assert
         Assert.That(results, Is.Not.Empty);
 
-        var totalCount = results.Sum(r => r.Count);
+        var totalCount = results.Sum(static r => r.Count);
         Assert.That(totalCount, Is.EqualTo(6));
 
         var day1Results = results.Where(r => r.Date.Date == day1.Date).ToList();
         var day2Results = results.Where(r => r.Date.Date == day2.Date).ToList();
         var day3Results = results.Where(r => r.Date.Date == day3.Date).ToList();
 
-        Assert.That(day1Results.Sum(r => r.Count), Is.EqualTo(2));
-        Assert.That(day2Results.Sum(r => r.Count), Is.EqualTo(3));
-        Assert.That(day3Results.Sum(r => r.Count), Is.EqualTo(1));
+        Assert.That(day1Results.Sum(static r => r.Count), Is.EqualTo(2));
+        Assert.That(day2Results.Sum(static r => r.Count), Is.EqualTo(3));
+        Assert.That(day3Results.Sum(static r => r.Count), Is.EqualTo(1));
     }
 
     #endregion

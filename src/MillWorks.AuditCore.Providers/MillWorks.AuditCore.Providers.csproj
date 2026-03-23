@@ -1,16 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <Description>Entity-specific audit providers for MillWorks AuditCore</Description>
-        <IsPackable>true</IsPackable>
-    </PropertyGroup>
+  <PropertyGroup>
+    <Description>Entity-specific audit providers for MillWorks AuditCore</Description>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\MillWorks.AuditCore.Abstractions\MillWorks.AuditCore.Abstractions.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MillWorks.AuditCore.Abstractions\MillWorks.AuditCore.Abstractions.csproj"/>
+  </ItemGroup>
 
 </Project>

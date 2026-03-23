@@ -394,7 +394,8 @@ public class AuditComplianceServiceTests
             .ReturnsAsync(events);
 
         _mockAuditEventRepository
-            .Setup(static x => x.UpdateRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.UpdateRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(static (IEnumerable<AuditEventEntity> e, CancellationToken ct) => e);
 
         _mockAuditEventRepository
@@ -411,7 +412,8 @@ public class AuditComplianceServiceTests
 
         _mockAuditEventRepository.Verify(static x => x.UpdateRangeAsync(
                 It.Is<IEnumerable<AuditEventEntity>>(static e =>
-                    e.All(static evt => evt.User == "ANONYMIZED" && evt.UserFullName == "ANONYMIZED" && evt.UserAgent == "ANONYMIZED")),
+                    e.All(static evt => evt.User == "ANONYMIZED" && evt.UserFullName == "ANONYMIZED" &&
+                                        evt.UserAgent == "ANONYMIZED")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }

@@ -61,8 +61,9 @@ public class ComplianceAttributeScannerTests
         var properties = _scanner.GetSensitiveProperties(ComplianceStandard.FERPA);
 
         Assert.That(properties, Is.Not.Empty);
-        Assert.That(properties, Has.Some.Matches<SensitivePropertyInfo>(
-            p => p.Property.Name == nameof(TestStudentEntity.StudentId)));
+        Assert.That(properties,
+            Has.Some.Matches<SensitivePropertyInfo>(static p =>
+                p.Property.Name == nameof(TestStudentEntity.StudentId)));
     }
 
     [Test]
@@ -71,8 +72,9 @@ public class ComplianceAttributeScannerTests
         // GradeValue is only marked for FERPA, not HIPAA
         var hipaaProperties = _scanner.GetSensitiveProperties(ComplianceStandard.HIPAA);
 
-        Assert.That(hipaaProperties, Has.None.Matches<SensitivePropertyInfo>(
-            p => p.Property.Name == nameof(TestStudentEntity.GradeValue)));
+        Assert.That(hipaaProperties,
+            Has.None.Matches<SensitivePropertyInfo>(static p =>
+                p.Property.Name == nameof(TestStudentEntity.GradeValue)));
     }
 
     [Test]
@@ -89,8 +91,8 @@ public class ComplianceAttributeScannerTests
     {
         var properties = _scanner.GetSensitiveProperties(ComplianceStandard.FERPA);
 
-        var studentIdProp = properties.FirstOrDefault(
-            static p => p.Property.Name == nameof(TestStudentEntity.StudentId));
+        var studentIdProp =
+            properties.FirstOrDefault(static p => p.Property.Name == nameof(TestStudentEntity.StudentId));
         Assert.That(studentIdProp, Is.Not.Null);
         Assert.That(studentIdProp!.AutoEncrypt, Is.True);
         Assert.That(studentIdProp.MaskInLogs, Is.True);
@@ -139,7 +141,7 @@ public class ComplianceAttributeScannerTests
 
         // Should log a warning
         loggerMock.Verify(
-            x => x.Log(
+            static x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),

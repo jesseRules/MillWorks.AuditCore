@@ -127,7 +127,7 @@ public class AuditReportServiceEdgeCaseTests
         // Arrange — 10 distinct users, each with a different activity volume so the
         // ordering is deterministic (user0 = 10 events, user1 = 9 events, …, user9 = 1 event)
         var events = Enumerable.Range(0, 10)
-            .SelectMany(userIndex =>
+            .SelectMany(static userIndex =>
                 Enumerable.Range(0, 10 - userIndex)
                     .Select(_ => new AuditEventEntity
                     {

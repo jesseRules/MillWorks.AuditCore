@@ -455,7 +455,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -493,7 +494,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -534,7 +536,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -578,7 +581,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -623,7 +627,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -667,7 +672,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -705,7 +711,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -829,7 +836,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act
@@ -888,7 +896,8 @@ public class AuditLoggerTests
             .ReturnsAsync(1);
 
         _mockTamperDetectionService
-            .Setup(static x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditIntegrityDto());
 
         // Act

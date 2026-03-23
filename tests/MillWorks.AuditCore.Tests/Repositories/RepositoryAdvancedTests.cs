@@ -182,7 +182,7 @@ public class RepositoryAdvancedTests
     {
         // Arrange — seed 50 events
         var entities = Enumerable.Range(1, 50)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 EventType = $"Event.{i:D2}",
@@ -208,7 +208,7 @@ public class RepositoryAdvancedTests
     {
         // Arrange — seed 25 events
         var entities = Enumerable.Range(1, 25)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 EventType = $"Event.{i:D2}",
@@ -264,14 +264,14 @@ public class RepositoryAdvancedTests
     {
         // Arrange — 5 "User.Login" and 3 "User.Logout"
         var logins = Enumerable.Range(1, 5)
-            .Select(_ => new AuditEventEntity
+            .Select(static _ => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 EventType = "User.Login",
                 InsertedDate = DateTimeOffset.UtcNow
             });
         var logouts = Enumerable.Range(1, 3)
-            .Select(_ => new AuditEventEntity
+            .Select(static _ => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 EventType = "User.Logout",
@@ -321,7 +321,7 @@ public class RepositoryAdvancedTests
     public async Task ExistsAsync_NonExistent_ReturnsFalse()
     {
         // Act — no data seeded; random ID will never match
-        var exists = await _repository.ExistsAsync(x => x.EventId == Guid.NewGuid());
+        var exists = await _repository.ExistsAsync(static x => x.EventId == Guid.NewGuid());
 
         // Assert
         Assert.That(exists, Is.False);

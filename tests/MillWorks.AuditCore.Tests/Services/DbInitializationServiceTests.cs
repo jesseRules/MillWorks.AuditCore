@@ -174,7 +174,8 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error occurred during database initialization")),
+                It.Is<It.IsAnyType>(static (v, t) =>
+                    v.ToString()!.Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -202,7 +203,8 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error occurred during database initialization")),
+                It.Is<It.IsAnyType>(static (v, t) =>
+                    v.ToString()!.Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -290,7 +292,8 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error occurred during database initialization")),
+                It.Is<It.IsAnyType>(static (v, t) =>
+                    v.ToString()!.Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

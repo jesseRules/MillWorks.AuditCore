@@ -298,7 +298,9 @@ public class TamperDetectionServiceTests
         var events = new List<AuditEventEntity>();
 
         _mockAuditEventRepository
-            .Setup(static x => x.GetForTamperDetectionAsync(It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.GetForTamperDetectionAsync(It.IsAny<DateTimeOffset>(), It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()))
             .ReturnsAsync(events);
 
         var sequenceNumbers = new List<long> { 1, 2, 3 };
@@ -307,12 +309,14 @@ public class TamperDetectionServiceTests
             .ReturnsAsync(sequenceNumbers);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
         _mockAuditIntegrityRepository
             .Setup(static x =>
-                x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                    It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
 
         // Act
@@ -333,7 +337,9 @@ public class TamperDetectionServiceTests
         var events = new List<AuditEventEntity>();
 
         _mockAuditEventRepository
-            .Setup(static x => x.GetForTamperDetectionAsync(It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.GetForTamperDetectionAsync(It.IsAny<DateTimeOffset>(), It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()))
             .ReturnsAsync(events);
 
         var sequenceNumbers = new List<long> { 1, 2, 4, 5 }; // Gap at 3
@@ -342,12 +348,14 @@ public class TamperDetectionServiceTests
             .ReturnsAsync(sequenceNumbers);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
 
         _mockAuditIntegrityRepository
             .Setup(static x =>
-                x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                    It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
 
         // Act
@@ -396,16 +404,19 @@ public class TamperDetectionServiceTests
         };
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords.Count);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), 0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords);
 
         // Return empty for subsequent pages
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.Is<int>(s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.Is<int>(static s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
 
         // Mock VerifyIntegrityAsync calls
@@ -605,7 +616,8 @@ public class TamperDetectionServiceTests
 
         var mockDistributedLock = new Mock<IAuditDistributedLockService>();
         mockDistributedLock
-            .Setup(static x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Setup(static x =>
+                x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("Lock timeout"));
 
         var configDict = new Dictionary<string, string>
@@ -796,15 +808,18 @@ public class TamperDetectionServiceTests
         };
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords.Count);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), 0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.Is<int>(s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.Is<int>(static s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
 
         // Act
@@ -840,27 +855,38 @@ public class TamperDetectionServiceTests
                 EventId = eventId1,
                 EventHash = "hash1",
                 PreviousEventHash = null,
-                AuditEvent = new AuditEventEntity { EventId = eventId1, EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow, JsonData = "{}" }
+                AuditEvent = new AuditEventEntity
+                {
+                    EventId = eventId1, EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow,
+                    JsonData = "{}"
+                }
             },
             new()
             {
                 EventId = eventId2,
                 EventHash = "hash2",
                 PreviousEventHash = "wrong-hash", // Broken chain
-                AuditEvent = new AuditEventEntity { EventId = eventId2, EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow, JsonData = "{}" }
+                AuditEvent = new AuditEventEntity
+                {
+                    EventId = eventId2, EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow,
+                    JsonData = "{}"
+                }
             }
         };
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords.Count);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), 0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.Is<int>(s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetWithAuditEventsPagedAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
+                It.Is<int>(static s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
 
         // Mock individual VerifyIntegrityAsync lookups - hashes won't match, so returns false

@@ -23,47 +23,38 @@ public class ServiceRegistrationTests
     [Test]
     public void AddMillWorksAudit_RegistersCoreServices()
     {
-        _services.AddMillWorksAudit(builder =>
+        _services.AddMillWorksAudit(static builder =>
         {
-            builder.UseEntityFramework(ef =>
-            {
-                ef.ConnectionString = "Server=test;Database=test;";
-            });
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditContext)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditEventFactory)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditLogger)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditContext)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditEventFactory)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditLogger)), Is.True);
     }
 
     [Test]
     public void AddMillWorksAudit_RegistersHttpContextAccessor()
     {
-        _services.AddMillWorksAudit(builder =>
+        _services.AddMillWorksAudit(static builder =>
         {
-            builder.UseEntityFramework(ef =>
-            {
-                ef.ConnectionString = "Server=test;Database=test;";
-            });
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
-        Assert.That(_services.Any(s =>
+        Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.AspNetCore.Http.IHttpContextAccessor)), Is.True);
     }
 
     [Test]
     public void AddMillWorksAudit_RegistersAuditOptions()
     {
-        _services.AddMillWorksAudit(builder =>
+        _services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "MyTestApp";
-            builder.UseEntityFramework(ef =>
-            {
-                ef.ConnectionString = "Server=test;Database=test;";
-            });
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(AuditOptions)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditOptions)), Is.True);
     }
 
     [Test]
@@ -73,16 +64,13 @@ public class ServiceRegistrationTests
         var customContext = new Mock<IAuditContext>();
         _services.AddScoped(_ => customContext.Object);
 
-        _services.AddMillWorksAudit(builder =>
+        _services.AddMillWorksAudit(static builder =>
         {
-            builder.UseEntityFramework(ef =>
-            {
-                ef.ConnectionString = "Server=test;Database=test;";
-            });
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
         // Should only have 1 IAuditContext registration (the custom one + TryAdd won't duplicate)
-        var registrations = _services.Where(s => s.ServiceType == typeof(IAuditContext)).ToList();
+        var registrations = _services.Where(static s => s.ServiceType == typeof(IAuditContext)).ToList();
 
         // TryAddScoped in both AddMillWorksAudit and UseEntityFramework means
         // only the first registration wins
@@ -93,10 +81,7 @@ public class ServiceRegistrationTests
     public void AddMillWorksAudit_NullConfigure_StillCallsValidation()
     {
         // Without UseEntityFramework, validation should throw because no storage is configured
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            _services.AddMillWorksAudit();
-        });
+        Assert.Throws<InvalidOperationException>(() => { _services.AddMillWorksAudit(); });
     }
 
     [Test]
@@ -104,7 +89,7 @@ public class ServiceRegistrationTests
     {
         Assert.Throws<InvalidOperationException>(() =>
         {
-            _services.AddMillWorksAudit(builder =>
+            _services.AddMillWorksAudit(static builder =>
             {
                 // No UseEntityFramework call = no storage
             });
@@ -127,10 +112,7 @@ public class ServiceRegistrationTests
     [Test]
     public void Decorate_UnregisteredService_ThrowsInvalidOperation()
     {
-        Assert.Throws<InvalidOperationException>(() =>
-        {
-            _services.Decorate<ITestService, TestServiceDecorator>();
-        });
+        Assert.Throws<InvalidOperationException>(() => { _services.Decorate<ITestService, TestServiceDecorator>(); });
     }
 
     // Test interfaces/implementations for decorator tests

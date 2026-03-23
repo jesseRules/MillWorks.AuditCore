@@ -21,7 +21,7 @@ public class UserAuditProviderTests
         _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
         _mockEventFactory = new Mock<IAuditEventFactory>();
         _mockLoggerFactory = new Mock<ILoggerFactory>();
-        _mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>()))
+        _mockLoggerFactory.Setup(static f => f.CreateLogger(It.IsAny<string>()))
             .Returns(new Mock<ILogger>().Object);
 
         _provider = new UserAuditProvider(
@@ -179,7 +179,7 @@ public class UserAuditProviderTests
 
         _mockEventFactory.Setup(f => f.CreateEntityEvent("User", "Create", entity, null))
             .Returns(expectedEvent);
-        _mockHttpContextAccessor.Setup(h => h.HttpContext).Returns(() => null!);
+        _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 
         var result = await _provider.CreateAuditEventAsync("Create", entity);
 

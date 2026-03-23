@@ -40,112 +40,112 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseEntityFramework_RegistersDbContextAndRepositories()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(AuditApplicationDbContext)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditEventRepository)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditIntegrityRepository)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditLogRepository)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IArchiveRecordRepository)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(ISecurityEventRepository)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditApplicationDbContext)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditEventRepository)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditIntegrityRepository)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditLogRepository)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IArchiveRecordRepository)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(ISecurityEventRepository)), Is.True);
     }
 
     [Test]
     public void UseEntityFramework_RegistersCoreServices()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditQueryService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditSearchService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditReportService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditArchivalService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditMaintenanceService)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditMetaTrackingService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditQueryService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditSearchService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditReportService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditArchivalService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMaintenanceService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMetaTrackingService)), Is.True);
     }
 
     [Test]
     public void UseEntityFramework_MigrateOnStartup_RegistersDatabaseInitService()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
             ef.MigrateOnStartup = true;
         });
 
         // DatabaseInitializationService is registered as IHostedService
-        Assert.That(_services.Any(s =>
+        Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.True);
     }
 
     [Test]
     public void UseEntityFramework_NoMigration_DoesNotRegisterHostedService()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
             ef.MigrateOnStartup = false;
             ef.EnsureDatabaseCreated = false;
         });
 
-        Assert.That(_services.Any(s =>
+        Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.False);
     }
 
     [Test]
     public void UseSecurity_RegistersSecurityEventService()
     {
-        _builder.UseSecurity(security =>
+        _builder.UseSecurity(static security =>
         {
             security.EnableTamperDetection = false;
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditSecurityEventService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditSecurityEventService)), Is.True);
     }
 
     [Test]
     public void UseSecurity_EnableTamperDetection_RegistersTamperService()
     {
-        _builder.UseSecurity(security =>
+        _builder.UseSecurity(static security =>
         {
             security.EnableTamperDetection = true;
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(ITamperDetectionService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(ITamperDetectionService)), Is.True);
     }
 
     [Test]
     public void UseSecurity_TamperDetectionDisabled_DoesNotRegisterTamperService()
     {
-        _builder.UseSecurity(security =>
+        _builder.UseSecurity(static security =>
         {
             security.EnableTamperDetection = false;
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(ITamperDetectionService)), Is.False);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(ITamperDetectionService)), Is.False);
     }
 
     [Test]
     public void UseCompliance_RegistersComplianceService()
     {
-        _builder.UseCompliance(compliance =>
+        _builder.UseCompliance(static compliance =>
         {
             compliance.Standards.Add(ComplianceStandard.GDPR);
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditComplianceService)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditComplianceService)), Is.True);
     }
 
     [Test]
     public void UseCompliance_RegistersValidatorsForEachStandard()
     {
-        _builder.UseCompliance(compliance =>
+        _builder.UseCompliance(static compliance =>
         {
             compliance.Standards.Add(ComplianceStandard.GDPR);
             compliance.Standards.Add(ComplianceStandard.SOC2);
@@ -153,7 +153,7 @@ public class MillWorksAuditBuilderTests
         });
 
         var validatorRegistrations = _services
-            .Where(s => s.ServiceType == typeof(IComplianceValidator))
+            .Where(static s => s.ServiceType == typeof(IComplianceValidator))
             .ToList();
 
         Assert.That(validatorRegistrations, Has.Count.EqualTo(3));
@@ -163,26 +163,26 @@ public class MillWorksAuditBuilderTests
     public void UseResilience_EnableDLQ_InMemory_RegistersInMemoryQueue()
     {
         // UseResilience calls Decorate<IAuditLogger>, which requires IAuditLogger to be registered
-        _builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
 
-        _builder.UseResilience(resilience =>
+        _builder.UseResilience(static resilience =>
         {
             resilience.EnableDeadLetterQueue = true;
             resilience.DeadLetterProvider = DeadLetterProvider.InMemory;
             resilience.EnableBackgroundProcessor = false;
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditDeadLetterQueue)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditDeadLetterQueue)), Is.True);
     }
 
     [Test]
     public void UseResilience_DLQDisabled_ThrowsInvalidOperation()
     {
-        _builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
 
         Assert.Throws<InvalidOperationException>(() =>
         {
-            _builder.UseResilience(resilience =>
+            _builder.UseResilience(static resilience =>
             {
                 resilience.EnableDeadLetterQueue = false;
             });
@@ -192,13 +192,13 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void RegisterProviders_RegistersMapAndDispatcher()
     {
-        _builder.RegisterProviders(registry =>
+        _builder.RegisterProviders(static registry =>
         {
             // No providers to register in this test
         });
 
-        Assert.That(_services.Any(s => s.ServiceType == typeof(AuditProviderTypeMap)), Is.True);
-        Assert.That(_services.Any(s => s.ServiceType == typeof(IAuditProviderDispatcher)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditProviderTypeMap)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditProviderDispatcher)), Is.True);
     }
 
     [Test]
@@ -210,7 +210,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void ValidateConfiguration_WithStorage_DoesNotThrow()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
@@ -221,7 +221,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void ValidateConfiguration_DigitalSignaturesWithoutHmacKey_Throws()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
@@ -235,7 +235,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void ValidateConfiguration_DigitalSignaturesWithValidKey_DoesNotThrow()
     {
-        _builder.UseEntityFramework(ef =>
+        _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
@@ -249,7 +249,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseArchival_FileSystem_DoesNotThrow()
     {
-        _builder.UseArchival(archival =>
+        _builder.UseArchival(static archival =>
         {
             archival.Provider = ArchivalProvider.FileSystem;
             archival.EnableBackgroundArchival = false;
@@ -264,7 +264,7 @@ public class MillWorksAuditBuilderTests
     {
         Assert.Throws<InvalidOperationException>(() =>
         {
-            _builder.UseArchival(archival =>
+            _builder.UseArchival(static archival =>
             {
                 archival.Provider = ArchivalProvider.AzureBlob;
                 archival.ConnectionString = null;
@@ -275,13 +275,13 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseArchival_EnableBackgroundArchival_RegistersHostedService()
     {
-        _builder.UseArchival(archival =>
+        _builder.UseArchival(static archival =>
         {
             archival.Provider = ArchivalProvider.FileSystem;
             archival.EnableBackgroundArchival = true;
         });
 
-        Assert.That(_services.Any(s =>
+        Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.True);
     }
 }

@@ -29,6 +29,11 @@ public class ResilientAuditLoggerTests
     private Mock<IAuditEventFactory> _mockEventFactory;
 
     /// <summary>
+    /// Mock for the field redactor
+    /// </summary>
+    private Mock<IAuditFieldRedactor> _mockFieldRedactor;
+
+    /// <summary>
     /// Mock for the logger
     /// </summary>
     private Mock<ILogger<ResilientAuditLogger>> _mockLogger;
@@ -47,12 +52,20 @@ public class ResilientAuditLoggerTests
         _mockInnerLogger = new Mock<IAuditLogger>();
         _mockDeadLetterQueue = new Mock<IAuditDeadLetterQueue>();
         _mockEventFactory = new Mock<IAuditEventFactory>();
+        _mockFieldRedactor = new Mock<IAuditFieldRedactor>();
         _mockLogger = new Mock<ILogger<ResilientAuditLogger>>();
+
+        // Default pass-through behavior for redactor
+        _mockFieldRedactor.Setup(r => r.RedactFields(It.IsAny<Dictionary<string, object?>>()))
+            .Returns<Dictionary<string, object?>>(f => f);
+        _mockFieldRedactor.Setup(r => r.RedactTarget(It.IsAny<AuditTarget?>()))
+            .Returns<AuditTarget?>(t => t);
 
         _resilientLogger = new ResilientAuditLogger(
             _mockInnerLogger.Object,
             _mockDeadLetterQueue.Object,
             _mockEventFactory.Object,
+            _mockFieldRedactor.Object,
             _mockLogger.Object);
     }
 

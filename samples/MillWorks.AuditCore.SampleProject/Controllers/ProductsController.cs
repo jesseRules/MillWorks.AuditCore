@@ -24,7 +24,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     /// <summary>
     /// Products store
     /// </summary>
-    private static readonly List<Product> Products =
+    private static readonly List<Product> _products =
     [
         new Product { Id = Guid.NewGuid(), Name = "Laptop", Price = 999.99m, Category = "Electronics" },
         new Product { Id = Guid.NewGuid(), Name = "Mouse", Price = 29.99m, Category = "Accessories" },
@@ -40,11 +40,11 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     {
         await auditLogger.LogAsync("Product.List.Viewed", new
         {
-            TotalProducts = Products.Count,
+            TotalProducts = _products.Count,
             ViewedAt = DateTimeOffset.UtcNow
         });
 
-        return Ok(Products);
+        return Ok(_products);
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProduct(Guid id)
     {
-        var product = Products.FirstOrDefault(p => p.Id == id);
+        var product = _products.FirstOrDefault(p => p.Id == id);
 
         if (product == null)
         {
@@ -97,7 +97,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
             Category = request.Category ?? "General"
         };
 
-        Products.Add(product);
+        _products.Add(product);
 
         await auditLogger.LogAsync("Product.Created", new
         {
@@ -119,7 +119,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductRequest request)
     {
-        var product = Products.FirstOrDefault(p => p.Id == id);
+        var product = _products.FirstOrDefault(p => p.Id == id);
 
         if (product == null)
             return NotFound(new { Message = $"Product {id} not found" });
@@ -167,12 +167,12 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
-        var product = Products.FirstOrDefault(p => p.Id == id);
+        var product = _products.FirstOrDefault(p => p.Id == id);
 
         if (product == null)
             return NotFound(new { Message = $"Product {id} not found" });
 
-        Products.Remove(product);
+        _products.Remove(product);
 
         await auditLogger.LogAsync("Product.Deleted", new
         {
@@ -218,7 +218,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
                     Category = request.Category ?? "General"
                 };
 
-                Products.Add(product);
+                _products.Add(product);
                 created.Add(product);
             }
 
@@ -258,9 +258,9 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
     {
         var stats = new ProductStatistics
         {
-            TotalProducts = Products.Count,
-            TotalValue = Products.Sum(static p => p.Price),
-            Categories = Products.GroupBy(static p => p.Category)
+            TotalProducts = _products.Count,
+            TotalValue = _products.Sum(static p => p.Price),
+            Categories = _products.GroupBy(static p => p.Category)
                 .Select(static g => new CategoryStats
                 {
                     Category = g.Key,
@@ -268,7 +268,7 @@ public class ProductsController(IAuditLogger auditLogger, ILogger<ProductsContro
                     TotalValue = g.Sum(static p => p.Price)
                 })
                 .ToList(),
-            AveragePrice = Products.Any() ? Products.Average(static p => p.Price) : 0,
+            AveragePrice = _products.Any() ? _products.Average(static p => p.Price) : 0,
             GeneratedAt = DateTimeOffset.UtcNow
         };
 

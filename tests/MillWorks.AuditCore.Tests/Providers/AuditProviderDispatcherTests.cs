@@ -37,13 +37,13 @@ public class AuditProviderDispatcherTests
     public async Task DispatchAsync_RegisteredProvider_CallsProviderAndLogs()
     {
         var mockProvider = new Mock<IAuditProvider>();
-        mockProvider.Setup(p => p.ShouldAuditAsync("Create", It.IsAny<object>()))
+        mockProvider.Setup(static p => p.ShouldAuditAsync("Create", It.IsAny<object>()))
             .ReturnsAsync(true);
-        mockProvider.Setup(p => p.CreateAuditEventAsync("Create", It.IsAny<object>(), null))
+        mockProvider.Setup(static p => p.CreateAuditEventAsync("Create", It.IsAny<object>(), null))
             .ReturnsAsync(new AuditEvent { EventType = "Order.Create" });
 
         _map.Register("Order", typeof(IAuditProvider));
-        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IAuditProvider)))
+        _mockServiceProvider.Setup(static sp => sp.GetService(typeof(IAuditProvider)))
             .Returns(mockProvider.Object);
 
         var dispatches = new List<PendingProviderDispatch>
@@ -53,9 +53,9 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        mockProvider.Verify(p => p.ShouldAuditAsync("Create", It.IsAny<object>()), Times.Once);
-        mockProvider.Verify(p => p.CreateAuditEventAsync("Create", It.IsAny<object>(), null), Times.Once);
-        _mockLogger.Verify(l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 1), It.IsAny<CancellationToken>()), Times.Once);
+        mockProvider.Verify(static p => p.ShouldAuditAsync("Create", It.IsAny<object>()), Times.Once);
+        mockProvider.Verify(static p => p.CreateAuditEventAsync("Create", It.IsAny<object>(), null), Times.Once);
+        _mockLogger.Verify(static l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(static e => e.Count == 1), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -68,18 +68,18 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        _mockLogger.Verify(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockLogger.Verify(static l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
     public async Task DispatchAsync_ProviderSaysNoAudit_SkipsLogging()
     {
         var mockProvider = new Mock<IAuditProvider>();
-        mockProvider.Setup(p => p.ShouldAuditAsync("Delete", It.IsAny<object>()))
+        mockProvider.Setup(static p => p.ShouldAuditAsync("Delete", It.IsAny<object>()))
             .ReturnsAsync(false);
 
         _map.Register("Order", typeof(IAuditProvider));
-        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IAuditProvider)))
+        _mockServiceProvider.Setup(static sp => sp.GetService(typeof(IAuditProvider)))
             .Returns(mockProvider.Object);
 
         var dispatches = new List<PendingProviderDispatch>
@@ -89,19 +89,19 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        mockProvider.Verify(p => p.CreateAuditEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<object>()), Times.Never);
-        _mockLogger.Verify(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
+        mockProvider.Verify(static p => p.CreateAuditEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<object>()), Times.Never);
+        _mockLogger.Verify(static l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
     public async Task DispatchAsync_ProviderThrows_LogsErrorAndContinues()
     {
         var mockProvider = new Mock<IAuditProvider>();
-        mockProvider.Setup(p => p.ShouldAuditAsync(It.IsAny<string>(), It.IsAny<object>()))
+        mockProvider.Setup(static p => p.ShouldAuditAsync(It.IsAny<string>(), It.IsAny<object>()))
             .ThrowsAsync(new InvalidOperationException("Provider error"));
 
         _map.Register("Order", typeof(IAuditProvider));
-        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IAuditProvider)))
+        _mockServiceProvider.Setup(static sp => sp.GetService(typeof(IAuditProvider)))
             .Returns(mockProvider.Object);
 
         var dispatches = new List<PendingProviderDispatch>
@@ -118,13 +118,13 @@ public class AuditProviderDispatcherTests
     public async Task DispatchAsync_MultipleDispatches_ProcessesAll()
     {
         var mockProvider = new Mock<IAuditProvider>();
-        mockProvider.Setup(p => p.ShouldAuditAsync(It.IsAny<string>(), It.IsAny<object>()))
+        mockProvider.Setup(static p => p.ShouldAuditAsync(It.IsAny<string>(), It.IsAny<object>()))
             .ReturnsAsync(true);
-        mockProvider.Setup(p => p.CreateAuditEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<object?>()))
+        mockProvider.Setup(static p => p.CreateAuditEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<object?>()))
             .ReturnsAsync(new AuditEvent());
 
         _map.Register("Order", typeof(IAuditProvider));
-        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IAuditProvider)))
+        _mockServiceProvider.Setup(static sp => sp.GetService(typeof(IAuditProvider)))
             .Returns(mockProvider.Object);
 
         var dispatches = new List<PendingProviderDispatch>
@@ -136,7 +136,7 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        _mockLogger.Verify(l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 3), It.IsAny<CancellationToken>()), Times.Once);
+        _mockLogger.Verify(static l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(static e => e.Count == 3), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -146,7 +146,7 @@ public class AuditProviderDispatcherTests
 
         await _dispatcher.DispatchAsync(dispatches, CancellationToken.None);
 
-        _mockServiceProvider.Verify(sp => sp.GetService(It.IsAny<Type>()), Times.Never);
+        _mockServiceProvider.Verify(static sp => sp.GetService(It.IsAny<Type>()), Times.Never);
     }
 }
 

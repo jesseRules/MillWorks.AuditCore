@@ -77,7 +77,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
         // Assert
         Assert.That(result.TotalItems, Is.EqualTo(2));
         Assert.That(result.Items, Has.Count.EqualTo(2));
-        Assert.That(result.Items!.All(i => i.User == "alice@test.com"), Is.True);
+        Assert.That(result.Items!.All(static i => i.User == "alice@test.com"), Is.True);
     }
 
     [Test]
@@ -131,7 +131,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
         // Assert
         Assert.That(chartData, Is.Not.Empty);
         Assert.That(chartData, Has.Count.EqualTo(3)); // 3 distinct days
-        Assert.That(chartData.Sum(d => d.Count), Is.EqualTo(6));
+        Assert.That(chartData.Sum(static d => d.Count), Is.EqualTo(6));
 
         // Verify ordering is chronological
         for (int i = 1; i < chartData.Count; i++)
@@ -219,8 +219,8 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
         Assert.That(page2.CurrentPage, Is.EqualTo(2));
 
         // Verify no overlap between pages
-        var page1Ids = result.Items!.Select(i => i.EventId).ToHashSet();
-        var page2Ids = page2.Items!.Select(i => i.EventId).ToHashSet();
+        var page1Ids = result.Items!.Select(static i => i.EventId).ToHashSet();
+        var page2Ids = page2.Items!.Select(static i => i.EventId).ToHashSet();
         Assert.That(page1Ids.Intersect(page2Ids), Is.Empty);
     }
 }

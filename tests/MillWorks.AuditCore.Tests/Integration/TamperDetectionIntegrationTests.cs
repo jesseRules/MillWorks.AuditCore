@@ -147,7 +147,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         var integrityRepo = new AuditIntegrityRepository(context);
         var mockSecurityService = new Mock<IAuditSecurityEventService>();
         mockSecurityService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
         var config = BuildConfig();
@@ -178,7 +178,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         var integrityRepo = new AuditIntegrityRepository(context);
         var mockSecurityService = new Mock<IAuditSecurityEventService>();
         mockSecurityService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
         var config = BuildConfig();
@@ -238,7 +238,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         var verifyIntegrityRepo = new AuditIntegrityRepository(verifyContext);
         var mockSecurityService = new Mock<IAuditSecurityEventService>();
         mockSecurityService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
         var config = BuildConfig();
@@ -278,7 +278,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         var detectIntegrityRepo = new AuditIntegrityRepository(detectContext);
         var mockSecurityService = new Mock<IAuditSecurityEventService>();
         mockSecurityService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
         var config = BuildConfig();
@@ -290,7 +290,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
 
         // Assert
         Assert.That(alerts, Is.Not.Empty);
-        Assert.That(alerts.Any(a => a.AlertType == "Integrity Violation"), Is.True);
+        Assert.That(alerts.Any(static a => a.AlertType == "Integrity Violation"), Is.True);
     }
 
     [Test]
@@ -323,7 +323,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         var verifyIntegrityRepo = new AuditIntegrityRepository(verifyContext);
         var mockSecurityService = new Mock<IAuditSecurityEventService>();
         mockSecurityService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
         var config = BuildConfig();

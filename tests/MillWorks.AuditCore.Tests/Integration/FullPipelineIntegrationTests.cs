@@ -61,7 +61,7 @@ public class FullPipelineIntegrationTests : IDisposable
         services.AddDbContext<AuditApplicationDbContext>((sp, options) =>
         {
             options.UseSqlite(_connection);
-            options.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+            options.ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
 
             var interceptor = sp.GetRequiredService<AuditSaveChangesInterceptor>();
             options.AddInterceptors(interceptor);

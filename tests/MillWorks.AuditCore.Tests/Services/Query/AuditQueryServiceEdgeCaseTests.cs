@@ -213,7 +213,7 @@ public class AuditQueryServiceEdgeCaseTests
     {
         // Arrange — seed 10 events
         var events = Enumerable.Range(0, 10)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)

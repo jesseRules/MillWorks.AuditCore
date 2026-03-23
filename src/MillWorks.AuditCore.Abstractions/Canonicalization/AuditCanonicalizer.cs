@@ -22,7 +22,7 @@ public static class AuditCanonicalizer
     /// ISO 8601 output format with forced UTC and full fractional-second precision.
     /// All dates are converted to UTC before stringification.
     /// </summary>
-    private const string Iso8601Format = "yyyy-MM-ddTHH:mm:ss.fffffffZ";
+    private const string _iso8601Format = "yyyy-MM-ddTHH:mm:ss.fffffffZ";
 
     /// <summary>
     /// Exact ISO 8601 formats accepted for date normalization.
@@ -31,7 +31,7 @@ public static class AuditCanonicalizer
     /// Strings without a timezone offset are rejected (written verbatim) to prevent
     /// machine-dependent UTC conversion.
     /// </summary>
-    private static readonly string[] Iso8601Formats =
+    private static readonly string[] _iso8601Formats =
     [
         "yyyy-MM-ddTHH:mm:ss.FFFFFFFK",
         "yyyy-MM-ddTHH:mm:ssK",
@@ -175,7 +175,7 @@ public static class AuditCanonicalizer
         // (minimum: "yyyy-MM-ddTHH:mm:ss" = 19 chars, with '-' at [4] and [7], 'T' at [10])
         if (value.Length >= 19 && value[4] == '-' && value[7] == '-' && value[10] == 'T')
         {
-            if (DateTimeOffset.TryParseExact(value, Iso8601Formats,
+            if (DateTimeOffset.TryParseExact(value, _iso8601Formats,
                     CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
             {
                 // Reject no-offset strings: K matches empty, producing local time interpretation.
@@ -186,7 +186,7 @@ public static class AuditCanonicalizer
                                 suffix.Contains('-');
                 if (hasOffset)
                 {
-                    writer.WriteStringValue(dto.UtcDateTime.ToString(Iso8601Format, CultureInfo.InvariantCulture));
+                    writer.WriteStringValue(dto.UtcDateTime.ToString(_iso8601Format, CultureInfo.InvariantCulture));
                     return;
                 }
             }
@@ -219,5 +219,5 @@ public static class AuditCanonicalizer
     /// <summary>
     /// Normalizes a <see cref="DateTimeOffset"/> to canonical UTC ISO 8601 string.
     /// </summary>
-    public static string NormalizeDate(DateTimeOffset? value) => !value.HasValue ? string.Empty : value.Value.UtcDateTime.ToString(Iso8601Format, CultureInfo.InvariantCulture);
+    public static string NormalizeDate(DateTimeOffset? value) => !value.HasValue ? string.Empty : value.Value.UtcDateTime.ToString(_iso8601Format, CultureInfo.InvariantCulture);
 }

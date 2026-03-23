@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -24,10 +21,18 @@ public sealed class UserAuditProvider(
     ILoggerFactory loggerFactory)
     : BaseAuditProvider(httpContextAccessor, eventFactory, loggerFactory)
 {
-    private static readonly HashSet<string> SensitiveProperties = new(StringComparer.Ordinal)
+    /// <summary>
+    /// List of sensitive properties that should be excluded from audit logs
+    /// </summary>
+    private static readonly HashSet<string> _sensitiveProperties = new(StringComparer.Ordinal)
     {
-        "PasswordHash", "SecurityStamp", "RefreshToken", "ConcurrencyStamp",
-        "FailedLoginAttempts", "LastLoginIpAddress", "ExternalLoginProviderKey"
+        "PasswordHash",
+        "SecurityStamp",
+        "RefreshToken",
+        "ConcurrencyStamp",
+        "FailedLoginAttempts",
+        "LastLoginIpAddress",
+        "ExternalLoginProviderKey"
     };
 
     /// <summary>
@@ -105,7 +110,7 @@ public sealed class UserAuditProvider(
     /// <summary>
     /// Cache for PersonalDataAttribute lookups per property
     /// </summary>
-    private static readonly ConcurrentDictionary<PropertyInfo, bool> PersonalDataCache = new();
+    private static readonly ConcurrentDictionary<PropertyInfo, bool> _personalDataCache = new();
 
     /// <summary>
     /// Gets the changes between old and new values for the user entity.
@@ -123,7 +128,7 @@ public sealed class UserAuditProvider(
 
         foreach (var property in properties)
         {
-            if (SensitiveProperties.Contains(property.Name))
+            if (_sensitiveProperties.Contains(property.Name))
                 continue;
 
             try
@@ -170,9 +175,14 @@ public sealed class UserAuditProvider(
         return changes;
     }
 
+    /// <summary>
+    /// Determines if a property is marked with the PersonalDataAttribute, using a cache for performance
+    /// </summary>
+    /// <param name="property"></param>
+    /// <returns></returns>
     private static bool IsPersonalData(PropertyInfo property)
     {
-        return PersonalDataCache.GetOrAdd(property, static p =>
+        return _personalDataCache.GetOrAdd(property, static p =>
             p.GetCustomAttribute<PersonalDataAttribute>() != null);
     }
 

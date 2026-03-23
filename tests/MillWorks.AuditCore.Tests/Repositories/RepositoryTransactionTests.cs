@@ -71,7 +71,7 @@ public class RepositoryTransactionTests
         // Act & Assert
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await _repository.ExecuteInTransactionAsync(() =>
+            await _repository.ExecuteInTransactionAsync(static () =>
                 throw new InvalidOperationException("Test failure"));
         });
 
@@ -124,7 +124,7 @@ public class RepositoryTransactionTests
         // Act - first transaction fails
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await _repository.ExecuteInTransactionAsync(() =>
+            await _repository.ExecuteInTransactionAsync(static () =>
                 throw new InvalidOperationException("Fail"));
         });
 

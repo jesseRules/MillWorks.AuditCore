@@ -27,7 +27,7 @@ public sealed class AuditLogEntity: AppendOnlyEntity
     public string EntityName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Entity ID (primary key of the entity)
+    /// Entity ID (primary key of the entity).
     /// </summary>
     [Column("EntityId", TypeName = "uniqueidentifier")]
     public Guid? EntityId { get; set; }

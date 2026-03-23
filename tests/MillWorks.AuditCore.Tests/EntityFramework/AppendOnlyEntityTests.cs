@@ -54,7 +54,7 @@ public class AppendOnlyEntityTests
             System.Reflection.BindingFlags.Instance |
             System.Reflection.BindingFlags.DeclaredOnly);
 
-        var propertyNames = declaredProperties.Select(p => p.Name).ToList();
+        var propertyNames = declaredProperties.Select(static p => p.Name).ToList();
 
         Assert.That(propertyNames, Does.Contain("CreatedAt"));
         Assert.That(propertyNames, Does.Contain("CreatedById"));

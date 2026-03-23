@@ -22,7 +22,7 @@ public class AuditDbContextConfigurationTests : IDisposable
 
         _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
             .UseSqlite(_connection)
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
     }
 
@@ -98,8 +98,8 @@ public class AuditDbContextConfigurationTests : IDisposable
         var indexes = entityType.GetIndexes().ToList();
 
         var indexNames = indexes
-            .Select(i => i.Name)
-            .Where(n => n != null)
+            .Select(static i => i.Name)
+            .Where(static n => n != null)
             .ToList();
 
         Assert.That(indexNames, Does.Contain("IX_AuditEvents_UserId"));
@@ -115,7 +115,7 @@ public class AuditDbContextConfigurationTests : IDisposable
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
         var indexes = entityType.GetIndexes().ToList();
 
-        var indexNames = indexes.Select(i => i.Name).ToList();
+        var indexNames = indexes.Select(static i => i.Name).ToList();
 
         Assert.That(indexNames, Does.Contain("IX_AuditIntegrity_EventId"));
         Assert.That(indexNames, Does.Contain("IX_AuditIntegrity_HashChain"));
@@ -127,7 +127,7 @@ public class AuditDbContextConfigurationTests : IDisposable
         using var context = new AuditApplicationDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
         var eventIdIndex = entityType.GetIndexes()
-            .FirstOrDefault(i => i.Name == "IX_AuditIntegrity_EventId");
+            .FirstOrDefault(static i => i.Name == "IX_AuditIntegrity_EventId");
 
         Assert.That(eventIdIndex, Is.Not.Null);
         Assert.That(eventIdIndex!.IsUnique, Is.True);
@@ -140,7 +140,7 @@ public class AuditDbContextConfigurationTests : IDisposable
         var entityType = context.Model.FindEntityType(typeof(AuditLogEntity))!;
         var indexes = entityType.GetIndexes().ToList();
 
-        var indexNames = indexes.Select(i => i.Name).ToList();
+        var indexNames = indexes.Select(static i => i.Name).ToList();
 
         Assert.That(indexNames, Does.Contain("IX_AuditLogs_Entity"));
         Assert.That(indexNames, Does.Contain("IX_AuditLogs_CreatedAt"));

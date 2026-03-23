@@ -34,20 +34,20 @@ public class AuditMaintenanceBackgroundServiceTests
 
         // Default: archive enabled, returns success
         _mockArchivalService
-            .Setup(x => x.ArchiveAuditEventsAsync(
+            .Setup(static x => x.ArchiveAuditEventsAsync(
                 It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditArchivalResult { Success = true, EventCount = 5 });
 
         _mockMaintenanceService
-            .Setup(x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(3);
 
         _mockMaintenanceService
-            .Setup(x => x.OptimizeAuditTablesAsync(It.IsAny<CancellationToken>()))
+            .Setup(static x => x.OptimizeAuditTablesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         _mockMaintenanceService
-            .Setup(x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()))
+            .Setup(static x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, object?>
             {
                 ["TotalEvents"] = 100L,
@@ -55,7 +55,7 @@ public class AuditMaintenanceBackgroundServiceTests
             });
 
         _mockTamperService
-            .Setup(x => x.DetectTamperingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.DetectTamperingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TamperAlert>());
 
         var services = new ServiceCollection();
@@ -168,7 +168,7 @@ public class AuditMaintenanceBackgroundServiceTests
     {
         // Arrange - make archival service throw
         _mockArchivalService
-            .Setup(x => x.ArchiveAuditEventsAsync(
+            .Setup(static x => x.ArchiveAuditEventsAsync(
                 It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Archive failed"));
 

@@ -63,7 +63,7 @@ public class BaseAuditProviderTests
         httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("192.168.1.42");
         httpContext.Request.Headers["User-Agent"] = "TestAgent/1.0";
         httpContext.TraceIdentifier = "trace-abc-123";
-        _mockHttpContextAccessor.Setup(h => h.HttpContext).Returns(httpContext);
+        _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(httpContext);
 
         // Act
         var result = await _provider.CreateAuditEventAsync("Create", entity);
@@ -182,7 +182,7 @@ public class BaseAuditProviderTests
         _mockEventFactory
             .Setup(f => f.CreateEntityEvent("TestEntity", "Update", newEntity, oldValues))
             .Returns(expectedEvent);
-        _mockHttpContextAccessor.Setup(h => h.HttpContext).Returns(() => null!);
+        _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 
         // Act
         var result = await _provider.CreateAuditEventAsync("Update", newEntity, oldValues);
@@ -208,7 +208,7 @@ public class BaseAuditProviderTests
         _mockEventFactory
             .Setup(f => f.CreateEntityEvent("TestEntity", "Create", entity, null))
             .Returns(expectedEvent);
-        _mockHttpContextAccessor.Setup(h => h.HttpContext).Returns(() => null!);
+        _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 
         // Act
         var result = await _provider.CreateAuditEventAsync("Create", entity);

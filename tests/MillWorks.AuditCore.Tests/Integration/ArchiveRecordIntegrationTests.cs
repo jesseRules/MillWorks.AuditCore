@@ -41,7 +41,7 @@ public class ArchiveRecordIntegrationTests : SqliteIntegrationFixture
 
         Assert.That(result, Is.True);
         var updated = await context.ArchiveRecords.AsNoTracking()
-            .FirstOrDefaultAsync(ar => ar.ArchiveId == "status-test");
+            .FirstOrDefaultAsync(static ar => ar.ArchiveId == "status-test");
         Assert.That(updated, Is.Not.Null);
         Assert.That(updated!.Status, Is.EqualTo(MillWorksArchiveStatus.Failed));
         Assert.That(updated.ErrorMessage, Is.EqualTo("Something went wrong"));

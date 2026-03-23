@@ -35,7 +35,7 @@ public class AuditArchivalIntegrationTests : SqliteIntegrationFixture
         Assert.That(updateResult, Is.True);
 
         var updated = await context.ArchiveRecords.AsNoTracking()
-            .FirstOrDefaultAsync(r => r.ArchiveId == "arch-inprogress");
+            .FirstOrDefaultAsync(static r => r.ArchiveId == "arch-inprogress");
         Assert.That(updated!.Status, Is.EqualTo(MillWorksArchiveStatus.Completed));
     }
 
@@ -67,7 +67,7 @@ public class AuditArchivalIntegrationTests : SqliteIntegrationFixture
 
         Assert.That(result, Is.True);
         var record = await context.ArchiveRecords.AsNoTracking()
-            .FirstOrDefaultAsync(r => r.ArchiveId == "verify-test");
+            .FirstOrDefaultAsync(static r => r.ArchiveId == "verify-test");
         Assert.That(record!.LastVerifiedAt, Is.Not.Null);
     }
 

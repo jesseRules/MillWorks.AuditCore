@@ -169,7 +169,7 @@ public class AuditSearchServiceEdgeCaseTests
     {
         // Arrange — 10 events, no special attributes
         var events = Enumerable.Range(0, 10)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
@@ -316,7 +316,7 @@ public class AuditSearchServiceEdgeCaseTests
         const string targetUser = "user@test.com";
 
         var targetEvents = Enumerable.Range(0, 5)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 User = targetUser,
@@ -324,7 +324,7 @@ public class AuditSearchServiceEdgeCaseTests
             });
 
         var otherEvents = Enumerable.Range(0, 3)
-            .Select(i => new AuditEventEntity
+            .Select(static i => new AuditEventEntity
             {
                 EventId = Guid.NewGuid(),
                 User = "other@test.com",
@@ -346,7 +346,7 @@ public class AuditSearchServiceEdgeCaseTests
         // Assert
         Assert.That(result, Is.Not.Null);
         Assert.That(result.TotalItems, Is.EqualTo(5));
-        Assert.That(result.Items, Has.All.Matches<AuditEventDto>(dto => dto.User == targetUser));
+        Assert.That(result.Items, Has.All.Matches<AuditEventDto>(static dto => dto.User == targetUser));
     }
 
     #endregion
@@ -401,11 +401,11 @@ public class AuditSearchServiceEdgeCaseTests
         // Arrange
         var events = new List<AuditEventEntity>
         {
-            new() { EventId = Guid.NewGuid(), EntityType = "Customer",  InsertedDate = DateTimeOffset.UtcNow },
-            new() { EventId = Guid.NewGuid(), EntityType = "Customer",  InsertedDate = DateTimeOffset.UtcNow },
-            new() { EventId = Guid.NewGuid(), EntityType = "Order",     InsertedDate = DateTimeOffset.UtcNow },
-            new() { EventId = Guid.NewGuid(), EntityType = null,        InsertedDate = DateTimeOffset.UtcNow },
-            new() { EventId = Guid.NewGuid(), EntityType = "",          InsertedDate = DateTimeOffset.UtcNow }
+            new() { EventId = Guid.NewGuid(), EntityType = "Customer", InsertedDate = DateTimeOffset.UtcNow },
+            new() { EventId = Guid.NewGuid(), EntityType = "Customer", InsertedDate = DateTimeOffset.UtcNow },
+            new() { EventId = Guid.NewGuid(), EntityType = "Order", InsertedDate = DateTimeOffset.UtcNow },
+            new() { EventId = Guid.NewGuid(), EntityType = null, InsertedDate = DateTimeOffset.UtcNow },
+            new() { EventId = Guid.NewGuid(), EntityType = "", InsertedDate = DateTimeOffset.UtcNow }
         };
 
         await _context.AuditEvents.AddRangeAsync(events);

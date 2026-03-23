@@ -16,10 +16,7 @@ public static class ApplicationBuilderExtensions
         /// UseMillWorksAudit adds the AuditContextMiddleware to the ASP.NET Core middleware pipeline.
         /// </summary>
         /// <returns></returns>
-        public void UseMillWorksAudit()
-        {
-            app.UseMiddleware<AuditContextMiddleware>();
-        }
+        public void UseMillWorksAudit() => app.UseMiddleware<AuditContextMiddleware>();
 
         /// <summary>
         /// Runs database migrations for the audit system during application startup.

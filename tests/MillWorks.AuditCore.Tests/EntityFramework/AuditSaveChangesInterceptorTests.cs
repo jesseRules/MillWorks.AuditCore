@@ -646,10 +646,10 @@ public class AuditSaveChangesInterceptorTests
     }
 
     /// <summary>
-    /// Saving changes with int primary key results in null EntityId in audit log
+    /// Saving changes with int primary key stores EntityId as null (non-Guid PK)
     /// </summary>
     [Test]
-    public async Task SavingChanges_WithIntPrimaryKey_ReturnsNullEntityId()
+    public async Task SavingChanges_WithIntPrimaryKey_StoresEntityIdAsNull()
     {
         // Arrange
         var entity = new IntKeyEntity { Name = "IntKey" };
@@ -658,7 +658,7 @@ public class AuditSaveChangesInterceptorTests
         // Act
         await _dbContext.SaveChangesAsync();
 
-        // Assert — int PK can't be cast to Guid, so EntityId should be null
+        // Assert — int PK cannot be converted to Guid, so EntityId is null
         var auditLog = await _dbContext.AuditLogs.AsNoTracking().FirstAsync();
         Assert.That(auditLog.EntityId, Is.Null);
     }

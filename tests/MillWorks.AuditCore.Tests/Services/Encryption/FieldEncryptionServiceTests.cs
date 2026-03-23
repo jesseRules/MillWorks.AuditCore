@@ -35,17 +35,17 @@ public class FieldEncryptionServiceTests
         _mockKeyProvider = new Mock<IEncryptionKeyProvider>();
         _mockLogger = new Mock<ILogger<FieldEncryptionService>>();
 
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync("v1");
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestKey);
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
             .ReturnsAsync(AlternateKey);
 
         // Sync overloads
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersion()).Returns("v1");
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKey("TestField", "v1")).Returns(TestKey);
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKey("TestField", "v2")).Returns(AlternateKey);
+        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersion()).Returns("v1");
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey("TestField", "v1")).Returns(TestKey);
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey("TestField", "v2")).Returns(AlternateKey);
 
         _service = new FieldEncryptionService(_mockKeyProvider.Object, _mockLogger.Object);
     }
@@ -132,7 +132,7 @@ public class FieldEncryptionServiceTests
         Assert.That(encryptedV2, Is.Not.EqualTo(encryptedV1));
 
         // But decrypting with v2 key should return original
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
             .ReturnsAsync(AlternateKey);
         var decrypted = await _service.DecryptFieldAsync(encryptedV2, "TestField");
         Assert.That(decrypted, Is.EqualTo(original));
@@ -144,11 +144,11 @@ public class FieldEncryptionServiceTests
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
         // Setup wrong key for decryption
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(AlternateKey);
 
-        Assert.ThrowsAsync<FieldEncryptionException>(
-            async () => await _service.DecryptFieldAsync(encrypted, "TestField"));
+        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(encrypted, "TestField"));
     }
 
     [Test]
@@ -156,8 +156,8 @@ public class FieldEncryptionServiceTests
     {
         var corruptedPayload = "ENC_V1:" + Convert.ToBase64String("not-valid-json"u8.ToArray());
 
-        Assert.ThrowsAsync<FieldEncryptionException>(
-            async () => await _service.DecryptFieldAsync(corruptedPayload, "TestField"));
+        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(corruptedPayload, "TestField"));
     }
 
     [Test]
@@ -173,13 +173,13 @@ public class FieldEncryptionServiceTests
     [Test]
     public async Task DecryptFieldAsync_FieldNameMismatch_ThrowsFieldEncryptionException()
     {
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("OtherField", "v1", It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("OtherField", "v1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestKey);
 
         var encrypted = await _service.EncryptFieldAsync("test", "TestField");
 
-        Assert.ThrowsAsync<FieldEncryptionException>(
-            async () => await _service.DecryptFieldAsync(encrypted, "OtherField"));
+        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(encrypted, "OtherField"));
     }
 
     [Test]
@@ -208,10 +208,10 @@ public class FieldEncryptionServiceTests
     [Test]
     public async Task EncryptFieldAsync_KeyProviderThrows_WrapsInFieldEncryptionException()
     {
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
+        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Key vault unreachable"));
 
-        Assert.ThrowsAsync<FieldEncryptionException>(
-            async () => await _service.EncryptFieldAsync("test", "TestField"));
+        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.EncryptFieldAsync("test", "TestField"));
     }
 }

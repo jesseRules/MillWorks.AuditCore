@@ -795,7 +795,7 @@ public class FerpaValidatorTests
 
     private static List<AuditEventEntity> CreateEvents(params (string eventType, string user)[] events)
     {
-        return events.Select(e => new AuditEventEntity
+        return events.Select(static e => new AuditEventEntity
         {
             EventType = e.eventType,
             User = e.user,

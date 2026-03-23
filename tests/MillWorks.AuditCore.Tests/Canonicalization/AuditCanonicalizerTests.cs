@@ -317,8 +317,7 @@ public class AuditCanonicalizerTests
     [Test]
     public void MalformedJson_ThrowsJsonException()
     {
-        Assert.That(
-            () => AuditCanonicalizer.Canonicalize("{not valid json"),
+        Assert.That(static () => AuditCanonicalizer.Canonicalize("{not valid json"),
             Throws.InstanceOf<System.Text.Json.JsonException>());
     }
 
@@ -368,7 +367,7 @@ public class AuditCanonicalizerTests
         const string input = """{"z":"2026-03-12T10:00:00-05:00","a":null,"m":[1,2,3]}""";
 
         var results = Enumerable.Range(0, 100)
-            .Select(_ => AuditCanonicalizer.Canonicalize(input))
+            .Select(static _ => AuditCanonicalizer.Canonicalize(input))
             .Distinct()
             .ToList();
 

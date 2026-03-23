@@ -148,7 +148,7 @@ public class AuditContextMiddlewareEdgeCaseTests
         // Assert - context is populated but no audit scope was created
         Assert.That(capturedCorrelationId, Is.EqualTo("health-trace"));
         _mockAuditLogger.Verify(
-            x => x.CreateScope(It.IsAny<string>(), It.IsAny<object>()),
+            static x => x.CreateScope(It.IsAny<string>(), It.IsAny<object>()),
             Times.Never);
     }
 

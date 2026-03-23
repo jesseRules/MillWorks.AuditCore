@@ -14,6 +14,7 @@ public sealed class ResilientAuditLogger(
     IAuditLogger innerLogger,
     IAuditDeadLetterQueue deadLetterQueue,
     IAuditEventFactory eventFactory,
+    IAuditFieldRedactor fieldRedactor,
     ILogger<ResilientAuditLogger> logger)
     : IAuditLogger
 {
@@ -27,9 +28,6 @@ public sealed class ResilientAuditLogger(
     /// </summary>
     private readonly TimeSpan _baseRetryDelay = TimeSpan.FromMilliseconds(500);
 
-    /// <summary>
-    /// Logs an audit event with resilience and dead letter queue fallback
-    /// </summary>
     /// <summary>
     /// Logs an audit event with resilience and dead letter queue fallback
     /// </summary>
@@ -116,9 +114,11 @@ public sealed class ResilientAuditLogger(
         catch (Exception dlqEx)
         {
             // Critical failure - even DLQ failed
+            // Log only EventId and EventType — not {@Event} which would serialize
+            // unredacted CustomFields/Target (potential PHI) to the ILogger sink.
             logger.LogCritical(dlqEx,
-                "CRITICAL: Failed to store audit event {EventId} in dead letter queue. Event data: {@Event}",
-                auditEvent.EventId, auditEvent);
+                "CRITICAL: Failed to store audit event {EventId} (type: {EventType}) in dead letter queue. See emergency fallback file.",
+                auditEvent.EventId, auditEvent.EventType);
 
             // Consider additional fallback like Windows Event Log or file system
             await EmergencyFallbackAsync(auditEvent, dlqEx);
@@ -195,8 +195,8 @@ public sealed class ResilientAuditLogger(
             catch (Exception dlqEx)
             {
                 logger.LogCritical(dlqEx,
-                    "CRITICAL: Failed to store audit event {EventId} in dead letter queue. Event data: {@Event}",
-                    auditEvent.EventId, auditEvent);
+                    "CRITICAL: Failed to store audit event {EventId} (type: {EventType}) in dead letter queue. See emergency fallback file.",
+                    auditEvent.EventId, auditEvent.EventType);
                 await EmergencyFallbackAsync(auditEvent, dlqEx);
             }
         }
@@ -329,11 +329,27 @@ public sealed class ResilientAuditLogger(
             var fileName = $"emergency_{auditEvent.EventId}_{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.json";
             var filePath = Path.Combine(emergencyPath, fileName);
 
+            // Redact sensitive data before writing to the temp directory.
+            // Emergency files may be world-readable in containerized environments,
+            // so apply the same redaction as normal persistence.
+            var redactedCustomFields = fieldRedactor.RedactFields(auditEvent.CustomFields);
+            var redactedTarget = fieldRedactor.RedactTarget(auditEvent.Target);
+
             var emergencyData = new
             {
                 Timestamp = DateTimeOffset.UtcNow,
-                Event = auditEvent,
-                Error = exception.ToString()
+                Event = new
+                {
+                    auditEvent.EventId,
+                    auditEvent.EventType,
+                    auditEvent.StartDate,
+                    auditEvent.EndDate,
+                    Target = redactedTarget,
+                    CustomFields = redactedCustomFields,
+                    auditEvent.Success,
+                    auditEvent.ErrorMessage
+                },
+                Error = exception.GetType().Name // Exclude full stack trace from temp files
             };
 
             await File.WriteAllTextAsync(filePath,

@@ -111,12 +111,12 @@ public class ArchiveVerificationBackgroundServiceTests
         };
 
         _mockArchiveRepository
-            .Setup(x => x.GetArchivesNeedingVerificationAsync(
+            .Setup(static x => x.GetArchivesNeedingVerificationAsync(
                 It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditArchiveRecordEntity> { tamperedArchive });
 
         _mockArchivalService
-            .Setup(x => x.ValidateArchiveIntegrityAsync("archive-tampered-001", It.IsAny<CancellationToken>()))
+            .Setup(static x => x.ValidateArchiveIntegrityAsync("archive-tampered-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         _configuration = BuildConfiguration();

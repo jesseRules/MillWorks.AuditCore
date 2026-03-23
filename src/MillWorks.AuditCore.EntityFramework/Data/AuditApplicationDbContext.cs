@@ -14,7 +14,7 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// <summary>
     /// Thread-safe bypass flag using AsyncLocal for per-execution-context isolation
     /// </summary>
-    private static readonly AsyncLocal<bool> BypassAuditInterceptorStorage = new();
+    private static readonly AsyncLocal<bool> _bypassAuditInterceptorStorage = new();
 
     /// <summary>
     /// Optional encryption service for field-level encryption via value converters
@@ -24,8 +24,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// <inheritdoc />
     public bool BypassAuditInterceptor
     {
-        get => BypassAuditInterceptorStorage.Value;
-        set => BypassAuditInterceptorStorage.Value = value;
+        get => _bypassAuditInterceptorStorage.Value;
+        set => _bypassAuditInterceptorStorage.Value = value;
     }
 
     /// <summary>
@@ -136,15 +136,15 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
             return await base.SaveChangesAsync(cancellationToken);
 
         // Temporarily bypass the interceptor
-        var previousBypassState = BypassAuditInterceptorStorage.Value;
+        var previousBypassState = _bypassAuditInterceptorStorage.Value;
         try
         {
-            BypassAuditInterceptorStorage.Value = true;
+            _bypassAuditInterceptorStorage.Value = true;
             return await base.SaveChangesAsync(cancellationToken);
         }
         finally
         {
-            BypassAuditInterceptorStorage.Value = previousBypassState;
+            _bypassAuditInterceptorStorage.Value = previousBypassState;
         }
     }
 
@@ -161,15 +161,15 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
         if (!savingAuditEntities)
             return base.SaveChanges();
 
-        var previousBypassState = BypassAuditInterceptorStorage.Value;
+        var previousBypassState = _bypassAuditInterceptorStorage.Value;
         try
         {
-            BypassAuditInterceptorStorage.Value = true;
+            _bypassAuditInterceptorStorage.Value = true;
             return base.SaveChanges();
         }
         finally
         {
-            BypassAuditInterceptorStorage.Value = previousBypassState;
+            _bypassAuditInterceptorStorage.Value = previousBypassState;
         }
     }
 
@@ -378,16 +378,15 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
                     if (property.ClrType == typeof(DateTimeOffset))
                     {
                         property.SetValueConverter(
-                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset, string>(
-                                v => v.ToString("O"),
-                                v => DateTimeOffset.Parse(v)));
+                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset,
+                                string>(static v => v.ToString("O"), static v => DateTimeOffset.Parse(v)));
                     }
                     else
                     {
                         property.SetValueConverter(
-                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset?, string?>(
-                                v => v.HasValue ? v.Value.ToString("O") : null,
-                                v => v != null ? DateTimeOffset.Parse(v) : null));
+                            new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset?,
+                                string?>(static v => v.HasValue ? v.Value.ToString("O") : null,
+                                static v => v != null ? DateTimeOffset.Parse(v) : null));
                     }
                 }
 

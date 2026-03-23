@@ -43,7 +43,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <summary>
     /// Audit entity types to exclude from auditing
     /// </summary>
-    private static readonly HashSet<Type> AuditEntityTypes =
+    private static readonly HashSet<Type> _auditEntityTypes =
     [
         typeof(AuditEventEntity),
         typeof(AuditIntegrityEntity),
@@ -52,11 +52,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         typeof(AuditSecurityEventEntity)
     ];
 
-    private static readonly ConcurrentDictionary<Type, bool> NoAuditTypeCache = new();
-    private static readonly ConcurrentDictionary<Type, FERPAAttribute?> FerpaAttributeCache = new();
-    private static readonly ConcurrentDictionary<PropertyInfo, PropertyAuditMetadata> PropertyMetadataCache = new();
+    private static readonly ConcurrentDictionary<Type, bool> _noAuditTypeCache = new();
+    private static readonly ConcurrentDictionary<Type, FERPAAttribute?> _ferpaAttributeCache = new();
+    private static readonly ConcurrentDictionary<PropertyInfo, PropertyAuditMetadata> _propertyMetadataCache = new();
 
-    private static readonly JsonSerializerOptions SnapshotSerializerOptions = new()
+    private static readonly JsonSerializerOptions _snapshotSerializerOptions = new()
     {
         ReferenceHandler = ReferenceHandler.IgnoreCycles,
         MaxDepth = 8,
@@ -65,18 +65,18 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     private static bool HasNoAuditAttribute(Type type)
     {
-        return NoAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
+        return _noAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
     }
 
-    private static FERPAAttribute? GetFerpaAttribute(Type type)
+    private static FERPAAttribute? GetFERPAAttribute(Type type)
     {
-        return FerpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
+        return _ferpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
     }
 
     private static PropertyAuditMetadata GetPropertyMetadata(PropertyInfo? propertyInfo)
     {
         if (propertyInfo == null) return default;
-        return PropertyMetadataCache.GetOrAdd(propertyInfo, static p =>
+        return _propertyMetadataCache.GetOrAdd(propertyInfo, static p =>
         {
             var encrypted = p.GetCustomAttribute<EncryptedFieldAttribute>();
             var sensitive = p.GetCustomAttribute<SensitiveDataAttribute>();
@@ -233,7 +233,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         foreach (var entry in entries)
         {
             var entityType = entry.Entity.GetType();
-            var ferpaAttr = GetFerpaAttribute(entityType);
+            var ferpaAttr = GetFERPAAttribute(entityType);
 
             // Skip: not FERPA, or doesn't require consent
             if (ferpaAttr is not { RequiresConsent: true })
@@ -329,7 +329,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         return context.ChangeTracker.Entries()
             .Where(static e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .Where(static e => !AuditEntityTypes.Contains(e.Entity.GetType()))
+            .Where(static e => !_auditEntityTypes.Contains(e.Entity.GetType()))
             .Where(static e => !HasNoAuditAttribute(e.Entity.GetType()))
             .ToList();
     }
@@ -364,7 +364,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 var entityId = GetPrimaryKeyValue(entry);
 
                 // Check for [FERPA] attribute — cached per type
-                var ferpaAttr = GetFerpaAttribute(entityType);
+                var ferpaAttr = GetFERPAAttribute(entityType);
 
                 _logger.LogDebug(
                     "Processing audit entry for {EntityType} with state {State}",
@@ -381,10 +381,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                             continue;
 
                         // Skip unchanged values (EF sometimes marks properties as modified even if value didn't change).
-                        // Use Equals on raw objects — ToString() can produce false positives
-                        // (e.g. decimal vs double string differences) and unnecessarily
-                        // materializes sensitive values as strings.
-                        if (Equals(prop.OriginalValue, prop.CurrentValue))
+                        // Use type-aware comparison: byte[] needs SequenceEqual since Equals
+                        // only checks reference equality for arrays, producing false-positive diffs.
+                        if (AreValuesEqual(prop.OriginalValue, prop.CurrentValue))
                             continue;
 
                         var maskedOld = MaskOrRedact(meta, prop.OriginalValue);
@@ -444,7 +443,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     string? additionalData = null;
                     try
                     {
-                        additionalData = Truncate(JsonSerializer.Serialize(snapshot, SnapshotSerializerOptions), 4000);
+                        additionalData = Truncate(JsonSerializer.Serialize(snapshot, _snapshotSerializerOptions), 4000);
                     }
                     catch (Exception ex)
                     {
@@ -490,7 +489,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 ["_ConsentRequired"] = ferpaAttr.RequiresConsent,
                 ["_RecordType"] = ferpaAttr.RecordType
             };
-            return JsonSerializer.Serialize(ferpaData, SnapshotSerializerOptions);
+            return JsonSerializer.Serialize(ferpaData, _snapshotSerializerOptions);
         }
         catch
         {
@@ -585,10 +584,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     };
 
     /// <summary>
-    /// Attempts to extract the primary key value as a Guid from the entry.
-    /// Returns null for non-Guid PKs (int, long, etc.) — those entities will have
-    /// a null EntityId in their audit log records. If non-Guid PKs become common,
-    /// consider changing EntityId to string? to accommodate all key types.
+    /// Extracts the primary key value as a Guid from the entry.
     /// </summary>
     private static Guid? GetPrimaryKeyValue(EntityEntry entry)
     {
@@ -601,6 +597,22 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             string s when Guid.TryParse(s, out var parsed) => parsed,
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Type-aware equality check that handles byte[] (SequenceEqual) and other reference
+    /// types correctly. Standard Equals() uses reference equality for arrays, which produces
+    /// false-positive "Modified" audit entries for unchanged byte[] properties.
+    /// </summary>
+    private static bool AreValuesEqual(object? original, object? current)
+    {
+        if (ReferenceEquals(original, current)) return true;
+        if (original is null || current is null) return false;
+
+        if (original is byte[] originalBytes && current is byte[] currentBytes)
+            return originalBytes.AsSpan().SequenceEqual(currentBytes);
+
+        return Equals(original, current);
     }
 
     /// <summary>

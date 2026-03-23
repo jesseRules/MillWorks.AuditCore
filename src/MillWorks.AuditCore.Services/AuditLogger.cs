@@ -87,6 +87,12 @@ public sealed class AuditLogger(
                 "Duplicate key for event {EventId}. Treating as success.",
                 auditEvent.EventId);
         }
+        catch (OperationCanceledException)
+        {
+            // Silently propagate cancellation — don't log as an error.
+            // ResilientAuditLogger has its own OperationCanceledException handler.
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex,
@@ -152,6 +158,11 @@ public sealed class AuditLogger(
         {
             logger.LogDebug("Duplicate key in batch. Treating as success.");
             return BatchAuditResult.Succeeded(auditEvents.Count);
+        }
+        catch (OperationCanceledException)
+        {
+            // Silently propagate cancellation — same as LogAsync (see N1 fix)
+            throw;
         }
         catch (Exception ex)
         {
@@ -361,7 +372,10 @@ public sealed class AuditLogger(
             additionalData[field.Key] = field.Value;
         }
 
-        // Serialize the entire event as JSON for JsonData field (uses redacted fields)
+        // Redact target object before serialization to prevent PHI/PII leaking into JsonData
+        var redactedTarget = fieldRedactor.RedactTarget(auditEvent.Target);
+
+        // Serialize the entire event as JSON for JsonData field (uses redacted fields + target)
         entity.JsonData = JsonSerializer.Serialize(new
         {
             auditEvent.EventId,
@@ -370,7 +384,7 @@ public sealed class AuditLogger(
             auditEvent.EndDate,
             auditEvent.Duration,
             auditEvent.Environment,
-            auditEvent.Target,
+            Target = redactedTarget,
             CustomFields = redactedCustomFields,
             auditEvent.Success,
             auditEvent.ErrorMessage
@@ -409,8 +423,16 @@ public sealed class AuditLogger(
     {
         if (value is null) return null;
 
-        // Fast path: check if any control characters exist before allocating
-        bool hasControlChars = value.Any(char.IsControl);
+        // Fast path: zero-allocation scan for control characters
+        bool hasControlChars = false;
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (char.IsControl(value[i]))
+            {
+                hasControlChars = true;
+                break;
+            }
+        }
 
         if (!hasControlChars) return value;
 

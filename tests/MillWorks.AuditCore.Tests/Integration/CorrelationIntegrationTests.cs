@@ -32,7 +32,7 @@ public class CorrelationIntegrationTests : IDisposable
 
         _options = new DbContextOptionsBuilder<CorrelationSqliteDbContext>()
             .UseSqlite(_connection)
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .AddInterceptors(_interceptor)
             .Options;
 

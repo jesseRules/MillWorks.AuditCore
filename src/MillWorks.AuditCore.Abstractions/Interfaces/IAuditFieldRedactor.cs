@@ -1,3 +1,5 @@
+using MillWorks.AuditCore.Abstractions.Models;
+
 namespace MillWorks.AuditCore.Abstractions.Interfaces;
 
 /// <summary>
@@ -16,7 +18,7 @@ public interface IAuditFieldRedactor
     /// </summary>
     /// <param name="fields">The fields to redact. Implementations should return a new dictionary
     /// or modify and return the input — either approach is acceptable.</param>
-    /// <returns>The redacted fields dictionary.</returns>
+    /// <returns>The redacted fields' dictionary.</returns>
     Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields);
 
     /// <summary>
@@ -28,4 +30,14 @@ public interface IAuditFieldRedactor
     /// <param name="value">The current value.</param>
     /// <returns>The redacted value, or null to suppress.</returns>
     string? RedactValue(string fieldName, string? value);
+
+    /// <summary>
+    /// Redacts sensitive data from an audit target before serialization into JsonData.
+    /// Called for the <see cref="MillWorks.AuditCore.Abstractions.Models.AuditTarget"/> object
+    /// which may contain entity snapshots with PHI/PII (e.g., via SetTarget(patientEntity)).
+    /// The default implementation returns the target unchanged.
+    /// </summary>
+    /// <param name="target">The audit target to redact, or null.</param>
+    /// <returns>The redacted audit target, or null to suppress entirely.</returns>
+    AuditTarget? RedactTarget(AuditTarget? target) => target;
 }

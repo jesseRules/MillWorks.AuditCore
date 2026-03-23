@@ -12,6 +12,9 @@ namespace MillWorks.AuditCore.Tests.Mapping;
 [Category("Unit")]
 public class AuditMappingTests
 {
+    /// <summary>
+    /// Mapper instance configured with AuditMappingConfiguration for testing all mappings between entities and DTOs.
+    /// </summary>
     private IMapper _mapper;
 
     [SetUp]

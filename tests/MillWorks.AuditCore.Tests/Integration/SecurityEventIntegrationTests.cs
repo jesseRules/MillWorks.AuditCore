@@ -72,7 +72,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         using var verifyContext = CreateContext();
         var persisted = await verifyContext.Set<AuditSecurityEventEntity>()
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Message == "Unauthorized access attempt detected");
+            .FirstOrDefaultAsync(static e => e.Message == "Unauthorized access attempt detected");
 
         Assert.That(persisted, Is.Not.Null);
         Assert.That(persisted!.EventType, Is.EqualTo(SecurityEventType.UnauthorizedAccess));
@@ -134,7 +134,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
 
         // Assert - GetCriticalEventsAsync filters for Critical severity only
         Assert.That(criticalEvents, Has.Count.EqualTo(2));
-        Assert.That(criticalEvents.All(e => e.Severity == SecurityEventSeverity.Critical), Is.True);
+        Assert.That(criticalEvents.All(static e => e.Severity == SecurityEventSeverity.Critical), Is.True);
     }
 
     [Test]

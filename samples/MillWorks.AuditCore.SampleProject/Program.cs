@@ -78,10 +78,10 @@ builder.Services.AddMillWorksAudit(auditBuilder =>
     // Option B: File-based encryption (for DMZ/air-gapped deployments)
     else if (builder.Configuration.GetValue<bool>("Encryption:UseFileStorage"))
     {
-        var keyStorePath = builder.Configuration["Encryption:KeyStorePath"] 
+        var keyStorePath = builder.Configuration["Encryption:KeyStorePath"]
             ?? "/secure/encryption-keys";
         var masterKey = builder.Configuration["Encryption:MasterKey"];
-        
+
         if (!string.IsNullOrEmpty(masterKey))
         {
             auditBuilder.UseFieldEncryptionWithFileStorage(keyStorePath, masterKey);

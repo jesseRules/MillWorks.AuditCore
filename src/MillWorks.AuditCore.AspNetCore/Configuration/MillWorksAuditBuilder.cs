@@ -210,7 +210,7 @@ public sealed class MillWorksAuditBuilder
         // Register attribute scanner as singleton (eagerly populates caches in constructor)
         Services.AddSingleton<IComplianceAttributeScanner>(sp =>
         {
-            var logger = sp.GetService<Microsoft.Extensions.Logging.ILogger<ComplianceAttributeScanner>>();
+            var logger = sp.GetService<ILogger<ComplianceAttributeScanner>>();
             return new ComplianceAttributeScanner(
                 complianceOptions.AssembliesToScan.Count > 0 ? complianceOptions.AssembliesToScan : null,
                 logger);

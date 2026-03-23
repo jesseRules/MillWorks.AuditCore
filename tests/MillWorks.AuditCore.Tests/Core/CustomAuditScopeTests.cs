@@ -116,7 +116,7 @@ public class CustomAuditScopeTests
 
         // Assert — sync Dispose should NOT call the logger
         _mockAuditLogger.Verify(
-            x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
+            static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

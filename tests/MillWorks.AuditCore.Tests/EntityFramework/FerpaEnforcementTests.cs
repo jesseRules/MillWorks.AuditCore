@@ -111,7 +111,7 @@ public class FerpaEnforcementTests
     {
         // Arrange — consent service that blows up
         var failingService = new Mock<IConsentVerificationService>();
-        failingService.Setup(s => s.HasActiveConsent(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+        failingService.Setup(static s => s.HasActiveConsent(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .Throws(new InvalidOperationException("Cache corrupted"));
 
         var (_, ctx) = CreateContext(ComplianceEnforcementMode.Enforce, consentServiceOverride: failingService.Object);

@@ -1,18 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <PackageId>MillWorks.AuditCore</PackageId>
-        <Description>Tamper-evident audit logging and compliance platform for .NET — batteries-included package with EF Core and ASP.NET Core integration</Description>
-        <IsPackable>true</IsPackable>
-    </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>MillWorks.AuditCore</PackageId>
+    <Description>Tamper-evident audit logging and compliance platform for .NET — batteries-included package with EF Core and ASP.NET Core integration</Description>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\MillWorks.AuditCore.Abstractions\MillWorks.AuditCore.Abstractions.csproj" />
-        <ProjectReference Include="..\MillWorks.AuditCore.Services\MillWorks.AuditCore.Services.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MillWorks.AuditCore.Abstractions\MillWorks.AuditCore.Abstractions.csproj"/>
+    <ProjectReference Include="..\MillWorks.AuditCore.Services\MillWorks.AuditCore.Services.csproj"/>
+  </ItemGroup>
 
 </Project>

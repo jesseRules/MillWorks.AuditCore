@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -16,6 +18,16 @@ public sealed class AuditEventFactory(
     ILogger<AuditEventFactory> logger)
     : IAuditEventFactory
 {
+    // Static environment values are constant for the lifetime of the process —
+    // no need to query the OS per event.
+    private static readonly string _machineName = Environment.MachineName;
+    private static readonly string _domainName = Environment.UserDomainName;
+    private static readonly string _culture = Thread.CurrentThread.CurrentCulture.ToString();
+
+    // Cached compiled delegates for extracting "Id" property from entity types,
+    // avoiding per-event reflection overhead.
+    private static readonly ConcurrentDictionary<Type, Func<object, string>?> _idGetterCache = new();
+
     /// <summary>
     /// Create a new audit event with standard fields populated
     /// </summary>
@@ -62,7 +74,7 @@ public sealed class AuditEventFactory(
 
         // Add entity-specific fields
         auditEvent.CustomFields["EntityType"] = entityType;
-        auditEvent.CustomFields["EntityId"] = entity.GetType().GetProperty("Id")?.GetValue(entity)?.ToString() ?? "Unknown";
+        auditEvent.CustomFields["EntityId"] = GetEntityId(entity);
         auditEvent.CustomFields["Action"] = action;
 
         return auditEvent;
@@ -128,11 +140,11 @@ public sealed class AuditEventFactory(
         return new AuditEnvironment
         {
             UserName = userName,
-            MachineName = Environment.MachineName,
-            DomainName = Environment.UserDomainName,
+            MachineName = _machineName,
+            DomainName = _domainName,
             CallingMethodName = callerMemberName,
             AssemblyName = "MillWorks.Audit",
-            Culture = Thread.CurrentThread.CurrentCulture.ToString()
+            Culture = _culture
         };
     }
 
@@ -189,4 +201,27 @@ public sealed class AuditEventFactory(
         auditEvent.CustomFields["RequestId"] = Activity.Current?.Id ?? context.TraceIdentifier;
     }
 
+    /// <summary>
+    /// Extracts the "Id" property value from an entity using cached compiled expressions.
+    /// Falls back to "Unknown" if the entity type has no "Id" property.
+    /// </summary>
+    private static string GetEntityId(object entity)
+    {
+        var type = entity.GetType();
+        var getter = _idGetterCache.GetOrAdd(type, static t =>
+        {
+            var prop = t.GetProperty("Id");
+            if (prop is null) return null;
+
+            // Build: (object obj) => ((TEntity)obj).Id?.ToString() ?? "Unknown"
+            var param = Expression.Parameter(typeof(object), "obj");
+            var cast = Expression.Convert(param, t);
+            var access = Expression.Property(cast, prop);
+            var toObject = Expression.Convert(access, typeof(object));
+            var func = Expression.Lambda<Func<object, object>>(toObject, param).Compile();
+            return obj => func(obj)?.ToString() ?? "Unknown";
+        });
+
+        return getter?.Invoke(entity) ?? "Unknown";
+    }
 }

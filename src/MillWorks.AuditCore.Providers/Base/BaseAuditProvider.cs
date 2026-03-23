@@ -30,7 +30,7 @@ public abstract class BaseAuditProvider : IAuditProvider
     /// <summary>
     /// Cache for reflected properties per type to avoid repeated reflection calls
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
 
     /// <summary>
     /// Base constructor for audit providers
@@ -164,7 +164,7 @@ public abstract class BaseAuditProvider : IAuditProvider
     /// </summary>
     protected static PropertyInfo[] GetScalarProperties(Type type)
     {
-        return PropertyCache.GetOrAdd(type, static t =>
+        return _propertyCache.GetOrAdd(type, static t =>
             t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(static p => !p.PropertyType.IsClass || p.PropertyType == typeof(string))
                 .ToArray());

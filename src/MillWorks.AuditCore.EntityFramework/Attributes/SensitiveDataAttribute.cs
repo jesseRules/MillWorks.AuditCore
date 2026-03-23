@@ -46,5 +46,8 @@ public sealed class SensitiveDataAttribute : Attribute
         }
     }
 
+    /// <summary>
+    /// Backing field for MaskPattern with validation to prevent excessively long patterns that could leak data.
+    /// </summary>
     private string? _maskPattern;
 }
