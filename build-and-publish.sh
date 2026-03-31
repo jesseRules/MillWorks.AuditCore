@@ -36,7 +36,7 @@ done
 
 # Read version from Directory.Build.props if not specified
 if [ -z "$VERSION" ]; then
-    VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' Directory.Build.props 2>/dev/null)
+    VERSION=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props 2>/dev/null | head -1)
     if [ -z "$VERSION" ]; then
         echo "ERROR: Could not read version from Directory.Build.props and no -v flag provided"
         exit 1
