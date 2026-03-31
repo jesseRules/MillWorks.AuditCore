@@ -573,9 +573,11 @@ public sealed class AuditSearchService(
             {
                 return JsonSerializer.Deserialize<T>(jsonStr);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore deserialization errors
+                logger.LogWarning(ex,
+                    "Failed to deserialize field {FieldName} as {TypeName}",
+                    primaryKey, typeof(T).Name);
             }
         }
 
@@ -585,9 +587,11 @@ public sealed class AuditSearchService(
             {
                 return JsonSerializer.Deserialize<T>(altJsonStr);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore deserialization errors
+                logger.LogWarning(ex,
+                    "Failed to deserialize field {FieldName} as {TypeName}",
+                    alternateKey, typeof(T).Name);
             }
         }
 

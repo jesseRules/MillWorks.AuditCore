@@ -448,6 +448,25 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Failed to serialize audit snapshot for {EntityName}", entityName);
+
+                        // Fall back to a minimal representation so the audit record
+                        // is never hollow — it always carries at least enough data
+                        // to identify what changed, even if values couldn't be serialized.
+                        try
+                        {
+                            var fallback = new Dictionary<string, object?>
+                            {
+                                ["_serializationError"] = true,
+                                ["_entityName"] = entityName,
+                                ["_action"] = entry.State.ToString(),
+                                ["_propertyNames"] = snapshot.Keys.ToList()
+                            };
+                            additionalData = JsonSerializer.Serialize(fallback);
+                        }
+                        catch
+                        {
+                            // If even the fallback fails, additionalData stays null
+                        }
                     }
 
                     var description = ferpaAttr is not null
@@ -479,7 +498,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// Builds FERPA-specific additional data JSON for Modified entity audit logs.
     /// Includes the FERPA event type, consent requirement, and record type.
     /// </summary>
-    private static string? BuildFerpaAdditionalData(FERPAAttribute ferpaAttr, string entityName, AuditAction action)
+    private string? BuildFerpaAdditionalData(FERPAAttribute ferpaAttr, string entityName, AuditAction action)
     {
         try
         {
@@ -491,8 +510,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             };
             return JsonSerializer.Serialize(ferpaData, _snapshotSerializerOptions);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex,
+                "Failed to build FERPA additional data for {EntityName} ({Action})",
+                entityName, action);
             return null;
         }
     }

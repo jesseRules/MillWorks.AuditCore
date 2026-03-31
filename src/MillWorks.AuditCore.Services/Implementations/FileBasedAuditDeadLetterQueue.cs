@@ -2,8 +2,10 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -11,7 +13,9 @@ using MillWorks.AuditCore.Services.Interfaces;
 namespace MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 
 /// <summary>
-/// File-based implementation of Dead Letter Queue
+/// File-based implementation of Dead Letter Queue.
+/// Designed for small-volume use. For high-volume scenarios, use Redis DLQ.
+/// Uses a simplified filename convention (dlq_{id}.json) for O(1) path construction.
 /// </summary>
 public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
 {
@@ -46,19 +50,42 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
     /// <summary>
+    /// Field redactor for sanitizing sensitive data before DLQ storage
+    /// </summary>
+    private readonly IAuditFieldRedactor _fieldRedactor;
+
+    /// <summary>
+    /// Whether to include full stack traces in DLQ entries
+    /// </summary>
+    private readonly bool _includeStackTraces;
+
+    /// <summary>
+    /// How long processed files are retained before deletion
+    /// </summary>
+    private readonly TimeSpan _processedRetention;
+
+    /// <summary>
+    /// Maximum queue size before warnings are logged
+    /// </summary>
+    private readonly int _maxQueueSize;
+
+    /// <summary>
     /// File-based Audit Dead Letter Queue constructor
     /// </summary>
-    /// <param name="logger"></param>
-    /// <param name="configuration"></param>
-    /// <param name="serviceProvider"></param>
     public FileBasedAuditDeadLetterQueue(
         ILogger<FileBasedAuditDeadLetterQueue> logger,
         IConfiguration configuration,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        IAuditFieldRedactor fieldRedactor,
+        ResilienceOptions? resilienceOptions = null)
     {
         _logger = logger;
         _configuration = configuration;
         _serviceScopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
+        _fieldRedactor = fieldRedactor;
+        _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
+        _processedRetention = resilienceOptions?.ProcessedRetention ?? TimeSpan.FromDays(7);
+        _maxQueueSize = resilienceOptions?.FileBasedMaxQueueSize ?? 1000;
 
         _deadLetterPath = configuration["Audit:DeadLetterQueue:Path"]
                           ?? Path.Combine(Path.GetTempPath(), "MillWorks.Audit", "AuditDLQ");
@@ -75,20 +102,20 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Store a failed audit event in the dead letter queue
     /// </summary>
-    /// <param name="auditEvent"></param>
-    /// <param name="exception"></param>
-    /// <param name="reason"></param>
     public async Task StoreFailedEventAsync(AuditEvent auditEvent, Exception? exception = null, string? reason = null)
     {
+        var redactedEvent = AuditEventRedactionHelper.RedactEvent(_fieldRedactor, auditEvent);
+
         await _fileLock.WaitAsync();
         try
         {
             var deadLetterEvent = new DeadLetterAuditEvent
             {
-                OriginalEvent = auditEvent,
+                OriginalEvent = redactedEvent,
                 FailureReason = reason ?? "Unknown",
-                ExceptionMessage = exception?.Message,
-                ExceptionStackTrace = exception?.StackTrace,
+                ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+                ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+                ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces),
                 Metadata = new Dictionary<string, object>
                 {
                     ["EventType"] = auditEvent.EventType,
@@ -97,6 +124,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 }
             };
 
+            WarnIfQueueFull();
             await SaveDeadLetterEventAsync(deadLetterEvent);
 
             _logger.LogWarning("Audit event {EventId} stored in dead letter queue. Reason: {Reason}",
@@ -111,9 +139,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Store a failed audit entity in the dead letter queue
     /// </summary>
-    /// <param name="entity"></param>
-    /// <param name="exception"></param>
-    /// <param name="reason"></param>
     public async Task StoreFailedEntityAsync(AuditEventEntity entity, Exception? exception = null,
         string? reason = null)
     {
@@ -124,8 +149,9 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             {
                 OriginalEntity = entity,
                 FailureReason = reason ?? "Unknown",
-                ExceptionMessage = exception?.Message,
-                ExceptionStackTrace = exception?.StackTrace,
+                ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+                ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+                ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces),
                 Metadata = new Dictionary<string, object>
                 {
                     ["EventType"] = entity.EventType ?? "Unknown",
@@ -134,6 +160,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 }
             };
 
+            WarnIfQueueFull();
             await SaveDeadLetterEventAsync(deadLetterEvent);
 
             _logger.LogWarning("Audit entity {EventId} stored in dead letter queue. Reason: {Reason}",
@@ -148,8 +175,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Get a list of failed events from the dead letter queue
     /// </summary>
-    /// <param name="maxCount"></param>
-    /// <returns></returns>
     public async Task<List<DeadLetterAuditEvent>> GetFailedEventsAsync(int maxCount = 100)
     {
         await _fileLock.WaitAsync();
@@ -170,11 +195,13 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     private async Task<List<DeadLetterAuditEvent>> ReadFailedEventsInternalAsync(int maxCount)
     {
         var events = new List<DeadLetterAuditEvent>();
-        var files = Directory.GetFiles(_deadLetterPath, "*.json")
-            .OrderByDescending(static f => new FileInfo(f).CreationTimeUtc)
-            .Take(maxCount);
+        var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
 
-        foreach (var file in files)
+        // Sort by creation time descending, then only read the files we need
+        Array.Sort(files, (a, b) => File.GetCreationTimeUtc(b).CompareTo(File.GetCreationTimeUtc(a)));
+        var filesToRead = files.Length <= maxCount ? files : files[..maxCount];
+
+        foreach (var file in filesToRead)
         {
             try
             {
@@ -197,9 +224,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Get failed events within a specific date range
     /// </summary>
-    /// <param name="startDate"></param>
-    /// <param name="endDate"></param>
-    /// <returns></returns>
     public async Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate,
         DateTimeOffset endDate)
     {
@@ -220,8 +244,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Reprocess a specific dead letter event by its ID
     /// </summary>
-    /// <param name="deadLetterId"></param>
-    /// <returns></returns>
     public async Task<bool> ReprocessEventAsync(string deadLetterId)
     {
         await _fileLock.WaitAsync();
@@ -294,8 +316,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// Note: This is best-effort — the event list is read under lock, but each reprocess
     /// acquires/releases the lock independently. Events may be added or removed between iterations.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
     public async Task<ReprocessingResult> ReprocessAllAsync(CancellationToken cancellationToken = default)
     {
         var result = new ReprocessingResult();
@@ -337,14 +357,13 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Purge processed events from the dead letter queue
     /// </summary>
-    /// <returns></returns>
     public async Task<int> PurgeProcessedEventsAsync()
     {
         await _fileLock.WaitAsync();
         try
         {
             var count = 0;
-            var files = Directory.GetFiles(_deadLetterPath, "*.json");
+            var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
 
             foreach (var file in files)
             {
@@ -370,6 +389,30 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 }
             }
 
+            // Clean up old files from the Processed folder that have exceeded retention
+            var retentionPath = Path.Combine(_deadLetterPath, "Processed");
+            if (Directory.Exists(retentionPath))
+            {
+                var cutoff = DateTimeOffset.UtcNow - _processedRetention;
+                var processedFiles = Directory.GetFiles(retentionPath, "*.json");
+                foreach (var file in processedFiles)
+                {
+                    try
+                    {
+                        if (new FileInfo(file).CreationTimeUtc < cutoff.UtcDateTime)
+                        {
+                            File.Delete(file);
+                            count++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting expired processed file {FileName}",
+                            Path.GetFileName(file));
+                    }
+                }
+            }
+
             _logger.LogInformation("Purged {Count} processed events from dead letter queue", count);
             return count;
         }
@@ -382,7 +425,6 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Get statistics about the dead letter queue
     /// </summary>
-    /// <returns></returns>
     public async Task<DeadLetterStatistics> GetStatisticsAsync()
     {
         await _fileLock.WaitAsync();
@@ -413,8 +455,8 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                     .ToDictionary(static g => g.Key, static g => g.Count());
             }
 
-            // Calculate total size
-            var files = Directory.GetFiles(_deadLetterPath, "*.json");
+            // Calculate total size from actual files
+            var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
             stats.TotalSizeBytes = files.Sum(static f => new FileInfo(f).Length);
 
             return stats;
@@ -426,38 +468,66 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     }
 
     /// <summary>
-    /// Save a dead letter event to file
+    /// Constructs the file path for a specific dead letter event by its ID.
+    /// Uses a deterministic filename convention (dlq_{id}.json) for O(1) lookup
+    /// instead of directory scanning.
     /// </summary>
-    /// <param name="deadLetterEvent"></param>
+    private string GetFilePathForEvent(string deadLetterId)
+    {
+        return Path.Combine(_deadLetterPath, $"dlq_{deadLetterId}.json");
+    }
+
+    /// <summary>
+    /// Save a dead letter event to file using deterministic filename.
+    /// </summary>
     private async Task SaveDeadLetterEventAsync(DeadLetterAuditEvent deadLetterEvent)
     {
-        // Check if a file already exists for this event ID (overwrite on retry/reprocess)
-        var existingFiles = Directory.GetFiles(_deadLetterPath, $"dlq_{deadLetterEvent.Id}_*.json");
-        var filePath = existingFiles.FirstOrDefault()
-                       ?? Path.Combine(_deadLetterPath, $"dlq_{deadLetterEvent.Id}_{deadLetterEvent.FailedAt:yyyyMMddHHmmss}.json");
-
+        var filePath = GetFilePathForEvent(deadLetterEvent.Id);
         var json = JsonSerializer.Serialize(deadLetterEvent, _jsonOptions);
         await File.WriteAllTextAsync(filePath, json);
     }
 
     /// <summary>
-    /// Get the file path for a specific dead letter event by its ID
+    /// Logs a warning if the queue has reached its configured maximum size.
+    /// Caller must already hold _fileLock.
     /// </summary>
-    /// <param name="deadLetterId"></param>
-    /// <returns></returns>
-    private string GetFilePathForEvent(string deadLetterId)
+    private void WarnIfQueueFull()
     {
-        var files = Directory.GetFiles(_deadLetterPath, $"dlq_{deadLetterId}_*.json");
-        return files.FirstOrDefault() ?? Path.Combine(_deadLetterPath, $"dlq_{deadLetterId}.json");
+        var fileCount = Directory.GetFiles(_deadLetterPath, "dlq_*.json").Length;
+        if (fileCount >= _maxQueueSize)
+        {
+            _logger.LogWarning(
+                "File DLQ has reached {Count} events (max: {Max}). " +
+                "Consider switching to Redis DLQ for high-volume scenarios or purging processed events.",
+                fileCount, _maxQueueSize);
+        }
     }
 
     /// <summary>
-    /// Ensure the dead letter directory exists
+    /// Ensure the dead letter directory exists and is writable.
+    /// Fails fast at startup if the DLQ cannot function.
     /// </summary>
     private void EnsureDirectoryExists()
     {
-        if (Directory.Exists(_deadLetterPath)) return;
-        Directory.CreateDirectory(_deadLetterPath);
-        _logger.LogInformation("Created dead letter queue directory at {Path}", _deadLetterPath);
+        if (!Directory.Exists(_deadLetterPath))
+        {
+            Directory.CreateDirectory(_deadLetterPath);
+            _logger.LogInformation("Created dead letter queue directory at {Path}", _deadLetterPath);
+        }
+
+        // Write probe: verify the directory is actually writable.
+        // Discovering this at startup is far better than at incident time.
+        var probePath = Path.Combine(_deadLetterPath, $".dlq_probe_{Guid.NewGuid()}.tmp");
+        try
+        {
+            File.WriteAllText(probePath, "probe");
+            File.Delete(probePath);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Dead letter queue directory '{_deadLetterPath}' exists but is not writable. " +
+                "DLQ will not be able to store failed events.", ex);
+        }
     }
 }

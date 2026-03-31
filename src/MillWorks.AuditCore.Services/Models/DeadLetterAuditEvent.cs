@@ -24,12 +24,20 @@ public sealed class DeadLetterAuditEvent
     public string? FailureReason { get; set; }
 
     /// <summary>
-    /// Exception message if available
+    /// Exception type name (e.g. "DbUpdateException")
+    /// </summary>
+    public string? ExceptionType { get; set; }
+
+    /// <summary>
+    /// Truncated exception message. Full messages may contain sensitive data
+    /// (SQL errors, connection strings, user identifiers); this is capped at 256 characters.
     /// </summary>
     public string? ExceptionMessage { get; set; }
 
     /// <summary>
-    /// Exception stack trace if available
+    /// Exception stack trace. Only populated when IncludeStackTraces is explicitly
+    /// enabled in ResilienceOptions. Null by default to avoid leaking internal
+    /// implementation details, provider errors, and sensitive embedded values.
     /// </summary>
     public string? ExceptionStackTrace { get; set; }
 

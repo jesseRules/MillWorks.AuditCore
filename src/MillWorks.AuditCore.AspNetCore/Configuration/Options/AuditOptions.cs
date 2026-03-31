@@ -78,6 +78,13 @@ public sealed class AuditOptions
     }
 
     /// <summary>
+    /// When true, allows the pass-through (no-op) redactor in Production.
+    /// Defaults to false. Set to true only if you explicitly accept that
+    /// sensitive data (PHI/PII) will be persisted unredacted in audit storage.
+    /// </summary>
+    public bool AllowPassThroughRedactor { get; set; }
+
+    /// <summary>
     /// Default custom fields to include in every audit event
     /// </summary>
     public Dictionary<string, object> DefaultCustomFields { get; set; } = new();

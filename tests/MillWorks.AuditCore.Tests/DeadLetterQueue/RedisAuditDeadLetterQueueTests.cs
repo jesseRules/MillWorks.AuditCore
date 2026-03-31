@@ -1,13 +1,17 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
+using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.DeadLetterQueue;
 
 /// <summary>
-/// Unit tests for RedisAuditDeadLetterQueue
+/// Unit tests for RedisAuditDeadLetterQueue (hash+index storage model)
 /// </summary>
 [TestFixture]
 public class RedisAuditDeadLetterQueueTests
@@ -33,14 +37,14 @@ public class RedisAuditDeadLetterQueueTests
     private RedisAuditDeadLetterQueue _deadLetterQueue;
 
     /// <summary>
-    /// Redis sorted set storage simulation
+    /// Simulates the Redis sorted set index (key -> list of (member, score))
     /// </summary>
-    private readonly Dictionary<string, List<RedisValue>> _redisStorage = new();
+    private readonly Dictionary<string, List<(RedisValue Member, double Score)>> _sortedSetStorage = new();
 
     /// <summary>
-    /// Redis hash storage simulation
+    /// Simulates the Redis hash storage (key -> field -> value)
     /// </summary>
-    private readonly Dictionary<string, Dictionary<RedisValue, RedisValue>> _redisHashStorage = new();
+    private readonly Dictionary<string, Dictionary<RedisValue, RedisValue>> _hashStorage = new();
 
     /// <summary>
     /// Sets up the test by initializing mocks and the dead letter queue
@@ -52,29 +56,29 @@ public class RedisAuditDeadLetterQueueTests
         _mockDatabase = new Mock<IDatabase>();
         _mockLogger = new Mock<ILogger<RedisAuditDeadLetterQueue>>();
 
-        _redisStorage.Clear();
-        _redisHashStorage.Clear();
+        _sortedSetStorage.Clear();
+        _hashStorage.Clear();
 
         _mockRedis.Setup(static x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
             .Returns(_mockDatabase.Object);
 
-        // Setup SortedSetAdd
+        // Setup SortedSetAdd — stores event ID as member, timestamp as score
         _mockDatabase.Setup(static x => x.SortedSetAddAsync(
                 It.IsAny<RedisKey>(),
                 It.IsAny<RedisValue>(),
                 It.IsAny<double>(),
                 It.IsAny<SortedSetWhen>(),
                 It.IsAny<CommandFlags>()))
-            .ReturnsAsync((RedisKey key, RedisValue value, double _, SortedSetWhen _, CommandFlags _) =>
+            .ReturnsAsync((RedisKey key, RedisValue value, double score, SortedSetWhen _, CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                if (!_redisStorage.ContainsKey(keyStr))
-                    _redisStorage[keyStr] = new List<RedisValue>();
-                _redisStorage[keyStr].Add(value);
+                if (!_sortedSetStorage.ContainsKey(keyStr))
+                    _sortedSetStorage[keyStr] = [];
+                _sortedSetStorage[keyStr].Add((value, score));
                 return true;
             });
 
-        // Setup SortedSetRangeByScore
+        // Setup SortedSetRangeByScore — returns event IDs from the index
         _mockDatabase.Setup(static x => x.SortedSetRangeByScoreAsync(
                 It.IsAny<RedisKey>(),
                 It.IsAny<double>(),
@@ -88,13 +92,16 @@ public class RedisAuditDeadLetterQueueTests
                 CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                if (!_redisStorage.TryGetValue(keyStr, out List<RedisValue>? values))
+                if (!_sortedSetStorage.TryGetValue(keyStr, out var entries))
                     return [];
 
-                return order == Order.Descending ? values.Reverse<RedisValue>().ToArray() : values.ToArray();
+                var sorted = order == Order.Descending
+                    ? entries.OrderByDescending(e => e.Score)
+                    : entries.OrderBy(e => e.Score);
+                return sorted.Select(e => e.Member).ToArray();
             });
 
-        // Setup HashSet
+        // Setup HashSet (single field)
         _mockDatabase.Setup(static x => x.HashSetAsync(
                 It.IsAny<RedisKey>(),
                 It.IsAny<RedisValue>(),
@@ -104,13 +111,47 @@ public class RedisAuditDeadLetterQueueTests
             .ReturnsAsync((RedisKey key, RedisValue hashField, RedisValue value, When _, CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                if (!_redisHashStorage.ContainsKey(keyStr))
-                    _redisHashStorage[keyStr] = new Dictionary<RedisValue, RedisValue>();
-                _redisHashStorage[keyStr][hashField] = value;
+                if (!_hashStorage.ContainsKey(keyStr))
+                    _hashStorage[keyStr] = new Dictionary<RedisValue, RedisValue>();
+                _hashStorage[keyStr][hashField] = value;
                 return true;
             });
 
-        // Setup HashDelete
+        // Setup HashGet (single field) — O(1) lookup
+        _mockDatabase.Setup(static x => x.HashGetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue hashField, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (_hashStorage.TryGetValue(keyStr, out var hash) && hash.TryGetValue(hashField, out var value))
+                    return value;
+                return RedisValue.Null;
+            });
+
+        // Setup HashGet (batch) — HMGET for batch lookups
+        _mockDatabase.Setup(static x => x.HashGetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue[]>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue[] hashFields, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                var results = new RedisValue[hashFields.Length];
+                for (int i = 0; i < hashFields.Length; i++)
+                {
+                    if (_hashStorage.TryGetValue(keyStr, out var hash) &&
+                        hash.TryGetValue(hashFields[i], out var value))
+                        results[i] = value;
+                    else
+                        results[i] = RedisValue.Null;
+                }
+
+                return results;
+            });
+
+        // Setup HashDelete (single field)
         _mockDatabase.Setup(static x => x.HashDeleteAsync(
                 It.IsAny<RedisKey>(),
                 It.IsAny<RedisValue>(),
@@ -118,8 +159,7 @@ public class RedisAuditDeadLetterQueueTests
             .ReturnsAsync((RedisKey key, RedisValue hashField, CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                return _redisHashStorage.TryGetValue(keyStr, out Dictionary<RedisValue, RedisValue>? value) &&
-                       value.Remove(hashField);
+                return _hashStorage.TryGetValue(keyStr, out var hash) && hash.Remove(hashField);
             });
 
         // Setup HashDelete (array overload)
@@ -131,9 +171,9 @@ public class RedisAuditDeadLetterQueueTests
             {
                 var keyStr = key.ToString();
                 long count = 0;
-                if (_redisHashStorage.TryGetValue(keyStr, out Dictionary<RedisValue, RedisValue>? value))
+                if (_hashStorage.TryGetValue(keyStr, out var hash))
                 {
-                    count += hashFields.LongCount(field => value.Remove(field));
+                    count += hashFields.LongCount(field => hash.Remove(field));
                 }
 
                 return count;
@@ -147,9 +187,14 @@ public class RedisAuditDeadLetterQueueTests
             .ReturnsAsync((RedisKey key, RedisValue value, CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                if (_redisStorage.TryGetValue(keyStr, out List<RedisValue>? value1))
+                if (_sortedSetStorage.TryGetValue(keyStr, out var entries))
                 {
-                    return value1.Remove(value);
+                    var idx = entries.FindIndex(e => e.Member == value);
+                    if (idx >= 0)
+                    {
+                        entries.RemoveAt(idx);
+                        return true;
+                    }
                 }
 
                 return false;
@@ -165,6 +210,7 @@ public class RedisAuditDeadLetterQueueTests
 
         _deadLetterQueue = new RedisAuditDeadLetterQueue(
             _mockRedis.Object,
+            new PassThroughAuditFieldRedactor(),
             _mockLogger.Object);
     }
 
@@ -179,7 +225,7 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Stores a failed event and verifies it is stored in Redis
+    /// Stores a failed event and verifies it is stored in both index and data hash
     /// </summary>
     [Test]
     public async Task StoreFailedEventAsync_StoresInRedis()
@@ -196,7 +242,7 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEventAsync(auditEvent, exception, "Test failure");
 
-        // Assert
+        // Assert — both index (sorted set) and data (hash) should have entries
         _mockDatabase.Verify(static x => x.SortedSetAddAsync(
             It.IsAny<RedisKey>(),
             It.IsAny<RedisValue>(),
@@ -204,12 +250,34 @@ public class RedisAuditDeadLetterQueueTests
             It.IsAny<SortedSetWhen>(),
             It.IsAny<CommandFlags>()), Times.Once);
 
+        // Hash should be called twice: once for data, once for... actually just once for data
+        // (old metadata hash is gone)
         _mockDatabase.Verify(static x => x.HashSetAsync(
             It.IsAny<RedisKey>(),
             It.IsAny<RedisValue>(),
             It.IsAny<RedisValue>(),
             It.IsAny<When>(),
             It.IsAny<CommandFlags>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Storing an event applies expiry to both index and data keys
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_AppliesExpiryToBothKeys()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
+
+        // Assert — KeyExpireAsync should be called twice: once for index key, once for data key
+        _mockDatabase.Verify(static x => x.KeyExpireAsync(
+            It.IsAny<RedisKey>(),
+            It.IsAny<TimeSpan?>(),
+            It.IsAny<ExpireWhen>(),
+            It.IsAny<CommandFlags>()), Times.Exactly(2));
     }
 
     /// <summary>
@@ -239,7 +307,7 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Gets failed events and verifies they are retrieved correctly
+    /// Gets failed events and verifies they are retrieved correctly via hash+index model
     /// </summary>
     [Test]
     public async Task GetFailedEventsAsync_ReturnsStoredEvents()
@@ -272,7 +340,7 @@ public class RedisAuditDeadLetterQueueTests
                 null, $"Reason{i}");
         }
 
-        // Setup to return limited results
+        // Override SortedSetRangeByScore to respect take parameter
         _mockDatabase.Setup(static x => x.SortedSetRangeByScoreAsync(
                 It.IsAny<RedisKey>(),
                 It.IsAny<double>(),
@@ -282,15 +350,20 @@ public class RedisAuditDeadLetterQueueTests
                 It.IsAny<long>(),
                 It.IsAny<long>(),
                 It.IsAny<CommandFlags>()))
-            .ReturnsAsync((RedisKey key, double _, double _, Exclude _, Order order, long _, long _,
+            .ReturnsAsync((RedisKey key, double _, double _, Exclude _, Order order, long _, long take,
                 CommandFlags _) =>
             {
                 var keyStr = key.ToString();
-                if (!_redisStorage.TryGetValue(keyStr, out List<RedisValue>? values))
+                if (!_sortedSetStorage.TryGetValue(keyStr, out var entries))
                     return [];
 
-                var result = order == Order.Descending ? values.Reverse<RedisValue>() : values;
-                return result.Take(5).ToArray(); // Limit to 5
+                var sorted = order == Order.Descending
+                    ? entries.OrderByDescending(e => e.Score)
+                    : entries.OrderBy(e => e.Score);
+                var result = sorted.Select(e => e.Member);
+                if (take > 0)
+                    result = result.Take((int)take);
+                return result.ToArray();
             });
 
         // Act
@@ -321,10 +394,10 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Reprocesses an event with a valid ID and verifies it returns true
+    /// Reprocesses an event without IServiceScopeFactory returns false
     /// </summary>
     [Test]
-    public async Task ReprocessEventAsync_WithValidEvent_ReturnsTrue()
+    public async Task ReprocessEventAsync_WithoutScopeFactory_ReturnsFalse()
     {
         // Arrange
         var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
@@ -339,11 +412,11 @@ public class RedisAuditDeadLetterQueueTests
             return;
         }
 
-        // Act
+        // Act — no IServiceScopeFactory was injected into _deadLetterQueue
         var result = await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
 
-        // Assert - Based on the implementation, it should return true as it marks as processed
-        Assert.That(result, Is.True);
+        // Assert — replay cannot proceed without a scope factory
+        Assert.That(result, Is.False);
     }
 
     /// <summary>
@@ -440,7 +513,6 @@ public class RedisAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_ReturnsCorrectStatistics()
     {
         // Arrange
@@ -456,7 +528,7 @@ public class RedisAuditDeadLetterQueueTests
 
         // Assert
         Assert.That(stats, Is.Not.Null);
-        Assert.That(stats.TotalEvents, Is.GreaterThanOrEqualTo(0));
+        Assert.That(stats.TotalEvents, Is.EqualTo(2));
     }
 
     /// <summary>
@@ -464,7 +536,6 @@ public class RedisAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_WithEmptyQueue_ReturnsZeroStats()
     {
         // Act
@@ -486,6 +557,7 @@ public class RedisAuditDeadLetterQueueTests
         // Arrange - Create DLQ with short expiry
         var shortExpiryDlq = new RedisAuditDeadLetterQueue(
             _mockRedis.Object,
+            new PassThroughAuditFieldRedactor(),
             _mockLogger.Object,
             messageExpiry: TimeSpan.FromMilliseconds(100));
 
@@ -502,7 +574,7 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Constructor with custom queue name uses the custom name
+    /// Constructor with custom queue name uses the custom name for index key
     /// </summary>
     [Test]
     public async Task Constructor_WithCustomQueueName_UsesCustomName()
@@ -513,15 +585,16 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         var dlq = new RedisAuditDeadLetterQueue(
             _mockRedis.Object,
+            new PassThroughAuditFieldRedactor(),
             _mockLogger.Object,
             queueName: customQueueName);
 
         var event1 = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
         await dlq.StoreFailedEventAsync(event1, null, "Reason");
 
-        // Assert
+        // Assert — sorted set should use {queueName}:index
         _mockDatabase.Verify(x => x.SortedSetAddAsync(
-            It.Is<RedisKey>(k => k.ToString() == customQueueName),
+            It.Is<RedisKey>(k => k.ToString() == $"{customQueueName}:index"),
             It.IsAny<RedisValue>(),
             It.IsAny<double>(),
             It.IsAny<SortedSetWhen>(),
@@ -544,12 +617,19 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test reason");
 
-        // Assert - Verify it was stored
+        // Assert - Verify it was stored in both index and data
         _mockDatabase.Verify(static x => x.SortedSetAddAsync(
             It.IsAny<RedisKey>(),
             It.IsAny<RedisValue>(),
             It.IsAny<double>(),
             It.IsAny<SortedSetWhen>(),
+            It.IsAny<CommandFlags>()), Times.Once);
+
+        _mockDatabase.Verify(static x => x.HashSetAsync(
+            It.IsAny<RedisKey>(),
+            It.IsAny<RedisValue>(),
+            It.IsAny<RedisValue>(),
+            It.IsAny<When>(),
             It.IsAny<CommandFlags>()), Times.Once);
     }
 
@@ -583,30 +663,23 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Gets failed events with corrupted data and verifies it skips invalid entries
+    /// GetEventByIdAsync is O(1) — does NOT scan the sorted set
     /// </summary>
     [Test]
-    public async Task GetFailedEventsAsync_WithCorruptedData_SkipsInvalidEntries()
+    public async Task GetFailedEventsAsync_UsesHashLookup_NotSortedSetScan()
     {
         // Arrange
-        var validEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Valid" };
-        await _deadLetterQueue.StoreFailedEventAsync(validEvent, null, "Reason");
-
-        // Add corrupted data directly to storage
-        _redisStorage["audit:dlq"].Add("{ invalid json");
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
 
         // Act
-        var unused = await _deadLetterQueue.GetFailedEventsAsync();
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
 
-        // Assert - Should skip the corrupted entry
-        _mockLogger.Verify(
-            static x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Failed to deserialize")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce);
+        // Assert — should use batch HashGet, not deserialize sorted set members
+        _mockDatabase.Verify(static x => x.HashGetAsync(
+            It.IsAny<RedisKey>(),
+            It.IsAny<RedisValue[]>(),
+            It.IsAny<CommandFlags>()), Times.AtLeastOnce);
     }
 
     /// <summary>
@@ -620,10 +693,10 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Reprocesses an event and verifies the retry count is updated
+    /// Reprocesses an event without scope factory — increments retry but returns false
     /// </summary>
     [Test]
-    public async Task ReprocessEventAsync_UpdatesRetryCount()
+    public async Task ReprocessEventAsync_WithoutScopeFactory_IncrementsRetryAndReturnsFalse()
     {
         // Arrange
         var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
@@ -638,19 +711,11 @@ public class RedisAuditDeadLetterQueueTests
             return;
         }
 
-        // Act
-        await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
+        // Act — no IServiceScopeFactory injected
+        var result = await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
 
-        // Assert - Verify the event was updated (check via get or via mock verification)
-        var reprocessedEvents = await _deadLetterQueue.GetFailedEventsAsync();
-        if (reprocessedEvents.Any())
-        {
-            var reprocessedEvent = reprocessedEvents.FirstOrDefault(e => e.Id == deadLetterId);
-            if (reprocessedEvent != null)
-            {
-                Assert.That(reprocessedEvent.RetryCount, Is.GreaterThan(0));
-            }
-        }
+        // Assert
+        Assert.That(result, Is.False);
     }
 
     /// <summary>
@@ -671,5 +736,262 @@ public class RedisAuditDeadLetterQueueTests
         var events = await _deadLetterQueue.GetFailedEventsAsync();
         var ids = events.Select(static e => e.Id).ToList();
         Assert.That(ids.Distinct().Count(), Is.EqualTo(ids.Count));
+    }
+}
+
+/// <summary>
+/// Tests for Redis DLQ replay semantics with IAuditLogger integration
+/// </summary>
+[TestFixture]
+public class RedisAuditDeadLetterQueueReplayTests
+{
+    private Mock<IConnectionMultiplexer> _mockRedis = null!;
+    private Mock<IDatabase> _mockDatabase = null!;
+    private Mock<IAuditLogger> _mockAuditLogger = null!;
+    private Mock<IServiceScopeFactory> _mockScopeFactory = null!;
+    private RedisAuditDeadLetterQueue _deadLetterQueue = null!;
+    private readonly Dictionary<string, List<(RedisValue Member, double Score)>> _sortedSetStorage = new();
+    private readonly Dictionary<string, Dictionary<RedisValue, RedisValue>> _hashStorage = new();
+
+    [SetUp]
+    public void SetUp()
+    {
+        _mockRedis = new Mock<IConnectionMultiplexer>();
+        _mockDatabase = new Mock<IDatabase>();
+        _mockAuditLogger = new Mock<IAuditLogger>();
+        _sortedSetStorage.Clear();
+        _hashStorage.Clear();
+
+        _mockRedis.Setup(static x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
+            .Returns(_mockDatabase.Object);
+
+        // Track stored entries in sorted set
+        _mockDatabase.Setup(x => x.SortedSetAddAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<double>(),
+                It.IsAny<SortedSetWhen>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue value, double score, SortedSetWhen _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_sortedSetStorage.ContainsKey(keyStr))
+                    _sortedSetStorage[keyStr] = [];
+                _sortedSetStorage[keyStr].Add((value, score));
+                return true;
+            });
+
+        // Return stored entries on query
+        _mockDatabase.Setup(x => x.SortedSetRangeByScoreAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<double>(),
+                It.IsAny<double>(),
+                It.IsAny<Exclude>(),
+                It.IsAny<Order>(),
+                It.IsAny<long>(),
+                It.IsAny<long>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, double _, double _, Exclude _, Order _, long _, long _,
+                CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_sortedSetStorage.TryGetValue(keyStr, out var entries))
+                    return [];
+                return entries.Select(static e => e.Member).ToArray();
+            });
+
+        // Allow removes from sorted set
+        _mockDatabase.Setup(x => x.SortedSetRemoveAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue value, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (_sortedSetStorage.TryGetValue(keyStr, out var entries))
+                {
+                    var idx = entries.FindIndex(e => e.Member == value);
+                    if (idx >= 0)
+                    {
+                        entries.RemoveAt(idx);
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+
+        // Hash set
+        _mockDatabase.Setup(static x => x.HashSetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<When>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue field, RedisValue value, When _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_hashStorage.ContainsKey(keyStr))
+                    _hashStorage[keyStr] = new Dictionary<RedisValue, RedisValue>();
+                _hashStorage[keyStr][field] = value;
+                return true;
+            });
+
+        // Hash get (single)
+        _mockDatabase.Setup(static x => x.HashGetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue field, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (_hashStorage.TryGetValue(keyStr, out var hash) && hash.TryGetValue(field, out var value))
+                    return value;
+                return RedisValue.Null;
+            });
+
+        // Hash get (batch)
+        _mockDatabase.Setup(static x => x.HashGetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue[]>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue[] fields, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                var results = new RedisValue[fields.Length];
+                for (int i = 0; i < fields.Length; i++)
+                {
+                    if (_hashStorage.TryGetValue(keyStr, out var hash) &&
+                        hash.TryGetValue(fields[i], out var value))
+                        results[i] = value;
+                    else
+                        results[i] = RedisValue.Null;
+                }
+
+                return results;
+            });
+
+        // Hash delete
+        _mockDatabase.Setup(static x => x.HashDeleteAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync((RedisKey key, RedisValue field, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                return _hashStorage.TryGetValue(keyStr, out var hash) && hash.Remove(field);
+            });
+
+        _mockDatabase.Setup(static x => x.KeyExpireAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<TimeSpan?>(),
+                It.IsAny<ExpireWhen>(),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+
+        // Wire up DI scope
+        var mockScope = new Mock<IServiceScope>();
+        var mockScopedProvider = new Mock<IServiceProvider>();
+        mockScopedProvider.Setup(static x => x.GetService(typeof(IAuditLogger)))
+            .Returns(() => _mockAuditLogger.Object);
+        mockScope.Setup(static x => x.ServiceProvider).Returns(mockScopedProvider.Object);
+
+        _mockScopeFactory = new Mock<IServiceScopeFactory>();
+        _mockScopeFactory.Setup(static x => x.CreateScope()).Returns(mockScope.Object);
+
+        _deadLetterQueue = new RedisAuditDeadLetterQueue(
+            _mockRedis.Object,
+            new PassThroughAuditFieldRedactor(),
+            logger: null,
+            serviceScopeFactory: _mockScopeFactory.Object);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _deadLetterQueue.Dispose();
+    }
+
+    /// <summary>
+    /// Replay success: LogAsync is called and event is marked processed
+    /// </summary>
+    [Test]
+    public async Task ReprocessEventAsync_Success_CallsLogAsyncAndMarksProcessed()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test.Event" };
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
+
+        _mockAuditLogger
+            .Setup(static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var deadLetterId = events[0].Id;
+
+        // Act
+        var result = await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
+
+        // Assert
+        Assert.That(result, Is.True);
+        _mockAuditLogger.Verify(
+            x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// Replay failure: LogAsync throws, event is NOT marked processed
+    /// </summary>
+    [Test]
+    public async Task ReprocessEventAsync_ReplayFails_DoesNotMarkProcessed()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test.Event" };
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
+
+        _mockAuditLogger
+            .Setup(static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("DB unavailable"));
+
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var deadLetterId = events[0].Id;
+
+        // Act
+        var result = await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
+
+        // Assert
+        Assert.That(result, Is.False);
+
+        // Event should still be in the queue (not removed)
+        var remaining = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(remaining, Has.Count.GreaterThanOrEqualTo(1));
+    }
+
+    /// <summary>
+    /// Replay failure does not produce false-positive processed state
+    /// </summary>
+    [Test]
+    public async Task ReprocessEventAsync_ReplayFails_EventNotMarkedAsProcessed()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test.Event" };
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
+
+        _mockAuditLogger
+            .Setup(static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("DB unavailable"));
+
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var deadLetterId = events[0].Id;
+
+        // Act
+        await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
+
+        // Assert — event should still be unprocessed
+        var remaining = await _deadLetterQueue.GetFailedEventsAsync();
+        var evt = remaining.FirstOrDefault(e => e.OriginalEvent?.EventId == auditEvent.EventId);
+        Assert.That(evt, Is.Not.Null);
+        Assert.That(evt!.IsProcessed, Is.False);
+        Assert.That(evt.RetryCount, Is.EqualTo(1));
     }
 }

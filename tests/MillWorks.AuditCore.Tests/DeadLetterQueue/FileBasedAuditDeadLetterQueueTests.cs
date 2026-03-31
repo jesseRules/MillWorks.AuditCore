@@ -1,8 +1,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 
@@ -91,7 +93,8 @@ public class FileBasedAuditDeadLetterQueueTests
         _deadLetterQueue = new FileBasedAuditDeadLetterQueue(
             _mockLogger.Object,
             _configuration,
-            _mockServiceProvider.Object);
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
     }
 
     /// <summary>
@@ -700,7 +703,8 @@ public class FileBasedAuditDeadLetterQueueTests
         var unused = new FileBasedAuditDeadLetterQueue(
             _mockLogger.Object,
             customConfig,
-            _mockServiceProvider.Object);
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
 
         // Assert
         Assert.That(Directory.Exists(customPath), Is.True);
@@ -732,5 +736,34 @@ public class FileBasedAuditDeadLetterQueueTests
 
         // Assert
         Assert.That(result, Is.False);
+    }
+
+    /// <summary>
+    /// Constructor with non-writable path throws at startup
+    /// </summary>
+    [Test]
+    public void Constructor_WithNonWritablePath_ThrowsAtStartup()
+    {
+        // Arrange — use a system-owned path that cannot be written to by normal users
+        var readOnlyPath = OperatingSystem.IsWindows()
+            ? @"C:\Windows\System32\nonexistent_dlq_test"
+            : "/usr/nonexistent_dlq_test";
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["Audit:DeadLetterQueue:Path"] = readOnlyPath
+            }!)
+            .Build();
+
+        // Act & Assert — should fail fast at startup, not silently succeed
+        Assert.That(() =>
+        {
+            _ = new FileBasedAuditDeadLetterQueue(
+                _mockLogger.Object,
+                config,
+                _mockServiceProvider.Object,
+                new PassThroughAuditFieldRedactor());
+        }, Throws.Exception);
     }
 }

@@ -586,9 +586,14 @@ public sealed class AuditComplianceService : IAuditComplianceService
 
             return System.Text.Encoding.UTF8.GetString(stream.ToArray());
         }
-        catch
+        catch (Exception ex)
         {
-            return jsonData; // Return original if parsing fails
+            _logger.LogWarning(ex,
+                "Failed to anonymize JSON data for user {UserId}. Returning redacted placeholder.",
+                userId);
+            // Return a safe placeholder instead of the original un-anonymized data.
+            // Returning the original would leak PII when anonymization was explicitly requested.
+            return "{\"_anonymization_error\":\"Failed to parse JSON for anonymization\"}";
         }
     }
 }

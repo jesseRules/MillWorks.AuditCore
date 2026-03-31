@@ -78,6 +78,15 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private readonly bool _useDistributedLocking;
 
     /// <summary>
+    /// Cached previous event hash to eliminate the GetLatestBySequenceAsync DB read
+    /// from the critical section in steady state. Only the first call (or after a
+    /// duplicate-key retry) reads from the database. Subsequent calls use the cached value.
+    /// Static because TamperDetectionService is Scoped — the cache must survive across requests.
+    /// </summary>
+    private static string? _cachedPreviousHash;
+    private static bool _previousHashCacheInitialized;
+
+    /// <summary>
     /// Cached signing key parameters. Loaded lazily on first use.
     /// Assumes keys are static at runtime — no rotation while the process is running.
     /// </summary>
@@ -192,14 +201,26 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     localLockAcquired = true;
                 }
 
-                // Critical section — only chain linkage + insert (narrowed from full hash computation)
-                var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                // Critical section — only chain linkage + insert (narrowed from full hash computation).
+                // Use cached previous hash in steady state to avoid a DB read per event.
+                string? previousHash;
+                if (!_previousHashCacheInitialized)
+                {
+                    var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                    previousHash = previousIntegrity?.EventHash;
+                    _previousHashCacheInitialized = true;
+                    _cachedPreviousHash = previousHash;
+                }
+                else
+                {
+                    previousHash = _cachedPreviousHash;
+                }
 
                 var integrity = new AuditIntegrityEntity
                 {
                     EventId = auditEvent.EventId,
                     EventHash = eventHash,
-                    PreviousEventHash = previousIntegrity?.EventHash,
+                    PreviousEventHash = previousHash,
                     TrustedTimestamp = timestamp,
                     HmacSignature = hmacSignature,
                     Checksum = checksum,
@@ -210,6 +231,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
                 await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
 
+                // Update cache with the hash we just wrote — next call skips the DB read
+                _cachedPreviousHash = integrity.EventHash;
+
                 _logger.LogDebug(
                     "Created integrity record for event {EventId} with sequence {SequenceNumber} (attempt {Attempt})",
                     auditEvent.EventId, integrity.SequenceNumber, retryCount + 1);
@@ -219,6 +243,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
             catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
                 retryCount++;
+
+                // Invalidate cache — another instance may have advanced the chain
+                _previousHashCacheInitialized = false;
 
                 if (retryCount >= maxRetries)
                 {
@@ -346,9 +373,19 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     localLockAcquired = true;
                 }
 
-                // Critical section: read latest sequence, build chain, bulk write
-                var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
-                string? previousHash = previousIntegrity?.EventHash;
+                // Critical section: read latest sequence (cached), build chain, bulk write
+                string? previousHash;
+                if (!_previousHashCacheInitialized)
+                {
+                    var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                    previousHash = previousIntegrity?.EventHash;
+                    _previousHashCacheInitialized = true;
+                    _cachedPreviousHash = previousHash;
+                }
+                else
+                {
+                    previousHash = _cachedPreviousHash;
+                }
 
                 var entities = new List<AuditIntegrityEntity>(auditEvents.Count);
                 for (int i = 0; i < auditEvents.Count; i++)
@@ -373,6 +410,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
                 await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
 
+                // Update cache to the last entity's hash — next call skips the DB read
+                _cachedPreviousHash = entities[^1].EventHash;
+
                 _logger.LogDebug(
                     "Created {Count} integrity records in batch (attempt {Attempt})",
                     auditEvents.Count, retryCount + 1);
@@ -382,6 +422,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
             catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
                 retryCount++;
+
+                // Invalidate cache — another instance may have advanced the chain
+                _previousHashCacheInitialized = false;
 
                 if (retryCount >= maxRetries)
                 {
@@ -855,6 +898,15 @@ public sealed class TamperDetectionService : ITamperDetectionService
             _cachedVerifyKey = rsa.ExportParameters(false);
             return _cachedVerifyKey.Value;
         }
+    }
+
+    /// <summary>
+    /// Resets the in-process previous-hash cache. Intended for test isolation only.
+    /// </summary>
+    internal static void ResetPreviousHashCache()
+    {
+        _previousHashCacheInitialized = false;
+        _cachedPreviousHash = null;
     }
 
     /// <summary>

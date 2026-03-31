@@ -386,5 +386,23 @@ public sealed class MillWorksAuditBuilder
             throw new InvalidOperationException(
                 "EnableDigitalSignatures is true but no HmacKey was provided");
         }
+
+        // Validate that a real redactor is registered in Production.
+        // The pass-through redactor performs no redaction and will persist
+        // PHI/PII/secrets in cleartext — this is unsafe for production use.
+        if (!Options.AllowPassThroughRedactor
+            && Options.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase))
+        {
+            var redactorDescriptor = Services.FirstOrDefault(
+                static s => s.ServiceType == typeof(IAuditFieldRedactor));
+
+            if (redactorDescriptor?.ImplementationType == typeof(PassThroughAuditFieldRedactor))
+            {
+                throw new InvalidOperationException(
+                    "PassThroughAuditFieldRedactor is not permitted in Production. " +
+                    "Register a custom IAuditFieldRedactor before calling AddMillWorksAudit(), " +
+                    "or set AllowPassThroughRedactor = true to explicitly accept unredacted audit storage.");
+            }
+        }
     }
 }

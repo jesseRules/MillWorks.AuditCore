@@ -1,15 +1,20 @@
 using StackExchange.Redis;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
+using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 
 /// <summary>
-/// Redis-based Dead Letter Queue for handling failed audit messages
+/// Redis-based Dead Letter Queue for handling failed audit messages.
+/// Uses a sorted set as a time-ordered index of event IDs and a hash for O(1) payload lookup.
 /// </summary>
 public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQueue
 {
@@ -24,14 +29,16 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     private readonly ILogger<RedisAuditDeadLetterQueue>? _logger;
 
     /// <summary>
-    /// Queue key in Redis
+    /// Sorted set key — members are event IDs (short strings), scores are Unix timestamps.
+    /// Used only as a time-ordered index.
     /// </summary>
-    private readonly string _queueKey;
+    private readonly string _indexKey;
 
     /// <summary>
-    /// Metadata key in Redis
+    /// Hash key — field = event ID, value = full JSON payload.
+    /// Provides O(1) get/set/delete by ID.
     /// </summary>
-    private readonly string _metadataKey;
+    private readonly string _dataKey;
 
     /// <summary>
     /// Message expiry duration
@@ -39,20 +46,50 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     private readonly TimeSpan _messageExpiry;
 
     /// <summary>
+    /// Field redactor for sanitizing sensitive data before DLQ storage
+    /// </summary>
+    private readonly IAuditFieldRedactor _fieldRedactor;
+
+    /// <summary>
+    /// Whether to include full stack traces in DLQ entries
+    /// </summary>
+    private readonly bool _includeStackTraces;
+
+    /// <summary>
+    /// Service scope factory for resolving scoped IAuditLogger during replay
+    /// </summary>
+    private readonly IServiceScopeFactory? _serviceScopeFactory;
+
+    /// <summary>
     /// Redis Audit Dead Letter Queue Constructor
     /// </summary>
     public RedisAuditDeadLetterQueue(
         IConnectionMultiplexer redis,
+        IAuditFieldRedactor fieldRedactor,
         ILogger<RedisAuditDeadLetterQueue>? logger = null,
         string queueName = "audit:dlq",
-        TimeSpan? messageExpiry = null)
+        TimeSpan? messageExpiry = null,
+        ResilienceOptions? resilienceOptions = null,
+        IServiceScopeFactory? serviceScopeFactory = null)
     {
         IConnectionMultiplexer redis1 = redis ?? throw new ArgumentNullException(nameof(redis));
+        _fieldRedactor = fieldRedactor ?? throw new ArgumentNullException(nameof(fieldRedactor));
         _logger = logger;
         _db = redis1.GetDatabase();
-        _queueKey = queueName;
-        _metadataKey = $"{queueName}:metadata";
+        _indexKey = $"{queueName}:index";
+        _dataKey = $"{queueName}:data";
         _messageExpiry = messageExpiry ?? TimeSpan.FromDays(30);
+        _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
+        _serviceScopeFactory = serviceScopeFactory;
+
+        // Startup validation: verify Redis is reachable.
+        // Discovering this at startup is far better than at incident time.
+        if (!redis1.IsConnected)
+        {
+            _logger?.LogError(
+                "Redis DLQ: connection multiplexer is not connected at startup. " +
+                "DLQ will not be able to store failed events until Redis is reachable.");
+        }
     }
 
     #region IAuditDeadLetterQueue Implementation
@@ -62,14 +99,17 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task StoreFailedEventAsync(AuditEvent auditEvent, Exception? exception = null, string? reason = null)
     {
+        var redactedEvent = AuditEventRedactionHelper.RedactEvent(_fieldRedactor, auditEvent);
+
         var deadLetterEvent = new DeadLetterAuditEvent
         {
             Id = Guid.NewGuid().ToString(),
             OriginalEventId = auditEvent.EventId.ToString(),
-            OriginalEvent = auditEvent,
+            OriginalEvent = redactedEvent,
             FailureReason = reason ?? "Unknown failure",
-            ExceptionMessage = exception?.Message,
-            ExceptionStackTrace = exception?.StackTrace,
+            ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+            ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+            ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces),
             FailedAt = DateTimeOffset.UtcNow,
             RetryCount = 0,
             IsProcessed = false,
@@ -99,8 +139,9 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
             OriginalEventId = entity.EventId.ToString(),
             OriginalEntity = entity,
             FailureReason = reason ?? "Unknown failure",
-            ExceptionMessage = exception?.Message,
-            ExceptionStackTrace = exception?.StackTrace,
+            ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+            ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+            ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces),
             FailedAt = DateTimeOffset.UtcNow,
             RetryCount = 0,
             IsProcessed = false,
@@ -123,34 +164,13 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task<List<DeadLetterAuditEvent>> GetFailedEventsAsync(int maxCount = 100)
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(
-            _queueKey,
+        // Get event IDs from the time-ordered index (most recent first)
+        var ids = await _db.SortedSetRangeByScoreAsync(
+            _indexKey,
             order: Order.Descending,
             take: maxCount);
 
-        var events = new List<DeadLetterAuditEvent>();
-
-        foreach (RedisValue entry in entries)
-        {
-            try
-            {
-                JsonSerializerOptions options = new()
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty, options);
-                if (evt != null)
-                {
-                    events.Add(evt);
-                }
-            }
-            catch (JsonException ex)
-            {
-                _logger?.LogError(ex, "Failed to deserialize dead letter event from Redis");
-            }
-        }
-
-        return events;
+        return await BatchGetEventsAsync(ids);
     }
 
     /// <summary>
@@ -162,34 +182,19 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
         var start = startDate.ToUnixTimeSeconds();
         var stop = endDate.ToUnixTimeSeconds();
 
-        var entries = await _db.SortedSetRangeByScoreAsync(
-            _queueKey,
+        // Get event IDs within the time range from the index
+        var ids = await _db.SortedSetRangeByScoreAsync(
+            _indexKey,
             start,
             stop);
 
-        var events = new List<DeadLetterAuditEvent>();
-
-        foreach (var entry in entries)
-        {
-            try
-            {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-                if (evt != null)
-                {
-                    events.Add(evt);
-                }
-            }
-            catch (JsonException ex)
-            {
-                _logger?.LogError(ex, "Failed to deserialize dead letter event from Redis");
-            }
-        }
-
-        return events;
+        return await BatchGetEventsAsync(ids);
     }
 
     /// <summary>
-    /// Reprocesses a specific event in the dead letter queue
+    /// Reprocesses a specific event in the dead letter queue by replaying it
+    /// through <see cref="IAuditLogger"/>. Only marks the event as processed
+    /// after the replay succeeds.
     /// </summary>
     public async Task<bool> ReprocessEventAsync(string deadLetterId)
     {
@@ -207,25 +212,53 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
             evt.RetryCount++;
             evt.LastRetryAt = DateTimeOffset.UtcNow;
 
-            // NOTE: In a real implementation, you would inject an IAuditLogger
-            // and call it here to actually reprocess the audit event
-            // For now, we mark as processed and remove from the queue
+            try
+            {
+                if (_serviceScopeFactory == null)
+                {
+                    _logger?.LogWarning(
+                        "Cannot reprocess event {Id} - no IServiceScopeFactory available. " +
+                        "Ensure RedisAuditDeadLetterQueue is registered through DI.",
+                        deadLetterId);
+                    return false;
+                }
 
-            evt.IsProcessed = true;
-            evt.ProcessedAt = DateTimeOffset.UtcNow;
+                using var scope = _serviceScopeFactory.CreateScope();
+                var auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
 
-            // Update the event in Redis
-            await UpdateDeadLetterEventAsync(evt);
+                if (auditLogger != null && evt.OriginalEvent != null)
+                {
+                    await auditLogger.LogAsync(evt.OriginalEvent);
 
-            // Remove from the queue after successful processing
-            await RemoveEventByIdAsync(deadLetterId);
+                    // Mark as processed only after replay succeeds
+                    evt.IsProcessed = true;
+                    evt.ProcessedAt = DateTimeOffset.UtcNow;
 
-            _logger?.LogInformation("Successfully reprocessed dead letter event {Id} from Redis", deadLetterId);
-            return true;
+                    await UpdateDeadLetterEventAsync(evt);
+                    await RemoveEventByIdAsync(deadLetterId);
+
+                    _logger?.LogInformation("Successfully reprocessed dead letter event {Id} from Redis", deadLetterId);
+                    return true;
+                }
+
+                _logger?.LogWarning("Cannot reprocess event {Id} - no audit logger available or no original event",
+                    deadLetterId);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to reprocess dead letter event {Id} from Redis", deadLetterId);
+
+                // Persist retry failure metadata
+                evt.Metadata[$"RetryFailure_{evt.RetryCount}"] = ex.GetType().Name;
+                await UpdateDeadLetterEventAsync(evt);
+
+                return false;
+            }
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to reprocess dead letter event {Id} from Redis", deadLetterId);
+            _logger?.LogError(ex, "Failed to retrieve dead letter event {Id} from Redis", deadLetterId);
             return false;
         }
     }
@@ -288,25 +321,16 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task<int> PurgeProcessedEventsAsync()
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(_queueKey);
+        var ids = await _db.SortedSetRangeByScoreAsync(_indexKey);
+        var events = await BatchGetEventsAsync(ids);
         var removedCount = 0;
 
-        foreach (var entry in entries)
+        foreach (var evt in events)
         {
-            try
+            if (evt.IsProcessed)
             {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-
-                if (evt?.IsProcessed == true)
-                {
-                    await _db.SortedSetRemoveAsync(_queueKey, entry);
-                    await _db.HashDeleteAsync(_metadataKey, evt.Id);
-                    removedCount++;
-                }
-            }
-            catch (JsonException ex)
-            {
-                _logger?.LogError(ex, "Failed to deserialize event during purge");
+                await RemoveEventByIdAsync(evt.Id);
+                removedCount++;
             }
         }
 
@@ -319,23 +343,8 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task<DeadLetterStatistics> GetStatisticsAsync()
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(_queueKey);
-        var events = new List<DeadLetterAuditEvent>();
-
-        foreach (var entry in entries)
-        {
-            try
-            {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-                if (evt != null)
-                {
-                    events.Add(evt);
-                }
-            }
-            catch (JsonException)
-            {
-            }
-        }
+        var ids = await _db.SortedSetRangeByScoreAsync(_indexKey);
+        var events = await BatchGetEventsAsync(ids);
 
         var stats = new DeadLetterStatistics
         {
@@ -352,8 +361,18 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
             EventsByFailureReason = events
                 .GroupBy(static e => e.FailureReason ?? "Unknown")
                 .ToDictionary(static g => g.Key, static g => g.Count()),
-            TotalSizeBytes = entries.Sum(static e => System.Text.Encoding.UTF8.GetByteCount(e!))
+            TotalSizeBytes = 0
         };
+
+        // Estimate total size from the data hash
+        if (ids.Length > 0)
+        {
+            var values = await _db.HashGetAsync(_dataKey,
+                ids.Select(static id => (RedisValue)id).ToArray());
+            stats.TotalSizeBytes = values
+                .Where(static v => v.HasValue)
+                .Sum(static v => System.Text.Encoding.UTF8.GetByteCount(v!));
+        }
 
         return stats;
     }
@@ -363,98 +382,99 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     #region Private Helper Methods
 
     /// <summary>
-    /// Stores a dead letter event in Redis
+    /// Stores a dead letter event in Redis using the hash+index model.
     /// </summary>
     private async Task StoreDeadLetterEventAsync(DeadLetterAuditEvent deadLetterEvent)
     {
         var json = JsonSerializer.Serialize(deadLetterEvent);
         var score = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var eventId = deadLetterEvent.Id;
 
-        await _db.SortedSetAddAsync(_queueKey, json, score);
+        // Store full payload in the data hash — O(1)
+        await _db.HashSetAsync(_dataKey, eventId, json);
 
-        // Store metadata for quick lookups
-        var metadata = new
-        {
-            deadLetterEvent.Id,
-            deadLetterEvent.FailureReason,
-            deadLetterEvent.RetryCount,
-            deadLetterEvent.FailedAt
-        };
+        // Add event ID to the time-ordered index — O(log n)
+        await _db.SortedSetAddAsync(_indexKey, eventId, score);
 
-        await _db.HashSetAsync(
-            _metadataKey,
-            deadLetterEvent.Id,
-            JsonSerializer.Serialize(metadata));
-
-        await _db.KeyExpireAsync(_metadataKey, _messageExpiry);
+        // Apply expiry to both keys
+        await _db.KeyExpireAsync(_indexKey, _messageExpiry);
+        await _db.KeyExpireAsync(_dataKey, _messageExpiry);
     }
 
     /// <summary>
-    /// Updates an existing dead letter event in Redis
+    /// Updates an existing dead letter event in the data hash — O(1).
+    /// Score (timestamp) stays the same since it represents original failure time.
     /// </summary>
     private async Task UpdateDeadLetterEventAsync(DeadLetterAuditEvent deadLetterEvent)
     {
-        // Remove old entry
-        await RemoveEventByIdAsync(deadLetterEvent.Id);
-
-        // Add updated entry
-        await StoreDeadLetterEventAsync(deadLetterEvent);
+        var json = JsonSerializer.Serialize(deadLetterEvent);
+        await _db.HashSetAsync(_dataKey, deadLetterEvent.Id, json);
     }
 
     /// <summary>
-    /// Gets a specific event by ID
+    /// Gets a specific event by ID — O(1) hash lookup.
     /// </summary>
     private async Task<DeadLetterAuditEvent?> GetEventByIdAsync(string eventId)
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(_queueKey);
+        var json = await _db.HashGetAsync(_dataKey, eventId);
+        if (json.IsNullOrEmpty) return null;
 
-        foreach (var entry in entries)
+        try
         {
-            try
-            {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-                if (evt?.Id == eventId)
-                {
-                    return evt;
-                }
-            }
-            catch (JsonException)
-            {
-            }
+            return JsonSerializer.Deserialize<DeadLetterAuditEvent>((string)json!);
         }
-
-        return null;
+        catch (JsonException ex)
+        {
+            _logger?.LogError(ex, "Failed to deserialize dead letter event {Id} from Redis", eventId);
+            return null;
+        }
     }
 
     /// <summary>
-    /// Removes an event by ID
+    /// Removes an event by ID — O(1) for hash, O(log n) for sorted set.
     /// </summary>
     private async Task<bool> RemoveEventByIdAsync(string eventId)
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(_queueKey);
-
-        foreach (var entry in entries)
+        var removed = await _db.HashDeleteAsync(_dataKey, eventId);
+        if (removed)
         {
+            await _db.SortedSetRemoveAsync(_indexKey, eventId);
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// Batch-fetches events from the data hash for a set of IDs.
+    /// Uses a single HMGET round-trip for efficiency.
+    /// </summary>
+    private async Task<List<DeadLetterAuditEvent>> BatchGetEventsAsync(RedisValue[] ids)
+    {
+        if (ids.Length == 0)
+            return [];
+
+        var values = await _db.HashGetAsync(_dataKey, ids);
+        var events = new List<DeadLetterAuditEvent>(ids.Length);
+
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (values[i].IsNullOrEmpty) continue;
+
             try
             {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-                if (evt?.Id == eventId)
+                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string)values[i]!);
+                if (evt != null)
                 {
-                    var removed = await _db.SortedSetRemoveAsync(_queueKey, entry);
-                    if (removed)
-                    {
-                        await _db.HashDeleteAsync(_metadataKey, eventId);
-                    }
-
-                    return removed;
+                    events.Add(evt);
                 }
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
+                _logger?.LogError(ex, "Failed to deserialize dead letter event from Redis");
             }
         }
 
-        return false;
+        return events;
     }
 
     /// <summary>
@@ -462,32 +482,27 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task<long> CleanupExpiredMessagesAsync(CancellationToken cancellationToken = default)
     {
-        var entries = await _db.SortedSetRangeByScoreAsync(_queueKey);
-        var removedCount = 0L;
-        var expiredIds = new List<string>();
         var expiryDate = DateTimeOffset.UtcNow.Add(-_messageExpiry);
+        var expiryScore = expiryDate.ToUnixTimeSeconds();
 
-        foreach (var entry in entries)
-        {
-            try
-            {
-                var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>((string?)entry ?? string.Empty);
-                if (evt != null && evt.FailedAt < expiryDate)
-                {
-                    await _db.SortedSetRemoveAsync(_queueKey, entry);
-                    expiredIds.Add(evt.Id);
-                    removedCount++;
-                }
-            }
-            catch (JsonException)
-            {
-            }
-        }
+        // Get IDs of expired events from the index (score < expiry threshold)
+        var expiredIds = await _db.SortedSetRangeByScoreAsync(
+            _indexKey,
+            stop: expiryScore);
 
-        if (expiredIds.Any())
+        if (expiredIds.Length == 0)
+            return 0;
+
+        // Remove from data hash
+        await _db.HashDeleteAsync(_dataKey,
+            expiredIds.Select(static id => (RedisValue)id).ToArray());
+
+        // Remove from index
+        long removedCount = 0;
+        foreach (var id in expiredIds)
         {
-            await _db.HashDeleteAsync(_metadataKey,
-                expiredIds.Select(static id => (RedisValue)id).ToArray());
+            if (await _db.SortedSetRemoveAsync(_indexKey, id))
+                removedCount++;
         }
 
         return removedCount;

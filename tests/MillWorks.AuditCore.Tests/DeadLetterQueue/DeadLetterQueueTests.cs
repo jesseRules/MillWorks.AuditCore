@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 
@@ -68,7 +71,8 @@ public class InMemoryAuditDeadLetterQueueTests
 
         _deadLetterQueue = new InMemoryAuditDeadLetterQueue(
             _mockLogger.Object,
-            _mockServiceProvider.Object);
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
     }
 
     /// <summary>
@@ -91,7 +95,9 @@ public class InMemoryAuditDeadLetterQueueTests
         // Assert
         var events = await _deadLetterQueue.GetFailedEventsAsync();
         Assert.That(events, Has.Count.EqualTo(1));
-        Assert.That(events[0].OriginalEvent, Is.EqualTo(auditEvent));
+        Assert.That(events[0].OriginalEvent, Is.Not.Null);
+        Assert.That(events[0].OriginalEvent!.EventId, Is.EqualTo(auditEvent.EventId));
+        Assert.That(events[0].OriginalEvent.EventType, Is.EqualTo(auditEvent.EventType));
         Assert.That(events[0].FailureReason, Is.EqualTo("Test failure"));
         Assert.That(events[0].ExceptionMessage, Is.EqualTo("Test error"));
     }
@@ -493,5 +499,355 @@ public class InMemoryAuditDeadLetterQueueTests
         // Assert
         var events = await _deadLetterQueue.GetFailedEventsAsync();
         Assert.That(events[0].FailureReason, Is.EqualTo("Unknown"));
+    }
+}
+
+/// <summary>
+/// Tests verifying DLQ redaction behavior
+/// </summary>
+[TestFixture]
+public class DlqRedactionTests
+{
+    /// <summary>
+    /// A test redactor that replaces sensitive values with "[REDACTED]"
+    /// </summary>
+    private sealed class TestRedactor : IAuditFieldRedactor
+    {
+        public Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields)
+        {
+            var redacted = new Dictionary<string, object?>(fields.Count);
+            foreach (var kvp in fields)
+            {
+                redacted[kvp.Key] = kvp.Key.Contains("Sensitive", StringComparison.OrdinalIgnoreCase)
+                    ? "[REDACTED]"
+                    : kvp.Value;
+            }
+            return redacted;
+        }
+
+        public string? RedactValue(string fieldName, string? value)
+        {
+            return fieldName == "UserEmail" ? "[REDACTED]" : value;
+        }
+    }
+
+    private InMemoryAuditDeadLetterQueue _deadLetterQueue = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        var mockLogger = new Mock<ILogger<InMemoryAuditDeadLetterQueue>>();
+        var mockServiceProvider = new Mock<IServiceProvider>();
+
+        var mockScopeFactory = new Mock<IServiceScopeFactory>();
+        mockServiceProvider.Setup(static x => x.GetService(typeof(IServiceScopeFactory)))
+            .Returns(mockScopeFactory.Object);
+
+        _deadLetterQueue = new InMemoryAuditDeadLetterQueue(
+            mockLogger.Object,
+            mockServiceProvider.Object,
+            new TestRedactor());
+    }
+
+    /// <summary>
+    /// StoreFailedEventAsync redacts sensitive CustomFields before storage
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_RedactsSensitiveCustomFields()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent
+        {
+            EventType = "Test.Event",
+            CustomFields = new Dictionary<string, object?>
+            {
+                ["SensitiveField"] = "secret-value",
+                ["SafeField"] = "visible-value"
+            }
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var stored = events[0].OriginalEvent!;
+        Assert.That(stored.CustomFields["SensitiveField"], Is.EqualTo("[REDACTED]"));
+        Assert.That(stored.CustomFields["SafeField"], Is.EqualTo("visible-value"));
+    }
+
+    /// <summary>
+    /// StoreFailedEventAsync redacts UserEmail before storage
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_RedactsUserEmail()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent
+        {
+            EventType = "Test.Event",
+            UserEmail = "patient@hospital.org"
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(events[0].OriginalEvent!.UserEmail, Is.EqualTo("[REDACTED]"));
+    }
+
+    /// <summary>
+    /// StoreFailedEventAsync does not mutate the original AuditEvent
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_DoesNotMutateOriginalEvent()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent
+        {
+            EventType = "Test.Event",
+            UserEmail = "patient@hospital.org",
+            CustomFields = new Dictionary<string, object?>
+            {
+                ["SensitiveField"] = "secret-value"
+            }
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert - original event must be unchanged
+        Assert.That(auditEvent.UserEmail, Is.EqualTo("patient@hospital.org"));
+        Assert.That(auditEvent.CustomFields["SensitiveField"], Is.EqualTo("secret-value"));
+    }
+
+    /// <summary>
+    /// StoreFailedEventAsync preserves EventId and EventType after redaction
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_PreservesIdentityFieldsAfterRedaction()
+    {
+        // Arrange
+        var eventId = Guid.NewGuid();
+        var auditEvent = new AuditEvent
+        {
+            EventId = eventId,
+            EventType = "Security.AccessDenied",
+            UserEmail = "patient@hospital.org"
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var stored = events[0].OriginalEvent!;
+        Assert.That(stored.EventId, Is.EqualTo(eventId));
+        Assert.That(stored.EventType, Is.EqualTo("Security.AccessDenied"));
+    }
+
+    /// <summary>
+    /// StoreFailedEventAsync redacts OldValues and NewValues
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_RedactsOldAndNewValues()
+    {
+        // Arrange
+        var auditEvent = new AuditEvent
+        {
+            EventType = "Data.Update",
+            OldValues = new Dictionary<string, object?> { ["SensitiveData"] = "old-secret" },
+            NewValues = new Dictionary<string, object?> { ["SensitiveData"] = "new-secret" }
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var stored = events[0].OriginalEvent!;
+        Assert.That(stored.OldValues["SensitiveData"], Is.EqualTo("[REDACTED]"));
+        Assert.That(stored.NewValues["SensitiveData"], Is.EqualTo("[REDACTED]"));
+    }
+
+    /// <summary>
+    /// Failure path and success path produce equivalent redaction
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_FailurePathParity_RedactionMatchesSuccessPath()
+    {
+        // Arrange - event with sensitive data in all redactable locations
+        var auditEvent = new AuditEvent
+        {
+            EventType = "Test.Parity",
+            UserEmail = "user@example.com",
+            CustomFields = new Dictionary<string, object?>
+            {
+                ["SensitiveField"] = "secret",
+                ["NormalField"] = "visible"
+            },
+            OldValues = new Dictionary<string, object?> { ["SensitiveRecord"] = "old" },
+            NewValues = new Dictionary<string, object?> { ["SensitiveRecord"] = "new" }
+        };
+
+        // Act
+        await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert - verify all sensitive paths are redacted
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        var stored = events[0].OriginalEvent!;
+
+        Assert.That(stored.UserEmail, Is.EqualTo("[REDACTED]"), "UserEmail should be redacted");
+        Assert.That(stored.CustomFields["SensitiveField"], Is.EqualTo("[REDACTED]"), "Sensitive CustomField should be redacted");
+        Assert.That(stored.CustomFields["NormalField"], Is.EqualTo("visible"), "Non-sensitive CustomField should pass through");
+    }
+}
+
+/// <summary>
+/// Tests verifying DLQ stack trace suppression behavior
+/// </summary>
+[TestFixture]
+public class DlqStackTraceSuppressionTests
+{
+    private Mock<ILogger<InMemoryAuditDeadLetterQueue>> _mockLogger = null!;
+    private Mock<IServiceProvider> _mockServiceProvider = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _mockLogger = new Mock<ILogger<InMemoryAuditDeadLetterQueue>>();
+        _mockServiceProvider = new Mock<IServiceProvider>();
+
+        var mockScopeFactory = new Mock<IServiceScopeFactory>();
+        _mockServiceProvider.Setup(static x => x.GetService(typeof(IServiceScopeFactory)))
+            .Returns(mockScopeFactory.Object);
+    }
+
+    /// <summary>
+    /// By default, stack traces are not stored in DLQ entries
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_DefaultConfig_OmitsStackTrace()
+    {
+        // Arrange — default ResilienceOptions (IncludeStackTraces = false)
+        var dlq = new InMemoryAuditDeadLetterQueue(
+            _mockLogger.Object,
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
+
+        var auditEvent = new AuditEvent { EventType = "Test.Event" };
+
+        // Throw to get a real stack trace
+        Exception realException;
+        try { throw new InvalidOperationException("something broke"); }
+        catch (Exception ex) { realException = ex; }
+
+        // Act
+        await dlq.StoreFailedEventAsync(auditEvent, realException, "Test");
+
+        // Assert
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events[0].ExceptionStackTrace, Is.Null, "Stack trace should be suppressed by default");
+        Assert.That(events[0].ExceptionType, Is.EqualTo("InvalidOperationException"));
+        Assert.That(events[0].ExceptionMessage, Is.EqualTo("something broke"));
+    }
+
+    /// <summary>
+    /// When IncludeStackTraces is enabled, full stack traces are stored
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_WithIncludeStackTraces_StoresFullTrace()
+    {
+        // Arrange
+        var options = new ResilienceOptions { IncludeStackTraces = true };
+        var dlq = new InMemoryAuditDeadLetterQueue(
+            _mockLogger.Object,
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor(),
+            options);
+
+        var auditEvent = new AuditEvent { EventType = "Test.Event" };
+
+        Exception realException;
+        try { throw new InvalidOperationException("something broke"); }
+        catch (Exception ex) { realException = ex; }
+
+        // Act
+        await dlq.StoreFailedEventAsync(auditEvent, realException, "Test");
+
+        // Assert
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events[0].ExceptionStackTrace, Is.Not.Null.And.Not.Empty);
+        Assert.That(events[0].ExceptionType, Is.EqualTo("InvalidOperationException"));
+    }
+
+    /// <summary>
+    /// ExceptionType captures the concrete exception type name
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_CapturesExceptionType()
+    {
+        var dlq = new InMemoryAuditDeadLetterQueue(
+            _mockLogger.Object,
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
+
+        var auditEvent = new AuditEvent { EventType = "Test.Event" };
+        var ex = new ArgumentNullException("paramName");
+
+        // Act
+        await dlq.StoreFailedEventAsync(auditEvent, ex, "Test");
+
+        // Assert
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events[0].ExceptionType, Is.EqualTo("ArgumentNullException"));
+    }
+
+    /// <summary>
+    /// Long exception messages are truncated
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_TruncatesLongExceptionMessage()
+    {
+        var dlq = new InMemoryAuditDeadLetterQueue(
+            _mockLogger.Object,
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
+
+        var auditEvent = new AuditEvent { EventType = "Test.Event" };
+        var longMessage = new string('x', 500);
+        var ex = new Exception(longMessage);
+
+        // Act
+        await dlq.StoreFailedEventAsync(auditEvent, ex, "Test");
+
+        // Assert
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events[0].ExceptionMessage!.Length, Is.LessThanOrEqualTo(270)); // 256 + "[truncated]"
+        Assert.That(events[0].ExceptionMessage, Does.EndWith("...[truncated]"));
+    }
+
+    /// <summary>
+    /// Null exception produces null diagnostic fields
+    /// </summary>
+    [Test]
+    public async Task StoreFailedEventAsync_NullException_ProducesNullDiagnostics()
+    {
+        var dlq = new InMemoryAuditDeadLetterQueue(
+            _mockLogger.Object,
+            _mockServiceProvider.Object,
+            new PassThroughAuditFieldRedactor());
+
+        var auditEvent = new AuditEvent { EventType = "Test.Event" };
+
+        // Act
+        await dlq.StoreFailedEventAsync(auditEvent, null, "Test");
+
+        // Assert
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events[0].ExceptionType, Is.Null);
+        Assert.That(events[0].ExceptionMessage, Is.Null);
+        Assert.That(events[0].ExceptionStackTrace, Is.Null);
     }
 }

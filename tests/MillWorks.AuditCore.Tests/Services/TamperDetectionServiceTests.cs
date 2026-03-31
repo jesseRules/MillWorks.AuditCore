@@ -31,6 +31,9 @@ public class TamperDetectionServiceTests
     [SetUp]
     public void Setup()
     {
+        // Reset static previous-hash cache to isolate tests
+        TamperDetectionService.ResetPreviousHashCache();
+
         _mockAuditEventRepository = new Mock<IAuditEventRepository>();
         _mockAuditIntegrityRepository = new Mock<IAuditIntegrityRepository>();
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();

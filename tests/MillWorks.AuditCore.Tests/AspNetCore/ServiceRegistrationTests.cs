@@ -25,6 +25,7 @@ public class ServiceRegistrationTests
     {
         _services.AddMillWorksAudit(static builder =>
         {
+            builder.Options.Environment = "Test";
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
@@ -38,6 +39,7 @@ public class ServiceRegistrationTests
     {
         _services.AddMillWorksAudit(static builder =>
         {
+            builder.Options.Environment = "Test";
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
@@ -51,6 +53,7 @@ public class ServiceRegistrationTests
         _services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "MyTestApp";
+            builder.Options.Environment = "Test";
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
@@ -66,6 +69,7 @@ public class ServiceRegistrationTests
 
         _services.AddMillWorksAudit(static builder =>
         {
+            builder.Options.Environment = "Test";
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
@@ -113,6 +117,70 @@ public class ServiceRegistrationTests
     public void Decorate_UnregisteredService_ThrowsInvalidOperation()
     {
         Assert.Throws<InvalidOperationException>(() => { _services.Decorate<ITestService, TestServiceDecorator>(); });
+    }
+
+    [Test]
+    public void AddMillWorksAudit_ProductionWithPassThroughRedactor_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _services.AddMillWorksAudit(static builder =>
+            {
+                // Default Environment is "Production", default redactor is PassThrough
+                builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            });
+        });
+    }
+
+    [Test]
+    public void AddMillWorksAudit_ProductionWithAllowPassThroughFlag_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() =>
+        {
+            _services.AddMillWorksAudit(static builder =>
+            {
+                builder.Options.AllowPassThroughRedactor = true;
+                builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            });
+        });
+    }
+
+    [Test]
+    public void AddMillWorksAudit_NonProductionWithPassThroughRedactor_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() =>
+        {
+            _services.AddMillWorksAudit(static builder =>
+            {
+                builder.Options.Environment = "Development";
+                builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            });
+        });
+    }
+
+    [Test]
+    public void AddMillWorksAudit_ProductionWithCustomRedactor_DoesNotThrow()
+    {
+        // Pre-register a custom redactor before AddMillWorksAudit
+        _services.AddSingleton<IAuditFieldRedactor, TestRedactor>();
+
+        Assert.DoesNotThrow(() =>
+        {
+            _services.AddMillWorksAudit(static builder =>
+            {
+                // Default Production environment, but custom redactor already registered
+                builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            });
+        });
+    }
+
+    /// <summary>
+    /// Minimal test redactor for registration tests
+    /// </summary>
+    private sealed class TestRedactor : IAuditFieldRedactor
+    {
+        public Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields) => fields;
+        public string? RedactValue(string fieldName, string? value) => "[REDACTED]";
     }
 
     // Test interfaces/implementations for decorator tests

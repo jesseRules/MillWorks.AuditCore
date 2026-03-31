@@ -69,13 +69,21 @@ The project enforces strict layering:
 
 The EF Core interceptor captures entity changes during `SaveChangesAsync`. If the interceptor wrote audit records through the normal `IAuditLogger` pipeline, which itself calls `SaveChangesAsync`, an infinite loop would result. This is resolved through two mechanisms:
 
-1. **`InternalAuditEventRepository`**: A dedicated repository that writes audit entities directly to the `AuditApplicationDbContext`, bypassing the interceptor pipeline. The interceptor recognizes its own entity types (`AuditEventEntity`, `AuditIntegrityEntity`, etc.) and excludes them from auditing.
+1. **Type exclusion set**: The interceptor maintains a `HashSet<Type>` of audit-owned entity types. Any `EntityEntry` whose `ClrType` appears in this set is skipped during change detection.
 
-2. **Type exclusion set**: The interceptor maintains a `HashSet<Type>` of all audit entity types. Any `EntityEntry` whose `ClrType` appears in this set is skipped during change detection.
+2. **DbContext bypass for audit entities**: `AuditApplicationDbContext.SaveChanges()` / `SaveChangesAsync()` detect when audit entities are being saved and temporarily set the bypass flag so the interceptor does not recurse while persisting `AuditEventEntity`, `AuditIntegrityEntity`, `AuditLogEntity`, `AuditArchiveRecordEntity`, or `AuditSecurityEventEntity`.
+
+`InternalAuditEventRepository` still exists as an internal helper around audit-event persistence, but the interceptor's `AuditLogEntity` path currently writes directly to `context.Set<AuditLogEntity>()` and relies on the exclusion set plus the DbContext bypass behavior to prevent recursion.
 
 ### Fail-Safe Audit Logging
 
-Audit logging must never cause the application's primary operation to fail. The `ResilientAuditLogger` decorator wraps `IAuditLogger` and catches all exceptions. Failed events are routed to the dead letter queue rather than propagating to the caller. A background processor retries dead-lettered events on a configurable schedule.
+Audit logging is designed to avoid breaking the application's primary operation when resilience is enabled. The `ResilientAuditLogger` decorator wraps `IAuditLogger`, retries transient failures, and on exhaustion routes failed events to the configured dead letter queue. A background processor can retry dead-lettered events on a configurable schedule.
+
+Important caveats in the current implementation:
+
+- This fail-safe behavior applies to the `IAuditLogger` pipeline, not to every audit-related write path in the system.
+- The dead-letter path is operationally useful but not yet fully security-hardened. In the current code, DLQ implementations still persist the original failed event payload and exception stack trace without applying `IAuditFieldRedactor`.
+- The emergency fallback file is redacted, but it writes to temp storage using platform-default permissions.
 
 ## Interceptor Flow
 
@@ -88,24 +96,27 @@ Application calls DbContext.SaveChangesAsync()
 1. Interceptor receives SavingChanges event
     |
     v
-2. Iterate all EntityEntry objects in ChangeTracker
+2. Materialize auditable EntityEntry objects from ChangeTracker
+   - states: Added / Modified / Deleted
+   - skip audit-owned entity types
+   - skip [NoAudit] types
     |
     v
 3. For each entry:
-   a. Skip if entity type is in the audit entity exclusion set
-   b. Skip if entity type has [NoAudit] attribute (cached)
-   c. Check entity state: Added, Modified, or Deleted
-   d. For Modified: diff property-by-property, record old/new values
-   e. For FERPA-annotated entities: check consent via IConsentVerificationService
-   f. For [SensitiveData] properties: mask values in the audit snapshot
-   g. Build AuditLogEntity with entity name, action, key values,
-      old values JSON, new values JSON, changed property list
+   a. Determine entity type, state, and primary key
+   b. Check cached FERPA metadata and other property metadata
+   c. For Modified: emit one AuditLogEntity per changed property
+   d. For Added / Deleted: emit one AuditLogEntity with a property snapshot in AdditionalData
+   e. For [SensitiveData] properties: mask or redact values before persistence
+   f. Stamp CorrelationId / IpAddress / UserAgent from AuditApplicationDbContext request metadata
+   g. For FERPA entities: include FERPA metadata in AdditionalData
     |
     v
 4. Collect all AuditLogEntity objects into a batch
     |
     v
-5. Write batch to AuditApplicationDbContext via InternalAuditEventRepository
+5. Add the AuditLogEntity objects directly to the same DbContext
+   via context.Set<AuditLogEntity>().Add(...)
    (these writes are excluded from further interception)
     |
     v
@@ -122,23 +133,49 @@ When `UseCompliance()` is configured with an enforcement mode, the interceptor c
 
 ### Hash Chain Construction
 
-Each audit event is assigned a monotonically increasing sequence number. When a new event is persisted, the `TamperDetectionService`:
+When tamper detection is enabled, `AuditLogger.LogAsync(...)` persists the `AuditEventEntity` and then creates a corresponding `AuditIntegrityEntity` in the same transaction.
+
+Each integrity record receives a database-generated sequence number. For a new event, `TamperDetectionService` currently:
 
 1. Retrieves the most recent `AuditIntegrityEntity` to obtain the previous hash.
-2. Canonicalizes the audit event using `AuditCanonicalizer` (deterministic JSON serialization -- sorted keys, consistent whitespace, UTC timestamps).
-3. Computes `SHA-256(canonical_json)` to produce the event hash.
-4. Computes `SHA-256(event_hash + previous_hash)` to produce the chain hash.
-5. Optionally computes `HMAC-SHA256(chain_hash, hmac_key)` for digital signature.
-6. Stores the `AuditIntegrityEntity` with `EventHash`, `PreviousHash`, `ChainHash`, `HmacSignature`, and `SequenceNumber`.
+2. Canonicalizes the event payload using `AuditCanonicalizer`.
+3. Computes the event hash from the canonicalized event data.
+4. Computes an HMAC value from immutable event identity fields using the configured HMAC key.
+5. Computes a checksum from immutable event fields used for version-independent verification.
+6. Optionally computes an RSA digital signature over the event hash when digital signatures are enabled.
+7. Stores the `AuditIntegrityEntity` with:
+   - `EventHash`
+   - `PreviousEventHash`
+   - `HmacSignature`
+   - `Checksum`
+   - `AlgorithmVersion`
+   - optional `DigitalSignature`
+   - database-generated `SequenceNumber`
+
+The current implementation does not store a separate persisted `ChainHash` column. Chain continuity is represented by each row's `PreviousEventHash` pointer to the prior row's `EventHash`.
+
+Performance note:
+
+- Hashes are pre-computed outside the critical section.
+- The critical section is still serialized around "read latest + insert integrity row", so this remains one of the main write-path bottlenecks under concurrency.
 
 ### Chain Verification
 
-`VerifyChainIntegrityAsync` walks the integrity table in sequence order and recomputes each chain hash from its event hash and the previous record's chain hash. Any mismatch indicates tampering. The result includes:
+`VerifyChainIntegrityAsync` walks the integrity table in sequence order and verifies:
 
-- Total events verified
-- First broken link (if any)
-- List of tampered event IDs
-- Verification timestamp
+- sequence continuity
+- `PreviousEventHash` linkage between consecutive rows
+- per-event event hash validity
+- HMAC validity
+- checksum validity
+- optional digital signature validity
+
+Any mismatch indicates tampering or corruption. The result includes:
+
+- total events verified
+- whether the chain is broken
+- list of tampered events
+- verification timestamp
 
 `VerifySequenceIntegrityAsync` checks for gaps or duplicates in the sequence number column.
 
@@ -146,7 +183,9 @@ Each audit event is assigned a monotonically increasing sequence number. When a 
 
 ### Distributed Locking
 
-In multi-instance deployments, concurrent writes to the hash chain could produce conflicting sequence numbers. When `UseRedisLocking` is enabled, `TamperDetectionService` acquires a distributed lock via Redis before reading the previous hash and writing the new integrity record. The lock has a configurable timeout and is released immediately after the write.
+In multi-instance deployments, concurrent writes to the integrity chain can race on the "latest row" lookup and insert sequence. When distributed locking is enabled, `TamperDetectionService` acquires a Redis-backed lock before reading the previous hash and inserting the new integrity row. If distributed lock acquisition times out, the current implementation falls back to a process-local static lock.
+
+This provides correctness for the common path, but the current fallback behavior prioritizes availability over strong cross-node coordination during partial Redis failure. Duplicate sequence conflicts are retried with exponential backoff and transaction rollback.
 
 ## Compliance Pipeline
 
@@ -249,6 +288,23 @@ The `AuditProviderDispatcher` resolves the correct provider for each entity type
 
 ## Security Model
 
+### Redaction
+
+`AuditLogger` supports field redaction through `IAuditFieldRedactor`:
+
+- `RedactValue(...)` for mapped string columns
+- `RedactFields(...)` for `CustomFields`
+- `RedactTarget(...)` for the serialized target payload
+
+Important current behavior:
+
+- The default DI registration is `PassThroughAuditFieldRedactor`, which performs no redaction.
+- Normal `AuditLogger` persistence uses the redactor.
+- The emergency fallback file also uses the redactor.
+- The current file and Redis dead-letter queue implementations do not yet apply the redactor before persisting failed events.
+
+As a result, redaction is currently opt-in and failure-path storage is less secure than the normal success path.
+
 ### Field-Level Encryption
 
 Properties marked with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]` are encrypted transparently through EF Core value converters registered by `ModelBuilderEncryptionExtensions`.
@@ -267,9 +323,16 @@ Two built-in key providers:
 
 Custom key providers can be supplied by implementing `IEncryptionKeyProvider` and passing it to `UseFieldEncryption()`.
 
-### HMAC Signing
+### Integrity Signatures
 
-When `EnableDigitalSignatures` is set and an `HmacKey` is provided, every integrity record is signed with HMAC-SHA256. This allows verification that integrity records were produced by a party possessing the key, not just that the hash chain is internally consistent.
+Every integrity record includes an HMAC value when an HMAC key is configured. This allows verification that the integrity record was produced by a party possessing the key, not just that the chain is internally consistent.
+
+When `EnableDigitalSignatures` is enabled, the system also computes an RSA digital signature over the event hash. These are separate mechanisms:
+
+- HMAC: symmetric authenticity/integrity check
+- digital signature: asymmetric signature over the event hash
+
+In Production, `Audit:HmacKey` is required. Outside Production, the system can fall back to a process-scoped generated key, which is convenient for development but does not survive restarts.
 
 ### Consent Verification
 

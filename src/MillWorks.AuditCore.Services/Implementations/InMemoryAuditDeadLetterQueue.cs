@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -14,9 +16,12 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 /// </summary>
 public sealed class InMemoryAuditDeadLetterQueue(
     ILogger<InMemoryAuditDeadLetterQueue> logger,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    IAuditFieldRedactor fieldRedactor,
+    ResilienceOptions? resilienceOptions = null)
     : IAuditDeadLetterQueue
 {
+    private readonly bool _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
     /// <summary>
     /// Events stored in the dead letter queue
     /// </summary>
@@ -31,12 +36,15 @@ public sealed class InMemoryAuditDeadLetterQueue(
     /// <returns></returns>
     public Task StoreFailedEventAsync(AuditEvent auditEvent, Exception? exception = null, string? reason = null)
     {
+        var redactedEvent = AuditEventRedactionHelper.RedactEvent(fieldRedactor, auditEvent);
+
         DeadLetterAuditEvent deadLetterEvent = new DeadLetterAuditEvent
         {
-            OriginalEvent = auditEvent,
+            OriginalEvent = redactedEvent,
             FailureReason = reason ?? "Unknown",
-            ExceptionMessage = exception?.Message,
-            ExceptionStackTrace = exception?.StackTrace
+            ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+            ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+            ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces)
         };
 
         _events[deadLetterEvent.Id] = deadLetterEvent;
@@ -58,8 +66,9 @@ public sealed class InMemoryAuditDeadLetterQueue(
         {
             OriginalEntity = entity,
             FailureReason = reason ?? "Unknown",
-            ExceptionMessage = exception?.Message,
-            ExceptionStackTrace = exception?.StackTrace
+            ExceptionType = ExceptionDiagnosticHelper.GetExceptionType(exception),
+            ExceptionMessage = ExceptionDiagnosticHelper.GetTruncatedMessage(exception),
+            ExceptionStackTrace = ExceptionDiagnosticHelper.GetStackTrace(exception, _includeStackTraces)
         };
 
         _events[deadLetterEvent.Id] = deadLetterEvent;

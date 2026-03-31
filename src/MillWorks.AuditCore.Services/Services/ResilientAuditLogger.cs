@@ -241,19 +241,21 @@ public sealed class ResilientAuditLogger(
         {
             logger.LogError(ex, "Failed to begin operation {OperationType}", operationType);
 
-            // Create a dummy operation ID and log to DLQ
+            // Create a dummy operation ID and log to DLQ.
+            // Redact CustomFields before storage — ex.Message and caller-supplied metadata
+            // can contain sensitive data (SQL errors, connection strings, PHI).
             var operationId = Guid.NewGuid();
             var auditEvent = new AuditEvent
             {
                 EventId = operationId,
                 EventType = $"{operationType}.Failed",
                 StartDate = DateTimeOffset.UtcNow,
-                CustomFields = new Dictionary<string, object?>
+                CustomFields = fieldRedactor.RedactFields(new Dictionary<string, object?>
                 {
                     ["OperationType"] = operationType,
                     ["Metadata"] = metadata,
-                    ["FailureReason"] = ex.Message
-                }
+                    ["FailureReason"] = ex.GetType().Name
+                })
             };
 
             await deadLetterQueue.StoreFailedEventAsync(auditEvent, ex, "Failed to begin operation");
@@ -274,19 +276,21 @@ public sealed class ResilientAuditLogger(
         {
             logger.LogError(ex, "Failed to end operation {OperationId}", operationId);
 
-            // Log the end operation failure to DLQ
+            // Log the end operation failure to DLQ.
+            // Redact CustomFields before storage — ex.Message and caller-supplied result
+            // can contain sensitive data (SQL errors, connection strings, PHI).
             var auditEvent = new AuditEvent
             {
                 EventId = Guid.NewGuid(),
                 EventType = "Operation.EndFailed",
                 StartDate = DateTimeOffset.UtcNow,
-                CustomFields = new Dictionary<string, object?>
+                CustomFields = fieldRedactor.RedactFields(new Dictionary<string, object?>
                 {
                     ["OperationId"] = operationId,
                     ["Success"] = success,
                     ["Result"] = result,
-                    ["FailureReason"] = ex.Message
-                }
+                    ["FailureReason"] = ex.GetType().Name
+                })
             };
 
             await deadLetterQueue.StoreFailedEventAsync(auditEvent, ex, "Failed to end operation");
@@ -354,6 +358,13 @@ public sealed class ResilientAuditLogger(
 
             await File.WriteAllTextAsync(filePath,
                 System.Text.Json.JsonSerializer.Serialize(emergencyData));
+
+            // Restrict file permissions on Unix to owner-only (read+write).
+            // Temp directories may be world-readable in containerized environments.
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(filePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
         }
         catch
         {
