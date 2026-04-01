@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
@@ -122,11 +123,15 @@ public class ServiceRegistrationTests
     [Test]
     public void AddMillWorksAudit_ProductionWithPassThroughRedactor_Throws()
     {
+        // Default redactor is now DefaultAuditFieldRedactor (safe-by-default).
+        // Explicitly register PassThroughAuditFieldRedactor to test that validation catches it.
+        _services.AddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
+
         Assert.Throws<InvalidOperationException>(() =>
         {
             _services.AddMillWorksAudit(static builder =>
             {
-                // Default Environment is "Production", default redactor is PassThrough
+                // Default Environment is "Production"
                 builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
             });
         });

@@ -14,8 +14,20 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 
 /// <summary>
 /// File-based implementation of Dead Letter Queue.
-/// Designed for small-volume use. For high-volume scenarios, use Redis DLQ.
-/// Uses a simplified filename convention (dlq_{id}.json) for O(1) path construction.
+///
+/// <para><b>Operational boundaries:</b></para>
+/// <list type="bullet">
+///   <item>Designed exclusively for small-volume, single-instance deployments.</item>
+///   <item>Uses in-process <see cref="SemaphoreSlim"/> locking — not safe across multiple processes.</item>
+///   <item>Listing, statistics, and purge operations scan the directory — O(n) in queue size.</item>
+///   <item>Soft warning threshold: <see cref="ResilienceOptions.FileBasedMaxQueueSize"/> (default 1000).</item>
+///   <item>Hard capacity cap: <see cref="ResilienceOptions.FileBasedHardCapacity"/> (default 5000).
+///     New events are rejected when this limit is reached.</item>
+///   <item>Processed files are retained in a <c>Processed/</c> subfolder for
+///     <see cref="ResilienceOptions.ProcessedRetention"/> (default 7 days) before cleanup.</item>
+/// </list>
+///
+/// <para>For high-volume or multi-instance scenarios, use <see cref="RedisAuditDeadLetterQueue"/>.</para>
 /// </summary>
 public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
 {
@@ -70,6 +82,12 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     private readonly int _maxQueueSize;
 
     /// <summary>
+    /// Hard capacity limit. New events are rejected when queue reaches this size.
+    /// 0 disables the hard cap (warning-only behavior).
+    /// </summary>
+    private readonly int _hardCapacity;
+
+    /// <summary>
     /// File-based Audit Dead Letter Queue constructor
     /// </summary>
     public FileBasedAuditDeadLetterQueue(
@@ -86,6 +104,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
         _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
         _processedRetention = resilienceOptions?.ProcessedRetention ?? TimeSpan.FromDays(7);
         _maxQueueSize = resilienceOptions?.FileBasedMaxQueueSize ?? 1000;
+        _hardCapacity = resilienceOptions?.FileBasedHardCapacity ?? 5000;
 
         _deadLetterPath = configuration["Audit:DeadLetterQueue:Path"]
                           ?? Path.Combine(Path.GetTempPath(), "MillWorks.Audit", "AuditDLQ");
@@ -488,18 +507,33 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     }
 
     /// <summary>
-    /// Logs a warning if the queue has reached its configured maximum size.
+    /// Checks queue size against soft warning threshold and hard capacity cap.
+    /// Throws <see cref="InvalidOperationException"/> when the hard cap is reached.
     /// Caller must already hold _fileLock.
     /// </summary>
     private void WarnIfQueueFull()
     {
         var fileCount = Directory.GetFiles(_deadLetterPath, "dlq_*.json").Length;
+
+        // Hard cap enforcement — reject new events to prevent unbounded disk growth
+        if (_hardCapacity > 0 && fileCount >= _hardCapacity)
+        {
+            _logger.LogError(
+                "File DLQ hard capacity reached ({Count}/{HardCap}). " +
+                "New event rejected. Purge processed events or switch to Redis DLQ.",
+                fileCount, _hardCapacity);
+            throw new InvalidOperationException(
+                $"File DLQ hard capacity reached ({fileCount}/{_hardCapacity}). " +
+                "Cannot store additional events. Purge processed events or switch to Redis DLQ.");
+        }
+
+        // Soft warning — operational alert before hitting the hard cap
         if (fileCount >= _maxQueueSize)
         {
             _logger.LogWarning(
-                "File DLQ has reached {Count} events (max: {Max}). " +
+                "File DLQ has reached {Count} events (soft limit: {Max}, hard cap: {HardCap}). " +
                 "Consider switching to Redis DLQ for high-volume scenarios or purging processed events.",
-                fileCount, _maxQueueSize);
+                fileCount, _maxQueueSize, _hardCapacity);
         }
     }
 

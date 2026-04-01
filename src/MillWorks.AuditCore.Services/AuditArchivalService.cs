@@ -374,17 +374,14 @@ public sealed class AuditArchivalService(
                     await auditEventRepository.AddAsync(auditEvent, cancellationToken);
                 }
 
-                // Restore integrity records
+                // Restore integrity records with full chain metadata
                 foreach (var integrity in archive.IntegrityRecords)
                 {
                     integrity.AuditEvent = null;
-                    AuditIntegrityEntity auditEvent = new AuditIntegrityEntity
-                    {
-                        EventId = integrity.EventId,
-                        AuditEvent = null
-                    };
+                    AuditIntegrityEntity integrityEntity = mapper.Map<AuditIntegrityEntity>(integrity);
+                    integrityEntity.AuditEvent = null;
 
-                    await auditIntegrityRepository.AddAsync(auditEvent, cancellationToken);
+                    await auditIntegrityRepository.AddAsync(integrityEntity, cancellationToken);
                 }
 
                 await auditEventRepository.SaveChangesAsync(cancellationToken);

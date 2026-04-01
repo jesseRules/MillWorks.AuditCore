@@ -9,6 +9,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Services.Core;
@@ -22,7 +23,8 @@ public sealed class AuditLogger(
     IAuditEventRepository auditEventRepository,
     IAuditContext auditContext,
     IAuditFieldRedactor fieldRedactor,
-    ITamperDetectionService? tamperDetectionService = null)
+    ITamperDetectionService? tamperDetectionService = null,
+    IntegrityWriteBatcher? integrityWriteBatcher = null)
     : IAuditLogger
 {
     /// <summary>
@@ -42,30 +44,52 @@ public sealed class AuditLogger(
 
             if (tamperDetectionService is not null)
             {
-                // Wrap event + integrity record in a single transaction so both succeed
-                // or both fail atomically. This prevents audit events from existing without
-                // integrity records, which would create gaps in the tamper-detection chain.
-                // All repositories share the same scoped DbContext, so the transaction
-                // created here is automatically used by TamperDetectionService's repository calls.
-                // ExecuteInTransactionAsync handles execution strategy compatibility
-                // (e.g. SqlServerRetryingExecutionStrategy) automatically.
-                await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                var integrityDto = new AuditIntegrityDto
                 {
+                    EventId = entity.EventId,
+                    InsertedDate = entity.InsertedDate,
+                    LastUpdatedDate = entity.LastUpdatedDate,
+                    JsonData = entity.JsonData,
+                    EventType = entity.EventType,
+                    User = entity.User,
+                    UserId = entity.UserId
+                };
+
+                if (integrityWriteBatcher is not null)
+                {
+                    // Batched mode: the event is committed before the integrity record to
+                    // avoid holding a transaction open across the batch flush boundary.
+                    // A flush failure will leave the event without an integrity record —
+                    // a chain gap. Chain verification (ArchiveVerificationBackgroundService)
+                    // will detect and report these gaps. This tradeoff favors throughput
+                    // over strict atomicity.
                     await auditEventRepository.AddAsync(entity, cancellationToken);
                     await auditEventRepository.SaveChangesAsync(cancellationToken);
 
-                    AuditIntegrityDto record = new()
+                    try
                     {
-                        EventId = entity.EventId,
-                        InsertedDate = entity.InsertedDate,
-                        LastUpdatedDate = entity.LastUpdatedDate,
-                        JsonData = entity.JsonData,
-                        EventType = entity.EventType,
-                        User = entity.User,
-                        UserId = entity.UserId
-                    };
-                    await tamperDetectionService.CreateIntegrityRecordAsync(record, cancellationToken);
-                }, cancellationToken);
+                        await integrityWriteBatcher.EnqueueAsync(integrityDto, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex,
+                            "Integrity record batch write failed for event {EventId}. " +
+                            "The audit event is persisted but its integrity record is missing — " +
+                            "chain verification will detect this gap.",
+                            entity.EventId);
+                    }
+                }
+                else
+                {
+                    // Immediate mode: wrap event + integrity record in a single transaction
+                    // so both succeed or both fail atomically.
+                    await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                    {
+                        await auditEventRepository.AddAsync(entity, cancellationToken);
+                        await auditEventRepository.SaveChangesAsync(cancellationToken);
+                        await tamperDetectionService.CreateIntegrityRecordAsync(integrityDto, cancellationToken);
+                    }, cancellationToken);
+                }
             }
             else
             {

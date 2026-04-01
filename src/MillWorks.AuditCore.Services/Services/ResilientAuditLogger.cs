@@ -15,7 +15,8 @@ public sealed class ResilientAuditLogger(
     IAuditDeadLetterQueue deadLetterQueue,
     IAuditEventFactory eventFactory,
     IAuditFieldRedactor fieldRedactor,
-    ILogger<ResilientAuditLogger> logger)
+    ILogger<ResilientAuditLogger> logger,
+    IAuditDiagnostics? diagnostics = null)
     : IAuditLogger
 {
     /// <summary>
@@ -102,6 +103,7 @@ public sealed class ResilientAuditLogger(
         // All retries failed - send to dead letter queue
         try
         {
+            diagnostics?.Increment(AuditDiagnosticCounter.DlqStoreOperation);
             await deadLetterQueue.StoreFailedEventAsync(
                 auditEvent,
                 lastException,
@@ -113,6 +115,8 @@ public sealed class ResilientAuditLogger(
         }
         catch (Exception dlqEx)
         {
+            diagnostics?.Increment(AuditDiagnosticCounter.DlqStoreFailure);
+
             // Critical failure - even DLQ failed
             // Log only EventId and EventType — not {@Event} which would serialize
             // unredacted CustomFields/Target (potential PHI) to the ILogger sink.
@@ -120,7 +124,7 @@ public sealed class ResilientAuditLogger(
                 "CRITICAL: Failed to store audit event {EventId} (type: {EventType}) in dead letter queue. See emergency fallback file.",
                 auditEvent.EventId, auditEvent.EventType);
 
-            // Consider additional fallback like Windows Event Log or file system
+            diagnostics?.Increment(AuditDiagnosticCounter.EmergencyFallbackWrite);
             await EmergencyFallbackAsync(auditEvent, dlqEx);
         }
     }
@@ -187,6 +191,7 @@ public sealed class ResilientAuditLogger(
         {
             try
             {
+                diagnostics?.Increment(AuditDiagnosticCounter.DlqStoreOperation);
                 await deadLetterQueue.StoreFailedEventAsync(
                     auditEvent,
                     lastException,
@@ -194,9 +199,11 @@ public sealed class ResilientAuditLogger(
             }
             catch (Exception dlqEx)
             {
+                diagnostics?.Increment(AuditDiagnosticCounter.DlqStoreFailure);
                 logger.LogCritical(dlqEx,
                     "CRITICAL: Failed to store audit event {EventId} (type: {EventType}) in dead letter queue. See emergency fallback file.",
                     auditEvent.EventId, auditEvent.EventType);
+                diagnostics?.Increment(AuditDiagnosticCounter.EmergencyFallbackWrite);
                 await EmergencyFallbackAsync(auditEvent, dlqEx);
             }
         }

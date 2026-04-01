@@ -22,6 +22,10 @@ using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Query;
+using MillWorks.AuditCore.Services.Diagnostics;
+using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
+using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
+using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Compliance;
@@ -59,6 +63,22 @@ public sealed class MillWorksAuditBuilder
     }
 
     /// <summary>
+    /// Replaces the default field redactor with a custom implementation.
+    /// Call this to override the safe-by-default <see cref="MillWorks.AuditCore.Services.Core.DefaultAuditFieldRedactor"/>
+    /// with a domain-specific redactor that selectively allows or masks fields.
+    /// </summary>
+    /// <typeparam name="TRedactor">Custom redactor type implementing <see cref="IAuditFieldRedactor"/>.</typeparam>
+    public void UseRedactor<TRedactor>() where TRedactor : class, IAuditFieldRedactor
+    {
+        // Remove any existing redactor registration and replace with the custom one
+        var existing = Services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditFieldRedactor));
+        if (existing != null)
+            Services.Remove(existing);
+
+        Services.AddSingleton<IAuditFieldRedactor, TRedactor>();
+    }
+
+    /// <summary>
     /// Use Entity Framework for audit storage with circular dependency prevention and automatic migration support
     /// </summary>
     public void UseEntityFramework(Action<EntityFrameworkOptions> configure)
@@ -79,17 +99,19 @@ public sealed class MillWorksAuditBuilder
         ConfigureMapster();
 
         // Register the audit interceptor as a singleton.
-        // ComplianceOptions and IConsentVerificationService may not be registered
-        // (UseCompliance() is optional). GetService returns null when not registered.
+        // ComplianceOptions, IConsentVerificationService, and IAuditDiagnostics may not be registered
+        // (UseCompliance() is optional, diagnostics is always registered). GetService returns null when not registered.
         Services.AddSingleton<AuditSaveChangesInterceptor>(static sp =>
         {
             var logger = sp.GetRequiredService<ILogger<AuditSaveChangesInterceptor>>();
             var complianceOptions = sp.GetService<ComplianceOptions>();
             var consentService = sp.GetService<IConsentVerificationService>();
+            var diagnostics = sp.GetService<IAuditDiagnostics>();
             return new AuditSaveChangesInterceptor(
                 logger,
                 complianceOptions?.EnforcementMode,
-                consentService);
+                consentService,
+                diagnostics);
         });
 
         // Configure DbContext with interceptor and circular dependency prevention
@@ -177,6 +199,13 @@ public sealed class MillWorksAuditBuilder
         if (securityOptions.EnableTamperDetection)
         {
             Services.AddScoped<ITamperDetectionService, TamperDetectionService>();
+
+            // Optional: batched integrity writes for higher throughput under concurrency
+            if (securityOptions.EnableBatchedIntegrityWrites)
+            {
+                Services.AddSingleton<IntegrityWriteBatcher>();
+                Services.AddHostedService(static sp => sp.GetRequiredService<IntegrityWriteBatcher>());
+            }
         }
 
         if (securityOptions.UseRedisLocking && !string.IsNullOrEmpty(securityOptions.RedisConnectionString))
@@ -188,6 +217,11 @@ public sealed class MillWorksAuditBuilder
                 configOptions.ConnectTimeout = 5000;
                 return ConnectionMultiplexer.Connect(configOptions);
             });
+            Services.AddScoped<IAuditDistributedLockService, RedisDistributedLockService>();
+        }
+        else
+        {
+            Services.AddScoped<IAuditDistributedLockService, InMemoryDistributedLockService>();
         }
     }
 
@@ -295,9 +329,10 @@ public sealed class MillWorksAuditBuilder
                 throw new NotImplementedException("AWS S3 archival provider not yet implemented");
         }
 
-        // Register background archival service if enabled
+        // Register background archival services if enabled
         if (archivalOptions.EnableBackgroundArchival)
         {
+            Services.AddHostedService<ArchiveCreationBackgroundService>();
             Services.AddHostedService<ArchiveVerificationBackgroundService>();
         }
     }
@@ -387,22 +422,30 @@ public sealed class MillWorksAuditBuilder
                 "EnableDigitalSignatures is true but no HmacKey was provided");
         }
 
-        // Validate that a real redactor is registered in Production.
+        // Validate that the pass-through redactor is not registered unless explicitly allowed.
         // The pass-through redactor performs no redaction and will persist
-        // PHI/PII/secrets in cleartext — this is unsafe for production use.
-        if (!Options.AllowPassThroughRedactor
-            && Options.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase))
-        {
-            var redactorDescriptor = Services.FirstOrDefault(
-                static s => s.ServiceType == typeof(IAuditFieldRedactor));
+        // PHI/PII/secrets in cleartext — this is unsafe for any environment handling real data.
+        var redactorDescriptor = Services.FirstOrDefault(
+            static s => s.ServiceType == typeof(IAuditFieldRedactor));
 
-            if (redactorDescriptor?.ImplementationType == typeof(PassThroughAuditFieldRedactor))
+        if (redactorDescriptor?.ImplementationType == typeof(PassThroughAuditFieldRedactor)
+            && !Options.AllowPassThroughRedactor)
+        {
+            if (Options.Environment.Equals("Production", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
                     "PassThroughAuditFieldRedactor is not permitted in Production. " +
                     "Register a custom IAuditFieldRedactor before calling AddMillWorksAudit(), " +
                     "or set AllowPassThroughRedactor = true to explicitly accept unredacted audit storage.");
             }
+
+            // Non-production environments: block by default too, with a clearer message.
+            // PassThrough is only acceptable when AllowPassThroughRedactor is explicitly true.
+            throw new InvalidOperationException(
+                $"PassThroughAuditFieldRedactor is not permitted (Environment: {Options.Environment}). " +
+                "The default redactor (DefaultAuditFieldRedactor) is safe-by-default. If you have " +
+                "explicitly registered PassThroughAuditFieldRedactor, set AllowPassThroughRedactor = true " +
+                "to confirm you accept unredacted audit storage, or register a custom IAuditFieldRedactor.");
         }
     }
 }

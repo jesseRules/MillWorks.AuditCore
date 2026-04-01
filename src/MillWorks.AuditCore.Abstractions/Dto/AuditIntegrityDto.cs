@@ -226,10 +226,79 @@ public sealed class AuditIntegrityDto
     public Guid? TenantId { get; set; }
     
     /// <summary>
+    /// SHA-256 hash of the audit event data (Base64-encoded)
+    /// </summary>
+    [MaxLength(44)]
+    [JsonPropertyName("event_hash")]
+    [DisplayName("Event Hash")]
+    public string? EventHash { get; set; }
+
+    /// <summary>
+    /// Hash of the previous audit event (blockchain-style chaining)
+    /// </summary>
+    [MaxLength(44)]
+    [JsonPropertyName("previous_event_hash")]
+    [DisplayName("Previous Event Hash")]
+    public string? PreviousEventHash { get; set; }
+
+    /// <summary>
+    /// Digital signature of the event hash (if using PKI)
+    /// </summary>
+    [MaxLength(512)]
+    [JsonPropertyName("digital_signature")]
+    [DisplayName("Digital Signature")]
+    public string? DigitalSignature { get; set; }
+
+    /// <summary>
+    /// Timestamp from a trusted time source
+    /// </summary>
+    [JsonPropertyName("trusted_timestamp")]
+    [DisplayName("Trusted Timestamp")]
+    public DateTimeOffset? TrustedTimestamp { get; set; }
+
+    /// <summary>
+    /// Sequence number for ordering verification
+    /// </summary>
+    [JsonPropertyName("sequence_number")]
+    [DisplayName("Sequence Number")]
+    public long? SequenceNumber { get; set; }
+
+    /// <summary>
+    /// HMAC for additional integrity verification (Base64-encoded)
+    /// </summary>
+    [MaxLength(44)]
+    [JsonPropertyName("hmac_signature")]
+    [DisplayName("HMAC Signature")]
+    public string? HmacSignature { get; set; }
+
+    /// <summary>
+    /// Checksum of critical fields
+    /// </summary>
+    [MaxLength(44)]
+    [JsonPropertyName("checksum")]
+    [DisplayName("Checksum")]
+    public string? Checksum { get; set; }
+
+    /// <summary>
+    /// Version of the integrity algorithm used
+    /// </summary>
+    [JsonPropertyName("algorithm_version")]
+    [DisplayName("Algorithm Version")]
+    public int? AlgorithmVersion { get; set; }
+
+    /// <summary>
+    /// Parameters for additional configuration or metadata
+    /// </summary>
+    [MaxLength(2000)]
+    [JsonPropertyName("parameters")]
+    [DisplayName("Parameters")]
+    public string? Parameters { get; set; }
+
+    /// <summary>
     /// Audit Event DTO
     /// </summary>
     [JsonPropertyName("audit_event")]
     [DisplayName("Audit Event")]
     public AuditEventDto? AuditEvent { get; set; }
-    
+
 }

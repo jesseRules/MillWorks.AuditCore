@@ -216,20 +216,87 @@ public sealed class AuditReportService(
     public async Task<byte[]> GenerateAuditReportAsync(
         DateTimeOffset startDate,
         DateTimeOffset endDate,
-        string format = "pdf",
+        string format = "json",
         CancellationToken cancellationToken = default)
     {
-        logger.LogWarning("GenerateAuditReportAsync not yet implemented for format {Format}", format);
-
         AuditSummaryResponse summary = await GetAuditSummaryAsync(startDate, endDate, cancellationToken);
 
-        // For now, return a simple text representation
-        string report = $"Audit Report\n" +
-                        $"Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}\n" +
-                        $"Total Events: {summary.TotalEvents}\n" +
-                        $"Unique Users: {summary.UniqueUsers}\n";
+        return format.ToLowerInvariant() switch
+        {
+            "json" => GenerateJsonReport(summary, startDate, endDate),
+            "csv" => await GenerateCsvReportAsync(startDate, endDate, cancellationToken),
+            _ => throw new NotSupportedException(
+                $"Report format '{format}' is not supported. Supported formats: json, csv.")
+        };
+    }
 
-        return System.Text.Encoding.UTF8.GetBytes(report);
+    private static byte[] GenerateJsonReport(
+        AuditSummaryResponse summary,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate)
+    {
+        var report = new
+        {
+            summary.TotalEvents,
+            summary.UniqueUsers,
+            Period = new { Start = startDate, End = endDate },
+            summary.EventTypes,
+            summary.TopUsers
+        };
+
+        string json = System.Text.Json.JsonSerializer.Serialize(report, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        });
+
+        return System.Text.Encoding.UTF8.GetBytes(json);
+    }
+
+    private async Task<byte[]> GenerateCsvReportAsync(
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken)
+    {
+        var query = context.AuditEvents
+            .AsNoTracking()
+            .Where(e => e.InsertedDate >= startDate && e.InsertedDate <= endDate)
+            .OrderBy(static e => e.InsertedDate);
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("EventId,InsertedDate,EventType,EntityType,EntityId,Action,User,UserFullName,Environment");
+
+        await foreach (var e in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            sb.AppendLine(string.Join(",",
+                CsvEscape(e.EventId.ToString()),
+                CsvEscape(e.InsertedDate?.ToString("o")),
+                CsvEscape(e.EventType),
+                CsvEscape(e.EntityType),
+                CsvEscape(e.EntityId),
+                CsvEscape(e.Action),
+                CsvEscape(e.User),
+                CsvEscape(e.UserFullName),
+                CsvEscape(e.Environment)));
+        }
+
+        return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        // Guard against CSV formula injection — spreadsheet apps treat cells starting
+        // with =, +, -, @, tab, or carriage return as formulas or control characters.
+        if (value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+            value = "'" + value;
+
+        if (value.Contains('"') || value.Contains(',') || value.Contains('\n') || value.Contains('\''))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+
+        return value;
     }
 
     /// <summary>

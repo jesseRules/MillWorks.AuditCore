@@ -792,8 +792,77 @@ public class AuditReportServiceTests
         Assert.That(result.Length, Is.GreaterThan(0));
 
         var reportText = System.Text.Encoding.UTF8.GetString(result);
-        Assert.That(reportText, Does.Contain("Audit Report"));
-        Assert.That(reportText, Does.Contain(startDate.ToString("yyyy-MM-dd")));
+        Assert.That(reportText, Does.Contain("totalEvents"));
+        Assert.That(reportText, Does.Contain("uniqueUsers"));
+    }
+
+    #endregion
+
+    #region CSV Export Tests
+
+    [Test]
+    public async Task GenerateAuditReportAsync_CsvFormat_ReturnsValidCsv()
+    {
+        var startDate = DateTimeOffset.UtcNow.AddDays(-7);
+        var endDate = DateTimeOffset.UtcNow;
+
+        await _context.AuditEvents.AddAsync(new AuditEventEntity
+        {
+            EventId = Guid.NewGuid(),
+            User = "user1@test.com",
+            EventType = "Test.Event",
+            InsertedDate = DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _reportService.GenerateAuditReportAsync(startDate, endDate, "csv");
+        var csv = System.Text.Encoding.UTF8.GetString(result);
+
+        Assert.That(csv, Does.StartWith("EventId,InsertedDate,EventType"));
+        Assert.That(csv, Does.Contain("Test.Event"));
+    }
+
+    [Test]
+    public async Task GenerateAuditReportAsync_CsvFormat_EscapesFormulaInjection()
+    {
+        var startDate = DateTimeOffset.UtcNow.AddDays(-7);
+        var endDate = DateTimeOffset.UtcNow;
+
+        await _context.AuditEvents.AddAsync(new AuditEventEntity
+        {
+            EventId = Guid.NewGuid(),
+            User = "=CMD|'/C calc'!A0",
+            EventType = "+HYPERLINK(\"evil\")",
+            EntityType = "-1+1",
+            Action = "@SUM(A1:A10)",
+            InsertedDate = DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _reportService.GenerateAuditReportAsync(startDate, endDate, "csv");
+        var csv = System.Text.Encoding.UTF8.GetString(result);
+
+        // All formula-triggering characters should be prefixed with single-quote
+        Assert.That(csv, Does.Contain("'=CMD"));
+        Assert.That(csv, Does.Contain("'+HYPERLINK"));
+        Assert.That(csv, Does.Contain("'-1+1"));
+        Assert.That(csv, Does.Contain("'@SUM"));
+        // Should NOT contain raw formula starts
+        Assert.That(csv, Does.Not.Contain(",=CMD"));
+        Assert.That(csv, Does.Not.Contain(",+HYPERLINK"));
+        Assert.That(csv, Does.Not.Contain(",@SUM"));
+    }
+
+    [Test]
+    public void GenerateAuditReportAsync_UnsupportedFormat_ThrowsNotSupported()
+    {
+        Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await _reportService.GenerateAuditReportAsync(
+                DateTimeOffset.UtcNow.AddDays(-7),
+                DateTimeOffset.UtcNow,
+                "pdf");
+        });
     }
 
     #endregion

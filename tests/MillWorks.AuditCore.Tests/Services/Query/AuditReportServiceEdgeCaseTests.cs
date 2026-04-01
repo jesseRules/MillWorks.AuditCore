@@ -184,13 +184,8 @@ public class AuditReportServiceEdgeCaseTests
 
         var reportText = System.Text.Encoding.UTF8.GetString(bytes);
 
-        Assert.That(reportText, Does.Contain("Audit Report"));
-        Assert.That(reportText, Does.Contain(startDate.ToString("yyyy-MM-dd")));
-        Assert.That(reportText, Does.Contain(endDate.ToString("yyyy-MM-dd")));
-        // Total Events line must include the count "3"
-        Assert.That(reportText, Does.Contain("Total Events: 3"));
-        // Unique Users line must include the count "2"
-        Assert.That(reportText, Does.Contain("Unique Users: 2"));
+        Assert.That(reportText, Does.Contain("\"totalEvents\": 3"));
+        Assert.That(reportText, Does.Contain("\"uniqueUsers\": 2"));
     }
 
     #endregion

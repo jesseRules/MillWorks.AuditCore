@@ -39,6 +39,12 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private readonly IConsentVerificationService? _consentService;
 
+    /// <summary>
+    /// Aggregate diagnostic counters for snapshot serialization fallback visibility.
+    /// Null when diagnostics are not registered.
+    /// </summary>
+    private readonly IAuditDiagnostics? _diagnostics;
+
     // Use HashSet for O(1) lookups instead of multiple 'or' checks
     /// <summary>
     /// Audit entity types to exclude from auditing
@@ -104,14 +110,17 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <param name="logger">Logger instance.</param>
     /// <param name="enforcementMode">Compliance enforcement mode. Null when compliance is not configured.</param>
     /// <param name="consentService">Cache-backed consent verification. Null when compliance is not configured.</param>
+    /// <param name="diagnostics">Aggregate diagnostic counters. Null when diagnostics are not registered.</param>
     public AuditSaveChangesInterceptor(
         ILogger<AuditSaveChangesInterceptor> logger,
         ComplianceEnforcementMode? enforcementMode = null,
-        IConsentVerificationService? consentService = null)
+        IConsentVerificationService? consentService = null,
+        IAuditDiagnostics? diagnostics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _enforcementMode = enforcementMode;
         _consentService = consentService;
+        _diagnostics = diagnostics;
     }
 
     // NOTE: No sync SavingChanges override. The sync path lacks provider dispatch
@@ -447,7 +456,21 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to serialize audit snapshot for {EntityName}", entityName);
+                        _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationFallback);
+                        if (_diagnostics is not null)
+                        {
+                            _logger.LogWarning(ex,
+                                "Failed to serialize audit snapshot for {EntityName}. " +
+                                "FallbackCount: {FallbackCount}",
+                                entityName,
+                                _diagnostics.SnapshotSerializationFallbackCount);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(ex,
+                                "Failed to serialize audit snapshot for {EntityName}",
+                                entityName);
+                        }
 
                         // Fall back to a minimal representation so the audit record
                         // is never hollow — it always carries at least enough data
@@ -465,6 +488,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                         }
                         catch
                         {
+                            _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationTotalFailure);
                             // If even the fallback fails, additionalData stays null
                         }
                     }

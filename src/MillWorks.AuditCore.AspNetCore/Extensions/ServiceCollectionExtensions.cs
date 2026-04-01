@@ -6,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Services;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.AspNetCore.Extensions;
@@ -31,9 +32,14 @@ public static class ServiceCollectionExtensions
             services.TryAddScoped<IAuditEventFactory, AuditEventFactory>();
             services.TryAddScoped<IAuditLogger, AuditLogger>();
 
-            // Default no-op redactor — consumers can register their own IAuditFieldRedactor
-            // before calling AddMillWorksAudit() and TryAdd will not overwrite it.
-            services.TryAddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
+            // Aggregate diagnostic counters — singleton, thread-safe, queryable from health checks
+            services.TryAddSingleton<IAuditDiagnostics, AuditDiagnostics>();
+
+            // Safe-by-default redactor — masks all non-structural fields. Consumers can
+            // register their own IAuditFieldRedactor before calling AddMillWorksAudit()
+            // and TryAdd will not overwrite it. Use PassThroughAuditFieldRedactor only
+            // when explicitly opting in via AllowPassThroughRedactor = true.
+            services.TryAddSingleton<IAuditFieldRedactor, DefaultAuditFieldRedactor>();
 
             // Register HTTP context accessor for middleware
             services.AddHttpContextAccessor();

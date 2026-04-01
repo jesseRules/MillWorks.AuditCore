@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-01
+
+### Added
+- `ArchiveCreationBackgroundService` — scheduled archive creation driven by `ArchivalOptions.RetentionDays` and `ArchivalOptions.ArchivalIntervalHours`; registered alongside verification when `EnableBackgroundArchival` is true
+- JSON and CSV export formats in `GenerateAuditReportAsync`; unsupported formats now throw `NotSupportedException` instead of silently returning placeholder text
+- Integrity-chain fields on `AuditIntegrityDto`: `EventHash`, `PreviousEventHash`, `HmacSignature`, `Checksum`, `AlgorithmVersion`, `DigitalSignature`, `TrustedTimestamp`, `SequenceNumber`, `Parameters`
+
+### Changed
+- `UseSecurity()` now registers `IAuditDistributedLockService` — `RedisDistributedLockService` when Redis is configured, `InMemoryDistributedLockService` otherwise; `TamperDetectionService` no longer silently falls back to `NullDistributedLockService`
+- Archive restore (`RestoreArchivedEventsAsync`) now maps all integrity-chain fields via Mapster instead of only `EventId`, preserving hash chain, HMAC, checksum, and digital signature data through archive/restore cycles
+- `ArchiveVerificationBackgroundService` now reads scheduling config from injected `ArchivalOptions` instead of ad-hoc `IConfiguration` keys
+- `GenerateAuditReportAsync` default format changed from `"pdf"` to `"json"`
+
+### Breaking Changes
+- Default `IAuditFieldRedactor` is now `DefaultAuditFieldRedactor` (safe-by-default: masks all non-structural fields). Previously `PassThroughAuditFieldRedactor` which performed no redaction. Consumers who need unredacted audit storage must either register a custom `IAuditFieldRedactor` or set `AllowPassThroughRedactor = true`.
+- `PassThroughAuditFieldRedactor` is now rejected in **all** environments (not just Production) unless `AllowPassThroughRedactor = true`. Previously, non-Production environments allowed it silently.
+
+### Fixed
+- CSV export guards against formula injection (cells starting with `=`, `+`, `-`, `@`)
+- README: replaced "IRB" with "NIST" in the compliance list to match implemented standards
+- README: clarified that encrypted fields are redacted in audit snapshots (not stored encrypted)
+- README: changed "full-text search" to "multi-field text search"
+- README: clarified that background archival now includes both creation and verification
+- README: noted JSON/CSV export support in query and reporting section
+
 ## [1.1.0] - 2026-03-31
 
 ### Added
@@ -83,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
+[1.2.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/jesserules/millworks.auditcore/compare/v1.0.0...v1.0.4
 [1.0.0]: https://github.com/jesserules/millworks.auditcore/releases/tag/v1.0.0

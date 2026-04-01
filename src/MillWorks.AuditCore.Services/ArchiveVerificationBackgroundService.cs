@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Services.Core;
@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Services.Core;
 public sealed class ArchiveVerificationBackgroundService(
     IServiceProvider serviceProvider,
     ILogger<ArchiveVerificationBackgroundService> logger,
-    IConfiguration configuration)
+    ArchivalOptions archivalOptions)
     : BackgroundService
 {
     /// <summary>
@@ -23,8 +23,7 @@ public sealed class ArchiveVerificationBackgroundService(
     /// <param name="stoppingToken"></param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        int intervalHours = configuration.GetValue("Audit:Archive:VerificationIntervalHours", 24);
-        TimeSpan verificationInterval = TimeSpan.FromHours(intervalHours);
+        TimeSpan verificationInterval = TimeSpan.FromHours(archivalOptions.VerificationIntervalHours);
 
         // Wait for application to fully start
         await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
@@ -44,7 +43,7 @@ public sealed class ArchiveVerificationBackgroundService(
                 // Get archives that need verification
                 IEnumerable<AuditArchiveRecordEntity> archivesToVerify =
                     await archiveRepository.GetArchivesNeedingVerificationAsync(
-                        intervalHours, stoppingToken);
+                        archivalOptions.VerificationIntervalHours, stoppingToken);
 
                 int verifiedCount = 0;
                 int failedCount = 0;

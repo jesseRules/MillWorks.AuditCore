@@ -6,9 +6,9 @@
 [![NuGet](https://img.shields.io/nuget/v/MillWorks.AuditCore)](https://www.nuget.org/packages/MillWorks.AuditCore)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-1%2C138_passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1%2C214_passing-brightgreen)](tests/)
 
-MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and IRB requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing every entity change with zero modifications to existing application code.
+MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and NIST requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing every entity change with zero modifications to existing application code.
 
 ## Compatibility
 
@@ -43,10 +43,10 @@ EF Core `SaveChangesInterceptor` automatically captures create, update, and dele
 Every audit event is linked into a cryptographic hash chain. Each record's SHA-256 hash incorporates the previous record's hash, forming an append-only ledger that detects insertion, deletion, or modification of any record in the sequence. Chain integrity can be verified on demand or on a schedule. Tamper alerts are recorded as security events.
 
 ### Field-Level Encryption
-AES-256-GCM encryption for sensitive audit fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
+AES-256-GCM encryption for sensitive entity fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Encrypted fields are redacted in audit snapshots (recorded as `[ENCRYPTED]` or masked) to prevent sensitive values from appearing in the audit log. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
 
 ### Compliance Validation
-Built-in validators for seven regulatory standards: GDPR (Articles 17, 25, 30, 32), HIPAA (45 CFR Part 164), FERPA (34 CFR Part 99), SOC 2 (Trust Services Criteria), ISO 27001 (Annex A), PCI-DSS, and STIG. Validators inspect the audit log for required controls and produce structured compliance reports with pass/fail per rule, severity, regulation references, and remediation recommendations.
+Built-in validators for seven regulatory standards (plus enum-level NIST support): GDPR (Articles 17, 25, 30, 32), HIPAA (45 CFR Part 164), FERPA (34 CFR Part 99), SOC 2 (Trust Services Criteria), ISO 27001 (Annex A), PCI-DSS, and STIG. Validators inspect the audit log for required controls and produce structured compliance reports with pass/fail per rule, severity, regulation references, and remediation recommendations.
 
 **Enforcement modes** control what happens when a non-compliant operation is intercepted:
 
@@ -71,13 +71,13 @@ All three providers ship in v1.0:
 Redis-based distributed locking ensures hash chain consistency across multiple application instances writing audit events concurrently. Falls back to in-memory locking for single-instance deployments.
 
 ### Archival
-Completed audit records can be archived to Azure Blob Storage with integrity verification. Archives are checksummed and can be restored on demand. Background archival runs on a configurable schedule with retention policies.
+Completed audit records can be archived to Azure Blob Storage with integrity verification. Archives are checksummed and can be restored on demand with full integrity-chain metadata preserved. Background archive creation and verification both run on configurable schedules driven by retention policies.
 
 ### Custom Providers
 Per-entity audit enrichment through the `IAuditProvider` interface. Register providers for specific entity types to control which actions are audited, add domain-specific metadata, and mask sensitive properties before they reach the audit log.
 
 ### Query and Reporting
-Full-text search, date-range filtering, entity trail reconstruction, user activity timelines, event type distribution, and top-user reports. Compliance reports can be generated per standard for any date range. All query services use `AsNoTracking()` for read performance.
+Multi-field text search, date-range filtering, entity trail reconstruction, user activity timelines, event type distribution, and top-user reports -- provided across `AuditQueryService`, `AuditSearchService`, and `AuditReportService`. Compliance reports can be generated per standard for any date range. Audit event data can be exported in JSON or CSV format. All query services use `AsNoTracking()` for read performance.
 
 ## Quick Start
 
@@ -232,7 +232,7 @@ Abstractions          (pure .NET -- no EF, no ASP.NET dependencies)
 EntityFramework       (EF Core data layer)
   DbContext, Entities, Interceptor, Repositories, Migrations, Value Converters
     |
-Providers             (entity-specific audit enrichment)
+Providers             (entity-specific audit enrichment; references ASP.NET Core for IHttpContextAccessor)
   IAuditProvider, BaseAuditProvider, per-entity implementations
     |
 Services              (business logic)
@@ -346,6 +346,7 @@ If both are set to `false`, the application assumes the audit schema already exi
 | **ISO 27001** | Information security | Annex A control coverage: access control, cryptography, operations security, communications security, incident management, business continuity, compliance evidence |
 | **PCI-DSS** | Payment card data | Cardholder data access tracking, authentication monitoring, network access logging, system component change tracking, security event alerting |
 | **STIG** | DoD security baselines | Security-relevant event logging, access control enforcement, audit record content requirements, timestamp accuracy, audit storage capacity monitoring |
+| **NIST** | NIST SP 800-53 | Enum-level support for tagging audit events against NIST controls; no standalone validator (covered by overlapping STIG and ISO 27001 rules) |
 
 ## Database Schema
 

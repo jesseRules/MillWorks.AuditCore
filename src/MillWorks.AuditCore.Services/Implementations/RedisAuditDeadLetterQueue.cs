@@ -82,14 +82,10 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
         _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
         _serviceScopeFactory = serviceScopeFactory;
 
-        // Startup validation: verify Redis is reachable.
+        // Startup validation: verify Redis is reachable via explicit round-trip probe.
         // Discovering this at startup is far better than at incident time.
-        if (!redis1.IsConnected)
-        {
-            _logger?.LogError(
-                "Redis DLQ: connection multiplexer is not connected at startup. " +
-                "DLQ will not be able to store failed events until Redis is reachable.");
-        }
+        var failFast = resilienceOptions?.FailFastOnDlqUnavailable ?? false;
+        ValidateRedisConnectivity(redis1, failFast);
     }
 
     #region IAuditDeadLetterQueue Implementation
@@ -509,6 +505,72 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     }
 
     #endregion
+
+    /// <summary>
+    /// Validates Redis connectivity at startup by performing an explicit PING round-trip
+    /// and a write/read/delete probe to confirm the database is fully operational.
+    /// This catches misconfigurations (wrong database index, ACL restrictions, etc.)
+    /// that <c>IsConnected</c> alone would miss.
+    /// </summary>
+    private void ValidateRedisConnectivity(IConnectionMultiplexer redis, bool failFast)
+    {
+        try
+        {
+            if (!redis.IsConnected)
+            {
+                var message = "Redis DLQ: connection multiplexer is not connected at startup. " +
+                              "DLQ will not be able to store failed events until Redis is reachable.";
+                if (failFast)
+                    throw new InvalidOperationException(message);
+
+                _logger?.LogCritical(message);
+                return;
+            }
+
+            // Explicit PING round-trip — confirms the connection is truly live
+            var server = redis.GetServers().FirstOrDefault();
+            if (server is not null)
+            {
+                var pingLatency = server.Ping();
+                _logger?.LogInformation(
+                    "Redis DLQ: PING round-trip succeeded ({LatencyMs}ms)",
+                    pingLatency.TotalMilliseconds);
+            }
+
+            // Write/read/delete probe — confirms the database is writable and ACLs permit DLQ operations
+            var probeKey = $"{_indexKey}:startup-probe";
+            var probeValue = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+            _db.StringSet(probeKey, probeValue, TimeSpan.FromSeconds(10));
+
+            var readBack = _db.StringGet(probeKey);
+            if (readBack != probeValue)
+            {
+                var message = "Redis DLQ: write-probe read-back mismatch. " +
+                              "Redis may have ACL restrictions or the database is read-only.";
+                if (failFast)
+                    throw new InvalidOperationException(message);
+
+                _logger?.LogCritical(message);
+                return;
+            }
+
+            _db.KeyDelete(probeKey);
+            _logger?.LogInformation("Redis DLQ: startup validation passed (PING + write-probe)");
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw fail-fast exceptions
+        }
+        catch (Exception ex)
+        {
+            var message = $"Redis DLQ: startup validation failed — {ex.Message}";
+            if (failFast)
+                throw new InvalidOperationException(message, ex);
+
+            _logger?.LogCritical(ex,
+                "Redis DLQ: startup validation failed. DLQ may not function correctly");
+        }
+    }
 
     /// <summary>
     /// Disposes the Redis Audit Dead Letter Queue

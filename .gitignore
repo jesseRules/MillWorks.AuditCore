@@ -26,6 +26,7 @@ nupkgs/
 *.userosscache
 *.sln.docstates
 *.DotSettings.user
+*.sln.DotSettings
 
 # JetBrains Rider
 .idea/

@@ -70,6 +70,6 @@ public interface IAuditReportService
     /// <param name="format"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<byte[]> GenerateAuditReportAsync(DateTimeOffset startDate, DateTimeOffset endDate, string format = "pdf",
+    Task<byte[]> GenerateAuditReportAsync(DateTimeOffset startDate, DateTimeOffset endDate, string format = "json",
         CancellationToken cancellationToken = default);
 }

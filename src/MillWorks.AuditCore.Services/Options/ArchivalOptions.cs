@@ -31,6 +31,12 @@ public sealed class ArchivalOptions
     public int ArchivalIntervalHours { get; set; } = 24;
 
     /// <summary>
+    /// Interval in hours between archive integrity verification passes.
+    /// Default: 24.
+    /// </summary>
+    public int VerificationIntervalHours { get; set; } = 24;
+
+    /// <summary>
     /// Container/bucket name for cloud storage
     /// </summary>
     public string ContainerName { get; set; } = "audit-archives";

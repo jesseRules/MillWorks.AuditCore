@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.Services.Background;
@@ -19,7 +19,7 @@ public class ArchiveVerificationBackgroundServiceTests
     private Mock<IArchiveRecordRepository> _mockArchiveRepository;
     private Mock<ILogger<ArchiveVerificationBackgroundService>> _mockLogger;
     private ServiceProvider _serviceProvider;
-    private IConfiguration _configuration = null!;
+    private ArchivalOptions _archivalOptions = null!;
 
     [SetUp]
     public void Setup()
@@ -45,27 +45,9 @@ public class ArchiveVerificationBackgroundServiceTests
         _serviceProvider.Dispose();
     }
 
-    /// <summary>
-    /// Builds a configuration with optional overrides
-    /// </summary>
-    private static IConfiguration BuildConfiguration(Dictionary<string, string?>? overrides = null)
+    private static ArchivalOptions BuildArchivalOptions(int verificationIntervalHours = 24)
     {
-        var defaults = new Dictionary<string, string?>
-        {
-            ["Audit:Archive:VerificationIntervalHours"] = "24"
-        };
-
-        if (overrides != null)
-        {
-            foreach (var kvp in overrides)
-            {
-                defaults[kvp.Key] = kvp.Value;
-            }
-        }
-
-        return new ConfigurationBuilder()
-            .AddInMemoryCollection(defaults)
-            .Build();
+        return new ArchivalOptions { VerificationIntervalHours = verificationIntervalHours };
     }
 
     /// <summary>
@@ -75,10 +57,10 @@ public class ArchiveVerificationBackgroundServiceTests
     public async Task ExecuteAsync_VerifiesArchiveIntegrity()
     {
         // Arrange
-        _configuration = BuildConfiguration();
+        _archivalOptions = BuildArchivalOptions();
 
         var service = new ArchiveVerificationBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
+            _serviceProvider, _mockLogger.Object, _archivalOptions);
 
         using var cts = new CancellationTokenSource();
         // The service has a 5-minute startup delay, so cancelling quickly tests lifecycle.
@@ -119,10 +101,10 @@ public class ArchiveVerificationBackgroundServiceTests
             .Setup(static x => x.ValidateArchiveIntegrityAsync("archive-tampered-001", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        _configuration = BuildConfiguration();
+        _archivalOptions = BuildArchivalOptions();
 
         var service = new ArchiveVerificationBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
+            _serviceProvider, _mockLogger.Object, _archivalOptions);
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(50));
@@ -144,10 +126,10 @@ public class ArchiveVerificationBackgroundServiceTests
     public async Task ExecuteAsync_CancellationToken_StopsGracefully()
     {
         // Arrange
-        _configuration = BuildConfiguration();
+        _archivalOptions = BuildArchivalOptions();
 
         var service = new ArchiveVerificationBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
+            _serviceProvider, _mockLogger.Object, _archivalOptions);
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(50));

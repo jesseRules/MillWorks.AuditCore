@@ -50,4 +50,20 @@ public sealed class ResilienceOptions
     /// Default: 1000.
     /// </summary>
     public int FileBasedMaxQueueSize { get; set; } = 1000;
+
+    /// <summary>
+    /// When true, the application will throw at startup if the configured DLQ backing
+    /// store (Redis or file system) is unreachable. When false (default), unreachability
+    /// is logged as a Critical error but the application continues to start.
+    /// Recommended: true for production deployments where DLQ availability is critical.
+    /// </summary>
+    public bool FailFastOnDlqUnavailable { get; set; }
+
+    /// <summary>
+    /// Hard capacity limit for the file-based DLQ. When the queue reaches this size,
+    /// new events are rejected with a logged error instead of being silently dropped.
+    /// Set to 0 to disable the hard cap (warning-only behavior via FileBasedMaxQueueSize).
+    /// Default: 5000.
+    /// </summary>
+    public int FileBasedHardCapacity { get; set; } = 5000;
 }
