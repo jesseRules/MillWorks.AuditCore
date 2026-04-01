@@ -28,7 +28,7 @@ internal static class AuditEventRedactionHelper
             ErrorMessage = original.ErrorMessage,
             SystemFields = original.SystemFields is not null
                 ? redactor.RedactFields(new Dictionary<string, object?>(original.SystemFields))
-                : null,
+                : new(),
             CorrelationId = original.CorrelationId,
             ParentId = original.ParentId,
             SessionId = original.SessionId,
@@ -39,10 +39,10 @@ internal static class AuditEventRedactionHelper
             Action = original.Action,
             UserId = original.UserId,
             AspNetUserId = original.AspNetUserId,
-            KeyValues = redactor.RedactKeyValues(original.KeyValues),
+            KeyValues = redactor.RedactKeyValues(original.KeyValues) ?? new(),
             OldValues = redactor.RedactFields(original.OldValues),
             NewValues = redactor.RedactFields(original.NewValues),
-            ChangedProperties = redactor.RedactPropertyNames(original.ChangedProperties),
+            ChangedProperties = redactor.RedactPropertyNames(original.ChangedProperties) ?? [],
             UserEmail = redactor.RedactValue("UserEmail", original.UserEmail),
         };
     }

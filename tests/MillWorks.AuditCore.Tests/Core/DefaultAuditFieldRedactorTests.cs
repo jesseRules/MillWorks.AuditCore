@@ -204,8 +204,8 @@ public sealed class DefaultAuditFieldRedactorTests
 
         var result = _redactor.RedactFields(fields);
 
-        result["ErrorMessage"].ToString().Should().NotContain("s3cret123");
-        result["ErrorMessage"].ToString().Should().Contain("[SANITIZED]");
+        result["ErrorMessage"]!.ToString()!.Should().NotContain("s3cret123");
+        result["ErrorMessage"]!.ToString()!.Should().Contain("[SANITIZED]");
     }
 
     [Test]
@@ -218,8 +218,8 @@ public sealed class DefaultAuditFieldRedactorTests
 
         var result = _redactor.RedactFields(fields);
 
-        result["ErrorMessage"].ToString().Should().Contain("read-only");
-        result["ErrorMessage"].ToString().Should().Contain("timed out");
+        result["ErrorMessage"]!.ToString()!.Should().Contain("read-only");
+        result["ErrorMessage"]!.ToString()!.Should().Contain("timed out");
     }
 
     [Test]
