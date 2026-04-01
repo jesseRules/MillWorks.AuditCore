@@ -102,27 +102,28 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                     break;
                 }
 
-                // Drain up to batch size with a short deadline
+                // Drain up to batch size with a flush deadline — zero-polling
                 using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 flushCts.CancelAfter(_flushInterval);
 
                 while (batch.Count < _batchSize)
                 {
+                    // Drain anything already buffered without waiting
+                    while (batch.Count < _batchSize && _channel.Reader.TryRead(out var buffered))
+                        batch.Add(buffered);
+
+                    if (batch.Count >= _batchSize)
+                        break;
+
+                    // Wait for more data OR flush interval expiry
                     try
                     {
-                        if (_channel.Reader.TryRead(out var item))
-                        {
-                            batch.Add(item);
-                        }
-                        else
-                        {
-                            // Wait briefly for more items before flushing
-                            await Task.Delay(1, flushCts.Token);
-                        }
+                        if (!await _channel.Reader.WaitToReadAsync(flushCts.Token))
+                            break; // Channel completed
                     }
                     catch (OperationCanceledException)
                     {
-                        break; // Flush interval elapsed or stopping
+                        break; // Flush interval expired — flush what we have
                     }
                 }
 

@@ -662,7 +662,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     }
 
     /// <summary>
-    /// Applies masking or redaction to a value based on cached property-level security metadata.
+    /// Applies attribute-driven masking to entity property values for the EF interceptor path.
+    /// This is deliberately separate from <see cref="IAuditFieldRedactor"/>, which operates on
+    /// the audit logger pipeline. Both systems must agree on which fields are sensitive —
+    /// see InterceptorRedactionBoundaryTests for the integration test that enforces this.
     /// </summary>
     private static string? MaskOrRedact(PropertyAuditMetadata meta, object? rawValue)
     {

@@ -176,6 +176,61 @@ public sealed class IntegrityWriteBatcherTests
         Assert.That(flushCallCount, Is.GreaterThanOrEqualTo(1));
     }
 
+    [Test]
+    [CancelAfter(10000)]
+    public async Task PartialBatch_FlushesOnInterval_NotPolling()
+    {
+        _mockTamperDetection
+            .Setup(t => t.CreateIntegrityRecordBatchAsync(
+                It.IsAny<IReadOnlyList<AuditIntegrityDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditIntegrityDto> events, CancellationToken _) =>
+                events.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList());
+
+        // Batch size 10 but only enqueue 1 — should flush on 100ms interval
+        var batcher = CreateBatcher(batchSize: 10, flushIntervalMs: 100);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = StartBatcher(batcher, cts.Token);
+
+        var result = await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.EventId, Is.Not.EqualTo(Guid.Empty));
+
+        cts.Cancel();
+        await executeTask;
+    }
+
+    [Test]
+    [CancelAfter(10000)]
+    public async Task FullBatch_FlushesImmediately()
+    {
+        _mockTamperDetection
+            .Setup(t => t.CreateIntegrityRecordBatchAsync(
+                It.IsAny<IReadOnlyList<AuditIntegrityDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditIntegrityDto> events, CancellationToken _) =>
+                events.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList());
+
+        // Batch size 5, long flush interval — batch fills immediately
+        var batcher = CreateBatcher(batchSize: 5, flushIntervalMs: 30000);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = StartBatcher(batcher, cts.Token);
+
+        var tasks = Enumerable.Range(0, 5)
+            .Select(_ => batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None));
+
+        // All 5 should complete quickly — not waiting for 30s flush interval
+        var results = await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(results, Has.Length.EqualTo(5));
+
+        cts.Cancel();
+        await executeTask;
+    }
+
     private IntegrityWriteBatcher CreateBatcher(int batchSize = 50, int flushIntervalMs = 500)
     {
         var options = new SecurityOptions

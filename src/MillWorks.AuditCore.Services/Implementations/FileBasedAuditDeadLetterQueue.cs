@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,13 +19,13 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 /// <para><b>Operational boundaries:</b></para>
 /// <list type="bullet">
 ///   <item>Designed exclusively for small-volume, single-instance deployments.</item>
-///   <item>Uses in-process <see cref="SemaphoreSlim"/> locking — not safe across multiple processes.</item>
-///   <item>Listing, statistics, and purge operations scan the directory — O(n) in queue size.</item>
+///   <item>Uses in-process locking — not safe across multiple processes.</item>
+///   <item>Statistics and lookups use an in-memory index (O(1)). Full event reads still hit disk.</item>
 ///   <item>Soft warning threshold: <see cref="ResilienceOptions.FileBasedMaxQueueSize"/> (default 1000).</item>
 ///   <item>Hard capacity cap: <see cref="ResilienceOptions.FileBasedHardCapacity"/> (default 5000).
 ///     New events are rejected when this limit is reached.</item>
 ///   <item>Processed files are retained in a <c>Processed/</c> subfolder for
-///     <see cref="ResilienceOptions.ProcessedRetention"/> (default 7 days) before cleanup.</item>
+///     <see cref="ResilienceOptions.ProcessedRetention"/> (default 24 hours) before cleanup.</item>
 /// </list>
 ///
 /// <para>For high-volume or multi-instance scenarios, use <see cref="RedisAuditDeadLetterQueue"/>.</para>
@@ -46,10 +47,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// </summary>
     private readonly IConfiguration _configuration;
 
-    /// <summary>
-    /// File lock for thread safety
-    /// </summary>
-    private readonly SemaphoreSlim _fileLock = new(1, 1);
+    // _fileLock replaced by _writeLock + ConcurrentDictionary index — see Fix 7
 
     /// <summary>
     /// JSON serializer options
@@ -88,6 +86,23 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     private readonly int _hardCapacity;
 
     /// <summary>
+    /// In-memory index of DLQ files. Eliminates O(n) directory scans for stats, lookups, and purge.
+    /// Built lazily on first access; maintained incrementally on mutations.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, DlqFileEntry> _fileIndex = new();
+    private volatile bool _indexBuilt;
+
+    /// <summary>
+    /// Write lock for file I/O and index mutations. Read operations against the
+    /// ConcurrentDictionary do not require this lock after the index is built.
+    /// </summary>
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+
+    private sealed record DlqFileEntry(
+        string FilePath, string EventId, DateTimeOffset FailedAt, bool IsProcessed,
+        int RetryCount, string? EventType, string? FailureReason, long FileSize);
+
+    /// <summary>
     /// File-based Audit Dead Letter Queue constructor
     /// </summary>
     public FileBasedAuditDeadLetterQueue(
@@ -102,7 +117,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
         _serviceScopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
         _fieldRedactor = fieldRedactor;
         _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
-        _processedRetention = resilienceOptions?.ProcessedRetention ?? TimeSpan.FromDays(7);
+        _processedRetention = resilienceOptions?.ProcessedRetention ?? TimeSpan.FromHours(24);
         _maxQueueSize = resilienceOptions?.FileBasedMaxQueueSize ?? 1000;
         _hardCapacity = resilienceOptions?.FileBasedHardCapacity ?? 5000;
 
@@ -119,13 +134,79 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     }
 
     /// <summary>
+    /// Lazily builds the in-memory index from disk on first access.
+    /// Uses _writeLock for thread-safe initialization.
+    /// </summary>
+    private async Task EnsureIndexBuiltAsync()
+    {
+        if (_indexBuilt) return;
+
+        await _writeLock.WaitAsync();
+        try
+        {
+            if (_indexBuilt) return;
+
+            foreach (var file in Directory.GetFiles(_deadLetterPath, "dlq_*.json"))
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(file);
+                    var envelope = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
+                    if (envelope is not null)
+                    {
+                        _fileIndex[envelope.Id] = new DlqFileEntry(
+                            file, envelope.Id, envelope.FailedAt, envelope.IsProcessed,
+                            envelope.RetryCount, envelope.OriginalEvent?.EventType,
+                            envelope.FailureReason, new FileInfo(file).Length);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to index dead letter file {FileName}", Path.GetFileName(file));
+                }
+            }
+
+            var processedPath = Path.Combine(_deadLetterPath, "Processed");
+            if (Directory.Exists(processedPath))
+            {
+                foreach (var file in Directory.GetFiles(processedPath, "*.json"))
+                {
+                    try
+                    {
+                        var json = await File.ReadAllTextAsync(file);
+                        var envelope = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
+                        if (envelope is not null)
+                        {
+                            _fileIndex[envelope.Id] = new DlqFileEntry(
+                                file, envelope.Id, envelope.FailedAt, true,
+                                envelope.RetryCount, envelope.OriginalEvent?.EventType,
+                                envelope.FailureReason, new FileInfo(file).Length);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to index processed file {FileName}", Path.GetFileName(file));
+                    }
+                }
+            }
+
+            _indexBuilt = true;
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Store a failed audit event in the dead letter queue
     /// </summary>
     public async Task StoreFailedEventAsync(AuditEvent auditEvent, Exception? exception = null, string? reason = null)
     {
         var redactedEvent = AuditEventRedactionHelper.RedactEvent(_fieldRedactor, auditEvent);
+        await EnsureIndexBuiltAsync();
 
-        await _fileLock.WaitAsync();
+        await _writeLock.WaitAsync();
         try
         {
             var deadLetterEvent = new DeadLetterAuditEvent
@@ -146,12 +227,19 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             WarnIfQueueFull();
             await SaveDeadLetterEventAsync(deadLetterEvent);
 
+            // Update index
+            var filePath = GetFilePathForEvent(deadLetterEvent.Id);
+            _fileIndex[deadLetterEvent.Id] = new DlqFileEntry(
+                filePath, deadLetterEvent.Id, deadLetterEvent.FailedAt, false,
+                0, auditEvent.EventType, reason ?? "Unknown",
+                new FileInfo(filePath).Length);
+
             _logger.LogWarning("Audit event {EventId} stored in dead letter queue. Reason: {Reason}",
                 auditEvent.EventId, reason);
         }
         finally
         {
-            _fileLock.Release();
+            _writeLock.Release();
         }
     }
 
@@ -161,7 +249,9 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     public async Task StoreFailedEntityAsync(AuditEventEntity entity, Exception? exception = null,
         string? reason = null)
     {
-        await _fileLock.WaitAsync();
+        await EnsureIndexBuiltAsync();
+
+        await _writeLock.WaitAsync();
         try
         {
             var deadLetterEvent = new DeadLetterAuditEvent
@@ -182,58 +272,60 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             WarnIfQueueFull();
             await SaveDeadLetterEventAsync(deadLetterEvent);
 
+            // Update index
+            var filePath = GetFilePathForEvent(deadLetterEvent.Id);
+            _fileIndex[deadLetterEvent.Id] = new DlqFileEntry(
+                filePath, deadLetterEvent.Id, deadLetterEvent.FailedAt, false,
+                0, entity.EventType ?? "Unknown", reason ?? "Unknown",
+                new FileInfo(filePath).Length);
+
             _logger.LogWarning("Audit entity {EventId} stored in dead letter queue. Reason: {Reason}",
                 entity.EventId, reason);
         }
         finally
         {
-            _fileLock.Release();
+            _writeLock.Release();
         }
     }
 
     /// <summary>
-    /// Get a list of failed events from the dead letter queue
+    /// Get a list of failed events from the dead letter queue.
+    /// Uses the in-memory index for file paths instead of directory scanning.
     /// </summary>
     public async Task<List<DeadLetterAuditEvent>> GetFailedEventsAsync(int maxCount = 100)
     {
-        await _fileLock.WaitAsync();
-        try
-        {
-            return await ReadFailedEventsInternalAsync(maxCount);
-        }
-        finally
-        {
-            _fileLock.Release();
-        }
+        await EnsureIndexBuiltAsync();
+
+        // Read from index — no lock needed for ConcurrentDictionary reads
+        var entries = _fileIndex.Values
+            .Where(e => !e.IsProcessed)
+            .OrderByDescending(e => e.FailedAt)
+            .Take(maxCount)
+            .ToList();
+
+        return await ReadEventsFromEntriesAsync(entries);
     }
 
     /// <summary>
-    /// Internal method that reads failed events without acquiring the lock.
-    /// Callers must already hold _fileLock.
+    /// Reads full event objects from disk for the given index entries.
     /// </summary>
-    private async Task<List<DeadLetterAuditEvent>> ReadFailedEventsInternalAsync(int maxCount)
+    private async Task<List<DeadLetterAuditEvent>> ReadEventsFromEntriesAsync(List<DlqFileEntry> entries)
     {
-        var events = new List<DeadLetterAuditEvent>();
-        var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
+        var events = new List<DeadLetterAuditEvent>(entries.Count);
 
-        // Sort by creation time descending, then only read the files we need
-        Array.Sort(files, (a, b) => File.GetCreationTimeUtc(b).CompareTo(File.GetCreationTimeUtc(a)));
-        var filesToRead = files.Length <= maxCount ? files : files[..maxCount];
-
-        foreach (var file in filesToRead)
+        foreach (var entry in entries)
         {
             try
             {
-                var json = await File.ReadAllTextAsync(file);
+                if (!File.Exists(entry.FilePath)) continue;
+                var json = await File.ReadAllTextAsync(entry.FilePath);
                 var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
                 if (evt != null)
-                {
                     events.Add(evt);
-                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to read dead letter file {FileName}", Path.GetFileName(file));
+                _logger.LogError(ex, "Failed to read dead letter file {FileName}", Path.GetFileName(entry.FilePath));
             }
         }
 
@@ -246,18 +338,13 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     public async Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate,
         DateTimeOffset endDate)
     {
-        await _fileLock.WaitAsync();
-        try
-        {
-            var allEvents = await ReadFailedEventsInternalAsync(int.MaxValue);
-            return allEvents
-                .Where(e => e.FailedAt >= startDate && e.FailedAt <= endDate)
-                .ToList();
-        }
-        finally
-        {
-            _fileLock.Release();
-        }
+        await EnsureIndexBuiltAsync();
+
+        var entries = _fileIndex.Values
+            .Where(e => !e.IsProcessed && e.FailedAt >= startDate && e.FailedAt <= endDate)
+            .ToList();
+
+        return await ReadEventsFromEntriesAsync(entries);
     }
 
     /// <summary>
@@ -265,7 +352,9 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// </summary>
     public async Task<bool> ReprocessEventAsync(string deadLetterId)
     {
-        await _fileLock.WaitAsync();
+        await EnsureIndexBuiltAsync();
+
+        await _writeLock.WaitAsync();
         try
         {
             var filePath = GetFilePathForEvent(deadLetterId);
@@ -306,6 +395,16 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                     // Update the file
                     await SaveDeadLetterEventAsync(deadLetterEvent);
 
+                    // Update index
+                    if (_fileIndex.TryGetValue(deadLetterId, out var entry))
+                    {
+                        _fileIndex[deadLetterId] = entry with
+                        {
+                            IsProcessed = true,
+                            RetryCount = deadLetterEvent.RetryCount
+                        };
+                    }
+
                     _logger.LogInformation("Successfully reprocessed dead letter event {Id}", deadLetterId);
                     return true;
                 }
@@ -321,12 +420,18 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 deadLetterEvent.Metadata[$"RetryFailure_{deadLetterEvent.RetryCount}"] = ex.Message;
                 await SaveDeadLetterEventAsync(deadLetterEvent);
 
+                // Update index retry count
+                if (_fileIndex.TryGetValue(deadLetterId, out var entry2))
+                {
+                    _fileIndex[deadLetterId] = entry2 with { RetryCount = deadLetterEvent.RetryCount };
+                }
+
                 return false;
             }
         }
         finally
         {
-            _fileLock.Release();
+            _writeLock.Release();
         }
     }
 
@@ -378,57 +483,64 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// </summary>
     public async Task<int> PurgeProcessedEventsAsync()
     {
-        await _fileLock.WaitAsync();
+        await EnsureIndexBuiltAsync();
+
+        await _writeLock.WaitAsync();
         try
         {
             var count = 0;
-            var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
 
-            foreach (var file in files)
+            // Use index to find processed events instead of scanning + deserializing every file
+            var processedEntries = _fileIndex.Values
+                .Where(e => e.IsProcessed && e.FilePath.StartsWith(_deadLetterPath)
+                            && !e.FilePath.Contains(Path.Combine(_deadLetterPath, "Processed")))
+                .ToList();
+
+            foreach (var entry in processedEntries)
             {
                 try
                 {
-                    var json = await File.ReadAllTextAsync(file);
-                    var evt = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
+                    if (!File.Exists(entry.FilePath)) continue;
 
-                    if (evt?.IsProcessed != true) continue;
-                    // Move to processed folder instead of deleting
                     var processedPath = Path.Combine(_deadLetterPath, "Processed");
                     Directory.CreateDirectory(processedPath);
 
-                    var fileName = Path.GetFileName(file);
+                    var fileName = Path.GetFileName(entry.FilePath);
                     var destPath = Path.Combine(processedPath, fileName);
 
-                    File.Move(file, destPath, true);
+                    File.Move(entry.FilePath, destPath, true);
+
+                    // Update index with new path
+                    _fileIndex[entry.EventId] = entry with { FilePath = destPath };
                     count++;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error purging file {FileName}", Path.GetFileName(file));
+                    _logger.LogError(ex, "Error purging file {FileName}", Path.GetFileName(entry.FilePath));
                 }
             }
 
             // Clean up old files from the Processed folder that have exceeded retention
-            var retentionPath = Path.Combine(_deadLetterPath, "Processed");
-            if (Directory.Exists(retentionPath))
+            var cutoff = DateTimeOffset.UtcNow - _processedRetention;
+            var expiredEntries = _fileIndex.Values
+                .Where(e => e.IsProcessed && e.FailedAt < cutoff)
+                .ToList();
+
+            foreach (var entry in expiredEntries)
             {
-                var cutoff = DateTimeOffset.UtcNow - _processedRetention;
-                var processedFiles = Directory.GetFiles(retentionPath, "*.json");
-                foreach (var file in processedFiles)
+                try
                 {
-                    try
+                    if (File.Exists(entry.FilePath))
                     {
-                        if (new FileInfo(file).CreationTimeUtc < cutoff.UtcDateTime)
-                        {
-                            File.Delete(file);
-                            count++;
-                        }
+                        File.Delete(entry.FilePath);
+                        count++;
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error deleting expired processed file {FileName}",
-                            Path.GetFileName(file));
-                    }
+                    _fileIndex.TryRemove(entry.EventId, out _);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error deleting expired processed file {FileName}",
+                        Path.GetFileName(entry.FilePath));
                 }
             }
 
@@ -437,7 +549,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
         }
         finally
         {
-            _fileLock.Release();
+            _writeLock.Release();
         }
     }
 
@@ -446,44 +558,36 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// </summary>
     public async Task<DeadLetterStatistics> GetStatisticsAsync()
     {
-        await _fileLock.WaitAsync();
-        try
+        await EnsureIndexBuiltAsync();
+
+        // All stats computed from in-memory index — no directory scan or file I/O needed
+        var entries = _fileIndex.Values.ToList();
+        var stats = new DeadLetterStatistics
         {
-            var stats = new DeadLetterStatistics();
-            var events = await ReadFailedEventsInternalAsync(int.MaxValue);
+            TotalEvents = entries.Count,
+            ProcessedEvents = entries.Count(static e => e.IsProcessed),
+            PendingEvents = entries.Count(static e => !e.IsProcessed && e.RetryCount == 0),
+            FailedEvents = entries.Count(static e => !e.IsProcessed && e.RetryCount > 0)
+        };
 
-            stats.TotalEvents = events.Count;
-            stats.ProcessedEvents = events.Count(static e => e.IsProcessed);
-            stats.PendingEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: 0 });
-            stats.FailedEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: > 0 });
-
-            if (events.Any())
-            {
-                stats.OldestEventDate = events.Min(static e => e.FailedAt);
-                stats.NewestEventDate = events.Max(static e => e.FailedAt);
-
-                // Group by event type
-                stats.EventsByType = events
-                    .Where(static e => e.OriginalEvent != null)
-                    .GroupBy(static e => e.OriginalEvent!.EventType)
-                    .ToDictionary(static g => g.Key, static g => g.Count());
-
-                // Group by failure reason
-                stats.EventsByFailureReason = events
-                    .GroupBy(static e => e.FailureReason ?? "Unknown")
-                    .ToDictionary(static g => g.Key, static g => g.Count());
-            }
-
-            // Calculate total size from actual files
-            var files = Directory.GetFiles(_deadLetterPath, "dlq_*.json");
-            stats.TotalSizeBytes = files.Sum(static f => new FileInfo(f).Length);
-
-            return stats;
-        }
-        finally
+        if (entries.Count > 0)
         {
-            _fileLock.Release();
+            stats.OldestEventDate = entries.Min(static e => e.FailedAt);
+            stats.NewestEventDate = entries.Max(static e => e.FailedAt);
+
+            stats.EventsByType = entries
+                .Where(static e => e.EventType != null)
+                .GroupBy(static e => e.EventType!)
+                .ToDictionary(static g => g.Key, static g => g.Count());
+
+            stats.EventsByFailureReason = entries
+                .GroupBy(static e => e.FailureReason ?? "Unknown")
+                .ToDictionary(static g => g.Key, static g => g.Count());
+
+            stats.TotalSizeBytes = entries.Sum(static e => e.FileSize);
         }
+
+        return stats;
     }
 
     /// <summary>
@@ -509,11 +613,11 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// <summary>
     /// Checks queue size against soft warning threshold and hard capacity cap.
     /// Throws <see cref="InvalidOperationException"/> when the hard cap is reached.
-    /// Caller must already hold _fileLock.
+    /// Caller must already hold _writeLock.
     /// </summary>
     private void WarnIfQueueFull()
     {
-        var fileCount = Directory.GetFiles(_deadLetterPath, "dlq_*.json").Length;
+        var fileCount = _fileIndex.Values.Count(static e => !e.IsProcessed);
 
         // Hard cap enforcement — reject new events to prevent unbounded disk growth
         if (_hardCapacity > 0 && fileCount >= _hardCapacity)

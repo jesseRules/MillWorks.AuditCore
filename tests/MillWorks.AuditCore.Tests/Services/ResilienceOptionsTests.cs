@@ -17,7 +17,7 @@ public sealed class ResilienceOptionsTests
         Assert.That(options.MaxRetries, Is.EqualTo(3));
         Assert.That(options.RetryDelaySeconds, Is.EqualTo(1));
         Assert.That(options.IncludeStackTraces, Is.False);
-        Assert.That(options.ProcessedRetention, Is.EqualTo(TimeSpan.FromDays(7)));
+        Assert.That(options.ProcessedRetention, Is.EqualTo(TimeSpan.FromHours(24)));
         Assert.That(options.FileBasedMaxQueueSize, Is.EqualTo(1000));
         Assert.That(options.FailFastOnDlqUnavailable, Is.False);
         Assert.That(options.FileBasedHardCapacity, Is.EqualTo(5000));

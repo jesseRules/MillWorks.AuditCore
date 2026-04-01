@@ -6,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
+using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.DeadLetterQueue;
@@ -309,14 +310,27 @@ public class FileBasedAuditDeadLetterQueueTests
             .Returns(Task.CompletedTask);
 
         // Act
-        await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
+        var result = await _deadLetterQueue.ReprocessEventAsync(deadLetterId);
 
-        // Assert
-        var reprocessedEvents = await _deadLetterQueue.GetFailedEventsAsync();
-        Assert.That(reprocessedEvents[0].RetryCount, Is.EqualTo(1));
-        Assert.That(reprocessedEvents[0].LastRetryAt, Is.Not.Null);
-        Assert.That(reprocessedEvents[0].IsProcessed, Is.True);
-        Assert.That(reprocessedEvents[0].ProcessedAt, Is.Not.Null);
+        // Assert — event is now processed, so GetFailedEventsAsync won't return it
+        Assert.That(result, Is.True);
+
+        // Verify via file on disk — the event should be updated in place
+        var filePath = Path.Combine(_testPath, $"dlq_{deadLetterId}.json");
+        Assert.That(File.Exists(filePath), Is.True);
+
+        var json = await File.ReadAllTextAsync(filePath);
+        var reprocessed = System.Text.Json.JsonSerializer.Deserialize<DeadLetterAuditEvent>(json,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+
+        Assert.That(reprocessed!.RetryCount, Is.EqualTo(1));
+        Assert.That(reprocessed.LastRetryAt, Is.Not.Null);
+        Assert.That(reprocessed.IsProcessed, Is.True);
+        Assert.That(reprocessed.ProcessedAt, Is.Not.Null);
+
+        // GetFailedEventsAsync should now return empty (all events processed)
+        var remaining = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(remaining, Has.Count.EqualTo(0));
     }
 
     /// <summary>
@@ -655,18 +669,18 @@ public class FileBasedAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// GetFailedEventsAsync with corrupted file skips and logs error
+    /// GetFailedEventsAsync with corrupted file skips and logs error during index build
     /// </summary>
     [Test]
     public async Task GetFailedEventsAsync_WithCorruptedFile_SkipsAndLogs()
     {
-        // Arrange
-        var validEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Valid" };
-        await _deadLetterQueue.StoreFailedEventAsync(validEvent, null, "Reason");
-
-        // Create a corrupted file
+        // Arrange: create corrupted file BEFORE any operation triggers index build
         var corruptedFile = Path.Combine(_testPath, "dlq_corrupted_corrupt.json");
         await File.WriteAllTextAsync(corruptedFile, "{ invalid json");
+
+        // Store a valid event (triggers index build, which encounters the corrupted file)
+        var validEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Valid" };
+        await _deadLetterQueue.StoreFailedEventAsync(validEvent, null, "Reason");
 
         // Act
         var events = await _deadLetterQueue.GetFailedEventsAsync();
@@ -677,7 +691,7 @@ public class FileBasedAuditDeadLetterQueueTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Failed to read dead letter file")),
+                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Failed to index dead letter file")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

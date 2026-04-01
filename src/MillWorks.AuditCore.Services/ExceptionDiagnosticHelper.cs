@@ -1,3 +1,5 @@
+using MillWorks.AuditCore.Services.Core;
+
 namespace MillWorks.AuditCore.Services;
 
 /// <summary>
@@ -16,15 +18,15 @@ internal static class ExceptionDiagnosticHelper
         => exception?.GetType().Name;
 
     /// <summary>
-    /// Returns a truncated exception message, capped at <see cref="MaxMessageLength"/> characters.
+    /// Returns a sanitized and truncated exception message. Known sensitive patterns
+    /// (connection strings, tokens, SSNs, SQL key values) are scrubbed before truncation.
     /// </summary>
     internal static string? GetTruncatedMessage(Exception? exception)
     {
         var message = exception?.Message;
-        if (message is null) return null;
-        return message.Length <= MaxMessageLength
-            ? message
-            : string.Concat(message.AsSpan(0, MaxMessageLength), "...[truncated]");
+        if (string.IsNullOrEmpty(message)) return message;
+
+        return SensitiveContentSanitizer.Sanitize(message, MaxMessageLength);
     }
 
     /// <summary>

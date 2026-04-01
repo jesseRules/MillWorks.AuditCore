@@ -40,9 +40,10 @@ public sealed class ResilienceOptions
     /// <summary>
     /// How long processed DLQ artifacts are retained before cleanup.
     /// Applies to the file DLQ Processed folder and Redis processed entries.
-    /// Defaults to 7 days. Set to <see cref="TimeSpan.Zero"/> to delete immediately on purge.
+    /// Defaults to 24 hours. Set to <see cref="TimeSpan.Zero"/> to delete immediately on purge.
+    /// Breaking change from v1 (was 7 days): reduced to minimize sensitive payload retention.
     /// </summary>
-    public TimeSpan ProcessedRetention { get; set; } = TimeSpan.FromDays(7);
+    public TimeSpan ProcessedRetention { get; set; } = TimeSpan.FromHours(24);
 
     /// <summary>
     /// Maximum number of events the file-based DLQ will store before logging warnings.

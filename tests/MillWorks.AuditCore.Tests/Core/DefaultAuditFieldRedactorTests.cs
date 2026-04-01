@@ -1,3 +1,4 @@
+using FluentAssertions;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Services.Core;
 
@@ -57,7 +58,6 @@ public sealed class DefaultAuditFieldRedactorTests
             ["CorrelationId"] = "abc-123",
             ["Duration"] = 150,
             ["Success"] = true,
-            ["ErrorMessage"] = "None",
             ["RequestMethod"] = "POST"
         };
 
@@ -192,5 +192,76 @@ public sealed class DefaultAuditFieldRedactorTests
 
         Assert.That(result["_propertyNames"], Is.EqualTo(DefaultAuditFieldRedactor.RedactionMask),
             "_propertyNames should be redacted because property names can reveal sensitive metadata");
+    }
+
+    [Test]
+    public void RedactFields_ErrorMessage_SanitizesConnectionStrings()
+    {
+        var fields = new Dictionary<string, object?>
+        {
+            ["ErrorMessage"] = "Login failed for 'sa'. Server=myserver;Password=s3cret123;"
+        };
+
+        var result = _redactor.RedactFields(fields);
+
+        result["ErrorMessage"].ToString().Should().NotContain("s3cret123");
+        result["ErrorMessage"].ToString().Should().Contain("[SANITIZED]");
+    }
+
+    [Test]
+    public void RedactFields_ErrorMessage_PreservesSafeDiagnosticContent()
+    {
+        var fields = new Dictionary<string, object?>
+        {
+            ["ErrorMessage"] = "Table 'AuditEvents' is read-only. Operation timed out after 30 seconds."
+        };
+
+        var result = _redactor.RedactFields(fields);
+
+        result["ErrorMessage"].ToString().Should().Contain("read-only");
+        result["ErrorMessage"].ToString().Should().Contain("timed out");
+    }
+
+    [Test]
+    public void RedactFields_ErrorMessage_IsNoLongerInSafeFields()
+    {
+        var fields = new Dictionary<string, object?>
+        {
+            ["ErrorMessage"] = "Timeout expired",
+            ["EventType"] = "Login"
+        };
+
+        var result = _redactor.RedactFields(fields);
+
+        result["EventType"].Should().Be("Login"); // still in SafeFields
+        result["ErrorMessage"].Should().Be("Timeout expired"); // sanitized but safe content survives
+    }
+
+    [Test]
+    public void RedactValue_ErrorMessage_AppliesSanitization()
+    {
+        var result = _redactor.RedactValue("ErrorMessage", "Password=hunter2;Server=prod");
+
+        result.Should().NotContain("hunter2");
+        result.Should().Contain("[SANITIZED]");
+    }
+
+    [Test]
+    public void RedactPropertyNames_SensitiveNames_Redacted()
+    {
+        var names = new List<string> { "Email", "SSN", "Status", "Diagnosis" };
+
+        var result = _redactor.RedactPropertyNames(names);
+
+        result.Should().Contain("Email");
+        result.Should().Contain("Status");
+        result.Should().NotContain("SSN");
+        result.Should().NotContain("Diagnosis");
+    }
+
+    [Test]
+    public void RedactPropertyNames_Null_ReturnsNull()
+    {
+        _redactor.RedactPropertyNames(null).Should().BeNull();
     }
 }

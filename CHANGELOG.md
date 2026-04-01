@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-04-01
+
+### Added
+- `SensitiveContentSanitizer` — internal utility that scrubs known sensitive patterns (connection strings, bearer tokens, emails, SSNs, SQL key values) from free-text fields via regex; used by `DefaultAuditFieldRedactor` and `ExceptionDiagnosticHelper`
+- `IAuditFieldRedactor.RedactPropertyNames()` — default interface method that filters changed property names against a sensitive-name denylist (healthcare/PHI, auth/secrets, financial/PII, FERPA)
+- `IAuditFieldRedactor.RedactKeyValues()` — default interface method that redacts string-typed entity key values (natural keys) while preserving numeric and GUID surrogate keys
+- `InterceptorRedactionBoundaryTests` — integration test verifying that fields marked sensitive via `[SensitiveData]`/`[EncryptedField]` attributes are not in `DefaultAuditFieldRedactor.SafeFields`
+- In-memory index for file-based DLQ — `ConcurrentDictionary` built lazily on first access; statistics, lookups, and capacity checks are now O(1) instead of O(n) directory scans
+
+### Changed
+- `ErrorMessage` removed from `DefaultAuditFieldRedactor.SafeFields` — now routed through `SensitiveContentSanitizer` instead of passing through unredacted; safe diagnostic content (e.g., "Timeout expired") is preserved
+- `AuditEventRedactionHelper.RedactEvent` now redacts `ChangedProperties` (via `RedactPropertyNames`), `KeyValues` (via `RedactKeyValues`), and `SystemFields` (via `RedactFields`)
+- `ExceptionDiagnosticHelper.GetTruncatedMessage` now sanitizes sensitive patterns before truncation
+- `IntegrityWriteBatcher` drain loop replaced `Task.Delay(1)` polling with `Channel.Reader.WaitToReadAsync` — zero-polling, event-driven batching
+- File DLQ read operations no longer hold `SemaphoreSlim` — reads use `ConcurrentDictionary` index; only writes acquire the lock
+- `AuditSaveChangesInterceptor.MaskOrRedact` XML documentation updated to reference the interceptor/redactor boundary
+
+### Breaking Changes
+- `ResilienceOptions.ProcessedRetention` default changed from 7 days to 24 hours to minimize sensitive payload retention. Set `ProcessedRetention = TimeSpan.FromDays(7)` to restore previous behavior.
+- `ErrorMessage` field values are now sanitized (not passed through) by `DefaultAuditFieldRedactor`. Audit consumers that relied on raw error messages in the audit store will see `[SANITIZED]` replacing connection strings, tokens, and other sensitive patterns.
+
 ## [1.2.0] - 2026-04-01
 
 ### Added

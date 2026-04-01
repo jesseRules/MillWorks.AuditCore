@@ -35,7 +35,9 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         "CorrelationId",
         "Duration",
         "Success",
-        "ErrorMessage",
+        // ErrorMessage intentionally excluded from SafeFields — it carries arbitrary runtime
+        // content (SQL errors, API responses) that can embed connection strings, tokens, or PHI.
+        // Routed through SensitiveContentSanitizer instead.
         "RequestMethod",
         "_FerpaEventType",
         "_ConsentRequired",
@@ -53,6 +55,12 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         var redacted = new Dictionary<string, object?>(fields.Count);
         foreach (var (key, value) in fields)
         {
+            if (string.Equals(key, "ErrorMessage", StringComparison.OrdinalIgnoreCase))
+            {
+                redacted[key] = SensitiveContentSanitizer.Sanitize(value?.ToString());
+                continue;
+            }
+
             redacted[key] = SafeFields.Contains(key) ? value : RedactionMask;
         }
         return redacted;
@@ -62,7 +70,62 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     public string? RedactValue(string fieldName, string? value)
     {
         if (value is null) return null;
+        if (string.Equals(fieldName, "ErrorMessage", StringComparison.OrdinalIgnoreCase))
+            return SensitiveContentSanitizer.Sanitize(value);
         return SafeFields.Contains(fieldName) ? value : RedactionMask;
+    }
+
+    /// <summary>
+    /// Property names that reveal sensitive schema metadata in healthcare, FERPA, and auth contexts.
+    /// </summary>
+    private static readonly HashSet<string> SensitivePropertyNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Healthcare / PHI
+        "SSN", "SocialSecurityNumber", "DateOfBirth", "DOB", "Diagnosis", "DiagnosisCode",
+        "MedicalRecordNumber", "MRN", "PatientId", "InsuranceNumber", "InsurancePolicyNumber",
+        // Auth / secrets
+        "Password", "PasswordHash", "PasswordSalt", "Secret", "SecretKey",
+        "Token", "RefreshToken", "ApiKey", "AccessToken",
+        // Financial / PII
+        "CreditCardNumber", "AccountNumber", "RoutingNumber", "TaxId", "EIN",
+        // FERPA
+        "StudentId", "GradePointAverage", "GPA", "TranscriptId",
+    };
+
+    /// <inheritdoc />
+    public List<string>? RedactPropertyNames(List<string>? propertyNames)
+    {
+        if (propertyNames is null or { Count: 0 })
+            return propertyNames;
+
+        return propertyNames
+            .Select(name => SensitivePropertyNames.Contains(name)
+                ? "[REDACTED_PROP]"
+                : name)
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public Dictionary<string, object?>? RedactKeyValues(Dictionary<string, object?>? keyValues)
+    {
+        if (keyValues is null or { Count: 0 })
+            return keyValues;
+
+        var result = new Dictionary<string, object?>(keyValues.Count);
+        foreach (var (key, value) in keyValues)
+        {
+            // Preserve null, numeric types, and GUIDs (surrogate keys are non-sensitive)
+            if (value is null or int or long or short or byte or Guid or decimal or double or float)
+            {
+                result[key] = value;
+                continue;
+            }
+
+            // String values could be natural keys (email, SSN, etc.) — redact
+            result[key] = RedactionMask;
+        }
+
+        return result;
     }
 
     /// <inheritdoc />

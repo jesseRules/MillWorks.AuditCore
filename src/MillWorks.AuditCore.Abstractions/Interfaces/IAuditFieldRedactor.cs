@@ -40,4 +40,18 @@ public interface IAuditFieldRedactor
     /// <param name="target">The audit target to redact, or null.</param>
     /// <returns>The redacted audit target, or null to suppress entirely.</returns>
     AuditTarget? RedactTarget(AuditTarget? target) => target;
+
+    /// <summary>
+    /// Filters a list of changed property names, redacting those that reveal sensitive schema
+    /// information (e.g., "SSN", "Diagnosis"). Default implementation returns names unchanged.
+    /// </summary>
+    List<string>? RedactPropertyNames(List<string>? propertyNames) => propertyNames;
+
+    /// <summary>
+    /// Redacts sensitive values within entity key-value pairs. Natural keys containing
+    /// PHI (emails, SSNs) should be masked while surrogate keys (ints, GUIDs) pass through.
+    /// Default implementation returns key values unchanged.
+    /// </summary>
+    Dictionary<string, object?>? RedactKeyValues(Dictionary<string, object?>? keyValues)
+        => keyValues;
 }
