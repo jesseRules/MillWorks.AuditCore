@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
@@ -16,6 +18,7 @@ public sealed class IntegrityWriteBatcherTests
     private Mock<IServiceProvider> _mockScopeProvider = null!;
     private Mock<ITamperDetectionService> _mockTamperDetection = null!;
     private Mock<ILogger<IntegrityWriteBatcher>> _mockLogger = null!;
+    private AuditApplicationDbContext _dbContext = null!;
 
     [SetUp]
     public void SetUp()
@@ -26,10 +29,26 @@ public sealed class IntegrityWriteBatcherTests
         _mockTamperDetection = new Mock<ITamperDetectionService>();
         _mockLogger = new Mock<ILogger<IntegrityWriteBatcher>>();
 
+        // SQLite in-memory context for ExecuteUpdateAsync support
+        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            .UseSqlite("DataSource=:memory:")
+            .Options;
+        _dbContext = new AuditApplicationDbContext(dbOptions);
+        _dbContext.Database.OpenConnection();
+        _dbContext.Database.EnsureCreated();
+
         _mockScopeFactory.Setup(f => f.CreateScope()).Returns(_mockScope.Object);
         _mockScope.Setup(s => s.ServiceProvider).Returns(_mockScopeProvider.Object);
         _mockScopeProvider.Setup(p => p.GetService(typeof(ITamperDetectionService)))
             .Returns(_mockTamperDetection.Object);
+        _mockScopeProvider.Setup(p => p.GetService(typeof(AuditApplicationDbContext)))
+            .Returns(_dbContext);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _dbContext.Dispose();
     }
 
     [Test]

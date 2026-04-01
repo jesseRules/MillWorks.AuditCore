@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -43,6 +44,11 @@ public class AuditLoggerTests
     private Mock<IAuditContext> _mockAuditContext;
 
     /// <summary>
+    /// In-memory DbContext for work item operations
+    /// </summary>
+    private AuditApplicationDbContext _dbContext;
+
+    /// <summary>
     /// AuditLogger instance under test
     /// </summary>
     private AuditLogger _auditLogger;
@@ -59,6 +65,11 @@ public class AuditLoggerTests
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockAuditContext = new Mock<IAuditContext>();
 
+        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        _dbContext = new AuditApplicationDbContext(dbOptions);
+
         // LogAsync wraps event + integrity in ExecuteInTransactionAsync when tamper detection is enabled.
         // The mock must invoke the lambda so the inner logic actually executes.
         _mockAuditEventRepository
@@ -69,9 +80,19 @@ public class AuditLoggerTests
             _mockLogger.Object,
             _mockEventFactory.Object,
             _mockAuditEventRepository.Object,
+            _dbContext,
             _mockAuditContext.Object,
             new PassThroughAuditFieldRedactor(),
             _mockTamperDetectionService.Object);
+    }
+
+    /// <summary>
+    /// Cleanup after each test
+    /// </summary>
+    [TearDown]
+    public void TearDown()
+    {
+        _dbContext.Dispose();
     }
 
     /// <summary>

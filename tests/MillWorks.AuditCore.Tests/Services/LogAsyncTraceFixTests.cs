@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -18,6 +20,11 @@ namespace MillWorks.AuditCore.Tests.Services;
 [TestFixture]
 public class LogAsyncTraceFixTests
 {
+    private static AuditApplicationDbContext CreateInMemoryDbContext() =>
+        new(new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options);
+
     #region N1: LogBatchAsync OperationCanceledException handling
 
     [Test]
@@ -39,6 +46,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             mockEventFactory.Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             mockContext.Object,
             new PassThroughAuditFieldRedactor());
 
@@ -81,6 +89,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             new Mock<IAuditContext>().Object,
             new PassThroughAuditFieldRedactor());
 
@@ -119,6 +128,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             new Mock<IAuditContext>().Object,
             new PassThroughAuditFieldRedactor());
 
@@ -156,6 +166,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             new Mock<IAuditContext>().Object,
             new PassThroughAuditFieldRedactor());
 
@@ -217,6 +228,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             new Mock<IAuditContext>().Object,
             mockRedactor.Object);
 
@@ -267,6 +279,7 @@ public class LogAsyncTraceFixTests
             mockLogger.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRepo.Object,
+            CreateInMemoryDbContext(),
             new Mock<IAuditContext>().Object,
             mockRedactor.Object);
 

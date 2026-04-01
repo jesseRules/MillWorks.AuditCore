@@ -1,9 +1,12 @@
 using System.Threading.Channels;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
@@ -14,10 +17,11 @@ namespace MillWorks.AuditCore.Services.TamperDetection;
 /// and database round-trips. Events are enqueued via <see cref="EnqueueAsync"/> and flushed
 /// either when the batch is full or when the flush interval elapses, whichever comes first.
 ///
-/// <para><b>Crash semantics:</b> On graceful shutdown, all queued
-/// records are flushed before the service exits. On hard kill, pending records are lost —
-/// the audit events themselves are already persisted, but their integrity records may be
-/// missing. A chain verification pass will detect and report these gaps.</para>
+/// <para><b>Crash semantics:</b> On graceful shutdown, all queued records are flushed before
+/// the service exits. On hard kill, the in-memory channel contents are lost, but the durable
+/// <c>AuditIntegrityWorkItem</c> outbox (written transactionally with the audit event in
+/// <c>AuditLogger</c>) survives. The <c>IntegrityReconciliationService</c> picks up any
+/// stale pending work items on startup and on schedule.</para>
 ///
 /// <para><b>Callers:</b> <see cref="TamperDetectionService"/> routes through this service
 /// when <see cref="SecurityOptions.EnableBatchedIntegrityWrites"/> is true.</para>
@@ -156,6 +160,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
 
             var events = batch.Select(b => b.Event).ToList();
             var results = await tamperDetection.CreateIntegrityRecordBatchAsync(events, cancellationToken);
@@ -167,17 +172,53 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                     $"results but {batch.Count} were expected. Failing the entire batch.");
             }
 
+            // Mark work items Completed and update event IntegrityStatus
+            var eventIds = batch.Select(static b => b.Event.EventId).ToList();
+
+            await dbContext.IntegrityWorkItems
+                .Where(w => eventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(static w => w.Status, IntegrityStatus.Completed)
+                    .SetProperty(static w => w.CompletedAt, DateTimeOffset.UtcNow), cancellationToken);
+
+            await dbContext.AuditEvents
+                .Where(e => eventIds.Contains(e.EventId) && e.IntegrityStatus == IntegrityStatus.Pending)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Completed), cancellationToken);
+
             // Signal success to all callers
             for (int i = 0; i < batch.Count; i++)
             {
                 batch[i].Completion.TrySetResult(results[i]);
             }
 
+            _diagnostics?.Increment(AuditDiagnosticCounter.IntegrityBatchFlush);
             _logger.LogDebug("IntegrityWriteBatcher: flushed {Count} records", batch.Count);
         }
         catch (Exception ex)
         {
+            _diagnostics?.Increment(AuditDiagnosticCounter.IntegrityBatchFlushFailure);
             _logger.LogError(ex, "IntegrityWriteBatcher: batch flush failed for {Count} records", batch.Count);
+
+            // Update work items with failure metadata (best-effort — don't let this mask the original error)
+            try
+            {
+                using var failScope = _scopeFactory.CreateScope();
+                var failDbContext = failScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+                var failedEventIds = batch.Select(static b => b.Event.EventId).ToList();
+
+                await failDbContext.IntegrityWorkItems
+                    .Where(w => failedEventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(static w => w.AttemptCount, w => w.AttemptCount + 1)
+                        .SetProperty(static w => w.LastAttemptAt, DateTimeOffset.UtcNow)
+                        .SetProperty(static w => w.LastError, ex.Message), cancellationToken);
+            }
+            catch (Exception updateEx)
+            {
+                _logger.LogWarning(updateEx,
+                    "IntegrityWriteBatcher: failed to update work item failure metadata");
+            }
 
             // Signal failure to all callers
             foreach (var item in batch)

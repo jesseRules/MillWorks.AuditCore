@@ -16,6 +16,11 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     private long _dlqReplayFailureCount;
     private long _tamperDetectionRetryCount;
     private long _emergencyFallbackWriteCount;
+    private long _integrityBatchFlushCount;
+    private long _integrityBatchFlushFailureCount;
+    private long _integrityReconciliationSuccessCount;
+    private long _integrityReconciliationFailureCount;
+    private long _integrityPermanentFailureCount;
 
     /// <inheritdoc />
     public long SnapshotSerializationFallbackCount =>
@@ -50,6 +55,26 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Read(ref _emergencyFallbackWriteCount);
 
     /// <inheritdoc />
+    public long IntegrityBatchFlushCount =>
+        Interlocked.Read(ref _integrityBatchFlushCount);
+
+    /// <inheritdoc />
+    public long IntegrityBatchFlushFailureCount =>
+        Interlocked.Read(ref _integrityBatchFlushFailureCount);
+
+    /// <inheritdoc />
+    public long IntegrityReconciliationSuccessCount =>
+        Interlocked.Read(ref _integrityReconciliationSuccessCount);
+
+    /// <inheritdoc />
+    public long IntegrityReconciliationFailureCount =>
+        Interlocked.Read(ref _integrityReconciliationFailureCount);
+
+    /// <inheritdoc />
+    public long IntegrityPermanentFailureCount =>
+        Interlocked.Read(ref _integrityPermanentFailureCount);
+
+    /// <inheritdoc />
     public void Increment(AuditDiagnosticCounter counter)
     {
         switch (counter)
@@ -78,6 +103,21 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
             case AuditDiagnosticCounter.EmergencyFallbackWrite:
                 Interlocked.Increment(ref _emergencyFallbackWriteCount);
                 break;
+            case AuditDiagnosticCounter.IntegrityBatchFlush:
+                Interlocked.Increment(ref _integrityBatchFlushCount);
+                break;
+            case AuditDiagnosticCounter.IntegrityBatchFlushFailure:
+                Interlocked.Increment(ref _integrityBatchFlushFailureCount);
+                break;
+            case AuditDiagnosticCounter.IntegrityReconciliationSuccess:
+                Interlocked.Increment(ref _integrityReconciliationSuccessCount);
+                break;
+            case AuditDiagnosticCounter.IntegrityReconciliationFailure:
+                Interlocked.Increment(ref _integrityReconciliationFailureCount);
+                break;
+            case AuditDiagnosticCounter.IntegrityPermanentFailure:
+                Interlocked.Increment(ref _integrityPermanentFailureCount);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(counter), counter,
                     $"Unhandled diagnostic counter: {counter}");
@@ -95,5 +135,10 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Exchange(ref _dlqReplayFailureCount, 0);
         Interlocked.Exchange(ref _tamperDetectionRetryCount, 0);
         Interlocked.Exchange(ref _emergencyFallbackWriteCount, 0);
+        Interlocked.Exchange(ref _integrityBatchFlushCount, 0);
+        Interlocked.Exchange(ref _integrityBatchFlushFailureCount, 0);
+        Interlocked.Exchange(ref _integrityReconciliationSuccessCount, 0);
+        Interlocked.Exchange(ref _integrityReconciliationFailureCount, 0);
+        Interlocked.Exchange(ref _integrityPermanentFailureCount, 0);
     }
 }

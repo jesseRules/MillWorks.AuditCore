@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Primitives;
 
 namespace MillWorks.AuditCore.EntityFramework.Entities;
@@ -18,6 +19,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(EntityType), nameof(EntityId), Name = "IX_AuditEvents_Entity")]
 [Index(nameof(CorrelationId), Name = "IX_AuditEvents_CorrelationId")]
 [Index(nameof(InsertedDate), nameof(EventType), Name = "IX_AuditEvents_Date_Type")]
+[Index(nameof(IntegrityStatus), Name = "IX_AuditEvents_IntegrityStatus")]
 public class AuditEventEntity : AuditAggregateRoot
 {
     /// <summary>
@@ -252,6 +254,17 @@ public class AuditEventEntity : AuditAggregateRoot
     [JsonPropertyName("tenant_id")]
     [DisplayName("Tenant Id")]
     public Guid? TenantId { get; set; }
+
+    /// <summary>
+    /// Tracks whether the integrity record (hash chain entry) for this event
+    /// has been created. In strict mode this is set to <see cref="IntegrityStatus.Completed"/>
+    /// at insert time. In batched mode it starts as <see cref="IntegrityStatus.Pending"/>
+    /// and is updated after the background batcher processes it.
+    /// </summary>
+    [Column("IntegrityStatus")]
+    [JsonPropertyName("integrity_status")]
+    [DisplayName("Integrity Status")]
+    public IntegrityStatus IntegrityStatus { get; set; } = IntegrityStatus.Pending;
 
     // ===== TAMPER EVIDENCE NAVIGATION PROPERTY =====
     

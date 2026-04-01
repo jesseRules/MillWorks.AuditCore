@@ -7,6 +7,7 @@ using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -21,6 +22,7 @@ public sealed class AuditLogger(
     ILogger<AuditLogger> logger,
     IAuditEventFactory eventFactory,
     IAuditEventRepository auditEventRepository,
+    AuditApplicationDbContext dbContext,
     IAuditContext auditContext,
     IAuditFieldRedactor fieldRedactor,
     ITamperDetectionService? tamperDetectionService = null,
@@ -57,14 +59,23 @@ public sealed class AuditLogger(
 
                 if (integrityWriteBatcher is not null)
                 {
-                    // Batched mode: the event is committed before the integrity record to
-                    // avoid holding a transaction open across the batch flush boundary.
-                    // A flush failure will leave the event without an integrity record —
-                    // a chain gap. Chain verification (ArchiveVerificationBackgroundService)
-                    // will detect and report these gaps. This tradeoff favors throughput
-                    // over strict atomicity.
-                    await auditEventRepository.AddAsync(entity, cancellationToken);
-                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+                    // Batched mode: persist event + durable work item in one transaction.
+                    // The work item acts as an outbox — if the batcher crashes or the process
+                    // is hard-killed, the work item survives and reconciliation can pick it up.
+                    entity.IntegrityStatus = IntegrityStatus.Pending;
+
+                    var workItem = new AuditIntegrityWorkItemEntity
+                    {
+                        EventId = entity.EventId,
+                        Status = IntegrityStatus.Pending
+                    };
+
+                    await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                    {
+                        await auditEventRepository.AddAsync(entity, cancellationToken);
+                        dbContext.IntegrityWorkItems.Add(workItem);
+                        await auditEventRepository.SaveChangesAsync(cancellationToken);
+                    }, cancellationToken);
 
                     try
                     {
@@ -73,16 +84,16 @@ public sealed class AuditLogger(
                     catch (Exception ex)
                     {
                         logger.LogError(ex,
-                            "Integrity record batch write failed for event {EventId}. " +
-                            "The audit event is persisted but its integrity record is missing — " +
-                            "chain verification will detect this gap.",
+                            "Integrity record batch enqueue failed for event {EventId}. " +
+                            "The durable work item is persisted — reconciliation will retry.",
                             entity.EventId);
                     }
                 }
                 else
                 {
-                    // Immediate mode: wrap event + integrity record in a single transaction
+                    // Strict mode: wrap event + integrity record in a single transaction
                     // so both succeed or both fail atomically.
+                    entity.IntegrityStatus = IntegrityStatus.Completed;
                     await auditEventRepository.ExecuteInTransactionAsync(async () =>
                     {
                         await auditEventRepository.AddAsync(entity, cancellationToken);
@@ -93,7 +104,9 @@ public sealed class AuditLogger(
             }
             else
             {
-                // No tamper detection — simple insert, no transaction needed
+                // No tamper detection — simple insert, no transaction needed.
+                // Mark as Completed since no integrity record is expected.
+                entity.IntegrityStatus = IntegrityStatus.Completed;
                 await auditEventRepository.AddAsync(entity, cancellationToken);
                 await auditEventRepository.SaveChangesAsync(cancellationToken);
             }
@@ -150,6 +163,10 @@ public sealed class AuditLogger(
 
             if (tamperDetectionService is not null)
             {
+                // LogBatchAsync always uses the atomic (strict) path
+                foreach (var e in entities)
+                    e.IntegrityStatus = IntegrityStatus.Completed;
+
                 await auditEventRepository.ExecuteInTransactionAsync(async () =>
                 {
                     await auditEventRepository.AddRangeAsync(entities, cancellationToken);
@@ -171,6 +188,10 @@ public sealed class AuditLogger(
             }
             else
             {
+                // No tamper detection — mark as Completed since no integrity record is expected
+                foreach (var e in entities)
+                    e.IntegrityStatus = IntegrityStatus.Completed;
+
                 await auditEventRepository.AddRangeAsync(entities, cancellationToken);
                 await auditEventRepository.SaveChangesAsync(cancellationToken);
             }

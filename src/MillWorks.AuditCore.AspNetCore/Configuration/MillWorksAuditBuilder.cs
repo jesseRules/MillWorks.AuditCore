@@ -205,6 +205,14 @@ public sealed class MillWorksAuditBuilder
             {
                 Services.AddSingleton<IntegrityWriteBatcher>();
                 Services.AddHostedService(static sp => sp.GetRequiredService<IntegrityWriteBatcher>());
+
+                // Reconciliation service picks up stale pending work items on startup and on schedule
+                Services.AddHostedService<IntegrityReconciliationService>();
+
+                // Health check for integrity pipeline status
+                Services.AddHealthChecks()
+                    .AddCheck<IntegrityHealthCheck>("audit_integrity_pipeline",
+                        tags: ["audit", "integrity"]);
             }
         }
 

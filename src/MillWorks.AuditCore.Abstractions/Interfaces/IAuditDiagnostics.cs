@@ -52,6 +52,31 @@ public interface IAuditDiagnostics
     long EmergencyFallbackWriteCount { get; }
 
     /// <summary>
+    /// Number of integrity records successfully flushed by the batched writer.
+    /// </summary>
+    long IntegrityBatchFlushCount { get; }
+
+    /// <summary>
+    /// Number of integrity batch flush failures.
+    /// </summary>
+    long IntegrityBatchFlushFailureCount { get; }
+
+    /// <summary>
+    /// Number of integrity work items successfully reconciled after being left pending.
+    /// </summary>
+    long IntegrityReconciliationSuccessCount { get; }
+
+    /// <summary>
+    /// Number of integrity work items that failed reconciliation (retryable).
+    /// </summary>
+    long IntegrityReconciliationFailureCount { get; }
+
+    /// <summary>
+    /// Number of integrity work items permanently marked as Failed after exceeding max attempts.
+    /// </summary>
+    long IntegrityPermanentFailureCount { get; }
+
+    /// <summary>
     /// Increments the specified counter by one.
     /// </summary>
     void Increment(AuditDiagnosticCounter counter);
@@ -74,5 +99,10 @@ public enum AuditDiagnosticCounter
     DlqReplaySuccess,
     DlqReplayFailure,
     TamperDetectionRetry,
-    EmergencyFallbackWrite
+    EmergencyFallbackWrite,
+    IntegrityBatchFlush,
+    IntegrityBatchFlushFailure,
+    IntegrityReconciliationSuccess,
+    IntegrityReconciliationFailure,
+    IntegrityPermanentFailure
 }

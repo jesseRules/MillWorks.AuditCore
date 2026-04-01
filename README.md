@@ -42,6 +42,13 @@ EF Core `SaveChangesInterceptor` automatically captures create, update, and dele
 ### Tamper Detection
 Every audit event is linked into a cryptographic hash chain. Each record's SHA-256 hash incorporates the previous record's hash, forming an append-only ledger that detects insertion, deletion, or modification of any record in the sequence. Chain integrity can be verified on demand or on a schedule. Tamper alerts are recorded as security events.
 
+Two integrity modes are available:
+
+| Mode | Behavior |
+|---|---|
+| **Strict** (default) | Audit event and integrity record are committed atomically in a single transaction. |
+| **Batched** | Audit event and a durable work item are committed atomically. Integrity records are created asynchronously by a background batcher for higher throughput. Pending work survives process crashes via a durable outbox, and a reconciliation service retries stale items on startup and on schedule. |
+
 ### Field-Level Encryption
 AES-256-GCM encryption for sensitive entity fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Encrypted fields are redacted in audit snapshots (recorded as `[ENCRYPTED]` or masked) to prevent sensitive values from appearing in the audit log. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
 
@@ -273,8 +280,9 @@ builder.Services.AddMillWorksAudit(audit =>
     // Security and tamper detection
     audit.UseSecurity(security =>
     {
-        security.EnableTamperDetection = true;   // Default: true
-        security.UseRedisLocking = true;         // Default: false
+        security.EnableTamperDetection = true;              // Default: true
+        security.EnableBatchedIntegrityWrites = false;      // Default: false (strict mode)
+        security.UseRedisLocking = true;                    // Default: false
         security.RedisConnectionString = "localhost:6379";
     });
 
@@ -354,13 +362,14 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `AuditEvents` | Primary audit event store | `Id`, `EventType`, `EntityName`, `Action`, `UserId`, `JsonData`, `StartDate`, `CorrelationId` |
+| `AuditEvents` | Primary audit event store | `Id`, `EventType`, `EntityName`, `Action`, `UserId`, `JsonData`, `StartDate`, `CorrelationId`, `IntegrityStatus` |
 | `AuditLogs` | Entity change log with old/new values | `Id`, `EntityName`, `EntityId`, `Action`, `OldValues`, `NewValues`, `ChangedProperties`, `UserId` |
 | `AuditIntegrity` | Hash chain records for tamper detection | `Id`, `AuditEventId`, `EventHash`, `PreviousHash`, `SequenceNumber`, `HmacSignature` |
+| `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
 | `AuditArchiveRecords` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
 | `AuditSecurityEvents` | Security-relevant events and tamper alerts | `Id`, `EventType`, `Severity`, `Description`, `SourceIp`, `DetectedAt` |
 
-Append-only entities (`AuditEvents`, `AuditIntegrity`, `AuditSecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead.
+Append-only entities (`AuditIntegrity`, `AuditSecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
 
 ## Contributing
 

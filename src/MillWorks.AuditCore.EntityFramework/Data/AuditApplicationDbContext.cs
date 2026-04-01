@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Extensions;
@@ -121,6 +122,11 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// </summary>
     public virtual DbSet<AuditSecurityEventEntity> SecurityEvents { get; set; } = null!;
 
+    /// <summary>
+    /// Durable outbox for pending integrity record creation in batched mode
+    /// </summary>
+    public virtual DbSet<AuditIntegrityWorkItemEntity> IntegrityWorkItems { get; set; } = null!;
+
 
     /// <summary>
     /// Saves changes with automatic bypass detection for audit entities
@@ -130,7 +136,7 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
         // Detect if we're saving audit entities to prevent infinite loops
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity);
+                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity);
 
         if (!savingAuditEntities)
             return await base.SaveChangesAsync(cancellationToken);
@@ -156,7 +162,7 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
         // Detect if we're saving audit entities
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity);
+                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity);
 
         if (!savingAuditEntities)
             return base.SaveChanges();
@@ -197,6 +203,11 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
         // AuditEventEntity configuration
         modelBuilder.Entity<AuditEventEntity>(entity =>
         {
+            // IntegrityStatus enum stored as int
+            entity.Property(static e => e.IntegrityStatus)
+                .HasConversion<int>()
+                .HasDefaultValue(IntegrityStatus.Pending);
+
             if (isInMemory)
             {
                 // InMemory: entity property initializers handle defaults (no HasDefaultValueSql support)
@@ -349,6 +360,33 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
 
                 entity.ToTable("ArchiveRecord", "audit", static t => t.HasCheckConstraint("CK_ArchiveRecord_DateRange",
                     "[DateRangeEnd] >= [DateRangeStart]"));
+            }
+        });
+
+        // AuditIntegrityWorkItemEntity configuration (durable outbox for batched integrity writes)
+        modelBuilder.Entity<AuditIntegrityWorkItemEntity>(entity =>
+        {
+            entity.HasKey(static e => e.Id);
+
+            // Store enum as int
+            entity.Property(static e => e.Status)
+                .HasConversion<int>()
+                .HasDefaultValue(IntegrityStatus.Pending);
+
+            if (isInMemory)
+            {
+                // InMemory: property initializers handle defaults
+            }
+            else if (isSqlite)
+            {
+                entity.Property(static e => e.CreatedAt)
+                    .HasDefaultValueSql("datetime('now')");
+            }
+            else
+            {
+                // SQL Server
+                entity.Property(static e => e.CreatedAt)
+                    .HasDefaultValueSql("GETUTCDATE()");
             }
         });
 
