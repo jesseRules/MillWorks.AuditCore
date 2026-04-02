@@ -1,15 +1,20 @@
 using Microsoft.Extensions.DependencyInjection;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.AspNetCore.Configuration;
 using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
+using StackExchange.Redis;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
 
@@ -160,6 +165,37 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
+    public void UseSecurity_WithRedisLocking_RegistersRedisLockServices()
+    {
+        _builder.UseSecurity(static security =>
+        {
+            security.EnableTamperDetection = false;
+            security.UseRedisLocking = true;
+            security.RedisConnectionString = "localhost:6379";
+        });
+
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IConnectionMultiplexer)), Is.True);
+        Assert.That(_services.Any(static s =>
+            s.ServiceType == typeof(MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService)
+            && s.ImplementationType == typeof(RedisDistributedLockService)), Is.True);
+    }
+
+    [Test]
+    public void UseSecurity_WithoutRedisConnection_RegistersInMemoryLockService()
+    {
+        _builder.UseSecurity(static security =>
+        {
+            security.EnableTamperDetection = false;
+            security.UseRedisLocking = true;
+            security.RedisConnectionString = "";
+        });
+
+        Assert.That(_services.Any(static s =>
+            s.ServiceType == typeof(MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService)
+            && s.ImplementationType == typeof(MillWorks.AuditCore.Services.DistributedLocking.Implementations.InMemoryDistributedLockService)), Is.True);
+    }
+
+    [Test]
     public void UseResilience_EnableDLQ_InMemory_RegistersInMemoryQueue()
     {
         // UseResilience calls Decorate<IAuditLogger>, which requires IAuditLogger to be registered
@@ -190,6 +226,70 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
+    public void UseResilience_WithoutAuditLoggerRegistration_ThrowsInvalidOperation()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _builder.UseResilience(static resilience =>
+            {
+                resilience.EnableDeadLetterQueue = true;
+                resilience.DeadLetterProvider = DeadLetterProvider.InMemory;
+            });
+        });
+    }
+
+    [Test]
+    public void UseResilience_FileSystemProvider_RegistersFileQueue()
+    {
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
+
+        _builder.UseResilience(static resilience =>
+        {
+            resilience.EnableDeadLetterQueue = true;
+            resilience.EnableBackgroundProcessor = false;
+            resilience.DeadLetterProvider = DeadLetterProvider.FileSystem;
+        });
+
+        Assert.That(_services.Any(static s =>
+            s.ServiceType == typeof(IAuditDeadLetterQueue)
+            && s.ImplementationType == typeof(MillWorks.AuditCore.Services.DeadLetterQueue.Implementations.FileBasedAuditDeadLetterQueue)), Is.True);
+    }
+
+    [Test]
+    public void UseResilience_RedisProvider_RegistersRedisQueue()
+    {
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
+
+        _builder.UseResilience(static resilience =>
+        {
+            resilience.EnableDeadLetterQueue = true;
+            resilience.EnableBackgroundProcessor = false;
+            resilience.DeadLetterProvider = DeadLetterProvider.Redis;
+        });
+
+        Assert.That(_services.Any(static s =>
+            s.ServiceType == typeof(IAuditDeadLetterQueue)
+            && s.ImplementationType == typeof(MillWorks.AuditCore.Services.DeadLetterQueue.Implementations.RedisAuditDeadLetterQueue)), Is.True);
+    }
+
+    [Test]
+    public void UseResilience_BackgroundProcessorDisabled_DoesNotRegisterHostedService()
+    {
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
+
+        _builder.UseResilience(static resilience =>
+        {
+            resilience.EnableDeadLetterQueue = true;
+            resilience.EnableBackgroundProcessor = false;
+            resilience.DeadLetterProvider = DeadLetterProvider.InMemory;
+        });
+
+        Assert.That(_services.Any(static s =>
+            s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
+            && s.ImplementationType == typeof(MillWorks.AuditCore.Services.DeadLetterQueue.Models.DeadLetterQueueProcessor)), Is.False);
+    }
+
+    [Test]
     public void RegisterProviders_RegistersMapAndDispatcher()
     {
         _builder.RegisterProviders(static registry =>
@@ -199,6 +299,18 @@ public class MillWorksAuditBuilderTests
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditProviderTypeMap)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditProviderDispatcher)), Is.True);
+    }
+
+    [Test]
+    public void RegisterProviders_AddProvider_RegistersProviderTypeAndMapping()
+    {
+        _builder.RegisterProviders(registry => registry.AddProvider<TestAuditProvider>("Order"));
+
+        using var provider = _services.BuildServiceProvider();
+        var typeMap = provider.GetRequiredService<AuditProviderTypeMap>();
+
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(TestAuditProvider)), Is.True);
+        Assert.That(typeMap.GetProviderType("Order"), Is.EqualTo(typeof(TestAuditProvider)));
     }
 
     [Test]
@@ -273,6 +385,31 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
+    public void UseArchival_AzureBlob_WithValidConnectionString_RegistersBlobServiceClient()
+    {
+        _builder.UseArchival(static archival =>
+        {
+            archival.Provider = ArchivalProvider.AzureBlob;
+            archival.ConnectionString =
+                "DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=dGVzdGtleQ==;EndpointSuffix=core.windows.net";
+        });
+
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(Azure.Storage.Blobs.BlobServiceClient)), Is.True);
+    }
+
+    [Test]
+    public void UseArchival_AwsS3_ThrowsNotImplemented()
+    {
+        Assert.Throws<NotImplementedException>(() =>
+        {
+            _builder.UseArchival(static archival =>
+            {
+                archival.Provider = ArchivalProvider.AWSs3;
+            });
+        });
+    }
+
+    [Test]
     public void UseArchival_EnableBackgroundArchival_RegistersHostedService()
     {
         _builder.UseArchival(static archival =>
@@ -283,5 +420,15 @@ public class MillWorksAuditBuilderTests
 
         Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.True);
+    }
+
+    private sealed class TestAuditProvider : IAuditProvider
+    {
+        public string EntityType => "Order";
+        public Task<AuditEvent> CreateAuditEventAsync(string action, object? entity, object? oldValues = null)
+            => Task.FromResult(new AuditEvent { EntityName = EntityType });
+        public Task<bool> ShouldAuditAsync(string action, object entity) => Task.FromResult(true);
+        public Task EnrichAuditEventAsync(AuditEvent auditEvent, object? entity) => Task.CompletedTask;
+        public Dictionary<string, object?> GetChanges(object? oldValues, object? newValues) => new();
     }
 }

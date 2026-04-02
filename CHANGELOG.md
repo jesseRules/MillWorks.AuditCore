@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-04-02
+
+### Added
+- 176 new unit tests covering previously untested code paths (1,621 → 1,797 total; 4 skipped)
+  - TamperDetectionService: digital signature create/verify round-trips, RSA key loading errors, constructor validation, `LogTamperAlertAsync` structure, cancellation propagation (17 tests)
+  - AuditArchivalService: compression/decompression round-trips, hash verification in restore and validate paths, blob upload/download failures, corrupted GZip handling, deserialization failure, audit event emission failure (13 tests)
+  - FieldEncryptionService: `ReEncryptFieldAsync` error paths, key provider failures during decrypt, invalid Base64/JSON payloads, sync `CryptographicException` handling, field name edge cases (18 tests)
+  - PciDssValidator: all 12 requirement branches (pass and fail), keyword-specific filters, `GenerateRecommendations` high/medium severity sections (46 tests)
+  - Iso27001Validator: all 7 validation rules (pass and fail), `GenerateRecommendations` all severity sections (24 tests)
+  - HipaaValidator: false paths for activity review, automatic logoff, login monitoring, authorization tracking; emergency access keywords; `GenerateRecommendations` high/medium/low sections (25 tests)
+  - StigValidator: 3-4 category severity ternary, `BuildMissingCategoryRecommendations` helper, `GenerateRecommendations` low severity section (6 tests)
+  - DuplicateKeyDetector: all 3 database provider branches (SQL Server, SQLite, PostgreSQL) plus default path (9 tests)
+  - FieldKeyDerivation: determinism, uniqueness per field/version, output size for both overloads (9 tests)
+  - AuditQueryServiceWithMetaTracking: all 6 query methods with delegation and count verification (9 tests)
+- Un-skipped 2 flaky DLQ statistics tests that now pass reliably (skipped count 6 → 4)
+
+### Fixed
+- `AuditIntegrityDto.Id` had `[JsonPropertyName("event_id")]` colliding with `EventId` — changed to `[JsonPropertyName("id")]`. This caused `JsonSerializer.Deserialize<AuditArchive>` to throw on .NET 10 during archive restore. The `Id` property is unused in the codebase.
+
+### Changed
+- Adjusted line coverage (excluding migrations) from 86.5% to ~90%+; Services assembly from 86.7% to 91.1% line / 79.9% to 84.0% branch
+
 ## [1.3.0] - 2026-04-01
 
 ### Added
@@ -129,6 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
+[1.3.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/jesserules/millworks.auditcore/compare/v1.0.0...v1.0.4

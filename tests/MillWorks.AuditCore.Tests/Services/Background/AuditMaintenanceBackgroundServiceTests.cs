@@ -8,212 +8,236 @@ using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.Services.Background;
 
-/// <summary>
-/// Tests for AuditMaintenanceBackgroundService
-/// </summary>
 [TestFixture]
 [Category("Unit")]
 public class AuditMaintenanceBackgroundServiceTests
 {
-    private Mock<IAuditMaintenanceService> _mockMaintenanceService;
-    private Mock<IAuditComplianceService> _mockComplianceService;
-    private Mock<IAuditArchivalService> _mockArchivalService;
-    private Mock<ITamperDetectionService> _mockTamperService;
-    private Mock<ILogger<AuditMaintenanceBackgroundService>> _mockLogger;
-    private ServiceProvider _serviceProvider;
-    private IConfiguration _configuration = null!;
+    private Mock<IAuditMaintenanceService> _mockMaintenanceService = null!;
+    private Mock<IAuditComplianceService> _mockComplianceService = null!;
+    private Mock<IAuditArchivalService> _mockArchivalService = null!;
+    private Mock<ITamperDetectionService> _mockTamperService = null!;
+    private Mock<ILogger<AuditMaintenanceBackgroundService>> _mockLogger = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockMaintenanceService = new Mock<IAuditMaintenanceService>();
-        _mockComplianceService = new Mock<IAuditComplianceService>();
-        _mockArchivalService = new Mock<IAuditArchivalService>();
-        _mockTamperService = new Mock<ITamperDetectionService>();
+        _mockMaintenanceService = new Mock<IAuditMaintenanceService>(MockBehavior.Strict);
+        _mockComplianceService = new Mock<IAuditComplianceService>(MockBehavior.Strict);
+        _mockArchivalService = new Mock<IAuditArchivalService>(MockBehavior.Strict);
+        _mockTamperService = new Mock<ITamperDetectionService>(MockBehavior.Strict);
         _mockLogger = new Mock<ILogger<AuditMaintenanceBackgroundService>>();
 
-        // Default: archive enabled, returns success
         _mockArchivalService
-            .Setup(static x => x.ArchiveAuditEventsAsync(
-                It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditArchivalResult { Success = true, EventCount = 5 });
 
         _mockMaintenanceService
-            .Setup(static x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(3);
 
+        _mockComplianceService
+            .Setup(x => x.ApplyRetentionPolicyAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockTamperService
+            .Setup(x => x.DetectTamperingAsync(24, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
         _mockMaintenanceService
-            .Setup(static x => x.OptimizeAuditTablesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.OptimizeAuditTablesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         _mockMaintenanceService
-            .Setup(static x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, object?>
             {
                 ["TotalEvents"] = 100L,
                 ["DatabaseSizeKB"] = 2048L
             });
-
-        _mockTamperService
-            .Setup(static x => x.DetectTamperingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<TamperAlert>());
-
-        var services = new ServiceCollection();
-        services.AddSingleton(_mockMaintenanceService.Object);
-        services.AddSingleton(_mockComplianceService.Object);
-        services.AddSingleton(_mockArchivalService.Object);
-        services.AddSingleton(_mockTamperService.Object);
-        _serviceProvider = services.BuildServiceProvider();
     }
 
-    [TearDown]
-    public void TearDown()
+    [Test]
+    public async Task StartAsync_ExecutesOneCycle_AndStopsCleanly()
     {
-        _serviceProvider.Dispose();
-    }
+        var cycleCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>
-    /// Builds a configuration with optional overrides
-    /// </summary>
-    private static IConfiguration BuildConfiguration(Dictionary<string, string?>? overrides = null)
-    {
-        var defaults = new Dictionary<string, string?>
-        {
-            ["Audit:MaintenanceIntervalHours"] = "24",
-            ["Audit:Archive:Enabled"] = "true",
-            ["Audit:Archive:ArchiveAfterDays"] = "90",
-            ["Audit:RetentionDays"] = "365",
-            ["Audit:OptimizationEnabled"] = "true"
-        };
-
-        if (overrides != null)
-        {
-            foreach (var kvp in overrides)
+        _mockMaintenanceService
+            .Setup(x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, object?>
             {
-                defaults[kvp.Key] = kvp.Value;
-            }
-        }
+                ["TotalEvents"] = 100L,
+                ["DatabaseSizeKB"] = 2048L
+            })
+            .Callback(() => cycleCompleted.TrySetResult());
 
+        using var serviceProvider = BuildServiceProvider();
+        using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromSeconds(30));
+
+        await service.StartAsync(CancellationToken.None);
+        await WaitAsync(cycleCompleted.Task);
+        await service.StopAsync(CancellationToken.None);
+
+        _mockArchivalService.Verify(x => x.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), null, It.IsAny<CancellationToken>()), Times.Once);
+        _mockMaintenanceService.Verify(x => x.CleanupOldAuditEventsAsync(365, It.IsAny<CancellationToken>()), Times.Once);
+        _mockComplianceService.Verify(x => x.ApplyRetentionPolicyAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockTamperService.Verify(x => x.DetectTamperingAsync(24, It.IsAny<CancellationToken>()), Times.Once);
+        _mockMaintenanceService.Verify(x => x.OptimizeAuditTablesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockMaintenanceService.Verify(x => x.GetAuditStatisticsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(GetLogMessages(), Has.Some.Contains("cycle 1 completed").IgnoreCase);
+    }
+
+    [Test]
+    public void StartAsync_WhenDependencyMissing_ThrowsMeaningfulError()
+    {
+        using var serviceProvider = new ServiceCollection()
+            .AddSingleton(_mockMaintenanceService.Object)
+            .AddSingleton(_mockComplianceService.Object)
+            .AddSingleton(_mockArchivalService.Object)
+            .BuildServiceProvider();
+
+        using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromMilliseconds(50));
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await service.StartAsync(CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("ITamperDetectionService"));
+    }
+
+    [Test]
+    public async Task ExecuteAsync_WhenCycleFails_LogsError_AndRetriesNextCycle()
+    {
+        var cleanupCalls = 0;
+        var secondCycleReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _mockMaintenanceService
+            .Setup(x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns<int, CancellationToken>((_, _) =>
+            {
+                cleanupCalls++;
+                if (cleanupCalls == 1)
+                    throw new InvalidOperationException("cleanup failed");
+
+                secondCycleReached.TrySetResult();
+                return Task.FromResult(3);
+            });
+
+        using var serviceProvider = BuildServiceProvider();
+        using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromMilliseconds(40));
+
+        await service.StartAsync(CancellationToken.None);
+        await WaitAsync(secondCycleReached.Task);
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.That(cleanupCalls, Is.GreaterThanOrEqualTo(2));
+        Assert.That(GetLogMessages(), Has.Some.Contains("Error during audit maintenance cycle").IgnoreCase);
+    }
+
+    [Test]
+    public async Task StopAsync_DuringActiveCycle_CancelsGracefully()
+    {
+        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _mockMaintenanceService
+            .Setup(x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns<int, CancellationToken>(async (_, cancellationToken) =>
+            {
+                cleanupStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return 0;
+            });
+
+        using var serviceProvider = BuildServiceProvider();
+        using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromSeconds(30));
+
+        await service.StartAsync(CancellationToken.None);
+        await WaitAsync(cleanupStarted.Task);
+
+        Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
+    }
+
+    [Test]
+    public async Task ExecuteAsync_RespectsConfiguredIntervalBetweenCycles()
+    {
+        var callTimes = new List<DateTimeOffset>();
+        var secondCycleReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _mockMaintenanceService
+            .Setup(x => x.CleanupOldAuditEventsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns<int, CancellationToken>((_, _) =>
+            {
+                lock (callTimes)
+                {
+                    callTimes.Add(DateTimeOffset.UtcNow);
+                    if (callTimes.Count == 2)
+                        secondCycleReached.TrySetResult();
+                }
+
+                return Task.FromResult(3);
+            });
+
+        using var serviceProvider = BuildServiceProvider();
+        using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromMilliseconds(80));
+
+        await service.StartAsync(CancellationToken.None);
+        await WaitAsync(secondCycleReached.Task);
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.That(callTimes, Has.Count.GreaterThanOrEqualTo(2));
+        Assert.That(callTimes[1] - callTimes[0], Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(60)));
+        Assert.That(GetLogMessages(), Has.Some.Contains("Next scheduled run").IgnoreCase);
+    }
+
+    private ServiceProvider BuildServiceProvider()
+    {
+        return new ServiceCollection()
+            .AddSingleton(_mockMaintenanceService.Object)
+            .AddSingleton(_mockComplianceService.Object)
+            .AddSingleton(_mockArchivalService.Object)
+            .AddSingleton(_mockTamperService.Object)
+            .BuildServiceProvider();
+    }
+
+    private AuditMaintenanceBackgroundService CreateService(
+        ServiceProvider serviceProvider,
+        TimeSpan startupDelay,
+        TimeSpan intervalOverride)
+    {
+        return new AuditMaintenanceBackgroundService(
+            serviceProvider,
+            _mockLogger.Object,
+            BuildConfiguration(),
+            TimeProvider.System,
+            startupDelay,
+            intervalOverride);
+    }
+
+    private static IConfiguration BuildConfiguration()
+    {
         return new ConfigurationBuilder()
-            .AddInMemoryCollection(defaults)
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:MaintenanceIntervalHours"] = "24",
+                ["Audit:Archive:Enabled"] = "true",
+                ["Audit:Archive:ArchiveAfterDays"] = "90",
+                ["Audit:RetentionDays"] = "365",
+                ["Audit:OptimizationEnabled"] = "true"
+            })
             .Build();
     }
 
-    /// <summary>
-    /// ExecuteAsync calls maintenance service methods during a cycle
-    /// </summary>
-    [Test]
-    public async Task ExecuteAsync_CallsMaintenanceService()
+    private IReadOnlyList<string> GetLogMessages()
     {
-        // Arrange - use short interval; cancel after first cycle
-        _configuration = BuildConfiguration();
-
-        var service = new AuditMaintenanceBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
-
-        using var cts = new CancellationTokenSource();
-
-        // Cancel after a short delay to allow one iteration (need to survive the initial 1-minute wait)
-        // We cancel immediately to test the cancellation path; instead we use StartAsync approach.
-        // The service has a 1-minute startup delay, so we cancel during that delay.
-        // To actually test calls, we need to wait longer than 1 minute, which is impractical for unit tests.
-        // Instead, we test that the service starts and stops gracefully, and use a reflection-free approach.
-        // We'll invoke ExecuteAsync directly via the protected method pattern.
-
-        // Use the hosted service start/stop pattern but cancel quickly to verify graceful stop.
-        // For the actual "calls maintenance" verification, we need to trigger ExecuteAsync.
-        // Since the initial delay is 1 minute, we test by starting and immediately cancelling.
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-
-        // Act
-        await service.StartAsync(cts.Token);
-        // Give it time to enter ExecuteAsync and hit the initial delay
-        await Task.Delay(TimeSpan.FromMilliseconds(200));
-        await service.StopAsync(CancellationToken.None);
-
-        // Assert - The service should have started and stopped without throwing.
-        // Due to the 1-minute initial delay, maintenance won't have been called yet.
-        // This verifies the service lifecycle is correct.
-        Assert.Pass("Service started and stopped without throwing");
+        return _mockLogger.Invocations
+            .Where(x => x.Method.Name == nameof(ILogger.Log))
+            .Select(x => x.Arguments[2]?.ToString() ?? string.Empty)
+            .ToList();
     }
 
-    /// <summary>
-    /// ExecuteAsync stops gracefully when cancellation is requested
-    /// </summary>
-    [Test]
-    public async Task ExecuteAsync_CancellationToken_StopsGracefully()
+    private static async Task WaitAsync(Task task)
     {
-        // Arrange
-        _configuration = BuildConfiguration();
+        var completed = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(3)));
+        if (completed != task)
+            Assert.Fail("Timed out waiting for background service activity.");
 
-        var service = new AuditMaintenanceBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
-
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
-
-        // Act
-        await service.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(150));
-
-        // Assert - StopAsync should not throw
-        Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
-    }
-
-    /// <summary>
-    /// ExecuteAsync logs error and continues when maintenance throws an exception
-    /// </summary>
-    [Test]
-    public async Task ExecuteAsync_MaintenanceThrows_LogsAndContinues()
-    {
-        // Arrange - make archival service throw
-        _mockArchivalService
-            .Setup(static x => x.ArchiveAuditEventsAsync(
-                It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Archive failed"));
-
-        _configuration = BuildConfiguration();
-
-        var service = new AuditMaintenanceBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
-
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
-
-        // Act - should not throw even though archival fails
-        await service.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(150));
-
-        // Assert - Service should handle exception gracefully
-        Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
-    }
-
-    /// <summary>
-    /// ExecuteAsync reads configured interval from configuration
-    /// </summary>
-    [Test]
-    public async Task ExecuteAsync_RespectsConfiguredInterval()
-    {
-        // Arrange - set a specific interval
-        _configuration = BuildConfiguration(new Dictionary<string, string?>
-        {
-            ["Audit:MaintenanceIntervalHours"] = "12"
-        });
-
-        var service = new AuditMaintenanceBackgroundService(
-            _serviceProvider, _mockLogger.Object, _configuration);
-
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(50));
-
-        // Act
-        await service.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(150));
-        await service.StopAsync(CancellationToken.None);
-
-        // Assert - The service constructed and ran with the custom interval without error.
-        // We can't easily verify the exact interval in a unit test without longer waits,
-        // but we verify the configuration is read correctly (service starts without error).
-        Assert.Pass("Service respected configured interval and ran without error");
+        await task;
     }
 }

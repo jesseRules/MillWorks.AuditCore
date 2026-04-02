@@ -85,6 +85,40 @@ public class RedisDistributedLockServiceTests
     }
 
     /// <summary>
+    /// AcquireLockAsync prefixes the lock key and uses a unique owner value
+    /// </summary>
+    [Test]
+    public async Task AcquireLockAsync_UsesPrefixedKeyAndUniqueOwnerValue()
+    {
+        var capturedKeys = new List<string>();
+        var capturedValues = new List<string>();
+        var expiry = TimeSpan.FromSeconds(30);
+
+        _mockDatabase
+            .Setup(x => x.StringSetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                expiry,
+                When.NotExists))
+            .ReturnsAsync(true)
+            .Callback<RedisKey, RedisValue, TimeSpan?, When>((key, value, _, _) =>
+            {
+                capturedKeys.Add(key!);
+                capturedValues.Add(value!);
+            });
+
+        var first = await _lockService.AcquireLockAsync("resource-one", expiry);
+        var second = await _lockService.AcquireLockAsync("resource-two", expiry);
+
+        Assert.That(capturedKeys, Is.EqualTo(new[] { "lock:resource-one", "lock:resource-two" }));
+        Assert.That(capturedValues, Has.Count.EqualTo(2));
+        Assert.That(capturedValues[0], Is.Not.EqualTo(capturedValues[1]));
+
+        first.Dispose();
+        second.Dispose();
+    }
+
+    /// <summary>
     /// AcquireLockAsync retries on lock contention and eventually succeeds
     /// </summary>
     [Test]
@@ -373,6 +407,45 @@ public class RedisDistributedLockServiceTests
             It.IsAny<RedisValue[]>()), Times.Once); // Only once
     }
 
+    /// <summary>
+    /// DisposeLock uses the acquired owner value in the atomic release script
+    /// </summary>
+    [Test]
+    public async Task DisposeLock_UsesOwnerValueInAtomicReleaseScript()
+    {
+        var expiry = TimeSpan.FromSeconds(30);
+        RedisValue capturedLockValue = RedisValue.Null;
+        RedisValue[]? releaseArgs = null;
+
+        _mockDatabase
+            .Setup(x => x.StringSetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                expiry,
+                When.NotExists))
+            .ReturnsAsync(true)
+            .Callback<RedisKey, RedisValue, TimeSpan?, When>((_, value, _, _) =>
+            {
+                capturedLockValue = value;
+            });
+
+        _mockDatabase
+            .Setup(x => x.ScriptEvaluate(
+                It.IsAny<string>(),
+                It.IsAny<RedisKey[]>(),
+                It.IsAny<RedisValue[]>(),
+                It.IsAny<CommandFlags>()))
+            .Returns(RedisResult.Create(1))
+            .Callback<string, RedisKey[], RedisValue[], CommandFlags>((_, _, args, _) => releaseArgs = args);
+
+        var lockHandle = await _lockService.AcquireLockAsync("owner-check", expiry);
+        lockHandle.Dispose();
+
+        Assert.That(releaseArgs, Is.Not.Null);
+        Assert.That(releaseArgs!, Has.Length.EqualTo(1));
+        Assert.That(releaseArgs[0], Is.EqualTo(capturedLockValue));
+    }
+
     #endregion
 
     #region Integration Pattern Tests
@@ -557,6 +630,23 @@ public class RedisDistributedLockServiceTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             new RedisDistributedLockService(_mockRedis.Object, null!));
+    }
+
+    [Test]
+    public void Constructor_WithNonPositiveMaxRetries_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RedisDistributedLockService(_mockRedis.Object, _mockLogger.Object, maxRetries: 0));
+    }
+
+    [Test]
+    public void Constructor_WithNonPositiveBaseDelay_ThrowsArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RedisDistributedLockService(
+                _mockRedis.Object,
+                _mockLogger.Object,
+                baseDelay: TimeSpan.Zero));
     }
 
     #endregion

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MillWorks.AuditCore.EntityFramework.Data;
 
@@ -11,9 +12,11 @@ using MillWorks.AuditCore.EntityFramework.Data;
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
     [DbContext(typeof(AuditApplicationDbContext))]
-    partial class AuditApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260402142823_PhaseThreeStartupParity")]
+    partial class PhaseThreeStartupParity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

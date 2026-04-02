@@ -529,6 +529,11 @@ public class RedisAuditDeadLetterQueueTests
         // Assert
         Assert.That(stats, Is.Not.Null);
         Assert.That(stats.TotalEvents, Is.EqualTo(2));
+        Assert.That(stats.PendingEvents, Is.EqualTo(2));
+        Assert.That(stats.EventsByType["Type1"], Is.EqualTo(1));
+        Assert.That(stats.EventsByFailureReason["Reason2"], Is.EqualTo(1));
+        Assert.That(stats.OldestEventDate, Is.Not.Null);
+        Assert.That(stats.TotalSizeBytes, Is.GreaterThan(0));
     }
 
     /// <summary>
@@ -546,6 +551,76 @@ public class RedisAuditDeadLetterQueueTests
         Assert.That(stats.ProcessedEvents, Is.EqualTo(0));
         Assert.That(stats.PendingEvents, Is.EqualTo(0));
         Assert.That(stats.FailedEvents, Is.EqualTo(0));
+        Assert.That(stats.OldestEventDate, Is.Null);
+        Assert.That(stats.NewestEventDate, Is.Null);
+    }
+
+    /// <summary>
+    /// Gets statistics after replay removal and verifies count decreases
+    /// </summary>
+    [Test]
+    public async Task GetStatisticsAsync_AfterSuccessfulReplay_RemovesEventFromStatistics()
+    {
+        var mockAuditLogger = new Mock<IAuditLogger>();
+        mockAuditLogger
+            .Setup(x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var mockScope = new Mock<IServiceScope>();
+        var mockScopedProvider = new Mock<IServiceProvider>();
+        mockScopedProvider
+            .Setup(x => x.GetService(typeof(IAuditLogger)))
+            .Returns(mockAuditLogger.Object);
+        mockScope.Setup(x => x.ServiceProvider).Returns(mockScopedProvider.Object);
+
+        var mockScopeFactory = new Mock<IServiceScopeFactory>();
+        mockScopeFactory.Setup(x => x.CreateScope()).Returns(mockScope.Object);
+
+        using var dlq = new RedisAuditDeadLetterQueue(
+            _mockRedis.Object,
+            new PassThroughAuditFieldRedactor(),
+            _mockLogger.Object,
+            serviceScopeFactory: mockScopeFactory.Object);
+
+        await dlq.StoreFailedEventAsync(
+            new AuditEvent { EventId = Guid.NewGuid(), EventType = "Type1" },
+            null,
+            "Reason1");
+
+        var before = await dlq.GetStatisticsAsync();
+        var deadLetterId = (await dlq.GetFailedEventsAsync()).Single().Id;
+
+        var replayed = await dlq.ReprocessEventAsync(deadLetterId);
+        var after = await dlq.GetStatisticsAsync();
+
+        Assert.That(replayed, Is.True);
+        Assert.That(before.TotalEvents, Is.EqualTo(1));
+        Assert.That(after.TotalEvents, Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// Gets statistics when Redis fails and verifies exception wrapping
+    /// </summary>
+    [Test]
+    public void GetStatisticsAsync_WhenRedisFails_WrapsException()
+    {
+        _mockDatabase
+            .Setup(x => x.SortedSetRangeByScoreAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<double>(),
+                It.IsAny<double>(),
+                It.IsAny<Exclude>(),
+                It.IsAny<Order>(),
+                It.IsAny<long>(),
+                It.IsAny<long>(),
+                It.IsAny<CommandFlags>()))
+            .ThrowsAsync(new TimeoutException("redis timeout"));
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _deadLetterQueue.GetStatisticsAsync());
+
+        Assert.That(ex!.Message, Does.Contain("statistics"));
+        Assert.That(ex.InnerException, Is.TypeOf<TimeoutException>());
     }
 
     /// <summary>

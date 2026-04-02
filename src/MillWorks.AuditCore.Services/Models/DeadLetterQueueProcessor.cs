@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
+using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 
 namespace MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 
@@ -11,6 +12,9 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 /// </summary>
 public sealed class DeadLetterQueueProcessor : BackgroundService
 {
+    private static readonly TimeSpan DefaultInterEventDelay = TimeSpan.FromSeconds(1);
+    private const string ReprocessLockName = "audit:dead-letter-queue:reprocess";
+
     /// <summary>
     /// Service provider for creating scopes
     /// </summary>
@@ -26,6 +30,9 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
     /// </summary>
     private readonly IConfiguration _configuration;
 
+    private readonly TimeSpan? _intervalOverride;
+    private readonly TimeSpan _interEventDelay;
+
     /// <summary>
     /// Constructor for the dead letter queue processor
     /// </summary>
@@ -36,10 +43,28 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
         IServiceProvider serviceProvider,
         ILogger<DeadLetterQueueProcessor> logger,
         IConfiguration configuration)
+        : this(serviceProvider, logger, configuration, null, null)
+    {
+    }
+
+    internal DeadLetterQueueProcessor(
+        IServiceProvider serviceProvider,
+        ILogger<DeadLetterQueueProcessor> logger,
+        IConfiguration configuration,
+        TimeSpan? intervalOverride,
+        TimeSpan? interEventDelay)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
         _configuration = configuration;
+        _intervalOverride = intervalOverride;
+        _interEventDelay = interEventDelay ?? DefaultInterEventDelay;
+    }
+
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        ValidateRequiredServices();
+        return base.StartAsync(cancellationToken);
     }
 
     /// <summary>
@@ -56,17 +81,17 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
             return;
         }
 
-        double intervalMinutes = _configuration.GetValue("Audit:DeadLetterQueue:ReprocessIntervalMinutes", 60.0);
-        int maxRetries = _configuration.GetValue("Audit:DeadLetterQueue:MaxRetries", 3);
+        var interval = _intervalOverride ?? TimeSpan.FromMinutes(
+            _configuration.GetValue("Audit:DeadLetterQueue:ReprocessIntervalMinutes", 60.0));
 
-        _logger.LogInformation("Dead letter queue processor started. Interval: {Interval} minutes", intervalMinutes);
+        _logger.LogInformation("Dead letter queue processor started. Interval: {Interval}", interval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 // Wait for the interval, checking for cancellation
-                await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), stoppingToken);
+                await Task.Delay(interval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -76,66 +101,106 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
 
             try
             {
-                // Get the scope factory from service provider
-                IServiceScopeFactory scopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
-                using IServiceScope scope = scopeFactory.CreateScope();
-                
-                IAuditDeadLetterQueue dlq = scope.ServiceProvider.GetRequiredService<IAuditDeadLetterQueue>();
-
-                // Get unprocessed events with retry count less than max
-                List<DeadLetterAuditEvent> events = await dlq.GetFailedEventsAsync();
-                List<DeadLetterAuditEvent> eventsToRetry = events
-                    .Where(e => !e.IsProcessed && e.RetryCount < maxRetries)
-                    .ToList();
-
-                if (eventsToRetry.Any())
-                {
-                    _logger.LogInformation("Attempting to reprocess {Count} dead letter events", eventsToRetry.Count);
-
-                    foreach (DeadLetterAuditEvent evt in eventsToRetry)
-                    {
-                        if (stoppingToken.IsCancellationRequested)
-                            break;
-
-                        try
-                        {
-                            await dlq.ReprocessEventAsync(evt.Id);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to reprocess dead letter event {Id}", evt.Id);
-                        }
-
-                        // Small delay between retries (but don't break the loop if cancelled)
-                        if (stoppingToken.IsCancellationRequested) continue;
-                        try
-                        {
-                            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Delay was cancelled, but we've already processed this event
-                            // Continue to check cancellation at the top of the next iteration
-                        }
-                    }
-                }
-
-                // Purge successfully processed events
-                int purgedCount = await dlq.PurgeProcessedEventsAsync();
-                if (purgedCount > 0)
-                {
-                    _logger.LogInformation("Purged {Count} processed events from dead letter queue", purgedCount);
-                }
-
-                // Log statistics
-                DeadLetterStatistics stats = await dlq.GetStatisticsAsync();
-                _logger.LogInformation("Dead letter queue stats: Total={Total}, Pending={Pending}, Failed={Failed}",
-                    stats.TotalEvents, stats.PendingEvents, stats.FailedEvents);
+                await ProcessOnceAsync(stoppingToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing dead letter queue");
             }
+        }
+    }
+
+    internal async Task ProcessOnceAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _serviceProvider.CreateScope();
+
+        var dlq = scope.ServiceProvider.GetRequiredService<IAuditDeadLetterQueue>();
+        var lockService = scope.ServiceProvider.GetRequiredService<IAuditDistributedLockService>();
+
+        var maxRetries = _configuration.GetValue("Audit:DeadLetterQueue:MaxRetries", 3);
+        var maxCount = _configuration.GetValue("Audit:DeadLetterQueue:MaxBatchSize", 100);
+        var lockExpiry = TimeSpan.FromMinutes(Math.Max(
+            _configuration.GetValue("Audit:DeadLetterQueue:ReprocessIntervalMinutes", 60.0),
+            1.0));
+
+        using var reprocessLock = await lockService.AcquireLockAsync(ReprocessLockName, lockExpiry, cancellationToken);
+
+        var events = await dlq.GetFailedEventsAsync(maxCount);
+        var eventsToRetry = events
+            .Where(e => !e.IsProcessed && e.RetryCount < maxRetries)
+            .ToList();
+
+        var successCount = 0;
+        var failureCount = 0;
+
+        if (eventsToRetry.Count > 0)
+        {
+            _logger.LogInformation("Attempting to reprocess {Count} dead letter events", eventsToRetry.Count);
+
+            foreach (var evt in eventsToRetry)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var reprocessed = await dlq.ReprocessEventAsync(evt.Id);
+                    if (reprocessed)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failureCount++;
+                        _logger.LogWarning("Dead letter event {Id} was not reprocessed and remains in the queue", evt.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failureCount++;
+                    _logger.LogError(ex, "Failed to reprocess dead letter event {Id}", evt.Id);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                try
+                {
+                    await Task.Delay(_interEventDelay, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
+        }
+
+        var purgedCount = await dlq.PurgeProcessedEventsAsync();
+        if (purgedCount > 0)
+            _logger.LogInformation("Purged {Count} processed events from dead letter queue", purgedCount);
+
+        var stats = await dlq.GetStatisticsAsync();
+        _logger.LogInformation(
+            "Dead letter queue reprocessing completed. Success={Success}, Failure={Failure}, Total={Total}, Pending={Pending}, Failed={Failed}",
+            successCount,
+            failureCount,
+            stats.TotalEvents,
+            stats.PendingEvents,
+            stats.FailedEvents);
+    }
+
+    private void ValidateRequiredServices()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditDeadLetterQueue>();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditDistributedLockService>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException(
+                "DeadLetterQueueProcessor requires IAuditDeadLetterQueue and IAuditDistributedLockService to be registered.",
+                ex);
         }
     }
 }

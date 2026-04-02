@@ -13,8 +13,8 @@ public sealed class AuditIntegrityDto
     /// <summary>
     /// Id
     /// </summary>
-    [JsonPropertyName("event_id")]
-    [DisplayName("Event Id")]
+    [JsonPropertyName("id")]
+    [DisplayName("Id")]
     public Guid? Id { get; set; }
     
      /// <summary>

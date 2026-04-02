@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
+using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.DeadLetterQueue;
 
@@ -38,6 +39,11 @@ public class DeadLetterQueueProcessorTests
     private Mock<ILogger<DeadLetterQueueProcessor>> _mockLogger;
 
     /// <summary>
+    /// Mock distributed lock service
+    /// </summary>
+    private Mock<IAuditDistributedLockService> _mockDistributedLockService;
+
+    /// <summary>
     /// Configuration
     /// </summary>
     private IConfiguration _configuration;
@@ -63,11 +69,21 @@ public class DeadLetterQueueProcessorTests
         _mockScopedServiceProvider = new Mock<IServiceProvider>();
         _mockDeadLetterQueue = new Mock<IAuditDeadLetterQueue>();
         _mockLogger = new Mock<ILogger<DeadLetterQueueProcessor>>();
+        _mockDistributedLockService = new Mock<IAuditDistributedLockService>();
 
         // Setup service scope chain
         _mockServiceScope.Setup(static x => x.ServiceProvider).Returns(_mockScopedServiceProvider.Object);
         _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(IAuditDeadLetterQueue)))
             .Returns(_mockDeadLetterQueue.Object);
+        _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(IAuditDistributedLockService)))
+            .Returns(_mockDistributedLockService.Object);
+
+        _mockDistributedLockService
+            .Setup(x => x.AcquireLockAsync(
+                It.IsAny<string>(),
+                It.IsAny<TimeSpan>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Mock.Of<IDisposable>());
 
         // Create and setup IServiceScopeFactory mock
         var mockScopeFactory = new Mock<IServiceScopeFactory>();
@@ -104,6 +120,115 @@ public class DeadLetterQueueProcessorTests
     {
         _cancellationTokenSource.Dispose();
         _processor.Dispose();
+    }
+
+    [Test]
+    public async Task ProcessOnceAsync_AcquiresDistributedLockBeforeReprocessing()
+    {
+        var lockAcquired = false;
+        var deadLetterEvent = new DeadLetterAuditEvent
+        {
+            Id = Guid.NewGuid().ToString(),
+            IsProcessed = false,
+            RetryCount = 0
+        };
+
+        _mockDistributedLockService
+            .Setup(x => x.AcquireLockAsync(
+                "audit:dead-letter-queue:reprocess",
+                It.IsAny<TimeSpan>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => lockAcquired = true)
+            .ReturnsAsync(Mock.Of<IDisposable>());
+
+        _mockDeadLetterQueue
+            .Setup(x => x.GetFailedEventsAsync(100))
+            .ReturnsAsync([deadLetterEvent]);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.ReprocessEventAsync(deadLetterEvent.Id))
+            .Callback(() => Assert.That(lockAcquired, Is.True))
+            .ReturnsAsync(true);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.PurgeProcessedEventsAsync())
+            .ReturnsAsync(1);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.GetStatisticsAsync())
+            .ReturnsAsync(new DeadLetterStatistics { TotalEvents = 1, PendingEvents = 0, FailedEvents = 0 });
+
+        await _processor.ProcessOnceAsync(CancellationToken.None);
+
+        _mockDistributedLockService.Verify(
+            x => x.AcquireLockAsync(
+                "audit:dead-letter-queue:reprocess",
+                It.IsAny<TimeSpan>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task ProcessOnceAsync_LogsSuccessAndFailureCounts()
+    {
+        var events = new List<DeadLetterAuditEvent>
+        {
+            new() { Id = "success", IsProcessed = false, RetryCount = 0 },
+            new() { Id = "failed", IsProcessed = false, RetryCount = 0 },
+            new() { Id = "threw", IsProcessed = false, RetryCount = 0 }
+        };
+
+        _mockDeadLetterQueue
+            .Setup(x => x.GetFailedEventsAsync(100))
+            .ReturnsAsync(events);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.ReprocessEventAsync("success"))
+            .ReturnsAsync(true);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.ReprocessEventAsync("failed"))
+            .ReturnsAsync(false);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.ReprocessEventAsync("threw"))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        _mockDeadLetterQueue
+            .Setup(x => x.PurgeProcessedEventsAsync())
+            .ReturnsAsync(1);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.GetStatisticsAsync())
+            .ReturnsAsync(new DeadLetterStatistics { TotalEvents = 3, PendingEvents = 2, FailedEvents = 2 });
+
+        await _processor.ProcessOnceAsync(CancellationToken.None);
+
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v.ToString()!.Contains("Success=1") &&
+                    v.ToString()!.Contains("Failure=2") &&
+                    v.ToString()!.Contains("Total=3")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Test]
+    public void StartAsync_WhenLockServiceMissing_ThrowsMeaningfulError()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => Mock.Of<IAuditDeadLetterQueue>());
+        using var provider = services.BuildServiceProvider();
+
+        var processor = new DeadLetterQueueProcessor(provider, _mockLogger.Object, _configuration);
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await processor.StartAsync(CancellationToken.None));
+
+        Assert.That(ex!.Message, Does.Contain("IAuditDistributedLockService"));
     }
 
     /// <summary>

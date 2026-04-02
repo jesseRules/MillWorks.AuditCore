@@ -75,6 +75,7 @@ public sealed class SensitiveContentSanitizerTests
         var input = new string('a', 1000);
         var result = SensitiveContentSanitizer.Sanitize(input, maxLength: 100);
 
-        result.Length.Should().BeLessThanOrEqualTo(115); // 100 + "...[truncated]"
+        result.Length.Should().BeLessThanOrEqualTo(100);
+        result.Should().EndWith("...[truncated]");
     }
 }

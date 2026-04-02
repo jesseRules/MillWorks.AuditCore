@@ -11,97 +11,165 @@ namespace MillWorks.AuditCore.Services.Maintenance;
 /// <summary>
 /// Background service for audit maintenance tasks
 /// </summary>
-public sealed class AuditMaintenanceBackgroundService(
-    IServiceProvider serviceProvider,
-    ILogger<AuditMaintenanceBackgroundService> logger,
-    IConfiguration configuration)
-    : BackgroundService
+public sealed class AuditMaintenanceBackgroundService : BackgroundService
 {
+    private static readonly TimeSpan DefaultStartupDelay = TimeSpan.FromMinutes(1);
+
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<AuditMaintenanceBackgroundService> _logger;
+    private readonly IConfiguration _configuration;
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _startupDelay;
+    private readonly TimeSpan? _intervalOverride;
+
+    public AuditMaintenanceBackgroundService(
+        IServiceProvider serviceProvider,
+        ILogger<AuditMaintenanceBackgroundService> logger,
+        IConfiguration configuration)
+        : this(serviceProvider, logger, configuration, TimeProvider.System, null, null)
+    {
+    }
+
+    internal AuditMaintenanceBackgroundService(
+        IServiceProvider serviceProvider,
+        ILogger<AuditMaintenanceBackgroundService> logger,
+        IConfiguration configuration,
+        TimeProvider timeProvider,
+        TimeSpan? startupDelay,
+        TimeSpan? intervalOverride)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _startupDelay = startupDelay ?? DefaultStartupDelay;
+        _intervalOverride = intervalOverride;
+    }
+
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        ValidateRequiredServices();
+        return base.StartAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Execute the background service
     /// </summary>
-    /// <param name="stoppingToken"></param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        int interval = configuration.GetValue("Audit:MaintenanceIntervalHours", 24);
+        var interval = _intervalOverride ?? TimeSpan.FromHours(_configuration.GetValue("Audit:MaintenanceIntervalHours", 24));
 
-        // Wait for application to fully start
-        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+        if (_startupDelay > TimeSpan.Zero)
+            await Task.Delay(_startupDelay, stoppingToken);
 
+        var cycle = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
+            cycle++;
+            var cycleStartedAt = _timeProvider.GetUtcNow();
+
             try
             {
-                logger.LogInformation("Starting scheduled audit maintenance");
+                _logger.LogInformation("Starting scheduled audit maintenance cycle {Cycle}", cycle);
+                await ExecuteCycleAsync(stoppingToken);
 
-                using IServiceScope scope = serviceProvider.CreateScope();
-
-                // Run maintenance tasks
-                IAuditMaintenanceService maintenanceService =
-                    scope.ServiceProvider.GetRequiredService<IAuditMaintenanceService>();
-                IAuditComplianceService complianceService =
-                    scope.ServiceProvider.GetRequiredService<IAuditComplianceService>();
-                IAuditArchivalService archivalService =
-                    scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
-
-                ITamperDetectionService tamperService =
-                    scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
-
-                // 1. Archive old events first
-                if (configuration.GetValue("Audit:Archive:Enabled", true))
-                {
-                    int archiveAfterDays = configuration.GetValue("Audit:Archive:ArchiveAfterDays", 90);
-                    DateTimeOffset archiveBefore = DateTimeOffset.UtcNow.AddDays(-archiveAfterDays);
-
-                    AuditArchivalResult archiveResult =
-                        await archivalService.ArchiveAuditEventsAsync(archiveBefore, null, stoppingToken);
-                    if (archiveResult.Success)
-                    {
-                        logger.LogInformation("Archived {Count} audit events", archiveResult.EventCount);
-                    }
-                }
-
-                // 2. Clean up old events (that have been archived)
-                int retentionDays = configuration.GetValue("Audit:RetentionDays", 365);
-                int deletedCount = await maintenanceService.CleanupOldAuditEventsAsync(retentionDays, stoppingToken);
-                logger.LogInformation("Cleaned up {Count} old audit events", deletedCount);
-
-                // 3. Apply retention policies
-                await complianceService.ApplyRetentionPolicyAsync(stoppingToken);
-
-                // 4. Check for tampering (includes sequence integrity verification)
-                List<TamperAlert> tamperAlerts = await tamperService.DetectTamperingAsync(24, stoppingToken);
-                if (tamperAlerts.Count > 0)
-                {
-                    logger.LogCritical("TAMPERING DETECTED: {Count} alerts found!", tamperAlerts.Count);
-                    foreach (TamperAlert alert in tamperAlerts)
-                    {
-                        logger.LogCritical("Tamper Alert: {Type} - {Description} (Severity: {Severity})",
-                            alert.AlertType, alert.Description, alert.Severity);
-                    }
-                }
-
-                // 6. Optimize tables
-                if (configuration.GetValue("Audit:OptimizationEnabled", true))
-                {
-                    await maintenanceService.OptimizeAuditTablesAsync(stoppingToken);
-                }
-
-                // 7. Log statistics
-                Dictionary<string, object?> stats = await maintenanceService.GetAuditStatisticsAsync(stoppingToken);
-                logger.LogInformation("Audit Statistics: Total Events: {TotalEvents}, Database Size: {DbSize}MB",
-                    stats["TotalEvents"],
-                    stats.TryGetValue("DatabaseSizeKB", out object? stat) ? (long)(stat ?? 0) / 1024 : 0);
-
-                logger.LogInformation("Audit maintenance completed successfully");
+                var duration = _timeProvider.GetUtcNow() - cycleStartedAt;
+                _logger.LogInformation(
+                    "Audit maintenance cycle {Cycle} completed in {DurationMs} ms. Next scheduled run: {NextRunUtc}",
+                    cycle,
+                    duration.TotalMilliseconds,
+                    _timeProvider.GetUtcNow().Add(interval));
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during audit maintenance");
+                var duration = _timeProvider.GetUtcNow() - cycleStartedAt;
+                _logger.LogError(
+                    ex,
+                    "Error during audit maintenance cycle {Cycle} after {DurationMs} ms. Next scheduled run: {NextRunUtc}",
+                    cycle,
+                    duration.TotalMilliseconds,
+                    _timeProvider.GetUtcNow().Add(interval));
             }
 
-            // Wait for next interval
-            await Task.Delay(TimeSpan.FromHours(interval), stoppingToken);
+            try
+            {
+                await Task.Delay(interval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task ExecuteCycleAsync(CancellationToken stoppingToken)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+
+        var maintenanceService = scope.ServiceProvider.GetRequiredService<IAuditMaintenanceService>();
+        var complianceService = scope.ServiceProvider.GetRequiredService<IAuditComplianceService>();
+        var archivalService = scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
+        var tamperService = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
+
+        if (_configuration.GetValue("Audit:Archive:Enabled", true))
+        {
+            var archiveAfterDays = _configuration.GetValue("Audit:Archive:ArchiveAfterDays", 90);
+            var archiveBefore = _timeProvider.GetUtcNow().AddDays(-archiveAfterDays);
+
+            var archiveResult = await archivalService.ArchiveAuditEventsAsync(archiveBefore, null, stoppingToken);
+            if (archiveResult.Success)
+                _logger.LogInformation("Archived {Count} audit events", archiveResult.EventCount);
+        }
+
+        var retentionDays = _configuration.GetValue("Audit:RetentionDays", 365);
+        var deletedCount = await maintenanceService.CleanupOldAuditEventsAsync(retentionDays, stoppingToken);
+        _logger.LogInformation("Cleaned up {Count} old audit events", deletedCount);
+
+        await complianceService.ApplyRetentionPolicyAsync(stoppingToken);
+
+        var tamperAlerts = await tamperService.DetectTamperingAsync(24, stoppingToken);
+        if (tamperAlerts.Count > 0)
+        {
+            _logger.LogCritical("TAMPERING DETECTED: {Count} alerts found!", tamperAlerts.Count);
+            foreach (var alert in tamperAlerts)
+            {
+                _logger.LogCritical(
+                    "Tamper Alert: {Type} - {Description} (Severity: {Severity})",
+                    alert.AlertType,
+                    alert.Description,
+                    alert.Severity);
+            }
+        }
+
+        if (_configuration.GetValue("Audit:OptimizationEnabled", true))
+            await maintenanceService.OptimizeAuditTablesAsync(stoppingToken);
+
+        var stats = await maintenanceService.GetAuditStatisticsAsync(stoppingToken);
+        _logger.LogInformation(
+            "Audit Statistics: Total Events: {TotalEvents}, Database Size: {DbSize}MB",
+            stats["TotalEvents"],
+            stats.TryGetValue("DatabaseSizeKB", out var stat) ? (long)(stat ?? 0) / 1024 : 0);
+    }
+
+    private void ValidateRequiredServices()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditMaintenanceService>();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditComplianceService>();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
+            _ = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException(
+                "AuditMaintenanceBackgroundService requires IAuditMaintenanceService, IAuditComplianceService, IAuditArchivalService, and ITamperDetectionService to be registered.",
+                ex);
         }
     }
 }

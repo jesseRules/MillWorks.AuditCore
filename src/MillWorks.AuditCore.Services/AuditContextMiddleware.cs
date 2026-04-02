@@ -17,6 +17,9 @@ public sealed class AuditContextMiddleware(
     ILogger<AuditContextMiddleware> logger)
     : IMiddleware
 {
+    private const string CorrelationIdHeader = "X-Correlation-Id";
+    private const int MaxCorrelationIdLength = 128;
+
     private static readonly string[] ExcludedPaths =
     [
         "/health",
@@ -113,7 +116,7 @@ public sealed class AuditContextMiddleware(
     /// <param name="context"></param>
     private void PopulateAuditContext(HttpContext context)
     {
-        auditContext.CorrelationId = context.TraceIdentifier;
+        auditContext.CorrelationId = ResolveCorrelationId(context);
 
         auditContext.IpAddress = context.Connection.RemoteIpAddress?.ToString();
         auditContext.UserAgent = context.Request.Headers["User-Agent"].ToString();
@@ -144,6 +147,40 @@ public sealed class AuditContextMiddleware(
 
             logger.LogDebug("Audit context populated for authenticated user {UserId}", auditContext.AspNetUserId);
         }
+    }
+
+    private string ResolveCorrelationId(HttpContext context)
+    {
+        if (context.Request.Headers.TryGetValue(CorrelationIdHeader, out var headerValues))
+        {
+            foreach (var rawValue in headerValues)
+            {
+                if (string.IsNullOrWhiteSpace(rawValue))
+                    continue;
+
+                var candidate = rawValue.Trim();
+                if (IsSafeCorrelationId(candidate))
+                    return candidate;
+
+                logger.LogWarning(
+                    "Malformed {HeaderName} header on request {Path}. Falling back to trace identifier.",
+                    CorrelationIdHeader,
+                    context.Request.Path);
+
+                break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(context.TraceIdentifier))
+            context.TraceIdentifier = Guid.NewGuid().ToString("N");
+
+        return context.TraceIdentifier;
+    }
+
+    private static bool IsSafeCorrelationId(string value)
+    {
+        return value.Length <= MaxCorrelationIdLength &&
+               value.All(static c => !char.IsControl(c));
     }
 
     /// <summary>

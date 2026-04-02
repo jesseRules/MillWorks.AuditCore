@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 
@@ -141,6 +142,60 @@ public sealed class FileDlqOperationalBoundaryTests
                 _serviceProvider,
                 _mockRedactor.Object);
         }, Throws.InstanceOf<Exception>());
+    }
+
+    [Test]
+    public void Constructor_MissingDirectory_CreatesDirectory()
+    {
+        var dlq = CreateDlq();
+
+        Assert.That(Directory.Exists(_testPath), Is.True);
+        _ = dlq;
+    }
+
+    [Test]
+    public async Task GetStatisticsAsync_WithCorruptedFile_SkipsBadFile_AndLogsError()
+    {
+        var validEvent = CreateTestEvent();
+        Directory.CreateDirectory(_testPath);
+        await File.WriteAllTextAsync(Path.Combine(_testPath, "dlq_corrupted.json"), "{not-json");
+        var dlq = CreateDlq();
+
+        await dlq.StoreFailedEventAsync(validEvent, reason: "valid");
+
+        var stats = await dlq.GetStatisticsAsync();
+
+        Assert.That(stats.TotalEvents, Is.EqualTo(1));
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Failed to index dead letter file")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.AtLeastOnce);
+    }
+
+    [Test]
+    public async Task GetStatisticsAsync_DuringConcurrentEnqueue_RemainsConsistent()
+    {
+        var dlq = CreateDlq();
+
+        var writers = Enumerable.Range(0, 10)
+            .Select(i => dlq.StoreFailedEventAsync(CreateTestEvent(), reason: $"reason-{i}"))
+            .ToArray();
+
+        var readers = Enumerable.Range(0, 5)
+            .Select(_ => dlq.GetStatisticsAsync())
+            .ToArray();
+
+        await Task.WhenAll(writers);
+        var snapshots = await Task.WhenAll(readers);
+        var finalStats = await dlq.GetStatisticsAsync();
+
+        Assert.That(snapshots.All(s => s.TotalEvents >= 0), Is.True);
+        Assert.That(finalStats.TotalEvents, Is.EqualTo(10));
+        Assert.That(finalStats.PendingEvents + finalStats.ProcessedEvents + finalStats.FailedEvents, Is.EqualTo(10));
     }
 
     private FileBasedAuditDeadLetterQueue CreateDlq(ResilienceOptions? options = null)

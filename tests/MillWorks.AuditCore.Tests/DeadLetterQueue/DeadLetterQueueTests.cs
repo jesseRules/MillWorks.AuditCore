@@ -295,7 +295,6 @@ public class InMemoryAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_ReturnsCorrectStats()
     {
         // Arrange
@@ -327,7 +326,6 @@ public class InMemoryAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_WithEmptyQueue_ReturnsZeroStats()
     {
         // Act

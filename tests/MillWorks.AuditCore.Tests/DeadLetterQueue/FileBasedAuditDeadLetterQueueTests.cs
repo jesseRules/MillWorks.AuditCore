@@ -546,7 +546,6 @@ public class FileBasedAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_ReturnsCorrectStatistics()
     {
         // Arrange
@@ -580,7 +579,6 @@ public class FileBasedAuditDeadLetterQueueTests
     /// </summary>
     [Test]
     [CancelAfter(5000)]
-    [Ignore("Flaky test - needs investigation")]
     public async Task GetStatisticsAsync_WithEmptyQueue_ReturnsZeroStats()
     {
         // Act

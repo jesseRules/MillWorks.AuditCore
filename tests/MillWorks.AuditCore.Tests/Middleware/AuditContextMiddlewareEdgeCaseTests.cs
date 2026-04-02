@@ -121,6 +121,146 @@ public class AuditContextMiddlewareEdgeCaseTests
         Assert.That(capturedUserAgent, Is.Null.Or.Empty);
     }
 
+    [Test]
+    public async Task Invoke_EmptyTraceIdentifier_GeneratesNonEmptyCorrelationId()
+    {
+        _httpContext.TraceIdentifier = string.Empty;
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "GET";
+
+        string? capturedCorrelationId = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedCorrelationId = _auditContext.CorrelationId;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedCorrelationId, Is.Not.Null.And.Not.Empty);
+    }
+
+    [Test]
+    public async Task Invoke_ValidCorrelationHeader_UsesHeaderValue()
+    {
+        _httpContext.TraceIdentifier = "trace-fallback";
+        _httpContext.Request.Headers["X-Correlation-Id"] = "external-correlation-id";
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "GET";
+
+        string? capturedCorrelationId = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedCorrelationId = _auditContext.CorrelationId;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedCorrelationId, Is.EqualTo("external-correlation-id"));
+    }
+
+    [Test]
+    public async Task Invoke_MalformedCorrelationHeader_FallsBackAndLogsWarning()
+    {
+        _httpContext.TraceIdentifier = "trace-fallback";
+        _httpContext.Request.Headers["X-Correlation-Id"] = "bad\nvalue";
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "GET";
+
+        string? capturedCorrelationId = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedCorrelationId = _auditContext.CorrelationId;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedCorrelationId, Is.EqualTo("trace-fallback"));
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Malformed X-Correlation-Id")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Invoke_DuplicateCorrelationHeaders_UsesFirstValueDeterministically()
+    {
+        _httpContext.TraceIdentifier = "trace-fallback";
+        _httpContext.Request.Headers.Append("X-Correlation-Id", "first-id");
+        _httpContext.Request.Headers.Append("X-Correlation-Id", "second-id");
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "GET";
+
+        string? capturedCorrelationId = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedCorrelationId = _auditContext.CorrelationId;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedCorrelationId, Is.EqualTo("first-id"));
+    }
+
+    [Test]
+    public async Task Invoke_RequestPath_DoesNotIncludeQueryString()
+    {
+        _httpContext.TraceIdentifier = "query-trace";
+        _httpContext.Request.Path = "/api/patients";
+        _httpContext.Request.QueryString = new QueryString("?ssn=123-45-6789");
+        _httpContext.Request.Method = "GET";
+
+        string? capturedRequestPath = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedRequestPath = _auditContext.RequestPath;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedRequestPath, Is.EqualTo("/api/patients"));
+        Assert.That(capturedRequestPath, Does.Not.Contain("ssn"));
+    }
+
+    [Test]
+    public async Task Invoke_InvalidAppUserIdClaim_DoesNotThrowAndLeavesUserIdNull()
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "user-001"),
+            new Claim("AppUserId", "not-a-guid")
+        };
+
+        _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "GET";
+
+        Guid? capturedUserId = null;
+
+        Task Next(HttpContext ctx)
+        {
+            capturedUserId = _auditContext.UserId;
+            return Task.CompletedTask;
+        }
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        Assert.That(capturedUserId, Is.Null);
+    }
+
     /// <summary>
     /// InvokeAsync with excluded path (/health) does not create audit scope
     /// </summary>

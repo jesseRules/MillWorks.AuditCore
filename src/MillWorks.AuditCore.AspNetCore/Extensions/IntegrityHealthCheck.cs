@@ -34,10 +34,12 @@ public sealed class IntegrityHealthCheck(
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var scope = scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
 
-            var staleCutoff = DateTimeOffset.UtcNow - StaleThreshold;
+            var checkedAtUtc = DateTimeOffset.UtcNow;
+            var staleCutoff = checkedAtUtc - StaleThreshold;
 
             var failedCount = await dbContext.IntegrityWorkItems
                 .CountAsync(w => w.Status == IntegrityStatus.Failed, cancellationToken);
@@ -50,6 +52,8 @@ public sealed class IntegrityHealthCheck(
 
             var data = new Dictionary<string, object>
             {
+                ["checked_at_utc"] = checkedAtUtc,
+                ["stale_threshold_minutes"] = StaleThreshold.TotalMinutes,
                 ["pending_total"] = totalPendingCount,
                 ["pending_stale"] = stalePendingCount,
                 ["failed"] = failedCount
@@ -82,11 +86,21 @@ public sealed class IntegrityHealthCheck(
                 $"Integrity pipeline healthy. {totalPendingCount} pending, 0 failed.",
                 data: data);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            var data = new Dictionary<string, object>
+            {
+                ["checked_at_utc"] = DateTimeOffset.UtcNow,
+                ["error_type"] = ex.GetType().Name
+            };
+
             return HealthCheckResult.Unhealthy(
                 "Failed to query integrity work item status.",
-                exception: ex);
+                data: data);
         }
     }
 }

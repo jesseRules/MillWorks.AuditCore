@@ -11,83 +11,160 @@ namespace MillWorks.AuditCore.Services.Core;
 /// <summary>
 /// Background service for periodic archive verification
 /// </summary>
-public sealed class ArchiveVerificationBackgroundService(
-    IServiceProvider serviceProvider,
-    ILogger<ArchiveVerificationBackgroundService> logger,
-    ArchivalOptions archivalOptions)
-    : BackgroundService
+public sealed class ArchiveVerificationBackgroundService : BackgroundService
 {
+    private static readonly TimeSpan DefaultStartupDelay = TimeSpan.FromMinutes(5);
+
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<ArchiveVerificationBackgroundService> _logger;
+    private readonly ArchivalOptions _archivalOptions;
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _startupDelay;
+    private readonly TimeSpan? _intervalOverride;
+
+    public ArchiveVerificationBackgroundService(
+        IServiceProvider serviceProvider,
+        ILogger<ArchiveVerificationBackgroundService> logger,
+        ArchivalOptions archivalOptions)
+        : this(serviceProvider, logger, archivalOptions, TimeProvider.System, null, null)
+    {
+    }
+
+    internal ArchiveVerificationBackgroundService(
+        IServiceProvider serviceProvider,
+        ILogger<ArchiveVerificationBackgroundService> logger,
+        ArchivalOptions archivalOptions,
+        TimeProvider timeProvider,
+        TimeSpan? startupDelay,
+        TimeSpan? intervalOverride)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _archivalOptions = archivalOptions ?? throw new ArgumentNullException(nameof(archivalOptions));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _startupDelay = startupDelay ?? DefaultStartupDelay;
+        _intervalOverride = intervalOverride;
+    }
+
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        ValidateRequiredServices();
+        return base.StartAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Execute the background service
     /// </summary>
-    /// <param name="stoppingToken"></param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        TimeSpan verificationInterval = TimeSpan.FromHours(archivalOptions.VerificationIntervalHours);
+        var verificationInterval = _intervalOverride ?? TimeSpan.FromHours(_archivalOptions.VerificationIntervalHours);
 
-        // Wait for application to fully start
-        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        if (_startupDelay > TimeSpan.Zero)
+            await Task.Delay(_startupDelay, stoppingToken);
 
+        var cycle = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
+            cycle++;
+            var cycleStartedAt = _timeProvider.GetUtcNow();
+
             try
             {
-                logger.LogInformation("Starting scheduled archive verification");
+                _logger.LogInformation("Starting scheduled archive verification cycle {Cycle}", cycle);
+                var (verifiedCount, failedCount) = await ExecuteCycleAsync(stoppingToken);
 
-                using IServiceScope scope = serviceProvider.CreateScope();
-                IAuditArchivalService archiveService =
-                    scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
-                IArchiveRecordRepository archiveRepository =
-                    scope.ServiceProvider.GetRequiredService<IArchiveRecordRepository>();
-
-                // Get archives that need verification
-                IEnumerable<AuditArchiveRecordEntity> archivesToVerify =
-                    await archiveRepository.GetArchivesNeedingVerificationAsync(
-                        archivalOptions.VerificationIntervalHours, stoppingToken);
-
-                int verifiedCount = 0;
-                int failedCount = 0;
-
-                foreach (AuditArchiveRecordEntity archive in archivesToVerify)
-                {
-                    try
-                    {
-                        bool isValid = await archiveService.ValidateArchiveIntegrityAsync(
-                            archive.ArchiveId, stoppingToken);
-
-                        if (isValid)
-                        {
-                            verifiedCount++;
-                            logger.LogDebug("Archive {ArchiveId} verification passed", archive.ArchiveId);
-                        }
-                        else
-                        {
-                            failedCount++;
-                            logger.LogError("Archive {ArchiveId} verification failed", archive.ArchiveId);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        failedCount++;
-                        logger.LogError(ex, "Error verifying archive {ArchiveId}", archive.ArchiveId);
-                    }
-                }
-
-                logger.LogInformation("Archive verification completed: {Verified} verified, {Failed} failed",
-                    verifiedCount, failedCount);
+                _logger.LogInformation(
+                    "Archive verification cycle {Cycle} completed in {DurationMs} ms with {Verified} verified and {Failed} failed. Next scheduled run: {NextRunUtc}",
+                    cycle,
+                    (_timeProvider.GetUtcNow() - cycleStartedAt).TotalMilliseconds,
+                    verifiedCount,
+                    failedCount,
+                    _timeProvider.GetUtcNow().Add(verificationInterval));
 
                 if (failedCount > 0)
-                {
-                    logger.LogWarning("{Count} archives failed verification - investigate immediately!", failedCount);
-                }
+                    _logger.LogWarning("{Count} archives failed verification - investigate immediately!", failedCount);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error during archive verification cycle");
+                _logger.LogError(
+                    ex,
+                    "Error during archive verification cycle {Cycle} after {DurationMs} ms. Next scheduled run: {NextRunUtc}",
+                    cycle,
+                    (_timeProvider.GetUtcNow() - cycleStartedAt).TotalMilliseconds,
+                    _timeProvider.GetUtcNow().Add(verificationInterval));
             }
 
-            // Wait for next verification cycle
-            await Task.Delay(verificationInterval, stoppingToken);
+            try
+            {
+                await Task.Delay(verificationInterval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task<(int VerifiedCount, int FailedCount)> ExecuteCycleAsync(CancellationToken stoppingToken)
+    {
+        using IServiceScope scope = _serviceProvider.CreateScope();
+        var archiveService = scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
+        var archiveRepository = scope.ServiceProvider.GetRequiredService<IArchiveRecordRepository>();
+
+        var archivesToVerify = await archiveRepository.GetArchivesNeedingVerificationAsync(
+            _archivalOptions.VerificationIntervalHours,
+            stoppingToken);
+
+        var verifiedCount = 0;
+        var failedCount = 0;
+
+        foreach (var archive in archivesToVerify)
+        {
+            try
+            {
+                var isValid = await archiveService.ValidateArchiveIntegrityAsync(archive.ArchiveId, stoppingToken);
+                if (isValid)
+                {
+                    verifiedCount++;
+                    _logger.LogDebug("Archive {ArchiveId} verification passed", archive.ArchiveId);
+                }
+                else
+                {
+                    failedCount++;
+                    _logger.LogError("Archive {ArchiveId} verification failed", archive.ArchiveId);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                _logger.LogError(ex, "Error verifying archive {ArchiveId}", archive.ArchiveId);
+            }
+        }
+
+        return (verifiedCount, failedCount);
+    }
+
+    private void ValidateRequiredServices()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            _ = scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
+            _ = scope.ServiceProvider.GetRequiredService<IArchiveRecordRepository>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException(
+                "ArchiveVerificationBackgroundService requires IAuditArchivalService and IArchiveRecordRepository to be registered.",
+                ex);
         }
     }
 }

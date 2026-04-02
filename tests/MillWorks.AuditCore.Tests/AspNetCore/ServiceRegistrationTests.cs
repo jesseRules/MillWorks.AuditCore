@@ -1,10 +1,19 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
+using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
 
@@ -19,6 +28,7 @@ public class ServiceRegistrationTests
     {
         _services = new ServiceCollection();
         _services.AddLogging();
+        _services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection().Build());
     }
 
     [Test]
@@ -121,6 +131,35 @@ public class ServiceRegistrationTests
     }
 
     [Test]
+    public void Decorate_FactoryRegistration_WrapsExisting()
+    {
+        _services.AddScoped<ITestService>(_ => new TestServiceImpl());
+
+        _services.Decorate<ITestService, TestServiceDecorator>();
+
+        using var provider = _services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var resolved = scope.ServiceProvider.GetRequiredService<ITestService>();
+
+        Assert.That(resolved, Is.InstanceOf<TestServiceDecorator>());
+        Assert.That(resolved.GetValue(), Is.EqualTo("decorated(original)"));
+    }
+
+    [Test]
+    public void Decorate_InstanceRegistration_WrapsExisting()
+    {
+        _services.AddSingleton<ITestService>(new TestServiceImpl());
+
+        _services.Decorate<ITestService, TestServiceDecorator>();
+
+        using var provider = _services.BuildServiceProvider();
+        var resolved = provider.GetRequiredService<ITestService>();
+
+        Assert.That(resolved, Is.InstanceOf<TestServiceDecorator>());
+        Assert.That(resolved.GetValue(), Is.EqualTo("decorated(original)"));
+    }
+
+    [Test]
     public void AddMillWorksAudit_ProductionWithPassThroughRedactor_Throws()
     {
         // Default redactor is now DefaultAuditFieldRedactor (safe-by-default).
@@ -175,6 +214,106 @@ public class ServiceRegistrationTests
             {
                 // Default Production environment, but custom redactor already registered
                 builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            });
+        });
+    }
+
+    [Test]
+    public void AddMillWorksAudit_WithEntityFrameworkAndSecurity_ResolvesPrimaryServices()
+    {
+        _services.AddMillWorksAudit(builder =>
+        {
+            builder.Options.Environment = "Development";
+            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+            builder.UseSecurity(security =>
+            {
+                security.EnableTamperDetection = true;
+            });
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.That(scope.ServiceProvider.GetRequiredService<IAuditLogger>(), Is.Not.Null);
+        Assert.That(scope.ServiceProvider.GetRequiredService<IAuditService>(), Is.Not.Null);
+        Assert.That(scope.ServiceProvider.GetRequiredService<IAuditQueryService>(), Is.Not.Null);
+        Assert.That(scope.ServiceProvider.GetRequiredService<ITamperDetectionService>(), Is.Not.Null);
+        Assert.That(scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void AddMillWorksAudit_RegistersExpectedLifetimes()
+    {
+        _services.AddMillWorksAudit(builder =>
+        {
+            builder.Options.Environment = "Development";
+            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        using var scope1 = provider.CreateScope();
+        using var scope2 = provider.CreateScope();
+
+        var diagnostics1 = scope1.ServiceProvider.GetRequiredService<IAuditDiagnostics>();
+        var diagnostics2 = scope2.ServiceProvider.GetRequiredService<IAuditDiagnostics>();
+        var context1 = scope1.ServiceProvider.GetRequiredService<IAuditContext>();
+        var context2 = scope2.ServiceProvider.GetRequiredService<IAuditContext>();
+
+        Assert.That(diagnostics2, Is.SameAs(diagnostics1));
+        Assert.That(context2, Is.Not.SameAs(context1));
+    }
+
+    [Test]
+    public void AddMillWorksAudit_WithBatchedIntegrity_RegistersHealthCheckAndHostedServices()
+    {
+        _services.AddMillWorksAudit(builder =>
+        {
+            builder.Options.Environment = "Development";
+            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+            builder.UseSecurity(security =>
+            {
+                security.EnableTamperDetection = true;
+                security.EnableBatchedIntegrityWrites = true;
+            });
+            builder.UseArchival(archival =>
+            {
+                archival.Provider = ArchivalProvider.FileSystem;
+                archival.EnableBackgroundArchival = true;
+            });
+            builder.UseResilience(resilience =>
+            {
+                resilience.EnableDeadLetterQueue = true;
+                resilience.EnableBackgroundProcessor = true;
+                resilience.DeadLetterProvider = DeadLetterProvider.InMemory;
+            });
+        });
+
+        using var provider = _services.BuildServiceProvider();
+
+        var healthChecks = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
+        var hostedServiceDescriptors = _services.Where(s => s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)).ToList();
+
+        Assert.That(healthChecks.Any(r => r.Name == "audit_integrity_pipeline"), Is.True);
+        Assert.That(hostedServiceDescriptors.Count, Is.GreaterThanOrEqualTo(5));
+        Assert.That(hostedServiceDescriptors.Any(s => s.ImplementationType == typeof(IntegrityReconciliationService)), Is.True);
+        Assert.That(hostedServiceDescriptors.Any(s => s.ImplementationType == typeof(DeadLetterQueueProcessor)), Is.True);
+    }
+
+    [Test]
+    public void AddMillWorksAudit_CalledTwice_DoesNotThrow()
+    {
+        Assert.DoesNotThrow(() =>
+        {
+            _services.AddMillWorksAudit(builder =>
+            {
+                builder.Options.Environment = "Development";
+                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
+            });
+
+            _services.AddMillWorksAudit(builder =>
+            {
+                builder.Options.Environment = "Development";
+                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=test;Database=test;");
             });
         });
     }

@@ -339,38 +339,45 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     /// </summary>
     public async Task<DeadLetterStatistics> GetStatisticsAsync()
     {
-        var ids = await _db.SortedSetRangeByScoreAsync(_indexKey);
-        var events = await BatchGetEventsAsync(ids);
-
-        var stats = new DeadLetterStatistics
+        try
         {
-            TotalEvents = events.Count,
-            ProcessedEvents = events.Count(static e => e.IsProcessed),
-            PendingEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: 0 }),
-            FailedEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: > 0 }),
-            OldestEventDate = events.Any() ? events.Min(static e => e.FailedAt) : null,
-            NewestEventDate = events.Any() ? events.Max(static e => e.FailedAt) : null,
-            EventsByType = events
-                .Where(static e => e.OriginalEvent != null)
-                .GroupBy(static e => e.OriginalEvent!.EventType)
-                .ToDictionary(static g => g.Key, static g => g.Count()),
-            EventsByFailureReason = events
-                .GroupBy(static e => e.FailureReason ?? "Unknown")
-                .ToDictionary(static g => g.Key, static g => g.Count()),
-            TotalSizeBytes = 0
-        };
+            var ids = await _db.SortedSetRangeByScoreAsync(_indexKey);
+            var events = await BatchGetEventsAsync(ids);
 
-        // Estimate total size from the data hash
-        if (ids.Length > 0)
-        {
-            var values = await _db.HashGetAsync(_dataKey,
-                ids.Select(static id => (RedisValue)id).ToArray());
-            stats.TotalSizeBytes = values
-                .Where(static v => v.HasValue)
-                .Sum(static v => System.Text.Encoding.UTF8.GetByteCount(v!));
+            var stats = new DeadLetterStatistics
+            {
+                TotalEvents = events.Count,
+                ProcessedEvents = events.Count(static e => e.IsProcessed),
+                PendingEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: 0 }),
+                FailedEvents = events.Count(static e => e is { IsProcessed: false, RetryCount: > 0 }),
+                OldestEventDate = events.Any() ? events.Min(static e => e.FailedAt) : null,
+                NewestEventDate = events.Any() ? events.Max(static e => e.FailedAt) : null,
+                EventsByType = events
+                    .Where(static e => e.OriginalEvent != null)
+                    .GroupBy(static e => e.OriginalEvent!.EventType)
+                    .ToDictionary(static g => g.Key, static g => g.Count()),
+                EventsByFailureReason = events
+                    .GroupBy(static e => e.FailureReason ?? "Unknown")
+                    .ToDictionary(static g => g.Key, static g => g.Count()),
+                TotalSizeBytes = 0
+            };
+
+            if (ids.Length > 0)
+            {
+                var values = await _db.HashGetAsync(_dataKey,
+                    ids.Select(static id => (RedisValue)id).ToArray());
+                stats.TotalSizeBytes = values
+                    .Where(static v => v.HasValue)
+                    .Sum(static v => System.Text.Encoding.UTF8.GetByteCount(v!));
+            }
+
+            return stats;
         }
-
-        return stats;
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to get Redis dead letter queue statistics");
+            throw new InvalidOperationException("Failed to get Redis dead letter queue statistics.", ex);
+        }
     }
 
     #endregion
