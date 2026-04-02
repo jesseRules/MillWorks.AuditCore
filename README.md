@@ -37,7 +37,7 @@ Most consumers install only `MillWorks.AuditCore`. The other packages are availa
 ## Features
 
 ### Automatic Entity Auditing
-EF Core `SaveChangesInterceptor` automatically captures create, update, and delete operations across all tracked entities. Entities are diffed at the property level, recording old values, new values, and changed property lists. No attribute decoration or manual logging calls required -- opt out with `[NoAudit]` when needed.
+EF Core `SaveChangesInterceptor` automatically captures create, update, and delete operations across all tracked entities when using `SaveChangesAsync`. The synchronous `SaveChanges()` path intentionally does not produce audit records because it cannot support the full provider-dispatch pipeline, which would result in partial or inconsistent auditing. Entities are diffed at the property level, recording old values, new values, and changed property lists. No attribute decoration or manual logging calls required -- opt out with `[NoAudit]` when needed.
 
 ### Tamper Detection
 Every audit event is linked into a cryptographic hash chain. Each record's SHA-256 hash incorporates the previous record's hash, forming an append-only ledger that detects insertion, deletion, or modification of any record in the sequence. Chain integrity can be verified on demand or on a schedule. Tamper alerts are recorded as security events.
