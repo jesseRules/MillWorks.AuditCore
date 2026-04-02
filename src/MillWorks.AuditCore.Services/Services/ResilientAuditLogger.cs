@@ -135,6 +135,11 @@ public sealed class ResilientAuditLogger(
     /// </summary>
     public async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(auditEvents);
+
+        if (auditEvents.Any(static e => e is null))
+            throw new ArgumentException("Batch cannot contain null audit events.", nameof(auditEvents));
+
         if (auditEvents.Count == 0)
             return BatchAuditResult.Succeeded(0);
 

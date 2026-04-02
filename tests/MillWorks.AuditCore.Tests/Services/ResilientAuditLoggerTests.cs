@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -44,6 +45,11 @@ public class ResilientAuditLoggerTests
     private ResilientAuditLogger _resilientLogger;
 
     /// <summary>
+    /// Concrete diagnostics for counter assertions.
+    /// </summary>
+    private AuditDiagnostics _diagnostics;
+
+    /// <summary>
     /// Setup method to initialize mocks and the resilient logger
     /// </summary>
     [SetUp]
@@ -54,6 +60,7 @@ public class ResilientAuditLoggerTests
         _mockEventFactory = new Mock<IAuditEventFactory>();
         _mockFieldRedactor = new Mock<IAuditFieldRedactor>();
         _mockLogger = new Mock<ILogger<ResilientAuditLogger>>();
+        _diagnostics = new AuditDiagnostics();
 
         // Default pass-through behavior for redactor
         _mockFieldRedactor.Setup(r => r.RedactFields(It.IsAny<Dictionary<string, object?>>()))
@@ -66,7 +73,8 @@ public class ResilientAuditLoggerTests
             _mockDeadLetterQueue.Object,
             _mockEventFactory.Object,
             _mockFieldRedactor.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _diagnostics);
     }
 
     /// <summary>
@@ -171,6 +179,223 @@ public class ResilientAuditLoggerTests
         _mockDeadLetterQueue.Verify(
             x => x.StoreFailedEventAsync(auditEvent, It.IsAny<Exception>(), It.IsAny<string>()),
             Times.Once);
+    }
+
+    /// <summary>
+    /// LogBatchAsync succeeds on the first attempt and returns the inner result.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_SuccessfulFirstAttempt_ReturnsInnerResult()
+    {
+        // Arrange
+        var events = CreateBatch(2);
+        var expectedResult = BatchAuditResult.Succeeded(events.Count);
+
+        _mockInnerLogger
+            .Setup(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act
+        var result = await _resilientLogger.LogBatchAsync(events);
+
+        // Assert
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.EventCount, Is.EqualTo(events.Count));
+        _mockInnerLogger.Verify(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()), Times.Once);
+        _mockDeadLetterQueue.Verify(
+            static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// LogBatchAsync with empty input is a no-op success.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_EmptyBatch_ReturnsSucceededZeroWithoutCallingInnerLogger()
+    {
+        // Act
+        var result = await _resilientLogger.LogBatchAsync([]);
+
+        // Assert
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.EventCount, Is.EqualTo(0));
+        _mockInnerLogger.Verify(
+            static x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// LogBatchAsync rejects null entries instead of passing malformed batches downstream.
+    /// </summary>
+    [Test]
+    public void LogBatchAsync_NullEventInBatch_ThrowsArgumentException()
+    {
+        // Arrange
+        IReadOnlyList<AuditEvent> events = [new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test.Event" }, null!];
+
+        // Act / Assert
+        Assert.ThrowsAsync<ArgumentException>(async () => await _resilientLogger.LogBatchAsync(events));
+        _mockInnerLogger.Verify(
+            static x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// LogBatchAsync retries after a transient failure and eventually succeeds.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_TransientFailureThenSuccess_RetriesAndReturnsSuccess()
+    {
+        // Arrange
+        var events = CreateBatch(2);
+        var expectedResult = BatchAuditResult.Succeeded(events.Count);
+        var callCount = 0;
+
+        _mockInnerLogger
+            .Setup(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                callCount++;
+                if (callCount == 1)
+                    throw new Exception("Transient batch failure");
+
+                return Task.FromResult(expectedResult);
+            });
+
+        // Act
+        var result = await _resilientLogger.LogBatchAsync(events);
+
+        // Assert
+        Assert.That(result.Success, Is.True);
+        Assert.That(callCount, Is.EqualTo(2));
+        _mockLogger.Verify(
+            static x => x.Log(
+                LogLevel.Debug,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Retrying batch audit log")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+        _mockDeadLetterQueue.Verify(
+            static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// LogBatchAsync treats duplicate-key failures as success and does not retry or dead-letter.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_DuplicateKeyError_TreatsBatchAsSuccess()
+    {
+        // Arrange
+        var events = CreateBatch(3);
+        var sqlException = CreateSqlException(2627);
+        var dbUpdateException = new Microsoft.EntityFrameworkCore.DbUpdateException("Duplicate", sqlException);
+
+        _mockInnerLogger
+            .Setup(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(dbUpdateException);
+
+        // Act
+        var result = await _resilientLogger.LogBatchAsync(events);
+
+        // Assert
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.EventCount, Is.EqualTo(events.Count));
+        _mockInnerLogger.Verify(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()), Times.Once);
+        _mockDeadLetterQueue.Verify(
+            static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// LogBatchAsync sends each event to the dead-letter queue after all retries fail.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_AllRetriesFail_SendsEveryEventToDeadLetterQueueAndReturnsFailed()
+    {
+        // Arrange
+        var events = CreateBatch(3);
+        var exception = new Exception("Persistent batch failure");
+
+        _mockInnerLogger
+            .Setup(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(exception);
+
+        _mockDeadLetterQueue
+            .Setup(x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _resilientLogger.LogBatchAsync(events);
+
+        // Assert
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.EventCount, Is.EqualTo(events.Count));
+        Assert.That(result.FailedEvents, Is.EqualTo(events));
+        Assert.That(result.Exception, Is.SameAs(exception));
+        _mockInnerLogger.Verify(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()), Times.Exactly(4));
+        _mockDeadLetterQueue.Verify(
+            x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), exception, "Batch failed after 4 attempts"),
+            Times.Exactly(events.Count));
+        Assert.That(_diagnostics.DlqStoreOperationCount, Is.EqualTo(events.Count));
+    }
+
+    /// <summary>
+    /// LogBatchAsync records DLQ failures and emergency fallback writes when DLQ storage also fails.
+    /// </summary>
+    [Test]
+    public async Task LogBatchAsync_DeadLetterQueueFails_IncrementsFailureCountersAndLogsCritical()
+    {
+        // Arrange
+        var events = CreateBatch(2);
+
+        _mockInnerLogger
+            .Setup(x => x.LogBatchAsync(events, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Persistent batch failure"));
+
+        _mockDeadLetterQueue
+            .Setup(x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()))
+            .ThrowsAsync(new Exception("DLQ failure"));
+
+        // Act
+        var result = await _resilientLogger.LogBatchAsync(events);
+
+        // Assert
+        Assert.That(result.Success, Is.False);
+        Assert.That(_diagnostics.DlqStoreOperationCount, Is.EqualTo(events.Count));
+        Assert.That(_diagnostics.DlqStoreFailureCount, Is.EqualTo(events.Count));
+        Assert.That(_diagnostics.EmergencyFallbackWriteCount, Is.EqualTo(events.Count));
+        _mockLogger.Verify(
+            static x => x.Log(
+                LogLevel.Critical,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("CRITICAL")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Exactly(events.Count));
+    }
+
+    /// <summary>
+    /// LogBatchAsync propagates pre-cancelled tokens without retries or DLQ writes.
+    /// </summary>
+    [Test]
+    public void LogBatchAsync_CancellationRequested_PropagatesImmediately()
+    {
+        // Arrange
+        var events = CreateBatch(2);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act / Assert
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await _resilientLogger.LogBatchAsync(events, cts.Token));
+        _mockInnerLogger.Verify(
+            static x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mockDeadLetterQueue.Verify(
+            static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
+            Times.Never);
     }
 
     /// <summary>
@@ -745,5 +970,16 @@ public class ResilientAuditLoggerTests
             null);
 
         return (Exception)sqlExceptionCtor!.Invoke(["Duplicate key", errorCollection, null, Guid.Empty]);
+    }
+
+    private static List<AuditEvent> CreateBatch(int count)
+    {
+        return Enumerable.Range(1, count)
+            .Select(static i => new AuditEvent
+            {
+                EventId = Guid.NewGuid(),
+                EventType = $"Test.Event{i}"
+            })
+            .ToList();
     }
 }

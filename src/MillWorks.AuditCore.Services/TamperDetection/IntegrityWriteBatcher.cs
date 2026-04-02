@@ -131,7 +131,11 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                     }
                 }
 
-                await FlushBatchAsync(batch, stoppingToken);
+                var flushToken = stoppingToken.IsCancellationRequested
+                    ? CancellationToken.None
+                    : stoppingToken;
+
+                await FlushBatchAsync(batch, flushToken);
             }
         }
         finally

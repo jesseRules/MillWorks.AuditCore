@@ -39,9 +39,20 @@ public sealed class IntegrityReconciliationService(
     private const int ReconciliationBatchSize = 100;
 
     /// <summary>
+    /// Duration of a reconciliation lease. Prevents multiple instances from processing
+    /// the same pending work item at the same time.
+    /// </summary>
+    private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
+
+    /// <summary>
     /// Interval between scheduled reconciliation runs (after the initial startup run)
     /// </summary>
     private static readonly TimeSpan ReconciliationInterval = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Stable identifier for this reconciler instance when claiming work items.
+    /// </summary>
+    private readonly string _instanceId = $"reconciler-{Guid.NewGuid():N}";
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -80,14 +91,7 @@ public sealed class IntegrityReconciliationService(
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
 
-            var staleCutoff = DateTimeOffset.UtcNow - StaleThreshold;
-
-            // Find stale Pending work items (created before the stale threshold)
-            var staleWorkItems = await dbContext.IntegrityWorkItems
-                .Where(w => w.Status == IntegrityStatus.Pending && w.CreatedAt < staleCutoff)
-                .OrderBy(static w => w.CreatedAt)
-                .Take(ReconciliationBatchSize)
-                .ToListAsync(cancellationToken);
+            var staleWorkItems = await ClaimStaleWorkItemsAsync(dbContext, cancellationToken);
 
             if (staleWorkItems.Count == 0)
                 return;
@@ -111,6 +115,8 @@ public sealed class IntegrityReconciliationService(
                     {
                         workItem.Status = IntegrityStatus.Failed;
                         workItem.LastAttemptAt = DateTimeOffset.UtcNow;
+                        workItem.LeaseOwner = null;
+                        workItem.LeaseExpiresAt = null;
 
                         // Also mark the audit event as Failed
                         var auditEvent = await dbContext.AuditEvents
@@ -149,6 +155,8 @@ public sealed class IntegrityReconciliationService(
                         workItem.Status = IntegrityStatus.Failed;
                         workItem.LastError = "Audit event no longer exists";
                         workItem.LastAttemptAt = DateTimeOffset.UtcNow;
+                        workItem.LeaseOwner = null;
+                        workItem.LeaseExpiresAt = null;
                         await dbContext.SaveChangesAsync(cancellationToken);
                         markedFailed++;
                         continue;
@@ -164,6 +172,8 @@ public sealed class IntegrityReconciliationService(
                         // Integrity record exists — just mark the work item and event as Reconciled
                         workItem.Status = IntegrityStatus.Reconciled;
                         workItem.CompletedAt = DateTimeOffset.UtcNow;
+                        workItem.LeaseOwner = null;
+                        workItem.LeaseExpiresAt = null;
 
                         await dbContext.AuditEvents
                             .Where(e => e.EventId == workItem.EventId && e.IntegrityStatus == IntegrityStatus.Pending)
@@ -193,6 +203,8 @@ public sealed class IntegrityReconciliationService(
                     // Mark as Reconciled
                     workItem.Status = IntegrityStatus.Reconciled;
                     workItem.CompletedAt = DateTimeOffset.UtcNow;
+                    workItem.LeaseOwner = null;
+                    workItem.LeaseExpiresAt = null;
 
                     await dbContext.AuditEvents
                         .Where(e => e.EventId == workItem.EventId && e.IntegrityStatus == IntegrityStatus.Pending)
@@ -212,6 +224,8 @@ public sealed class IntegrityReconciliationService(
                     workItem.LastError = ex.Message.Length > 2000
                         ? ex.Message[..2000]
                         : ex.Message;
+                    workItem.LeaseOwner = null;
+                    workItem.LeaseExpiresAt = null;
 
                     try
                     {
@@ -238,5 +252,50 @@ public sealed class IntegrityReconciliationService(
         {
             logger.LogError(ex, "IntegrityReconciliationService: reconciliation pass failed");
         }
+    }
+
+    /// <summary>
+    /// Claims a batch of stale pending work items using per-row leases so only one
+    /// reconciler instance processes a given item at a time.
+    /// </summary>
+    private async Task<List<AuditIntegrityWorkItemEntity>> ClaimStaleWorkItemsAsync(
+        AuditApplicationDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var staleCutoff = now - StaleThreshold;
+        var leaseExpiresAt = now.Add(LeaseDuration);
+
+        var candidateIds = await dbContext.IntegrityWorkItems
+            .Where(w => w.Status == IntegrityStatus.Pending
+                        && w.CreatedAt < staleCutoff
+                        && (w.LeaseExpiresAt == null || w.LeaseExpiresAt < now))
+            .OrderBy(static w => w.CreatedAt)
+            .Select(static w => w.Id)
+            .Take(ReconciliationBatchSize)
+            .ToListAsync(cancellationToken);
+
+        var claimedItems = new List<AuditIntegrityWorkItemEntity>(candidateIds.Count);
+
+        foreach (var candidateId in candidateIds)
+        {
+            var claimed = await dbContext.IntegrityWorkItems
+                .Where(w => w.Id == candidateId
+                            && w.Status == IntegrityStatus.Pending
+                            && (w.LeaseExpiresAt == null || w.LeaseExpiresAt < now))
+                .ExecuteUpdateAsync(s => s
+                        .SetProperty(static w => w.LeaseOwner, _instanceId)
+                        .SetProperty(static w => w.LeaseExpiresAt, leaseExpiresAt),
+                    cancellationToken);
+
+            if (claimed != 1)
+                continue;
+
+            var workItem = await dbContext.IntegrityWorkItems
+                .FirstAsync(w => w.Id == candidateId, cancellationToken);
+            claimedItems.Add(workItem);
+        }
+
+        return claimedItems;
     }
 }

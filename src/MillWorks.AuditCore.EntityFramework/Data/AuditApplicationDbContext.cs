@@ -4,6 +4,7 @@ using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Extensions;
+using MillWorks.AuditCore.EntityFramework.Primitives;
 
 namespace MillWorks.AuditCore.EntityFramework.Data;
 
@@ -133,6 +134,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// </summary>
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        PrepareConcurrencyTokens();
+
         // Detect if we're saving audit entities to prevent infinite loops
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
@@ -159,6 +162,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// </summary>
     public override int SaveChanges()
     {
+        PrepareConcurrencyTokens();
+
         // Detect if we're saving audit entities
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
@@ -186,9 +191,33 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureAudit(modelBuilder);
+        ConfigureConcurrency(modelBuilder);
 
         if (_encryptionService is not null)
             modelBuilder.UseFieldEncryption(_encryptionService);
+    }
+
+    /// <summary>
+    /// Configures optimistic concurrency for aggregate roots.
+    /// Uses provider-native rowversion on SQL Server and application-managed tokens elsewhere.
+    /// </summary>
+    private void ConfigureConcurrency(ModelBuilder modelBuilder)
+    {
+        var isSqlServer = Database.ProviderName == "Microsoft.EntityFrameworkCore.SqlServer";
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                     .Where(static e => typeof(AuditAggregateRoot).IsAssignableFrom(e.ClrType)))
+        {
+            var propertyBuilder = modelBuilder.Entity(entityType.ClrType)
+                .Property<byte[]>(nameof(AuditAggregateRoot.RowVersion))
+                .IsRequired()
+                .IsConcurrencyToken();
+
+            if (isSqlServer)
+            {
+                propertyBuilder.IsRowVersion();
+            }
+        }
     }
 
     /// <summary>
@@ -450,6 +479,28 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
                 {
                     property.SetColumnType("INTEGER");
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates application-managed concurrency tokens before save on providers
+    /// that do not support database-generated rowversion columns.
+    /// </summary>
+    private void PrepareConcurrencyTokens()
+    {
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.SqlServer")
+            return;
+
+        foreach (var entry in ChangeTracker.Entries<AuditAggregateRoot>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Property(nameof(AuditAggregateRoot.RowVersion)).CurrentValue = Guid.NewGuid().ToByteArray();
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Property(nameof(AuditAggregateRoot.RowVersion)).CurrentValue = Guid.NewGuid().ToByteArray();
             }
         }
     }

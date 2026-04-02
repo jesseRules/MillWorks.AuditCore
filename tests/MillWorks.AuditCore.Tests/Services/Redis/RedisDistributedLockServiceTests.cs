@@ -46,7 +46,10 @@ public class RedisDistributedLockServiceTests
 
         _lockService = new RedisDistributedLockService(
             _mockRedis.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            maxRetries: 3,
+            baseDelay: TimeSpan.FromMilliseconds(1),
+            useJitter: false);
     }
 
     #region AcquireLockAsync Tests
@@ -443,8 +446,8 @@ public class RedisDistributedLockServiceTests
         // First lock should fail initially
         var lockTask = _lockService.AcquireLockAsync(resource, expiry);
     
-        // Give it a moment to start trying
-        await Task.Delay(100);
+        // Let the first acquisition attempt fail before simulating release.
+        await Task.Delay(1);
     
         // Simulate lock being released by another process
         lockReleased = true;

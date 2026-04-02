@@ -9,7 +9,10 @@ namespace MillWorks.AuditCore.Services.Redis;
 /// </summary>
 public sealed class RedisDistributedLockService(
     IConnectionMultiplexer redis,
-    ILogger<RedisDistributedLockService> logger)
+    ILogger<RedisDistributedLockService> logger,
+    int maxRetries = 50,
+    TimeSpan? baseDelay = null,
+    bool useJitter = true)
     : IAuditDistributedLockService
 {
     /// <summary>
@@ -22,6 +25,27 @@ public sealed class RedisDistributedLockService(
     /// </summary>
     private readonly ILogger<RedisDistributedLockService> _logger =
         logger ?? throw new ArgumentNullException(nameof(logger));
+
+    /// <summary>
+    /// Maximum number of attempts made before failing lock acquisition.
+    /// </summary>
+    private readonly int _maxRetries = maxRetries > 0
+        ? maxRetries
+        : throw new ArgumentOutOfRangeException(nameof(maxRetries), "Max retries must be greater than zero");
+
+    /// <summary>
+    /// Base delay used for exponential backoff between lock attempts.
+    /// </summary>
+    private readonly TimeSpan _baseDelay = baseDelay is { } delay && delay > TimeSpan.Zero
+        ? delay
+        : baseDelay is null
+            ? TimeSpan.FromMilliseconds(50)
+            : throw new ArgumentOutOfRangeException(nameof(baseDelay), "Base delay must be greater than zero");
+
+    /// <summary>
+    /// Whether jitter should be added to the retry delay.
+    /// </summary>
+    private readonly bool _useJitter = useJitter;
 
     /// <summary>
     /// Lock key prefix
@@ -50,10 +74,7 @@ public sealed class RedisDistributedLockService(
         // Try to acquire lock with exponential backoff
         var acquired = false;
         var retryCount = 0;
-        var maxRetries = 50;
-        var baseDelay = TimeSpan.FromMilliseconds(50);
-
-        while (!acquired && retryCount < maxRetries)
+        while (!acquired && retryCount < _maxRetries)
         {
             // Use SET NX (set if not exists) with expiry
             acquired = await db.StringSetAsync(
@@ -70,22 +91,23 @@ public sealed class RedisDistributedLockService(
 
             retryCount++;
 
-            if (retryCount >= maxRetries)
+            if (retryCount >= _maxRetries)
             {
                 _logger.LogWarning(
                     "Failed to acquire distributed lock for resource {Resource} after {MaxRetries} attempts",
-                    resource, maxRetries);
+                    resource, _maxRetries);
 
                 throw new TimeoutException(
-                    $"Failed to acquire distributed lock for resource '{resource}' after {maxRetries} attempts");
+                    $"Failed to acquire distributed lock for resource '{resource}' after {_maxRetries} attempts");
             }
 
             // Exponential backoff with jitter
             var delay = TimeSpan.FromMilliseconds(
-                baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5)));
+                _baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5)));
 
-            var jitter = TimeSpan.FromMilliseconds(
-                Random.Shared.Next(0, (int)(delay.TotalMilliseconds * 0.3)));
+            var jitter = _useJitter
+                ? TimeSpan.FromMilliseconds(Random.Shared.Next(0, Math.Max(1, (int)(delay.TotalMilliseconds * 0.3))))
+                : TimeSpan.Zero;
 
             await Task.Delay(delay + jitter, cancellationToken);
         }
