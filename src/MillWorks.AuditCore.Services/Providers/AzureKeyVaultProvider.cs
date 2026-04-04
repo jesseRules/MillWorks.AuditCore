@@ -360,16 +360,21 @@ public sealed class AzureKeyVaultProvider(
     }
 
     /// <summary>
+    /// Fixed application-specific salt to avoid the degenerate all-zero HKDF salt case.
+    /// Deterministic across all instances — maintains the deterministic derivation property.
+    /// </summary>
+    private static readonly byte[] ApplicationSalt =
+        SHA256.HashData("MillWorks.AuditCore.FieldKeyDerivation"u8);
+
+    /// <summary>
     /// Derives a field-specific key from the master key using HKDF
     /// </summary>
     private static byte[] DeriveFieldKey(byte[] masterKey, string fieldName)
     {
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}");
-        var salt = new byte[32]; // Empty salt for deterministic derivation
         var derivedKey = new byte[32]; // 256 bits
 
-        // Use .NET 9's built-in HKDF static method
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, salt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
 
         return derivedKey;
     }

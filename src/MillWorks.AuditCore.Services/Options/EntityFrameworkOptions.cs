@@ -18,7 +18,7 @@ public sealed class EntityFrameworkOptions
     /// <summary>
     /// Automatically create database if it doesn't exist
     /// </summary>
-    public bool EnsureDatabaseCreated { get; set; } = true;
+    public bool EnsureDatabaseCreated { get; set; } = false;
 
     /// <summary>
     /// Seed initial data after migrations

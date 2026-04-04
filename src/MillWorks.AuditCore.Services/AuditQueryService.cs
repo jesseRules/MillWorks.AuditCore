@@ -90,6 +90,9 @@ public sealed class AuditQueryService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
+        if (limit <= 0) limit = 50;
+        if (offset < 0) offset = 0;
+
         logger.LogDebug("Getting audit events with offset {Offset} and limit {Limit}", offset, limit);
 
         IQueryable<AuditEventEntity> query = context.AuditEvents.AsNoTracking();

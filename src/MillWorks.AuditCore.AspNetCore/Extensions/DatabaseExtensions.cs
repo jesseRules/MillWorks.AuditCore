@@ -51,7 +51,7 @@ public static class DatabaseExtensions
         /// Runs database migrations asynchronously for the audit system.
         /// MigrateAsync() creates the database if it doesn't exist AND applies migrations.
         /// </summary>
-        public async Task RunAuditMigrationsAsync()
+        public async Task RunAuditMigrationsAsync(CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
@@ -61,12 +61,12 @@ public static class DatabaseExtensions
             {
                 logger?.LogInformation("Starting MillWorks.Audit database migration (async)...");
 
-                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync(cancellationToken);
                 IEnumerable<string> migrations = pendingMigrations as string[] ?? pendingMigrations.ToArray();
                 if (migrations.Any())
                 {
                     logger?.LogInformation("Found {Count} pending migrations", migrations.Count());
-                    await context.Database.MigrateAsync();
+                    await context.Database.MigrateAsync(cancellationToken);
                     logger?.LogInformation("Migrations applied successfully");
                 }
                 else

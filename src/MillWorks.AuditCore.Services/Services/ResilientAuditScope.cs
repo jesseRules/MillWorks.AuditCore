@@ -79,11 +79,8 @@ public sealed class ResilientAuditScope(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to dispose audit scope");
-
-            // Try to save to DLQ synchronously
-            deadLetterQueue.StoreFailedEventAsync(Event, ex, "Failed to dispose scope")
-                .GetAwaiter().GetResult();
+            logger.LogError(ex, "Failed to dispose audit scope. " +
+                "DLQ storage skipped in sync Dispose path; prefer DisposeAsync for DLQ support.");
         }
         finally
         {

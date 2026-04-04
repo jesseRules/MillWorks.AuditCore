@@ -235,7 +235,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
             // IntegrityStatus enum stored as int
             entity.Property(static e => e.IntegrityStatus)
                 .HasConversion<int>()
-                .HasDefaultValue(IntegrityStatus.Pending);
+                .HasDefaultValue(IntegrityStatus.Pending)
+                .HasSentinel((IntegrityStatus)0);
 
             if (isInMemory)
             {
@@ -392,15 +393,31 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
             }
         });
 
+        // AuditIntegrityEntity FK: Restrict delete to preserve tamper-evidence chain
+        modelBuilder.Entity<AuditIntegrityEntity>(entity =>
+        {
+            entity.HasOne(e => e.AuditEvent)
+                .WithOne(e => e.AuditIntegrity)
+                .HasForeignKey<AuditIntegrityEntity>(e => e.EventId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         // AuditIntegrityWorkItemEntity configuration (durable outbox for batched integrity writes)
         modelBuilder.Entity<AuditIntegrityWorkItemEntity>(entity =>
         {
             entity.HasKey(static e => e.Id);
 
+            // Restrict delete to preserve tamper-evidence chain
+            entity.HasOne(e => e.AuditEvent)
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Store enum as int
             entity.Property(static e => e.Status)
                 .HasConversion<int>()
-                .HasDefaultValue(IntegrityStatus.Pending);
+                .HasDefaultValue(IntegrityStatus.Pending)
+                .HasSentinel((IntegrityStatus)0);
 
             if (isInMemory)
             {

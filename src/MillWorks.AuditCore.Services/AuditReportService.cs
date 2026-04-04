@@ -92,7 +92,10 @@ public sealed class AuditReportService(
                 return await GroupByEventTypeServerSideAsync(baseQuery, cancellationToken);
             default:
             {
-                // For date-based groupings, project only the InsertedDate column
+                // Date-based groupings use client-side evaluation because EF cannot translate
+                // DateTimeOffset grouping expressions across all providers (e.g. SQLite).
+                // Only the InsertedDate column is projected to minimize data transfer.
+                // For very large tables, consider database-specific date-truncation functions.
                 var dates = await baseQuery
                     .Where(static e => e.InsertedDate.HasValue)
                     .Select(static e => e.InsertedDate!.Value)

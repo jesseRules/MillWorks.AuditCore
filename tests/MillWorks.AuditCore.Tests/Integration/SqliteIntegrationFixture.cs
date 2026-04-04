@@ -43,11 +43,13 @@ public abstract class SqliteIntegrationFixture : IDisposable
     public void CleanupData()
     {
         using var context = CreateContext();
-        context.Database.ExecuteSqlRaw("DELETE FROM \"AuditEvents\"");
+        // Delete child tables first to respect Restrict FK constraints
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditIntegrity\"");
+        context.Database.ExecuteSqlRaw("DELETE FROM \"AuditIntegrityWorkItems\"");
+        context.Database.ExecuteSqlRaw("DELETE FROM \"SecurityEvents\"");
+        context.Database.ExecuteSqlRaw("DELETE FROM \"AuditEvents\"");
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditLogs\"");
         context.Database.ExecuteSqlRaw("DELETE FROM \"ArchiveRecord\"");
-        context.Database.ExecuteSqlRaw("DELETE FROM \"SecurityEvents\"");
     }
 
     public void Dispose()

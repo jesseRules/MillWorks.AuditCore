@@ -33,7 +33,11 @@ public sealed class AuditSearchService(
         AuditSearchRequest request,
         CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Searching audit events with criteria: {@Request}", request);
+        if (request.Limit <= 0) request.Limit = 50;
+        if (request.Offset < 0) request.Offset = 0;
+
+        logger.LogDebug("Searching audit events with criteria: User={User}, EventType={EventType}, EntityType={EntityType}, StartDate={StartDate}, EndDate={EndDate}",
+            request.User, request.EventType, request.EntityType, request.StartDate, request.EndDate);
 
         IQueryable<AuditEventEntity> query = BuildSearchQuery(request);
 
@@ -119,6 +123,9 @@ public sealed class AuditSearchService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
+        if (limit <= 0) limit = 50;
+        if (offset < 0) offset = 0;
+
         // Don't use SearchAuditEventsAsync - query by EntityType directly
         IQueryable<AuditEventEntity> query = context.AuditEvents.AsNoTracking()
             .Where(e => e.EntityType == entityType);
@@ -211,7 +218,13 @@ public sealed class AuditSearchService(
             query = query.Where(e => e.EventType == request.EventType);
         }
 
-        // General search term — use EF.Functions.Like for index-friendly case-insensitive search
+        // Entity type filter
+        if (!string.IsNullOrWhiteSpace(request.EntityType))
+        {
+            query = query.Where(e => e.EntityType == request.EntityType);
+        }
+
+        // General search term — leading-wildcard LIKE cannot use indexes; consider full-text search for large tables
         if (string.IsNullOrWhiteSpace(request.SearchTerm)) return query;
         {
             string pattern = $"%{request.SearchTerm}%";
@@ -274,13 +287,12 @@ public sealed class AuditSearchService(
             }
             catch (JsonException jsonEx)
             {
-                // Specific handling for JSON errors
+                // Specific handling for JSON errors — do not log raw JSON (may contain sensitive data)
                 logger.LogError(jsonEx,
-                    "Malformed JSON data for event {EventId}. JSON: {JsonData}",
-                    dto.EventId,
-                    dto.JsonData?[..Math.Min(100, dto.JsonData.Length)]);
+                    "Malformed JSON data for event {EventId}",
+                    dto.EventId);
 
-                dto.Data = CreateErrorResponse(dto, "Malformed JSON", dto.JsonData);
+                dto.Data = CreateErrorResponse(dto, "Malformed JSON");
             }
             catch (Exception ex)
             {
@@ -289,7 +301,7 @@ public sealed class AuditSearchService(
                     "Unexpected error parsing event {EventId}",
                     dto.EventId);
 
-                dto.Data = CreateErrorResponse(dto, "Parse error", dto.JsonData);
+                dto.Data = CreateErrorResponse(dto, "Parse error");
             }
         }
 
@@ -301,12 +313,10 @@ public sealed class AuditSearchService(
     /// </summary>
     /// <param name="dto"></param>
     /// <param name="errorType"></param>
-    /// <param name="rawJson"></param>
     /// <returns></returns>
     private static AuditEventJsonDataParsedResponse CreateErrorResponse(
         AuditEventDto dto,
-        string errorType,
-        string? rawJson)
+        string errorType)
     {
         return new AuditEventJsonDataParsedResponse
         {
@@ -317,7 +327,6 @@ public sealed class AuditSearchService(
             {
                 ["ParseError"] = true,
                 ["ErrorType"] = errorType,
-                ["RawJson"] = rawJson,
                 ["Timestamp"] = DateTimeOffset.UtcNow
             }
         };

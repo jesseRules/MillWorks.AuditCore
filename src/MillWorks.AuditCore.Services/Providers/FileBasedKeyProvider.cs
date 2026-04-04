@@ -170,8 +170,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
 
             if (!File.Exists(versionFilePath))
             {
-                // Initialize requires async (file write + key gen) — fall back
-                return InitializeFirstKeyAsync().GetAwaiter().GetResult();
+                return InitializeFirstKeySync();
             }
 
             return File.ReadAllText(versionFilePath);
@@ -246,6 +245,36 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     }
 
     /// <summary>
+    /// Synchronous initialization of the first encryption key, avoiding sync-over-async
+    /// </summary>
+    private string InitializeFirstKeySync()
+    {
+        _logger.LogInformation("Initializing first encryption key (sync path)");
+
+        var newKey = new byte[32];
+        RandomNumberGenerator.Fill(newKey);
+
+        var newVersion = $"v{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+
+        var encryptedKey = EncryptKeyFile(newKey);
+        var keyFilePath = Path.Combine(
+            _keyStorePath,
+            string.Format(KeyFilePattern, newVersion));
+
+        File.WriteAllBytes(keyFilePath, encryptedKey);
+
+        var versionFilePath = Path.Combine(_keyStorePath, CurrentVersionFile);
+        File.WriteAllText(versionFilePath, newVersion);
+
+        _keyCache.Clear();
+
+        _logger.LogInformation("Successfully rotated encryption keys to version {Version}",
+            newVersion);
+
+        return newVersion;
+    }
+
+    /// <summary>
     /// Encrypts a key for storage using the master key
     /// </summary>
     private byte[] EncryptKeyFile(byte[] keyData)
@@ -295,15 +324,21 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     }
 
     /// <summary>
+    /// Fixed application-specific salt to avoid the degenerate all-zero HKDF salt case.
+    /// Deterministic across all instances — maintains the deterministic derivation property.
+    /// </summary>
+    private static readonly byte[] ApplicationSalt =
+        SHA256.HashData("MillWorks.AuditCore.FieldKeyDerivation"u8);
+
+    /// <summary>
     /// Derives a field-specific key from the master key using HKDF
     /// </summary>
     private static byte[] DeriveFieldKey(byte[] masterKey, string fieldName)
     {
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}");
-        var salt = new byte[32]; // Empty salt for deterministic derivation
         var derivedKey = new byte[32]; // 256 bits
 
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, salt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
 
         return derivedKey;
     }
