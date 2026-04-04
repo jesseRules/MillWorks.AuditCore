@@ -82,6 +82,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// from the critical section in steady state. Only the first call (or after a
     /// duplicate-key retry) reads from the database. Subsequent calls use the cached value.
     /// Static because TamperDetectionService is Scoped — the cache must survive across requests.
+    /// Thread safety: all reads and writes occur inside the LocalFallbackLock / distributed lock
+    /// critical section in CreateIntegrityRecordAsync — no external synchronization needed.
     /// </summary>
     private static string? _cachedPreviousHash;
     private static bool _previousHashCacheInitialized;
