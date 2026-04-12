@@ -106,7 +106,7 @@ public sealed class MillWorksAuditBuilder
             Services.Remove(descriptor);
         }
 
-        Services.AddSingleton<IRequestAuditDispatcher, TDispatcher>();
+        Services.AddScoped<IRequestAuditDispatcher, TDispatcher>();
     }
 
     /// <summary>

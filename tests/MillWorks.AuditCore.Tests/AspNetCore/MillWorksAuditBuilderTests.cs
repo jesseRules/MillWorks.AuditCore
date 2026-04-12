@@ -108,6 +108,7 @@ public class MillWorksAuditBuilderTests
 
         var descriptor = _services.Last(static s => s.ServiceType == typeof(IRequestAuditDispatcher));
         Assert.That(descriptor.ImplementationType, Is.EqualTo(typeof(TestRequestAuditDispatcher)));
+        Assert.That(descriptor.Lifetime, Is.EqualTo(ServiceLifetime.Scoped));
     }
 
     [Test]
