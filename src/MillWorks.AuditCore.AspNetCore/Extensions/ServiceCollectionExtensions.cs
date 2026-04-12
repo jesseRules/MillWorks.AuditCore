@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using MillWorks.AuditCore.AspNetCore.Configuration;
 using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -8,6 +9,7 @@ using MillWorks.AuditCore.AspNetCore.Services;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.AspNetCore.Extensions;
 
@@ -31,6 +33,7 @@ public static class ServiceCollectionExtensions
             services.TryAddScoped<IAuditContext, AuditContext>();
             services.TryAddScoped<IAuditEventFactory, AuditEventFactory>();
             services.TryAddScoped<IAuditLogger, AuditLogger>();
+            services.TryAddScoped<IRequestAuditProcessor, RequestAuditProcessor>();
 
             // Aggregate diagnostic counters — singleton, thread-safe, queryable from health checks
             services.TryAddSingleton<IAuditDiagnostics, AuditDiagnostics>();
@@ -43,6 +46,15 @@ public static class ServiceCollectionExtensions
 
             // Register HTTP context accessor for middleware
             services.AddHttpContextAccessor();
+            services.AddOptions<AuditMiddlewareOptions>();
+
+            // Default deferred request-audit dispatcher. Consumers can replace IRequestAuditDispatcher
+            // with an external implementation (for example, a Hangfire-like job bridge).
+            services.TryAddSingleton<InProcessRequestAuditDispatcher>();
+            services.TryAddSingleton<IRequestAuditDispatcher>(static sp =>
+                sp.GetRequiredService<InProcessRequestAuditDispatcher>());
+            services.AddSingleton<IHostedService>(static sp =>
+                sp.GetRequiredService<InProcessRequestAuditDispatcher>());
 
             // Register middleware - CRITICAL: Must be scoped for per-request isolation
             services.TryAddScoped<AuditContextMiddleware>();

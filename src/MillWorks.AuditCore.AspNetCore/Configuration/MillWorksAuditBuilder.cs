@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.AspNetCore.Configuration.Options;
@@ -29,6 +30,7 @@ using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Compliance;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.Validators;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 using StackExchange.Redis;
@@ -76,6 +78,35 @@ public sealed class MillWorksAuditBuilder
             Services.Remove(existing);
 
         Services.AddSingleton<IAuditFieldRedactor, TRedactor>();
+    }
+
+    /// <summary>
+    /// Configures request-audit middleware behavior.
+    /// </summary>
+    public void UseMiddleware(Action<AuditMiddlewareOptions> configure)
+    {
+        Services.Configure(configure);
+    }
+
+    /// <summary>
+    /// Replaces the default in-process request audit dispatcher with a custom implementation.
+    /// This allows consuming apps to bridge deferred request audits into their own job system.
+    /// </summary>
+    public void UseRequestAuditDispatcher<TDispatcher>()
+        where TDispatcher : class, IRequestAuditDispatcher
+    {
+        foreach (var descriptor in Services
+                     .Where(static s =>
+                         s.ServiceType == typeof(IRequestAuditDispatcher) ||
+                         s.ServiceType == typeof(InProcessRequestAuditDispatcher) ||
+                         (s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+                          s.ImplementationFactory != null))
+                     .ToList())
+        {
+            Services.Remove(descriptor);
+        }
+
+        Services.AddSingleton<IRequestAuditDispatcher, TDispatcher>();
     }
 
     /// <summary>

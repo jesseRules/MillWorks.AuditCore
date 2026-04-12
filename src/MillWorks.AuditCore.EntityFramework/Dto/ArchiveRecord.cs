@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.Abstractions.Enums;
 
 namespace MillWorks.AuditCore.EntityFramework.Dto;
 

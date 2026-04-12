@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Providers.Base;
@@ -12,6 +13,7 @@ using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Redis;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 using StackExchange.Redis;
@@ -40,6 +42,12 @@ public class MillWorksAuditBuilderTests
     {
         Assert.That(_builder.Services, Is.SameAs(_services));
         Assert.That(_builder.Options, Is.SameAs(_options));
+    }
+
+    private sealed class TestRequestAuditDispatcher : IRequestAuditDispatcher
+    {
+        public ValueTask DispatchAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+            => ValueTask.CompletedTask;
     }
 
     [Test]
@@ -73,6 +81,33 @@ public class MillWorksAuditBuilderTests
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditArchivalService)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMaintenanceService)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMetaTrackingService)), Is.True);
+    }
+
+    [Test]
+    public void UseMiddleware_RegistersMiddlewareOptionsConfiguration()
+    {
+        _builder.UseMiddleware(options =>
+        {
+            options.AuditWritesOnly = true;
+            options.ExcludedReadPaths.Add("/dashboard");
+        });
+
+        var provider = _services.BuildServiceProvider();
+        var resolved = provider.GetRequiredService<IOptions<AuditMiddlewareOptions>>().Value;
+
+        Assert.That(resolved.AuditWritesOnly, Is.True);
+        Assert.That(resolved.ExcludedReadPaths, Does.Contain("/dashboard"));
+    }
+
+    [Test]
+    public void UseRequestAuditDispatcher_ReplacesDefaultDispatcherRegistration()
+    {
+        _services.AddSingleton<IRequestAuditDispatcher, InProcessRequestAuditDispatcher>();
+
+        _builder.UseRequestAuditDispatcher<TestRequestAuditDispatcher>();
+
+        var descriptor = _services.Last(static s => s.ServiceType == typeof(IRequestAuditDispatcher));
+        Assert.That(descriptor.ImplementationType, Is.EqualTo(typeof(TestRequestAuditDispatcher)));
     }
 
     [Test]

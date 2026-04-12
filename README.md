@@ -74,6 +74,11 @@ All three providers ship in v1.0:
 | `FileSystem` | JSON files with semaphore locking | Single-instance production without Redis |
 | `Redis` | Sorted sets with 30-day expiry | Multi-instance production deployments |
 
+### Deferred HTTP Request Auditing
+HTTP request-level audit events are dispatched off the request thread instead of being persisted inline during middleware teardown. By default, AuditCore uses an in-process bounded queue plus hosted worker. The worker creates a fresh DI scope for each deferred request audit, resolves scoped services such as `IAuditLogger`, and persists the event there.
+
+This design keeps request latency bounded while preserving scoped lifetime correctness. Consumers that already have a job system can replace the default dispatcher with their own implementation of `IRequestAuditDispatcher`.
+
 ### Distributed Coordination
 Redis-based distributed locking ensures hash chain consistency across multiple application instances writing audit events concurrently. Falls back to in-memory locking for single-instance deployments.
 
@@ -114,6 +119,11 @@ builder.Services.AddMillWorksAudit(audit =>
     audit.UseSecurity(security =>
     {
         security.EnableTamperDetection = true;
+    });
+
+    audit.UseMiddleware(middleware =>
+    {
+        middleware.ExcludedReadPaths.Add("/api/v1/feedback/dashboard");
     });
 });
 
@@ -157,6 +167,8 @@ scope.SetCustomField("TrackingNumber", trackingNumber);
 scope.SetCustomField("ShippedAt", DateTimeOffset.UtcNow);
 // Event is persisted with all fields when the scope disposes
 ```
+
+`CreateScope()` remains appropriate for application-level business operations like workflows and long-running units of work. HTTP request auditing is handled separately by the middleware dispatcher/worker pipeline.
 
 ### Automatic Entity Change Tracking
 
@@ -244,7 +256,7 @@ Providers             (entity-specific audit enrichment; references ASP.NET Core
     |
 Services              (business logic)
   Compliance validators, Tamper detection, Encryption, Dead letter queue,
-  Query/Search/Report, Archival, Maintenance, Mapping
+  Query/Search/Report, Archival, Maintenance, Mapping, Deferred request-audit dispatch/processing
     |
 AspNetCore            (application entry point)
   MillWorksAuditBuilder, ServiceCollectionExtensions, Middleware, Options
@@ -317,6 +329,16 @@ builder.Services.AddMillWorksAudit(audit =>
         resilience.MaxRetries = 3;                                      // Default: 3
     });
 
+    // HTTP request audit middleware behavior
+    audit.UseMiddleware(middleware =>
+    {
+        middleware.AuditWritesOnly = false;                             // Default: false
+        middleware.ExcludedReadPaths.Add("/api/v1/feedback/dashboard");
+        middleware.QueueCapacity = 1000;                                // Default: 1000
+        middleware.EnqueueTimeout = TimeSpan.FromMilliseconds(100);     // Default: 100ms
+        middleware.DrainTimeout = TimeSpan.FromSeconds(30);             // Default: 30s
+    });
+
     // Field-level encryption (Azure Key Vault)
     audit.UseFieldEncryption("https://my-vault.vault.azure.net/");
 
@@ -329,6 +351,10 @@ builder.Services.AddMillWorksAudit(audit =>
         registry.AddProvider<PatientAuditProvider>("Patient");
         registry.AddProvider<FinancialRecordAuditProvider>("FinancialRecord");
     });
+
+    // Optional: replace the default in-process request-audit dispatcher
+    // with a consumer-owned job bridge (for example, MillWorks.BackgroundJobs).
+    // audit.UseRequestAuditDispatcher<MyBackgroundJobsRequestAuditDispatcher>();
 });
 ```
 
@@ -342,6 +368,50 @@ builder.Services.AddMillWorksAudit(audit =>
 | `MigrateOnStartup` | `false` | Applies EF Core migrations on startup. Use this in production for schema evolution. |
 
 If both are set to `false`, the application assumes the audit schema already exists. The first audit write will throw a `DbUpdateException` if the tables are missing. For production deployments, either enable `MigrateOnStartup` or apply migrations as part of your deployment pipeline (`dotnet ef database update`).
+
+### Deferred Request Audit Middleware
+
+`UseMillWorksAudit()` captures request context and emits a request-level `AuditEvent` for audited HTTP requests. That event is dispatched through `IRequestAuditDispatcher`.
+
+By default:
+
+- Request audits are buffered in a bounded in-memory queue.
+- A hosted worker dequeues them in the background.
+- Each item is processed inside a fresh DI scope, so scoped services like `IAuditLogger` and `AuditApplicationDbContext` are resolved safely outside the original HTTP request.
+
+This default is suitable for most applications and requires no extra infrastructure.
+
+For applications that already use an external background job system, replace the default dispatcher and keep AuditCore's processor contract:
+
+```csharp
+public sealed class BackgroundJobsRequestAuditDispatcher(
+    IBackgroundJobClient jobs) : IRequestAuditDispatcher
+{
+    public ValueTask DispatchAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    {
+        jobs.Enqueue<DeferredRequestAuditJob>(job => job.RunAsync(auditEvent, CancellationToken.None));
+        return ValueTask.CompletedTask;
+    }
+}
+
+public sealed class DeferredRequestAuditJob(
+    IRequestAuditProcessor processor)
+{
+    public Task RunAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
+        => processor.ProcessAsync(auditEvent, cancellationToken);
+}
+```
+
+Register the custom dispatcher in the consuming app:
+
+```csharp
+builder.Services.AddMillWorksAudit(audit =>
+{
+    audit.UseRequestAuditDispatcher<BackgroundJobsRequestAuditDispatcher>();
+});
+```
+
+This keeps AuditCore independent of any specific job framework while allowing consumers to route deferred request audits through systems such as `MillWorks.BackgroundJobs`.
 
 ## Compliance Standards
 

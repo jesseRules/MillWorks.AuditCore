@@ -3,8 +3,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
+using MillWorks.AuditCore.Services.Models;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Services.Core;
@@ -14,6 +18,9 @@ namespace MillWorks.AuditCore.Services.Core;
 /// </summary>
 public sealed class AuditContextMiddleware(
     IAuditContext auditContext,
+    IAuditEventFactory auditEventFactory,
+    IRequestAuditDispatcher requestAuditDispatcher,
+    IOptions<AuditMiddlewareOptions> options,
     ILogger<AuditContextMiddleware> logger)
     : IMiddleware
 {
@@ -58,23 +65,22 @@ public sealed class AuditContextMiddleware(
             logger.LogError(ex, "Error populating audit context for request {Path}", context.Request.Path);
         }
 
-        ICustomAuditScope? scope = null;
+        AuditEvent? requestAuditEvent = null;
 
         if (ShouldAuditRequest(context))
         {
             try
             {
-                scope = context.RequestServices.GetRequiredService<IAuditLogger>()
-                    .CreateScope($"Http.{context.Request.Method}", new
-                    {
-                        Path = context.Request.Path.ToString(),
-                        HasQueryString = context.Request.QueryString.HasValue,
-                        UserAgent = context.Request.Headers["User-Agent"].ToString()
-                    });
+                requestAuditEvent = auditEventFactory.CreateEvent($"Http.{context.Request.Method}", new RequestAuditTarget
+                {
+                    Path = context.Request.Path.ToString(),
+                    HasQueryString = context.Request.QueryString.HasValue,
+                    UserAgent = context.Request.Headers["User-Agent"].ToString()
+                });
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to create audit scope for request {Path}", context.Request.Path);
+                logger.LogError(ex, "Failed to create request audit event for request {Path}", context.Request.Path);
             }
         }
 
@@ -85,17 +91,26 @@ public sealed class AuditContextMiddleware(
         }
         finally
         {
-            if (scope != null)
+            if (requestAuditEvent != null)
             {
                 try
                 {
-                    scope.SetCustomField("StatusCode", context.Response.StatusCode);
-                    scope.SetCustomField("ElapsedMs", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
-                    await scope.DisposeAsync();
+                    requestAuditEvent.EndDate = DateTimeOffset.UtcNow;
+                    requestAuditEvent.CalculateDuration();
+                    requestAuditEvent.CustomFields["StatusCode"] = context.Response.StatusCode;
+                    requestAuditEvent.CustomFields["ElapsedMs"] = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+
+                    await requestAuditDispatcher.DispatchAsync(requestAuditEvent, CancellationToken.None);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    logger.LogWarning(ex,
+                        "Request audit dispatch was canceled for request {Path}",
+                        context.Request.Path);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error saving audit scope for request {Path}", context.Request.Path);
+                    logger.LogError(ex, "Error dispatching request audit for request {Path}", context.Request.Path);
                 }
             }
 
@@ -188,12 +203,27 @@ public sealed class AuditContextMiddleware(
     /// </summary>
     /// <param name="context"></param>
     /// <returns></returns>
-    private static bool ShouldAuditRequest(HttpContext context)
+    private bool ShouldAuditRequest(HttpContext context)
     {
-        if (context.Request.Method == "OPTIONS")
+        if (HttpMethods.IsOptions(context.Request.Method))
             return false;
 
         string path = context.Request.Path.ToString();
+
+        if (options.Value.AuditWritesOnly &&
+            (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)))
+        {
+            return false;
+        }
+
+        if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
+        {
+            foreach (var excludedReadPath in options.Value.ExcludedReadPaths)
+            {
+                if (path.StartsWith(excludedReadPath, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+        }
 
         foreach (string excluded in ExcludedPaths)
         {

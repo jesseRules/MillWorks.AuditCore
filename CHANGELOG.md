@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-04-12
+
+### Fixed
+- `UseRequestAuditDispatcher<TDispatcher>()` now removes the default in-process request-audit worker registrations when a consuming app supplies its own dispatcher
+- Consumer-owned dispatcher scenarios (for example, bridging to `MillWorks.BackgroundJobs`) no longer keep the default in-process hosted worker running unnecessarily
+
+## [1.4.0] - 2026-04-12
+
+### Added
+- `AuditMiddlewareOptions` for request-audit middleware behavior:
+  - `ExcludedReadPaths`
+  - `AuditWritesOnly`
+  - `QueueCapacity`
+  - `EnqueueTimeout`
+  - `DrainTimeout`
+- `IRequestAuditDispatcher` as the public extension point for deferred HTTP request-audit dispatch
+- `IRequestAuditProcessor` as the public processing contract for consumer-owned background job systems
+- `InProcessRequestAuditDispatcher` as the default bounded in-memory queue + hosted worker implementation
+- `RequestAuditProcessor` as the default scoped persistence handler for deferred request audits
+- `MillWorksAuditBuilder.UseMiddleware(...)` to configure request-audit middleware options
+- `MillWorksAuditBuilder.UseRequestAuditDispatcher<TDispatcher>()` to let consuming apps replace the default in-process dispatcher with their own job bridge
+
+### Changed
+- `AuditContextMiddleware` no longer persists HTTP request audit events inline via request-scope `ICustomAuditScope.DisposeAsync()`
+- Request-level HTTP audit events are now dispatched off the request thread as completed `AuditEvent` instances
+- The default request-audit path now uses a hosted worker that creates a fresh DI scope per deferred event before resolving scoped services such as `IAuditLogger`
+- README and incident documentation updated to describe deferred request auditing and consumer-owned dispatcher integration
+
+### Fixed
+- Eliminated the request teardown coupling that could block HTTP responses on best-effort request-audit persistence
+- Replaced the earlier hard-coded guidance for fire-and-forget scope disposal with a scoped-safe deferred processing model
+- Preserved a clean consumer extension point for external job systems such as `MillWorks.BackgroundJobs` without taking a hard dependency on them
+
 ## [1.3.1] - 2026-04-02
 
 ### Added

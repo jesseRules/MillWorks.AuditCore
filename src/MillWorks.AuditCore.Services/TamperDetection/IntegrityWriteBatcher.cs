@@ -166,7 +166,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
 
-            var events = batch.Select(b => b.Event).ToList();
+            var events = batch.Select(static b => b.Event).ToList();
             var results = await tamperDetection.CreateIntegrityRecordBatchAsync(events, cancellationToken);
 
             if (results.Count != batch.Count)
@@ -181,13 +181,13 @@ public sealed class IntegrityWriteBatcher : BackgroundService
 
             await dbContext.IntegrityWorkItems
                 .Where(w => eventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
-                .ExecuteUpdateAsync(s => s
+                .ExecuteUpdateAsync(static s => s
                     .SetProperty(static w => w.Status, IntegrityStatus.Completed)
                     .SetProperty(static w => w.CompletedAt, DateTimeOffset.UtcNow), cancellationToken);
 
             await dbContext.AuditEvents
                 .Where(e => eventIds.Contains(e.EventId) && e.IntegrityStatus == IntegrityStatus.Pending)
-                .ExecuteUpdateAsync(s => s
+                .ExecuteUpdateAsync(static s => s
                     .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Completed), cancellationToken);
 
             // Signal success to all callers
@@ -214,7 +214,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                 await failDbContext.IntegrityWorkItems
                     .Where(w => failedEventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
                     .ExecuteUpdateAsync(s => s
-                        .SetProperty(static w => w.AttemptCount, w => w.AttemptCount + 1)
+                        .SetProperty(static w => w.AttemptCount, static w => w.AttemptCount + 1)
                         .SetProperty(static w => w.LastAttemptAt, DateTimeOffset.UtcNow)
                         .SetProperty(static w => w.LastError, ex.Message), cancellationToken);
             }

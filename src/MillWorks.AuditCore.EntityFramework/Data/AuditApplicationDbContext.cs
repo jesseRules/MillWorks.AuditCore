@@ -394,11 +394,11 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
         });
 
         // AuditIntegrityEntity FK: Restrict delete to preserve tamper-evidence chain
-        modelBuilder.Entity<AuditIntegrityEntity>(entity =>
+        modelBuilder.Entity<AuditIntegrityEntity>(static entity =>
         {
-            entity.HasOne(e => e.AuditEvent)
-                .WithOne(e => e.AuditIntegrity)
-                .HasForeignKey<AuditIntegrityEntity>(e => e.EventId)
+            entity.HasOne(static e => e.AuditEvent)
+                .WithOne(static e => e.AuditIntegrity)
+                .HasForeignKey<AuditIntegrityEntity>(static e => e.EventId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -408,9 +408,9 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
             entity.HasKey(static e => e.Id);
 
             // Restrict delete to preserve tamper-evidence chain
-            entity.HasOne(e => e.AuditEvent)
+            entity.HasOne(static e => e.AuditEvent)
                 .WithMany()
-                .HasForeignKey(e => e.EventId)
+                .HasForeignKey(static e => e.EventId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Store enum as int

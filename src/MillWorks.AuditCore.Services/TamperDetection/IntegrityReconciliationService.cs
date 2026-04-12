@@ -177,7 +177,7 @@ public sealed class IntegrityReconciliationService(
 
                         await dbContext.AuditEvents
                             .Where(e => e.EventId == workItem.EventId && e.IntegrityStatus == IntegrityStatus.Pending)
-                            .ExecuteUpdateAsync(s => s
+                            .ExecuteUpdateAsync(static s => s
                                 .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Reconciled), cancellationToken);
 
                         await dbContext.SaveChangesAsync(cancellationToken);
@@ -208,7 +208,7 @@ public sealed class IntegrityReconciliationService(
 
                     await dbContext.AuditEvents
                         .Where(e => e.EventId == workItem.EventId && e.IntegrityStatus == IntegrityStatus.Pending)
-                        .ExecuteUpdateAsync(s => s
+                        .ExecuteUpdateAsync(static s => s
                             .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Reconciled), cancellationToken);
 
                     await dbContext.SaveChangesAsync(cancellationToken);

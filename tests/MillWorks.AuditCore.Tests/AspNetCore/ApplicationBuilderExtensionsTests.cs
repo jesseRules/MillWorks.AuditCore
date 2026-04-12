@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
 
@@ -24,8 +27,12 @@ public sealed class ApplicationBuilderExtensionsTests
         services.AddTransient<IMiddlewareFactory, MiddlewareFactory>();
         services.AddScoped<IAuditContext, AuditContext>();
         services.AddScoped(_ => Mock.Of<ILogger<AuditContextMiddleware>>());
+        services.AddScoped(_ => Mock.Of<IAuditEventFactory>(factory =>
+            factory.CreateEvent(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<string>()) ==
+            new AuditEvent { EventType = "Http.GET" }));
+        services.AddScoped(_ => Mock.Of<IRequestAuditDispatcher>());
+        services.AddSingleton(Options.Create(new AuditMiddlewareOptions()));
         services.AddScoped<AuditContextMiddleware>();
-        services.AddScoped(_ => Mock.Of<IAuditLogger>());
 
         using var provider = services.BuildServiceProvider();
         var app = new ApplicationBuilder(provider);
