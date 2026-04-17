@@ -72,6 +72,12 @@ public class AuditArchivalServiceCompressionTests
                 It.IsAny<CancellationToken>()))
             .Returns(static (IReadOnlyList<Guid> _, CancellationToken ct) =>
                 ToAsyncEnumerable(Enumerable.Empty<AuditIntegrityEntity>(), ct));
+
+        // Restore paths run inside ExecuteInTransactionAsync; without this default mock
+        // the action would be swallowed and every restore test would spuriously pass.
+        _mockAuditEventRepository
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
     }
 
     private AuditArchivalService CreateService(
@@ -114,7 +120,9 @@ public class AuditArchivalServiceCompressionTests
     }
 
     /// <summary>
-    /// Helper: set up blob mocking chain that returns specific bytes when DownloadToAsync is called.
+    /// Helper: set up blob mocking chain that returns specific bytes when OpenReadAsync
+    /// is called. Restore streams the blob through gzip decompression + a JSON state
+    /// machine, so the mock hands back a MemoryStream over the compressed payload.
     /// </summary>
     private (Mock<BlobContainerClient>, Mock<BlobClient>) SetupBlobDownload(byte[] data, bool exists = true)
     {
@@ -135,6 +143,14 @@ public class AuditArchivalServiceCompressionTests
 
         if (exists)
         {
+            // Streaming restore uses OpenReadAsync → fresh Stream per call so retries work.
+            mockBlobClient
+                .Setup(static x => x.OpenReadAsync(
+                    It.IsAny<BlobOpenReadOptions>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MemoryStream(data, writable: false));
+
+            // ValidateArchiveIntegrityAsync still uses DownloadToAsync into a caller stream.
             mockBlobClient
                 .Setup(static x => x.DownloadToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
                 .Callback<Stream, CancellationToken>((stream, _) => stream.Write(data, 0, data.Length))
@@ -259,8 +275,18 @@ public class AuditArchivalServiceCompressionTests
             });
 
         _mockAuditEventRepository
-            .Setup(static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(static (AuditEventEntity e, CancellationToken _) => e);
+            .Setup(static x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(static (IEnumerable<AuditEventEntity> e, CancellationToken _) => e);
+        _mockAuditEventRepository
+            .Setup(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(static (IEnumerable<AuditIntegrityEntity> e, CancellationToken _) => e);
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _mockAuditEventRepository
             .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
@@ -287,7 +313,7 @@ public class AuditArchivalServiceCompressionTests
         Assert.That(result.Message, Does.Contain("Successfully restored"));
 
         _mockAuditEventRepository.Verify(
-            static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()),
+            static x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -385,10 +411,9 @@ public class AuditArchivalServiceCompressionTests
     [Test]
     public async Task RestoreArchivedEventsAsync_WithNullDeserializedArchive_ReturnsError()
     {
-        // Arrange — JSON "null" produces null on Deserialize<AuditArchive>.
-        // However, AuditIntegrityDto has a property name collision (both Id and EventId
-        // map to "event_id"), which causes JsonSerializer to throw during type info resolution.
-        // The service's outer catch block handles this gracefully.
+        // Arrange — JSON "null" is a malformed archive (top level must be an object).
+        // The streaming parser raises a JsonException which the service catches and
+        // surfaces through the Restore failure path.
         var archiveId = "null-archive-test";
         var nullJson = "null";
         var compressed = await CompressString(nullJson);
@@ -412,6 +437,10 @@ public class AuditArchivalServiceCompressionTests
                 It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _mockAuditEventRepository
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns(static (Func<Task> action, CancellationToken _) => action());
+
         var service = CreateService(
             _mockTamperDetectionService.Object,
             _mockBlobServiceClient.Object);
@@ -419,9 +448,9 @@ public class AuditArchivalServiceCompressionTests
         // Act
         var result = await service.RestoreArchivedEventsAsync(archiveId);
 
-        // Assert — deserialization returns null, service reports the error gracefully
+        // Assert — malformed archive, service reports the error gracefully
         Assert.That(result.Success, Is.False);
-        Assert.That(result.Message, Does.Contain("deserialize"));
+        Assert.That(result.Message, Does.Contain("Restore failed"));
     }
 
     #endregion
@@ -753,7 +782,9 @@ public class AuditArchivalServiceCompressionTests
             .ReturnsAsync(Response.FromValue(true, null!));
 
         mockBlobClient
-            .Setup(static x => x.DownloadToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.OpenReadAsync(
+                It.IsAny<BlobOpenReadOptions>(),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(new RequestFailedException("Network error"));
 
         var service = CreateService(

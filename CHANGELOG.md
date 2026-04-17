@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-04-17
+
+### Added
+- `IAuditEventRepository.StreamByDateAsync(predicate, ct)` — streams audit events matching a predicate in ascending `InsertedDate` order without buffering the full result set; backed by `DbSet.AsNoTracking().AsAsyncEnumerable()` for bulk-export / archival scenarios
+- `IAuditIntegrityRepository.StreamByEventIdsAsync(eventIds, ct)` — streams integrity records for a list of event IDs in chunked `IN`-clause queries so the relational parameter limit is respected
+- `CountingHashingStream` — write-side pass-through `Stream` that feeds bytes into `IncrementalHash` and tallies the count as they flow; used by the archival pipeline to hash compressed bytes while streaming to blob storage
+- `HashingReadStream` — read-side counterpart that feeds bytes into `IncrementalHash` as they flow from blob storage through decompression and JSON parsing on the restore path
+
+### Changed
+- **Archival now streams** — `AuditArchivalService.ArchiveAuditEventsAsync` rewritten to pipe events from `StreamByDateAsync` through `Utf8JsonWriter` → `GZipStream` → `CountingHashingStream` → `System.IO.Pipelines.Pipe` → `BlobClient.UploadAsync`. Back-pressure at 4 MiB keeps the pipe buffer small; peak managed allocation is now independent of archive size. The perf test's memory guardrail tightened from `< 6× raw` to `< 1.5× raw` and passes. Event deletion after upload switched from `DeleteRangeAsync` on loaded entities to `ExecuteDeleteWhereAsync(e => ids.Contains(e.EventId))`, so the delete transaction no longer carries the payload
+- **Restore now streams** — `AuditArchivalService.RestoreArchivedEventsAsync` rewritten to pipe blob bytes from `BlobClient.OpenReadAsync` through `HashingReadStream` → `GZipStream` → a hand-rolled `Utf8JsonReader` state machine that deserializes one event / integrity record at a time and persists them via `AddRangeAsync` in 500-record batches with `ClearChangeTrackerAsync` between batches, all inside one `ExecuteInTransactionAsync`. Hash verified incrementally on the compressed bytes; mismatch throws to roll back the transaction and mark the archive `Corrupted`. Previous shape held the full compressed bytes, decompressed bytes, UTF-8 string, and object graph in memory simultaneously (~4× decompressed size)
+- Archive JSON restore now rejects malformed top-level payloads (null, array, scalar) explicitly rather than silently restoring zero events
+- `RowVersion` on `AuditAggregateRoot` is now registered as an EF concurrency token so `Repository<T>.ExecuteOptimisticUpdateAsync`'s retry path is actually exercised under real provider semantics (Phase 1)
+- `IntegrityReconciliationService` now acquires a distributed lease before scanning stale pending work, so multi-instance deployments can't reconcile the same rows in parallel (Phase 1)
+- Background services inject timing providers, validate required scoped dependencies in `StartAsync`, and log cycle timing explicitly — replacing the hard-coded startup delays and placeholder tests (Phase 2)
+- `DeadLetterQueueProcessor` acquires a distributed reprocessing lock before draining failed events, eliminating duplicate-replay races across instances (Phase 2)
+- `IntegrityHealthCheck` propagates cancellation as a first-class path and returns sanitized unhealthy results instead of raw exception objects that leaked connection detail through health endpoints (Phase 3)
+- `AuditContextMiddleware` validates incoming correlation IDs, warns on malformed values, and falls back to a guaranteed non-empty trace identifier when the header is empty or injected (Phase 3)
+
+### Fixed
+- `SensitiveContentSanitizer` now matches `values\s*\(…\)` alongside `key value is\s*\(…\)` in SQL error strings; previously the regex missed the `Cannot insert values ('…')` shape and let PHI through (Phase 4)
+- `SensitiveContentSanitizer` now detects hyphen-free SSNs (`123456789`), US + international phone numbers, and Luhn-valid credit card prefixes — closing PHI/PII coverage gaps called out in the Phase 4 plan (Phase 4)
+- `SensitiveContentSanitizer` truncation now stays within the caller-specified `maxLength`; previously the `"...[truncated]"` suffix caused up to 14 bytes of overflow past the documented cap (Phase 4)
+- Pin `Azure.Identity` to 1.21.0 to resolve the `Azure.Core` 1.53 / `Azure.Identity` 1.14.x `DefaultAzureCredential` ambiguous-reference compile error that otherwise blocks the solution build (Phase 5)
+
+### Breaking Changes
+- `IAuditEventRepository` and `IAuditIntegrityRepository` gain new abstract methods (`StreamByDateAsync`, `StreamByEventIdsAsync`). Consumers who implement these interfaces directly (rather than depending on the shipped `Repository<T>` via DI) must add the new methods. Apps that wire up repositories through `UseEntityFramework(...)` are unaffected.
+- Restore now rejects a top-level `null` / array / scalar JSON archive as a failure instead of silently restoring zero events. Archives written by 1.4.x are valid objects and restore unchanged; only hand-crafted or corrupted payloads are affected.
+
 ## [1.4.2] - 2026-04-12
 
 ### Fixed
@@ -190,6 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
+[1.5.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.4.2...v1.5.0
 [1.3.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.1.0...v1.2.0

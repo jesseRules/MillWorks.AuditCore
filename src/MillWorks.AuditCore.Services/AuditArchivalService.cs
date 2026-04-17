@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 using System.IO.Pipelines;
 using System.Security.Cryptography;
@@ -5,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -46,6 +48,30 @@ public sealed class AuditArchivalService(
     /// event streaming. Keeps the writer's own buffer bounded independent of event count.
     /// </summary>
     private const int JsonFlushEveryNEvents = 500;
+
+    /// <summary>
+    /// Blob download buffer for the restore pipeline. 4 MiB matches the upload block size
+    /// and is the unit of I/O for streaming decompression.
+    /// </summary>
+    private const int DownloadBufferBytes = 4 * 1024 * 1024;
+
+    /// <summary>
+    /// Initial JSON parse buffer on the restore path. Grows on demand if a single event
+    /// serializes larger than this; 64 KiB comfortably covers typical audit events.
+    /// </summary>
+    private const int RestoreParseBufferBytes = 64 * 1024;
+
+    /// <summary>
+    /// Hard cap on the JSON parse buffer. Any single element larger than this aborts the
+    /// restore — 32 MiB is already well beyond any realistic single audit event.
+    /// </summary>
+    private const int RestoreParseBufferMaxBytes = 32 * 1024 * 1024;
+
+    /// <summary>
+    /// Number of events / integrity records inserted per DB round-trip during restore.
+    /// Clears the EF change tracker between batches so tracked-entity memory is bounded.
+    /// </summary>
+    private const int RestoreBatchSize = 500;
 
     private static readonly JsonSerializerOptions StreamJsonOptions = new()
     {
@@ -394,7 +420,11 @@ public sealed class AuditArchivalService(
     }
 
     /// <summary>
-    /// Restores archived audit events by their archive ID.
+    /// Restores archived audit events by their archive ID. Streams the compressed blob
+    /// through gzip decompression and a <see cref="Utf8JsonReader"/> state machine so
+    /// peak memory is bounded by the parse buffer plus a single restore batch, regardless
+    /// of archive size. Hash verification is performed incrementally on the compressed
+    /// bytes as they are read; a mismatch rolls back the restore transaction.
     /// </summary>
     public async Task<AuditRestoreResult> RestoreArchivedEventsAsync(
         string archiveId,
@@ -402,94 +432,98 @@ public sealed class AuditArchivalService(
     {
         var result = new AuditRestoreResult { ArchiveId = archiveId };
 
+        var archiveRecord = await archiveRecordRepository.GetByArchiveIdAsync(archiveId, cancellationToken);
+
+        if (archiveRecord == null)
+        {
+            result.Message = "Archive not found";
+            return result;
+        }
+
+        if (archiveRecord.Status != MillWorksArchiveStatus.Completed)
+        {
+            result.Message = $"Archive is not in completed state. Current status: {archiveRecord.Status}";
+            return result;
+        }
+
+        if (blobServiceClient is null)
+        {
+            result.Message =
+                "Blob storage client is not configured. Restore requires UseArchival() with ArchivalProvider.AzureBlob.";
+            return result;
+        }
+
+        var containerClient = blobServiceClient.GetBlobContainerClient(archiveRecord.ContainerName);
+        var blobClient = containerClient.GetBlobClient(archiveRecord.BlobName);
+
+        if (!await blobClient.ExistsAsync(cancellationToken))
+        {
+            result.Message = "Archive blob not found";
+            await archiveRecordRepository.UpdateStatusAsync(archiveId, MillWorksArchiveStatus.Corrupted,
+                "Blob file missing", cancellationToken);
+            return result;
+        }
+
         try
         {
-            var archiveRecord = await archiveRecordRepository.GetByArchiveIdAsync(archiveId, cancellationToken);
-
-            if (archiveRecord == null)
-            {
-                result.Message = "Archive not found";
-                return result;
-            }
-
-            if (archiveRecord.Status != MillWorksArchiveStatus.Completed)
-            {
-                result.Message = $"Archive is not in completed state. Current status: {archiveRecord.Status}";
-                return result;
-            }
-
-            if (blobServiceClient is null)
-            {
-                result.Message = "Blob storage client is not configured. Restore requires UseArchival() with ArchivalProvider.AzureBlob.";
-                return result;
-            }
-
-            var containerClient = blobServiceClient.GetBlobContainerClient(archiveRecord.ContainerName);
-            var blobClient = containerClient.GetBlobClient(archiveRecord.BlobName);
-
-            if (!await blobClient.ExistsAsync(cancellationToken))
-            {
-                result.Message = "Archive blob not found";
-                await archiveRecordRepository.UpdateStatusAsync(archiveId, MillWorksArchiveStatus.Corrupted,
-                    "Blob file missing", cancellationToken);
-                return result;
-            }
-
-            using var downloadStream = new MemoryStream();
-            await blobClient.DownloadToAsync(downloadStream, cancellationToken);
-            var compressedBytes = downloadStream.ToArray();
-
-            var decompressedData = await DecompressDataAsync(compressedBytes);
-            var archiveJson = Encoding.UTF8.GetString(decompressedData);
-
-            var archive = JsonSerializer.Deserialize<AuditArchive>(archiveJson);
-            if (archive == null)
-            {
-                result.Message = "Failed to deserialize archive";
-                await archiveRecordRepository.UpdateStatusAsync(archiveId, MillWorksArchiveStatus.Corrupted,
-                    "Failed to deserialize archive data", cancellationToken);
-                return result;
-            }
-
-            var computedHash = ComputeBytesHash(compressedBytes);
-            if (computedHash != archiveRecord.Hash)
-            {
-                logger.LogError("Archive {ArchiveId} integrity check failed", archiveId);
-                result.Message = "Archive integrity check failed";
-                await archiveRecordRepository.UpdateStatusAsync(archiveId, MillWorksArchiveStatus.Corrupted,
-                    "Hash verification failed", cancellationToken);
-                return result;
-            }
+            var restoredEvents = 0;
 
             await auditEventRepository.ExecuteInTransactionAsync(async () =>
             {
-                foreach (var evt in archive.Events)
+                using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
+                await using var blobStream = await blobClient.OpenReadAsync(
+                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = DownloadBufferBytes },
+                    cancellationToken).ConfigureAwait(false);
+
+                await using var hashingStream = new HashingReadStream(blobStream, hasher, leaveOpen: true);
+                await using var gzip = new GZipStream(hashingStream, CompressionMode.Decompress, leaveOpen: true);
+
+                restoredEvents = await StreamRestoreAsync(gzip, cancellationToken).ConfigureAwait(false);
+
+                // Drain any bytes GZipStream didn't consume (normally zero for a well-formed
+                // archive), so the hash covers the entire blob payload.
+                var drainBuffer = new byte[8 * 1024];
+                while (await hashingStream.ReadAsync(drainBuffer.AsMemory(), cancellationToken)
+                           .ConfigureAwait(false) > 0)
                 {
-                    evt.AuditIntegrity = null;
-                    AuditEventEntity auditEvent = mapper.Map<AuditEventEntity>(evt);
-                    await auditEventRepository.AddAsync(auditEvent, cancellationToken);
                 }
 
-                foreach (var integrity in archive.IntegrityRecords)
+                var computedHash = Convert.ToBase64String(hasher.GetHashAndReset());
+                if (!string.Equals(computedHash, archiveRecord.Hash, StringComparison.Ordinal))
                 {
-                    integrity.AuditEvent = null;
-                    AuditIntegrityEntity integrityEntity = mapper.Map<AuditIntegrityEntity>(integrity);
-                    integrityEntity.AuditEvent = null;
-
-                    await auditIntegrityRepository.AddAsync(integrityEntity, cancellationToken);
+                    throw new ArchiveIntegrityException(computedHash, archiveRecord.Hash);
                 }
-
-                await auditEventRepository.SaveChangesAsync(cancellationToken);
-                await auditIntegrityRepository.SaveChangesAsync(cancellationToken);
             }, cancellationToken);
 
             result.Success = true;
-            result.RestoredEventCount = archive.Events.Count;
-            result.Message = $"Successfully restored {archive.Events.Count} events";
+            result.RestoredEventCount = restoredEvents;
+            result.Message = $"Successfully restored {restoredEvents} events";
 
             logger.LogInformation("Restore completed: {ArchiveId} with {Count} events",
-                archiveId, archive.Events.Count);
+                archiveId, restoredEvents);
 
+            return result;
+        }
+        catch (ArchiveIntegrityException ex)
+        {
+            logger.LogError(
+                "Archive {ArchiveId} integrity check failed. Expected: {Expected}, Actual: {Actual}",
+                archiveId, ex.ExpectedHash, ex.ComputedHash);
+
+            try
+            {
+                await archiveRecordRepository.UpdateStatusAsync(archiveId,
+                    MillWorksArchiveStatus.Corrupted, "Hash verification failed", CancellationToken.None);
+            }
+            catch (Exception statusEx)
+            {
+                logger.LogWarning(statusEx,
+                    "Failed to mark archive {ArchiveId} as corrupted after integrity failure",
+                    archiveId);
+            }
+
+            result.Message = "Archive integrity check failed";
             return result;
         }
         catch (Exception ex)
@@ -498,6 +532,351 @@ public sealed class AuditArchivalService(
             result.Message = $"Restore failed: {ex.Message}";
             return result;
         }
+    }
+
+    /// <summary>
+    /// Streams the decompressed archive JSON through a <see cref="Utf8JsonReader"/> state
+    /// machine, materializing one event / integrity record at a time and persisting them
+    /// in batches via the repository. The EF change tracker is cleared between batches so
+    /// tracked-entity memory stays bounded by <see cref="RestoreBatchSize"/>.
+    /// </summary>
+    private async Task<int> StreamRestoreAsync(Stream jsonStream, CancellationToken cancellationToken)
+    {
+        var pool = ArrayPool<byte>.Shared;
+        var buffer = pool.Rent(RestoreParseBufferBytes);
+        var eventBatch = new List<AuditEventEntity>(RestoreBatchSize);
+        var integrityBatch = new List<AuditIntegrityEntity>(RestoreBatchSize);
+        var pendingEvents = new Queue<AuditEventDto>();
+        var pendingIntegrity = new Queue<AuditIntegrityDto>();
+
+        try
+        {
+            var state = new JsonReaderState();
+            var bytesInBuffer = 0;
+            var endOfStream = false;
+            var ctx = new ParseContext();
+            var totalEvents = 0;
+
+            while (true)
+            {
+                if (!endOfStream && bytesInBuffer < buffer.Length)
+                {
+                    var read = await jsonStream.ReadAsync(
+                        buffer.AsMemory(bytesInBuffer, buffer.Length - bytesInBuffer),
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (read == 0) endOfStream = true;
+                    else bytesInBuffer += read;
+                }
+
+                ParseChunk(
+                    buffer.AsSpan(0, bytesInBuffer),
+                    isFinalBlock: endOfStream,
+                    ref state,
+                    ref ctx,
+                    pendingEvents,
+                    pendingIntegrity,
+                    out var consumed);
+
+                // Drain pending elements into batched DB inserts. Doing it out here keeps
+                // the synchronous ParseChunk free of I/O and gives us the await point
+                // for cancellation.
+                while (pendingEvents.Count > 0)
+                {
+                    var dto = pendingEvents.Dequeue();
+                    dto.AuditIntegrity = null;
+                    var entity = mapper.Map<AuditEventEntity>(dto);
+                    entity.AuditIntegrity = null;
+                    eventBatch.Add(entity);
+                    totalEvents++;
+
+                    if (eventBatch.Count >= RestoreBatchSize)
+                    {
+                        await FlushEventBatchAsync(eventBatch, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                while (pendingIntegrity.Count > 0)
+                {
+                    var dto = pendingIntegrity.Dequeue();
+                    dto.AuditEvent = null;
+                    var entity = mapper.Map<AuditIntegrityEntity>(dto);
+                    entity.AuditEvent = null;
+                    integrityBatch.Add(entity);
+
+                    if (integrityBatch.Count >= RestoreBatchSize)
+                    {
+                        await FlushIntegrityBatchAsync(integrityBatch, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                // Compact the buffer: drop consumed bytes, keep the remainder at the head.
+                if (consumed > 0)
+                {
+                    var remaining = bytesInBuffer - consumed;
+                    if (remaining > 0)
+                    {
+                        Buffer.BlockCopy(buffer, consumed, buffer, 0, remaining);
+                    }
+
+                    bytesInBuffer = remaining;
+                }
+                else if (!endOfStream && bytesInBuffer == buffer.Length)
+                {
+                    // No progress possible on this buffer; the current element is larger
+                    // than our parse window. Grow up to the cap.
+                    if (buffer.Length >= RestoreParseBufferMaxBytes)
+                    {
+                        throw new JsonException(
+                            $"A single archived element exceeds the {RestoreParseBufferMaxBytes:N0}-byte restore parse buffer cap.");
+                    }
+
+                    var newSize = Math.Min(buffer.Length * 2, RestoreParseBufferMaxBytes);
+                    var bigger = pool.Rent(newSize);
+                    Buffer.BlockCopy(buffer, 0, bigger, 0, bytesInBuffer);
+                    pool.Return(buffer);
+                    buffer = bigger;
+                }
+
+                if (endOfStream && bytesInBuffer == 0)
+                {
+                    break;
+                }
+
+                if (endOfStream && consumed == 0 && bytesInBuffer > 0)
+                {
+                    throw new JsonException("Incomplete JSON at end of archive stream.");
+                }
+            }
+
+            if (eventBatch.Count > 0)
+            {
+                await FlushEventBatchAsync(eventBatch, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (integrityBatch.Count > 0)
+            {
+                await FlushIntegrityBatchAsync(integrityBatch, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!ctx.RootEntered)
+            {
+                throw new JsonException(
+                    "Archive payload is not a JSON object — expected an object at top level.");
+            }
+
+            return totalEvents;
+        }
+        finally
+        {
+            pool.Return(buffer);
+        }
+    }
+
+    private async Task FlushEventBatchAsync(List<AuditEventEntity> batch, CancellationToken cancellationToken)
+    {
+        await auditEventRepository.AddRangeAsync(batch, cancellationToken).ConfigureAwait(false);
+        await auditEventRepository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await auditEventRepository.ClearChangeTrackerAsync(cancellationToken).ConfigureAwait(false);
+        batch.Clear();
+    }
+
+    private async Task FlushIntegrityBatchAsync(List<AuditIntegrityEntity> batch, CancellationToken cancellationToken)
+    {
+        await auditIntegrityRepository.AddRangeAsync(batch, cancellationToken).ConfigureAwait(false);
+        await auditIntegrityRepository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken).ConfigureAwait(false);
+        batch.Clear();
+    }
+
+    private enum ArrayMode { None, Events, Integrity }
+
+    /// <summary>
+    /// Rolling state carried between <see cref="ParseChunk"/> invocations. Tracks depth
+    /// within the outer archive object, the most recent property name, and whether we are
+    /// inside the <c>events</c> or <c>integrity_records</c> array.
+    /// </summary>
+    private struct ParseContext
+    {
+        public int Depth;
+        public string? PendingProperty;
+        public ArrayMode Array;
+
+        /// <summary>
+        /// True once the parser has observed a <c>StartObject</c> at the root (depth 0→1).
+        /// Used to reject top-level JSON that isn't an object (null, array, scalar) — those
+        /// are corrupt archives and must fail restore rather than silently restoring zero
+        /// events.
+        /// </summary>
+        public bool RootEntered;
+    }
+
+    /// <summary>
+    /// Parses as much of the archive JSON as fits in <paramref name="span"/>. Events and
+    /// integrity records are enqueued into the pending queues; top-level scalars and
+    /// nested metadata objects are skipped. On a partial-element buffer (e.g. a single
+    /// event whose bytes span this chunk and the next), the reader state is rewound so
+    /// the outer loop can refill and retry.
+    /// </summary>
+    private static void ParseChunk(
+        ReadOnlySpan<byte> span,
+        bool isFinalBlock,
+        ref JsonReaderState state,
+        ref ParseContext ctx,
+        Queue<AuditEventDto> pendingEvents,
+        Queue<AuditIntegrityDto> pendingIntegrity,
+        out int consumed)
+    {
+        var reader = new Utf8JsonReader(span, isFinalBlock, state);
+
+        while (true)
+        {
+            var stateBeforeRead = reader.CurrentState;
+            var consumedBeforeRead = reader.BytesConsumed;
+
+            if (!reader.Read())
+            {
+                // Insufficient data in buffer for the next token. Outer loop will refill.
+                state = reader.CurrentState;
+                consumed = (int)reader.BytesConsumed;
+                return;
+            }
+
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.PropertyName:
+                    ctx.PendingProperty = reader.GetString();
+                    break;
+
+                case JsonTokenType.StartObject:
+                {
+                    // Depth semantics: ctx.Depth counts open structures at the current
+                    // token. Root object → 1, events array → 2, element object → 3.
+                    var objectStart = (int)reader.TokenStartIndex;
+                    var enteredDepth = ctx.Depth + 1;
+
+                    if (enteredDepth == 3 && ctx.Array == ArrayMode.Events)
+                    {
+                        if (!reader.TrySkip())
+                        {
+                            state = stateBeforeRead;
+                            consumed = (int)consumedBeforeRead;
+                            return;
+                        }
+
+                        var objectBytes = span.Slice(objectStart, (int)reader.BytesConsumed - objectStart);
+                        var dto = JsonSerializer.Deserialize<AuditEventDto>(objectBytes);
+                        if (dto is not null)
+                        {
+                            pendingEvents.Enqueue(dto);
+                        }
+                        // TrySkip consumed Start + matching End — depth net-zero.
+                    }
+                    else if (enteredDepth == 3 && ctx.Array == ArrayMode.Integrity)
+                    {
+                        if (!reader.TrySkip())
+                        {
+                            state = stateBeforeRead;
+                            consumed = (int)consumedBeforeRead;
+                            return;
+                        }
+
+                        var objectBytes = span.Slice(objectStart, (int)reader.BytesConsumed - objectStart);
+                        var dto = JsonSerializer.Deserialize<AuditIntegrityDto>(objectBytes);
+                        if (dto is not null)
+                        {
+                            pendingIntegrity.Enqueue(dto);
+                        }
+                    }
+                    else if (enteredDepth == 2 && ctx.Array == ArrayMode.None)
+                    {
+                        // Nested object at root (e.g. `metadata`) — skip contents entirely.
+                        if (!reader.TrySkip())
+                        {
+                            state = stateBeforeRead;
+                            consumed = (int)consumedBeforeRead;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        if (enteredDepth == 1) ctx.RootEntered = true;
+                        ctx.Depth = enteredDepth;
+                    }
+
+                    break;
+                }
+
+                case JsonTokenType.EndObject:
+                    ctx.Depth--;
+                    break;
+
+                case JsonTokenType.StartArray:
+                {
+                    var enteredDepth = ctx.Depth + 1;
+
+                    // Top-level arrays ("events" / "integrity_records") live at depth 2
+                    // (inside the root object). Anything else — including an unknown array
+                    // at depth 2 — is skipped wholesale.
+                    if (enteredDepth == 2)
+                    {
+                        ctx.Array = ctx.PendingProperty switch
+                        {
+                            "events" => ArrayMode.Events,
+                            "integrity_records" => ArrayMode.Integrity,
+                            _ => ArrayMode.None
+                        };
+                        ctx.PendingProperty = null;
+
+                        if (ctx.Array == ArrayMode.None)
+                        {
+                            if (!reader.TrySkip())
+                            {
+                                state = stateBeforeRead;
+                                consumed = (int)consumedBeforeRead;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            ctx.Depth = enteredDepth;
+                        }
+                    }
+                    else
+                    {
+                        ctx.Depth = enteredDepth;
+                    }
+
+                    break;
+                }
+
+                case JsonTokenType.EndArray:
+                    ctx.Depth--;
+                    if (ctx.Depth == 1)
+                    {
+                        ctx.Array = ArrayMode.None;
+                    }
+
+                    break;
+
+                // All other tokens (scalars, nulls) at depth >= 1 are top-level archive
+                // metadata fields (archive_id, created_at, …) that restore doesn't act on.
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Internal sentinel so the restore transaction rolls back when hash verification fails
+    /// after the streamed inserts have been issued. Caught and translated to a normal
+    /// failure result by <see cref="RestoreArchivedEventsAsync"/>.
+    /// </summary>
+    private sealed class ArchiveIntegrityException(string computedHash, string expectedHash)
+        : Exception("Archive integrity check failed")
+    {
+        public string ComputedHash { get; } = computedHash;
+        public string ExpectedHash { get; } = expectedHash;
     }
 
     /// <summary>
@@ -588,17 +967,5 @@ public sealed class AuditArchivalService(
     {
         var hashBytes = SHA256.HashData(data);
         return Convert.ToBase64String(hashBytes);
-    }
-
-    private static async Task<byte[]> DecompressDataAsync(byte[] compressedData)
-    {
-        using var input = new MemoryStream(compressedData);
-        using var output = new MemoryStream();
-        await using (var gzip = new GZipStream(input, CompressionMode.Decompress))
-        {
-            await gzip.CopyToAsync(output);
-        }
-
-        return output.ToArray();
     }
 }
