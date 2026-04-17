@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -232,5 +233,33 @@ public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
             .OrderBy(static ai => ai.SequenceNumber)
             .Select(static ai => ai.SequenceNumber)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async IAsyncEnumerable<AuditIntegrityEntity> StreamByEventIdsAsync(
+        IReadOnlyList<Guid> eventIds,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        const int batchSize = 500;
+
+        for (var offset = 0; offset < eventIds.Count; offset += batchSize)
+        {
+            var end = Math.Min(offset + batchSize, eventIds.Count);
+            var batch = new Guid[end - offset];
+            for (var i = offset; i < end; i++)
+            {
+                batch[i - offset] = eventIds[i];
+            }
+
+            var records = await DbSet.AsNoTracking()
+                .Where(ai => batch.Contains(ai.EventId))
+                .OrderBy(static ai => ai.SequenceNumber)
+                .ToListAsync(cancellationToken);
+
+            foreach (var record in records)
+            {
+                yield return record;
+            }
+        }
     }
 }

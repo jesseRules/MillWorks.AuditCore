@@ -183,4 +183,13 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
     Task<List<(string User, string EventType, int Count)>> GetUserEventCountsAsync(
         DateTimeOffset startDate, DateTimeOffset endDate, int take = 20,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams audit events matching the predicate, ordered by <c>InsertedDate</c> ascending,
+    /// without buffering the full result set. Intended for archival and bulk export where
+    /// the event set is too large to materialize into memory.
+    /// </summary>
+    IAsyncEnumerable<AuditEventEntity> StreamByDateAsync(
+        System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>> predicate,
+        CancellationToken cancellationToken = default);
 }

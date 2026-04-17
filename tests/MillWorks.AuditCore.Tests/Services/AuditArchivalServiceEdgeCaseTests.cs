@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using MapsterMapper;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
@@ -59,6 +61,15 @@ public class AuditArchivalServiceEdgeCaseTests
             _configuration,
             _mockTamperDetectionService.Object,
             _mockBlobServiceClient.Object);
+
+        // Archival always invokes StreamByEventIdsAsync after event iteration. Default to
+        // an empty stream so individual tests don't need to wire it up unless they care.
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.StreamByEventIdsAsync(
+                It.IsAny<IReadOnlyList<Guid>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(static (IReadOnlyList<Guid> _, CancellationToken ct) =>
+                ToAsyncEnumerable(Enumerable.Empty<AuditIntegrityEntity>(), ct));
     }
 
     #region RestoreArchivedEventsAsync — already-restored status
@@ -182,31 +193,31 @@ public class AuditArchivalServiceEdgeCaseTests
             .ToList();
 
         _mockAuditEventRepository
-            .Setup(static x => x.FindAsync(
-                It.IsAny<System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>>>(),
+            .Setup(static x => x.CountAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(eventEntities);
+            .ReturnsAsync(eventEntities.Count);
+
+        _mockAuditEventRepository
+            .Setup(x => x.StreamByDateAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
+                ToAsyncEnumerable(eventEntities, ct));
 
         _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(eventDtos);
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventEntity>>(It.IsAny<object>()))
-            .Returns(eventEntities);
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditIntegrityDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditIntegrityDto>());
+            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
+            .Returns((AuditEventEntity e) => new AuditEventDto
+            {
+                EventId = e.EventId,
+                EventType = e.EventType,
+                InsertedDate = e.InsertedDate
+            });
 
         // All integrity checks pass
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetByEventIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
 
         // Blob upload throws — simulates Azure being unavailable
         _mockBlobServiceClient
@@ -224,4 +235,16 @@ public class AuditArchivalServiceEdgeCaseTests
     }
 
     #endregion
+
+    private static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(
+        IEnumerable<T> source,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var item in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return item;
+            await Task.Yield();
+        }
+    }
 }

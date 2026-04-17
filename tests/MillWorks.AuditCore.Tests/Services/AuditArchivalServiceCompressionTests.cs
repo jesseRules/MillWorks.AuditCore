@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Azure;
@@ -61,6 +63,15 @@ public class AuditArchivalServiceCompressionTests
         _configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(configDict!)
             .Build();
+
+        // StreamByEventIdsAsync is invoked on every archival path; default to an empty
+        // async stream so individual tests don't have to wire it up unless they care.
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.StreamByEventIdsAsync(
+                It.IsAny<IReadOnlyList<Guid>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(static (IReadOnlyList<Guid> _, CancellationToken ct) =>
+                ToAsyncEnumerable(Enumerable.Empty<AuditIntegrityEntity>(), ct));
     }
 
     private AuditArchivalService CreateService(
@@ -157,11 +168,37 @@ public class AuditArchivalServiceCompressionTests
             .Setup(static x => x.GetBlobClient(It.IsAny<string>()))
             .Returns(mockBlobClient.Object);
 
+        // Archival pipes bytes through a System.IO.Pipelines.Pipe whose reader side is
+        // passed to UploadAsync. Drain it so the pipe writer doesn't block.
         mockBlobClient
-            .Setup(static x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(null! as Response<BlobContentInfo>);
+            .Setup(static x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(static async (Stream s, bool _, CancellationToken ct) =>
+            {
+                var buf = new byte[8192];
+                while (await s.ReadAsync(buf.AsMemory(0, buf.Length), ct) > 0) { }
+                return null! as Response<BlobContentInfo>;
+            });
+
+        mockBlobClient
+            .Setup(static x => x.DeleteIfExistsAsync(
+                It.IsAny<DeleteSnapshotsOption>(),
+                It.IsAny<BlobRequestConditions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Response.FromValue(true, null!));
 
         return (mockContainerClient, mockBlobClient);
+    }
+
+    private static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(
+        IEnumerable<T> source,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var item in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return item;
+            await Task.Yield();
+        }
     }
 
     #region Restore — Full Round-Trip with Real Compression
@@ -596,37 +633,37 @@ public class AuditArchivalServiceCompressionTests
             .Setup(static x => x.UpdateAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(static (AuditArchiveRecordEntity e, CancellationToken _) => e);
 
+        var entities = new List<AuditEventEntity>
+        {
+            new()
+            {
+                EventId = eventId,
+                EventType = "Test.Event",
+                InsertedDate = DateTimeOffset.UtcNow.AddDays(-100)
+            }
+        };
+
         _mockAuditEventRepository
-            .Setup(static x => x.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>>>(),
+            .Setup(static x => x.CountAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<AuditEventEntity>
+            .ReturnsAsync(entities.Count);
+
+        _mockAuditEventRepository
+            .Setup(x => x.StreamByDateAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
+                ToAsyncEnumerable(entities, ct));
+
+        _mockMapper
+            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
+            .Returns((AuditEventEntity e) => new AuditEventDto
             {
-                new()
-                {
-                    EventId = eventId,
-                    EventType = "Test.Event",
-                    InsertedDate = DateTimeOffset.UtcNow.AddDays(-100)
-                }
+                EventId = e.EventId,
+                EventType = e.EventType,
+                InsertedDate = e.InsertedDate
             });
-
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(events);
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventEntity>>(It.IsAny<object>()))
-            .Returns(new List<AuditEventEntity>
-            {
-                new() { EventId = eventId, EventType = "Test.Event" }
-            });
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditIntegrityDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditIntegrityDto>());
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetByEventIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
 
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -640,17 +677,17 @@ public class AuditArchivalServiceCompressionTests
             .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
         _mockAuditEventRepository
-            .Setup(static x => x.DeleteRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(static x => x.ExecuteDeleteWhereAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities.Count);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.DeleteRangeAsync(It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(static x => x.ExecuteDeleteWhereAsync(
+                It.IsAny<Expression<Func<AuditIntegrityEntity, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
 
         SetupBlobUpload();
 
@@ -755,35 +792,32 @@ public class AuditArchivalServiceCompressionTests
                 It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        var entities = new List<AuditEventEntity>
+        {
+            new() { EventId = eventId, EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
+        };
+
         _mockAuditEventRepository
-            .Setup(static x => x.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>>>(),
+            .Setup(static x => x.CountAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<AuditEventEntity>
-            {
-                new() { EventId = eventId, EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
-            });
+            .ReturnsAsync(entities.Count);
+
+        _mockAuditEventRepository
+            .Setup(x => x.StreamByDateAsync(
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
+                ToAsyncEnumerable(entities, ct));
 
         _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditEventDto>
+            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
+            .Returns((AuditEventEntity e) => new AuditEventDto
             {
-                new() { EventId = eventId, EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
+                EventId = e.EventId,
+                EventType = e.EventType,
+                InsertedDate = e.InsertedDate
             });
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventEntity>>(It.IsAny<object>()))
-            .Returns(new List<AuditEventEntity>
-            {
-                new() { EventId = eventId, EventType = "Test" }
-            });
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditIntegrityDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditIntegrityDto>());
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetByEventIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
 
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -810,8 +844,15 @@ public class AuditArchivalServiceCompressionTests
             .Returns(mockBlobClient.Object);
 
         mockBlobClient
-            .Setup(static x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Setup(static x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new RequestFailedException("Storage quota exceeded"));
+
+        mockBlobClient
+            .Setup(static x => x.DeleteIfExistsAsync(
+                It.IsAny<DeleteSnapshotsOption>(),
+                It.IsAny<BlobRequestConditions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Response.FromValue(true, null!));
 
         var service = CreateService(
             _mockTamperDetectionService.Object,

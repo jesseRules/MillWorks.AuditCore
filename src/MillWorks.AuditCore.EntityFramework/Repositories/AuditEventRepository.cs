@@ -267,4 +267,15 @@ public sealed class AuditEventRepository(AuditApplicationDbContext context)
             .Take(take)
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public IAsyncEnumerable<AuditEventEntity> StreamByDateAsync(
+        System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>> predicate,
+        CancellationToken cancellationToken = default)
+    {
+        return DbSet.AsNoTracking()
+            .Where(predicate)
+            .OrderBy(static ae => ae.InsertedDate)
+            .AsAsyncEnumerable();
+    }
 }

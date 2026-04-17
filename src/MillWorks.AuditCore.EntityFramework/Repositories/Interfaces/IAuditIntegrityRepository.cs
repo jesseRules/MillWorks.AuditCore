@@ -110,4 +110,13 @@ public interface IAuditIntegrityRepository : IRepository<AuditIntegrityEntity>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     Task<IEnumerable<long>> GetAllSequenceNumbersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams integrity records for the given event IDs in chunks, without buffering the
+    /// full result set. IDs are queried in batches to stay within relational parameter limits.
+    /// Intended for archival and bulk export scenarios.
+    /// </summary>
+    IAsyncEnumerable<AuditIntegrityEntity> StreamByEventIdsAsync(
+        IReadOnlyList<Guid> eventIds,
+        CancellationToken cancellationToken = default);
 }
