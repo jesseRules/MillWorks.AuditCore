@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.IO.Compression;
 using System.IO.Pipelines;
 using System.Security.Cryptography;
@@ -238,7 +239,12 @@ public sealed class AuditArchivalService(
                                 if (maxDate is null || inserted > maxDate) maxDate = inserted;
                             }
 
-                            var repr = $"{entity.EventId}:{entity.EventType}:{entity.InsertedDate}";
+                            // InsertedDate is DateTimeOffset? — format with InvariantCulture +
+                            // the round-trip "O" specifier so archive hashes are stable across
+                            // server locales and never drift between create and verify.
+                            var insertedRepr = entity.InsertedDate?.ToString("O", CultureInfo.InvariantCulture) ?? "";
+                            var repr = string.Create(CultureInfo.InvariantCulture,
+                                $"{entity.EventId}:{entity.EventType}:{insertedRepr}");
                             if (!isFirstForHash) eventsHasher.AppendData(EventsHashSeparator);
                             eventsHasher.AppendData(Encoding.UTF8.GetBytes(repr));
                             isFirstForHash = false;
@@ -930,12 +936,24 @@ public sealed class AuditArchivalService(
                 return false;
             }
 
-            using var downloadStream = new MemoryStream();
-            await blobClient.DownloadToAsync(downloadStream, cancellationToken);
-            var compressedBytes = downloadStream.ToArray();
+            string computedHash;
+            using (var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+            {
+                await using var blobStream = await blobClient.OpenReadAsync(
+                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = DownloadBufferBytes },
+                    cancellationToken).ConfigureAwait(false);
+                await using var hashingStream = new HashingReadStream(blobStream, hasher, leaveOpen: true);
 
-            var computedHash = ComputeBytesHash(compressedBytes);
-            var isValid = computedHash == archiveRecord.Hash;
+                var buffer = new byte[DownloadBufferBytes];
+                while (await hashingStream.ReadAsync(buffer.AsMemory(), cancellationToken)
+                           .ConfigureAwait(false) > 0)
+                {
+                }
+
+                computedHash = Convert.ToBase64String(hasher.GetHashAndReset());
+            }
+
+            var isValid = string.Equals(computedHash, archiveRecord.Hash, StringComparison.Ordinal);
 
             if (isValid)
             {
@@ -963,9 +981,4 @@ public sealed class AuditArchivalService(
         }
     }
 
-    private static string ComputeBytesHash(byte[] data)
-    {
-        var hashBytes = SHA256.HashData(data);
-        return Convert.ToBase64String(hashBytes);
-    }
 }

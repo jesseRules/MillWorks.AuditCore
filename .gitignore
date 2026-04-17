@@ -56,3 +56,17 @@ appsettings.json
 appsettings.*.json
 !samples/**/appsettings.json
 !samples/**/appsettings.*.json
+
+# Planning / working-notes files under docs/ — iteration scratch, not user-facing.
+# User-facing docs (ARCHITECTURE.md, ComplianceTraceabilityMatrix.md, TestCoverage.md)
+# remain tracked; anything matching these patterns is ignored.
+docs/BugsFound.md
+docs/CodeReviewFixPlan.md
+docs/FixLiesDocument.md
+docs/FixLies*.md
+docs/HangIssue.md
+docs/LogAsyncTrace*.md
+docs/NextStepsDocument.md
+docs/ProjectReview.md
+docs/TestPlanPhase*.md
+docs/TodoPlan.md
