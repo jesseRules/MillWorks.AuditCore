@@ -1,14 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Canonicalization;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
+using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
 
 namespace MillWorks.AuditCore.Tests.Integration;
@@ -26,18 +30,23 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
 {
     private const string HmacKey = "test-hmac-key-for-testing-12345678";
 
-    private static IConfiguration BuildConfig()
+    private static TamperDetectionService CreateService(
+        IAuditEventRepository eventRepo,
+        IAuditIntegrityRepository integrityRepo,
+        IAuditSecurityEventService securityEventService)
     {
-        return new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string>
+        return new TamperDetectionService(
+            eventRepo,
+            integrityRepo,
+            securityEventService,
+            NullLogger<TamperDetectionService>.Instance,
+            Microsoft.Extensions.Options.Options.Create(new AuditOptions
             {
-                ["Audit:HmacKey"] = HmacKey,
-                ["Audit:EnableDigitalSignatures"] = "false",
-                ["Audit:UseDistributedLocking"] = "false",
-                ["Audit:TamperDetection:MaxRetryAttempts"] = "3",
-                ["Audit:TamperDetection:RetryDelayMilliseconds"] = "10"
-            }!)
-            .Build();
+                Environment = "Development",
+                HmacKey = HmacKey
+            }),
+            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()),
+            new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
     }
 
     private static AuditEventEntity CreateAuditEvent(
@@ -150,10 +159,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
-        var config = BuildConfig();
-        var service = new TamperDetectionService(
-            eventRepo, integrityRepo, mockSecurityService.Object,
-            NullLogger<TamperDetectionService>.Instance, config);
+        var service = CreateService(eventRepo, integrityRepo, mockSecurityService.Object);
 
         var auditEvent = CreateAuditEvent();
         await context.AuditEvents.AddAsync(auditEvent);
@@ -181,10 +187,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
-        var config = BuildConfig();
-        var service = new TamperDetectionService(
-            eventRepo, integrityRepo, mockSecurityService.Object,
-            NullLogger<TamperDetectionService>.Instance, config);
+        var service = CreateService(eventRepo, integrityRepo, mockSecurityService.Object);
 
         // Create 3 events and seed integrity records with proper chain linkage
         string? previousHash = null;
@@ -241,10 +244,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
-        var config = BuildConfig();
-        var verifyService = new TamperDetectionService(
-            verifyEventRepo, verifyIntegrityRepo, mockSecurityService.Object,
-            NullLogger<TamperDetectionService>.Instance, config);
+        var verifyService = CreateService(verifyEventRepo, verifyIntegrityRepo, mockSecurityService.Object);
 
         var result = await verifyService.VerifyChainIntegrityAsync();
 
@@ -281,10 +281,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
-        var config = BuildConfig();
-        var detectService = new TamperDetectionService(
-            detectEventRepo, detectIntegrityRepo, mockSecurityService.Object,
-            NullLogger<TamperDetectionService>.Instance, config);
+        var detectService = CreateService(detectEventRepo, detectIntegrityRepo, mockSecurityService.Object);
 
         var alerts = await detectService.DetectTamperingAsync(hoursBack: 24);
 
@@ -326,10 +323,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SecurityEventDto());
 
-        var config = BuildConfig();
-        var verifyService = new TamperDetectionService(
-            verifyEventRepo, verifyIntegrityRepo, mockSecurityService.Object,
-            NullLogger<TamperDetectionService>.Instance, config);
+        var verifyService = CreateService(verifyEventRepo, verifyIntegrityRepo, mockSecurityService.Object);
 
         // Verify each event's integrity individually
         var allValid = true;

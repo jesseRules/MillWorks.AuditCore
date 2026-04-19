@@ -1,15 +1,17 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Canonicalization;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Services.TamperDetection;
@@ -45,9 +47,14 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private readonly ILogger<TamperDetectionService> _logger;
 
     /// <summary>
-    /// Configuration
+    /// Audit configuration options (HMAC key, digital-signature enable flag, environment).
     /// </summary>
-    private readonly IConfiguration _configuration;
+    private readonly AuditOptions _auditOptions;
+
+    /// <summary>
+    /// Security configuration options (digital-signature key paths).
+    /// </summary>
+    private readonly SecurityOptions _securityOptions;
 
     /// <summary>
     /// Time provider for testable timestamps
@@ -73,11 +80,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly SemaphoreSlim LocalFallbackLock = new(1, 1);
 
     /// <summary>
-    /// Use distributed locking flag
-    /// </summary>
-    private readonly bool _useDistributedLocking;
-
-    /// <summary>
     /// Cached previous event hash to eliminate the GetLatestBySequenceAsync DB read
     /// from the critical section in steady state. Only the first call (or after a
     /// duplicate-key retry) reads from the database. Subsequent calls use the cached value.
@@ -97,30 +99,39 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly Lock _keyLoadLock = new();
 
     /// <summary>
-    /// Tamper detection service for audit events with distributed locking support
+    /// Tamper detection service for audit events with distributed locking support.
+    /// HMAC key, digital-signature enable flag, and Production detection come from
+    /// <see cref="AuditOptions"/>; digital-signature key paths come from <see cref="SecurityOptions"/>.
+    /// <paramref name="hostEnvironment"/> is authoritative for Production detection when registered;
+    /// otherwise falls back to <see cref="AuditOptions.Environment"/>.
     /// </summary>
     public TamperDetectionService(
         IAuditEventRepository auditEventRepository,
         IAuditIntegrityRepository auditIntegrityRepository,
         IAuditSecurityEventService securityEventService,
         ILogger<TamperDetectionService> logger,
-        IConfiguration configuration,
-        IAuditDistributedLockService? distributedLockService = null,
-        TimeProvider? timeProvider = null)
+        IOptions<AuditOptions> auditOptions,
+        IOptions<SecurityOptions> securityOptions,
+        IAuditDistributedLockService distributedLockService,
+        TimeProvider? timeProvider = null,
+        IHostEnvironment? hostEnvironment = null)
     {
         _auditEventRepository = auditEventRepository;
         _auditIntegrityRepository = auditIntegrityRepository;
         _securityEventService = securityEventService;
-        _distributedLockService = distributedLockService ?? new NullDistributedLockService();
+        _distributedLockService = distributedLockService;
         _logger = logger;
-        _configuration = configuration;
+        _auditOptions = auditOptions.Value;
+        _securityOptions = securityOptions.Value;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
-        var configuredKey = configuration["Audit:HmacKey"];
-        if (string.IsNullOrEmpty(configuredKey))
+        if (string.IsNullOrEmpty(_auditOptions.HmacKey))
         {
-            var env = configuration["ASPNETCORE_ENVIRONMENT"];
-            if (string.Equals(env, "Production", StringComparison.OrdinalIgnoreCase))
+            // IHostEnvironment wins when registered; otherwise AuditOptions.Environment.
+            var isProduction = hostEnvironment?.IsProduction()
+                ?? string.Equals(_auditOptions.Environment, "Production", StringComparison.OrdinalIgnoreCase);
+
+            if (isProduction)
             {
                 throw new InvalidOperationException(
                     "Audit:HmacKey must be configured in Production. " +
@@ -134,11 +145,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         }
         else
         {
-            _hmacKey = configuredKey;
+            _hmacKey = _auditOptions.HmacKey;
         }
-
-        _useDistributedLocking = distributedLockService != null &&
-                                 configuration.GetValue("Audit:UseDistributedLocking", true);
     }
 
     /// <summary>
@@ -148,6 +156,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         AuditIntegrityDto auditEvent,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         const int maxRetries = 10;
         int retryCount = 0;
         var baseDelay = TimeSpan.FromMilliseconds(100);
@@ -163,7 +173,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         // Pre-compute digital signature if enabled (RSA is CPU-intensive)
         string? digitalSignature = null;
-        if (_configuration.GetValue<bool>("Audit:EnableDigitalSignatures"))
+        if (_auditOptions.EnableDigitalSignatures)
         {
             digitalSignature = await CreateDigitalSignatureAsync(eventHash);
         }
@@ -175,30 +185,24 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
             try
             {
-                // Acquire lock — protects only the chain linkage (read previous + insert)
-                if (_useDistributedLocking)
+                // Acquire lock — protects only the chain linkage (read previous + insert).
+                // SecurityOptions.UseRedisLocking selects Redis vs in-memory at registration; this
+                // code path is identical for both.
+                try
                 {
-                    try
-                    {
-                        const string lockKey = "audit:integrity:sequence";
-                        var lockTimeout = TimeSpan.FromSeconds(5);
+                    const string lockKey = "audit:integrity:sequence";
+                    var lockTimeout = TimeSpan.FromSeconds(5);
 
-                        distributedLock = await _distributedLockService.AcquireLockAsync(
-                            lockKey,
-                            lockTimeout,
-                            cancellationToken);
+                    distributedLock = await _distributedLockService.AcquireLockAsync(
+                        lockKey,
+                        lockTimeout,
+                        cancellationToken);
 
-                        _logger.LogDebug("Acquired distributed lock for audit integrity sequence");
-                    }
-                    catch (TimeoutException)
-                    {
-                        _logger.LogWarning("Failed to acquire distributed lock, falling back to local lock");
-                        await LocalFallbackLock.WaitAsync(cancellationToken);
-                        localLockAcquired = true;
-                    }
+                    _logger.LogDebug("Acquired distributed lock for audit integrity sequence");
                 }
-                else
+                catch (TimeoutException)
                 {
+                    _logger.LogWarning("Failed to acquire distributed lock, falling back to local lock");
                     await LocalFallbackLock.WaitAsync(cancellationToken);
                     localLockAcquired = true;
                 }
@@ -312,6 +316,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         IReadOnlyList<AuditIntegrityDto> auditEvents,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (auditEvents.Count == 0)
             return [];
 
@@ -327,7 +333,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
         var baseDelay = TimeSpan.FromMilliseconds(100);
         var timestamp = _timeProvider.GetUtcNow();
         var algorithmVersion = AuditCanonicalizer.CurrentVersion;
-        var enableDigitalSignatures = _configuration.GetValue<bool>("Audit:EnableDigitalSignatures");
+        var enableDigitalSignatures = _auditOptions.EnableDigitalSignatures;
 
         // Pre-compute all per-event hashes OUTSIDE the lock
         var precomputed = new (string EventHash, string Hmac, string Checksum, string? DigitalSignature)[auditEvents.Count];
@@ -350,27 +356,20 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
             try
             {
-                // Acquire lock once for the entire batch
-                if (_useDistributedLocking)
+                // Acquire lock once for the entire batch. SecurityOptions.UseRedisLocking selects
+                // Redis vs in-memory at registration; this code path is identical for both.
+                try
                 {
-                    try
-                    {
-                        const string lockKey = "audit:integrity:sequence";
-                        var lockTimeout = TimeSpan.FromSeconds(5);
-                        distributedLock = await _distributedLockService.AcquireLockAsync(
-                            lockKey, lockTimeout, cancellationToken);
-                        _logger.LogDebug("Acquired distributed lock for batch audit integrity sequence ({Count} events)",
-                            auditEvents.Count);
-                    }
-                    catch (TimeoutException)
-                    {
-                        _logger.LogWarning("Failed to acquire distributed lock for batch, falling back to local lock");
-                        await LocalFallbackLock.WaitAsync(cancellationToken);
-                        localLockAcquired = true;
-                    }
+                    const string lockKey = "audit:integrity:sequence";
+                    var lockTimeout = TimeSpan.FromSeconds(5);
+                    distributedLock = await _distributedLockService.AcquireLockAsync(
+                        lockKey, lockTimeout, cancellationToken);
+                    _logger.LogDebug("Acquired distributed lock for batch audit integrity sequence ({Count} events)",
+                        auditEvents.Count);
                 }
-                else
+                catch (TimeoutException)
                 {
+                    _logger.LogWarning("Failed to acquire distributed lock for batch, falling back to local lock");
                     await LocalFallbackLock.WaitAsync(cancellationToken);
                     localLockAcquired = true;
                 }
@@ -814,8 +813,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// </summary>
     private Task<string> CreateDigitalSignatureAsync(string data)
     {
-        var enableSignatures = _configuration.GetValue<bool>("Audit:EnableDigitalSignatures");
-        if (!enableSignatures)
+        if (!_auditOptions.EnableDigitalSignatures)
         {
             return Task.FromResult(string.Empty);
         }
@@ -834,8 +832,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// </summary>
     private Task<bool> VerifyDigitalSignatureAsync(string data, string signature)
     {
-        var enableSignatures = _configuration.GetValue<bool>("Audit:EnableDigitalSignatures");
-        if (!enableSignatures)
+        if (!_auditOptions.EnableDigitalSignatures)
         {
             return Task.FromResult(true);
         }
@@ -860,7 +857,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
         {
             if (_cachedSigningKey.HasValue) return _cachedSigningKey.Value;
 
-            var keyPath = _configuration["Audit:DigitalSignaturePrivateKeyPath"];
+            var keyPath = _securityOptions.DigitalSignaturePrivateKeyPath;
             if (string.IsNullOrEmpty(keyPath) || !File.Exists(keyPath))
             {
                 throw new InvalidOperationException(
@@ -887,7 +884,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
         {
             if (_cachedVerifyKey.HasValue) return _cachedVerifyKey.Value;
 
-            var publicKeyPath = _configuration["Audit:DigitalSignaturePublicKeyPath"];
+            var publicKeyPath = _securityOptions.DigitalSignaturePublicKeyPath;
             if (string.IsNullOrEmpty(publicKeyPath) || !File.Exists(publicKeyPath))
             {
                 throw new InvalidOperationException(

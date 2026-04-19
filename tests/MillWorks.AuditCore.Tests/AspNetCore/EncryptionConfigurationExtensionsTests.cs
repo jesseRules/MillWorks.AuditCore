@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.AspNetCore.Configuration;
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.Encryption;
 using MillWorks.AuditCore.Services.Encryption.Providers;
 

@@ -1,12 +1,16 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
 
 namespace MillWorks.AuditCore.Tests.Services;
@@ -21,7 +25,6 @@ public class TamperDetectionServiceTests
     private Mock<IAuditIntegrityRepository> _mockAuditIntegrityRepository;
     private Mock<IAuditSecurityEventService> _mockSecurityEventService;
     private Mock<ILogger<TamperDetectionService>> _mockLogger;
-    private IConfiguration _configuration;
     private TamperDetectionService _tamperDetectionService;
 
 
@@ -39,27 +42,7 @@ public class TamperDetectionServiceTests
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();
         _mockLogger = new Mock<ILogger<TamperDetectionService>>();
 
-        // Create real configuration with test values
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false",
-            ["Audit:TamperDetection:MaxRetryAttempts"] = "10",
-            ["Audit:TamperDetection:RetryDelayMilliseconds"] = "100",
-            ["Audit:TamperDetection:LockTimeoutSeconds"] = "5"
-        };
-
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
-
-        _tamperDetectionService = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            _configuration);
+        _tamperDetectionService = CreateService();
     }
 
     /// <summary>
@@ -330,7 +313,7 @@ public class TamperDetectionServiceTests
             .Setup(x => x.AcquireLockAsync("audit:integrity:sequence", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockLockHandle.Object);
 
-        var service = CreateTamperDetectionService(useDistributedLocking: true, mockLockService.Object);
+        var service = CreateService(lockService: mockLockService.Object);
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
@@ -406,7 +389,7 @@ public class TamperDetectionServiceTests
             .Setup(x => x.AcquireLockAsync("audit:integrity:sequence", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("lock timeout"));
 
-        var service = CreateTamperDetectionService(useDistributedLocking: true, mockLockService.Object);
+        var service = CreateService(lockService: mockLockService.Object);
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
@@ -944,21 +927,7 @@ public class TamperDetectionServiceTests
                 x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("Lock timeout"));
 
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "true"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config,
-            mockDistributedLock.Object);
+        var service = CreateService(lockService: mockDistributedLock.Object);
 
         _mockAuditEventRepository
             .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
@@ -993,67 +962,6 @@ public class TamperDetectionServiceTests
         // Verify distributed lock was attempted
         mockDistributedLock.Verify(static x => x.AcquireLockAsync(
             It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    /// <summary>
-    /// Verifies that when distributed locking is disabled, the distributed lock service is never called
-    /// </summary>
-    [Test]
-    public async Task CreateIntegrityRecordAsync_WhenDistributedLockDisabled_UsesOnlyLocalLock()
-    {
-        // Arrange - default setup already has UseDistributedLocking=false
-        var eventId = Guid.NewGuid();
-        var dto = new AuditIntegrityDto { EventId = eventId };
-
-        var mockDistributedLock = new Mock<IAuditDistributedLockService>();
-
-        // Create with distributed locking explicitly disabled
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config,
-            mockDistributedLock.Object);
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AuditEventEntity
-            {
-                EventId = eventId,
-                EventType = "Test.Event",
-                User = "testuser",
-                InsertedDate = DateTimeOffset.UtcNow,
-                JsonData = "{}"
-            });
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        var result = await service.CreateIntegrityRecordAsync(dto);
-
-        // Assert
-        Assert.That(result, Is.Not.Null);
-        mockDistributedLock.Verify(static x => x.AcquireLockAsync(
-            It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion
@@ -1254,31 +1162,23 @@ public class TamperDetectionServiceTests
         return Convert.ToBase64String(hashBytes);
     }
 
-    private TamperDetectionService CreateTamperDetectionService(
-        bool useDistributedLocking,
-        IAuditDistributedLockService? distributedLockService = null)
+    private TamperDetectionService CreateService(
+        AuditOptions? auditOptions = null,
+        SecurityOptions? securityOptions = null,
+        IAuditDistributedLockService? lockService = null)
     {
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = useDistributedLocking.ToString(),
-            ["Audit:TamperDetection:MaxRetryAttempts"] = "10",
-            ["Audit:TamperDetection:RetryDelayMilliseconds"] = "100",
-            ["Audit:TamperDetection:LockTimeoutSeconds"] = "5"
-        };
-
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
-
         return new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            configuration,
-            distributedLockService);
+            Options.Create(auditOptions ?? new AuditOptions
+            {
+                Environment = "Development",
+                HmacKey = "test-hmac-key-for-testing-12345678"
+            }),
+            Options.Create(securityOptions ?? new SecurityOptions()),
+            lockService ?? new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
     }
 
     private static List<AuditIntegrityDto> CreateBatchDtos(int count)

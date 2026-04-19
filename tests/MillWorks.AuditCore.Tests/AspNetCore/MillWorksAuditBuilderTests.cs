@@ -4,7 +4,6 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.AspNetCore.Configuration;
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Abstractions.Dto;

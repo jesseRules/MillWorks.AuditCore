@@ -1,12 +1,17 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
 
 namespace MillWorks.AuditCore.Tests.Services;
@@ -85,25 +90,40 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         string? privateKeyPath = null,
         string? publicKeyPath = null)
     {
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = enableSignatures.ToString(),
-            ["Audit:DigitalSignaturePrivateKeyPath"] = privateKeyPath ?? _privateKeyPath,
-            ["Audit:DigitalSignaturePublicKeyPath"] = publicKeyPath ?? _publicKeyPath,
-            ["Audit:UseDistributedLocking"] = "false"
-        };
+        return CreateService(
+            auditOptions: new AuditOptions
+            {
+                Environment = "Development",
+                HmacKey = "test-hmac-key-for-testing-12345678",
+                EnableDigitalSignatures = enableSignatures
+            },
+            securityOptions: new SecurityOptions
+            {
+                DigitalSignaturePrivateKeyPath = privateKeyPath ?? _privateKeyPath,
+                DigitalSignaturePublicKeyPath = publicKeyPath ?? _publicKeyPath
+            });
+    }
 
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
-
+    private TamperDetectionService CreateService(
+        AuditOptions? auditOptions = null,
+        SecurityOptions? securityOptions = null,
+        IAuditDistributedLockService? lockService = null,
+        IHostEnvironment? hostEnvironment = null)
+    {
         return new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(auditOptions ?? new AuditOptions
+            {
+                Environment = "Development",
+                HmacKey = "test-hmac-key-for-testing-12345678"
+            }),
+            Options.Create(securityOptions ?? new SecurityOptions()),
+            lockService ?? new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance),
+            timeProvider: null,
+            hostEnvironment: hostEnvironment);
     }
 
     private void SetupRepositoryForCreate(Guid eventId)
@@ -425,25 +445,12 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [Test]
     public void Constructor_WithNoHmacKeyInProduction_ThrowsInvalidOperationException()
     {
-        var configDict = new Dictionary<string, string>
-        {
-            ["ASPNETCORE_ENVIRONMENT"] = "Production",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-            // Deliberately omit Audit:HmacKey
-        };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
-
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            new TamperDetectionService(
-                _mockAuditEventRepository.Object,
-                _mockAuditIntegrityRepository.Object,
-                _mockSecurityEventService.Object,
-                _mockLogger.Object,
-                config));
+            CreateService(auditOptions: new AuditOptions
+            {
+                Environment = "Production"
+                // Deliberately omit HmacKey
+            }));
 
         Assert.That(ex!.Message, Does.Contain("Audit:HmacKey must be configured in Production"));
     }
@@ -451,49 +458,27 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [Test]
     public void Constructor_WithNoHmacKeyInDevelopment_UsesGeneratedKeyWithoutThrowing()
     {
-        var configDict = new Dictionary<string, string>
-        {
-            ["ASPNETCORE_ENVIRONMENT"] = "Development",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-            // Deliberately omit Audit:HmacKey
-        };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
-
         // Should not throw — uses a generated key and logs a warning
         Assert.DoesNotThrow(() =>
-            new TamperDetectionService(
-                _mockAuditEventRepository.Object,
-                _mockAuditIntegrityRepository.Object,
-                _mockSecurityEventService.Object,
-                _mockLogger.Object,
-                config));
+            CreateService(auditOptions: new AuditOptions
+            {
+                Environment = "Development"
+                // Deliberately omit HmacKey
+            }));
     }
 
     [Test]
-    public void Constructor_WithNoHmacKeyAndNoEnvironment_UsesGeneratedKeyWithoutThrowing()
+    public void Constructor_WithNoHmacKeyAndNonProductionHostEnvironment_UsesGeneratedKeyWithoutThrowing()
     {
-        // When ASPNETCORE_ENVIRONMENT is not set (null), it's not "Production" so should not throw
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
+        // IHostEnvironment wins over AuditOptions.Environment; when the host reports a non-Production
+        // environment, the ctor should not throw even though AuditOptions.Environment defaults to "Production".
+        var mockHostEnvironment = new Mock<IHostEnvironment>();
+        mockHostEnvironment.SetupGet(x => x.EnvironmentName).Returns("Staging");
 
         Assert.DoesNotThrow(() =>
-            new TamperDetectionService(
-                _mockAuditEventRepository.Object,
-                _mockAuditIntegrityRepository.Object,
-                _mockSecurityEventService.Object,
-                _mockLogger.Object,
-                config));
+            CreateService(
+                auditOptions: new AuditOptions(), // defaults: Environment = "Production", no HmacKey
+                hostEnvironment: mockHostEnvironment.Object));
     }
 
     #endregion
@@ -505,19 +490,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     {
         // Arrange
         var eventId = Guid.NewGuid();
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config);
+        var service = CreateService();
 
         var auditEvent = new AuditEventEntity
         {
@@ -572,19 +545,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     {
         // Arrange — LogTamperAlertAsync should swallow exceptions
         var eventId = Guid.NewGuid();
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config);
+        var service = CreateService();
 
         var auditEvent = new AuditEventEntity
         {
@@ -632,19 +593,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     public void CreateIntegrityRecordAsync_WithCancelledToken_ThrowsOperationCancelledException()
     {
         // Arrange
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config);
+        var service = CreateService();
 
         var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -671,20 +620,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Setup(x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("Lock timeout"));
 
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "true"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config,
-            mockLockService.Object);
+        var service = CreateService(lockService: mockLockService.Object);
 
         SetupRepositoryForCreate(eventId);
 
@@ -710,20 +646,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Setup(x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("Lock timeout"));
 
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "true"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config,
-            mockLockService.Object);
+        var service = CreateService(lockService: mockLockService.Object);
 
         var events = new List<AuditIntegrityDto>
         {
@@ -760,19 +683,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         // Arrange — the service logs a warning but continues verification
         var eventId = Guid.NewGuid();
         var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var configDict = new Dictionary<string, string>
-        {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false"
-        };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(configDict!).Build();
-        var service = new TamperDetectionService(
-            _mockAuditEventRepository.Object,
-            _mockAuditIntegrityRepository.Object,
-            _mockSecurityEventService.Object,
-            _mockLogger.Object,
-            config);
+        var service = CreateService();
 
         SetupRepositoryForCreate(eventId);
 

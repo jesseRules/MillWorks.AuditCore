@@ -1,4 +1,4 @@
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
+using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
 

@@ -6,13 +6,42 @@
 
 1. **Do not create new files. Do not add helpers.** If you think a helper is needed, **stop and ask.** No utility classes, no extraction classes, no "cloning" / "mapping" / "builder" helpers. The plan names the files that change; those are the only files that change.
 2. **Do not touch code that is not named in the current instruction, even to improve it.** No "simplifications." No "cleanups." No deleting checks, markers, or branches you judge to be legacy. If you believe something outside the named scope needs to change, **stop and ask.**
-3. **Before any edit, list every decision in the edit that is not literally in this plan. Wait for approval before writing.** This includes choices like single- vs double-invocation, keep-vs-remove a check, inline-vs-extract, which overload to add, which constructor to touch. If it is a choice, it gets listed. "I'll just pick the cleaner one" is a violation.
-4. **Build and test after every single file change. Do not batch.** No multi-file rewrites before the first `dotnet build` / `dotnet test`. If one file's edit breaks the build, fix it before touching the next file. Shipping partial unverified state has already burned this project — do not repeat it.
+3. **Before any edit, list every decision in the edit that is not literally in this plan. Wait for approval before writing.** Use the preflight-diff format in "Execution contract" below. This includes choices like single- vs double-invocation, keep-vs-remove a check, inline-vs-extract, which overload to add, which constructor to touch. If it is a choice, it gets listed. "I'll just pick the cleaner one" is a violation.
+4. **One checkbox at a time. Build and test after every single file change. Do not batch.** The unit of work is a single plan checkbox, not a phase and not a sub-bullet. No multi-bullet rewrites, no multi-file rewrites before the first `dotnet build` / `dotnet test`. If one file's edit breaks the build, fix it before touching the next file. Shipping partial unverified state has already burned this project — do not repeat it.
 5. **If any instruction is ambiguous, stop and ask. Do not infer.** Ambiguity is a hard stop, not permission to choose. "I used my judgment" is a violation.
 
 ## The plan is the spec
 
 This document is the specification. You do **not** get to edit the spec while implementing it. If you believe the spec is wrong, **stop and raise it to Jesse.** You do not route around it with "clean break" rewrites, new helpers, or simplifications that feel cleaner. The plan is what gets built. If it changes, Jesse changes it — not you.
+
+## Execution contract
+
+### Preflight diff — required before every edit
+
+For the single checkbox you are about to implement:
+
+1. Quote the exact checkbox text verbatim.
+2. List every sub-bullet under it.
+3. For each sub-bullet, mark one of: `satisfied` (current code already does this — cite the file:line), `missing` (needs implementation), `blocked` (cannot be done as written — explain why).
+4. List every decision the checkbox leaves unresolved. Per constraint #3, if it is a choice, it gets listed.
+5. If any sub-bullet is `blocked` or any decision is unresolved, **stop and ask.** Do not implement the satisfied/missing items in isolation — the checkbox is the unit of completion, not the bullet.
+6. Only when nothing is blocked and no decisions are unresolved: implement exactly that checkbox, nothing adjacent.
+
+### No aspirational docs
+
+`README.md`, `ARCHITECTURE.md`, `ComplianceTraceabilityMatrix.md`, `CHANGELOG.md`, and every other document in this repo describe only behavior that is **implemented and verified in the current working tree.** Do not write docs ahead of the code. Do not write docs describing what the code "will do" after a later checkbox. A checkbox's doc update is part of that checkbox's work, produced after its code and test are green — never before.
+
+### Required final-response shape after every checkbox
+
+Your final message after implementing a checkbox must include, in this order and with these literal headings:
+
+1. **Checkbox completed** — quoted verbatim from the plan.
+2. **Changed files** — exhaustive list, no summarization.
+3. **Verification run** — the exact command(s) executed and their pass/fail outcome (e.g., `dotnet build` → 0 errors; `dotnet test --filter FullyQualifiedName~Configuration.OptionsFlowTests` → 4/4 pass).
+4. **Remaining unchecked boxes in this phase** — copied verbatim from the plan.
+5. **Deviations** — every decision made that is not literally in the plan. Each deviation must cite Jesse's prior approval message in this conversation. If no approval exists, the deviation is a violation — revert it before sending the response.
+
+Do **not** check the plan's box until the verification run is green and the final-response shape is produced. Do not describe work as complete in any other format.
 
 ## Failure patterns from prior sessions — recognize these in yourself
 
@@ -32,8 +61,9 @@ Before you touch any code, your first response in a session using this plan must
 
 1. Confirm you have read this section.
 2. Restate the five hard constraints in your own words.
-3. State which phase Jesse has asked you to work on, and **list every decision inside that phase where the plan leaves a choice unresolved.**
-4. Wait for Jesse's answers to each ambiguity before editing.
+3. State which phase Jesse has asked you to work on, and state the **single checkbox** within it you intend to implement first. If Jesse named a phase rather than a checkbox, ask him which checkbox to start with.
+4. Produce the preflight diff (see "Execution contract" above) for that single checkbox.
+5. Wait for Jesse's answers to every `blocked` item and every unresolved decision before editing.
 
 If Jesse asks you to skip this gate, ask him to confirm explicitly — do not infer skip permission from a "just get started" style message.
 

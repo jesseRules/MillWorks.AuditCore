@@ -13,7 +13,6 @@ public sealed class SecurityOptionsTests
 
         Assert.That(options.EnableTamperDetection, Is.True);
         Assert.That(options.UseRedisLocking, Is.False);
-        Assert.That(options.EnableDigitalSignatures, Is.False);
         Assert.That(options.EnableBatchedIntegrityWrites, Is.False);
         Assert.That(options.IntegrityBatchSize, Is.EqualTo(50));
         Assert.That(options.IntegrityFlushInterval, Is.EqualTo(TimeSpan.FromMilliseconds(500)));

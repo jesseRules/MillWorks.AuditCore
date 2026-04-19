@@ -1,4 +1,7 @@
-namespace MillWorks.AuditCore.AspNetCore.Configuration.Options;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+
+namespace MillWorks.AuditCore.Services.Options;
 
 /// <summary>
 /// Audit configuration options
@@ -114,5 +117,60 @@ public sealed class AuditOptions
             throw new InvalidOperationException(
                 "DefaultCustomFields cannot exceed 50 entries");
         }
+    }
+}
+
+/// <summary>
+/// Runtime validator for <see cref="AuditOptions"/>. Registered via the options pipeline
+/// with <c>ValidateOnStart()</c> so misconfiguration fails at host boot, not at first use.
+/// Uses <see cref="IHostEnvironment"/> when available to determine Production; falls back
+/// to <see cref="AuditOptions.Environment"/> when the host environment is not registered.
+/// </summary>
+internal sealed class AuditOptionsValidator : IValidateOptions<AuditOptions>
+{
+    private readonly IHostEnvironment? _hostEnvironment;
+
+    public AuditOptionsValidator(IHostEnvironment? hostEnvironment = null)
+    {
+        _hostEnvironment = hostEnvironment;
+    }
+
+    public ValidateOptionsResult Validate(string? name, AuditOptions options)
+    {
+        var failures = new List<string>();
+
+        try
+        {
+            options.Validate();
+        }
+        catch (InvalidOperationException ex)
+        {
+            failures.Add(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            failures.Add(ex.Message);
+        }
+
+        if (IsProduction(options) && string.IsNullOrEmpty(options.HmacKey))
+        {
+            failures.Add(
+                $"{nameof(AuditOptions.HmacKey)} must be configured in Production. " +
+                "A transient key would cause false tamper alerts across instances or after restarts.");
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
+
+    private bool IsProduction(AuditOptions options)
+    {
+        if (_hostEnvironment != null)
+        {
+            return _hostEnvironment.IsProduction();
+        }
+
+        return string.Equals(options.Environment, "Production", StringComparison.OrdinalIgnoreCase);
     }
 }

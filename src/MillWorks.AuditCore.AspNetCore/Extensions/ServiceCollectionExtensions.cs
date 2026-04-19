@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.AspNetCore.Configuration;
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Services;
@@ -69,8 +69,11 @@ public static class ServiceCollectionExtensions
             // Validate configuration
             builder.ValidateConfiguration();
 
-            // Register options as singleton
+            // Register options as singleton. Also expose the same instance through
+            // IOptions<AuditOptions> so services receiving typed options (e.g., TamperDetectionService)
+            // see the builder-configured values. Full options-pipeline migration lands in Phase 1 #10/#11.
             services.AddSingleton(auditOptions);
+            services.AddSingleton<IOptions<AuditOptions>>(_ => Options.Create(auditOptions));
         }
 
         /// <summary>

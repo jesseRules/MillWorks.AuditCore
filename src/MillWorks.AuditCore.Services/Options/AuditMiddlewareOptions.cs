@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace MillWorks.AuditCore.Services.Options;
 
 /// <summary>
@@ -30,4 +32,38 @@ public sealed class AuditMiddlewareOptions
     /// Maximum time the default in-process worker will spend draining queued request audits during shutdown.
     /// </summary>
     public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(30);
+}
+
+/// <summary>
+/// Runtime validator for <see cref="AuditMiddlewareOptions"/>. Registered via the options
+/// pipeline with <c>ValidateOnStart()</c> so misconfiguration fails at host boot.
+/// </summary>
+internal sealed class AuditMiddlewareOptionsValidator : IValidateOptions<AuditMiddlewareOptions>
+{
+    public ValidateOptionsResult Validate(string? name, AuditMiddlewareOptions options)
+    {
+        var failures = new List<string>();
+
+        if (options.QueueCapacity <= 0)
+        {
+            failures.Add(
+                $"{nameof(AuditMiddlewareOptions.QueueCapacity)} must be > 0.");
+        }
+
+        if (options.EnqueueTimeout < TimeSpan.Zero)
+        {
+            failures.Add(
+                $"{nameof(AuditMiddlewareOptions.EnqueueTimeout)} must be >= TimeSpan.Zero.");
+        }
+
+        if (options.DrainTimeout < TimeSpan.Zero)
+        {
+            failures.Add(
+                $"{nameof(AuditMiddlewareOptions.DrainTimeout)} must be >= TimeSpan.Zero.");
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
 }

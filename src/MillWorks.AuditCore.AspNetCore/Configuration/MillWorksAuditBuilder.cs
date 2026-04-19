@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.AspNetCore.Services;
@@ -222,7 +221,12 @@ public sealed class MillWorksAuditBuilder
         var securityOptions = new SecurityOptions();
         configure(securityOptions);
 
+        // Register both the plain singleton and IOptions<SecurityOptions> wrapping the same instance,
+        // so services receiving typed options (e.g., TamperDetectionService) see the builder-configured
+        // values. Full options-pipeline migration lands in Phase 1 #10/#11.
         Services.AddSingleton(securityOptions);
+        Services.AddSingleton<IOptions<SecurityOptions>>(
+            _ => Microsoft.Extensions.Options.Options.Create(securityOptions));
 
         // Register security event service (required by tamper detection)
         Services.AddScoped<IAuditSecurityEventService, AuditSecurityEventService>();

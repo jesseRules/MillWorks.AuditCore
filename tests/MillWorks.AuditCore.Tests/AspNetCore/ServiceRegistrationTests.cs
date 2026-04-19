@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using MillWorks.AuditCore.AspNetCore.Configuration.Options;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -69,6 +69,41 @@ public class ServiceRegistrationTests
         });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditOptions)), Is.True);
+    }
+
+    [Test]
+    public void AddMillWorksAudit_IOptionsReflectsBuilderConfiguredValues()
+    {
+        // Phase 1 #9 contract: services receiving IOptions<AuditOptions> / IOptions<SecurityOptions>
+        // must see the same instance the consumer configured through the fluent builder.
+        const string expectedHmacKey = "test-hmac-key-for-registration-test-32chars";
+        const string expectedPrivateKeyPath = "/tmp/private.pem";
+
+        _services.AddMillWorksAudit(builder =>
+        {
+            builder.Options.ApplicationName = "RegTestApp";
+            builder.Options.Environment = "Test";
+            builder.Options.HmacKey = expectedHmacKey;
+            builder.Options.EnableDigitalSignatures = true;
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            builder.UseSecurity(security =>
+            {
+                security.DigitalSignaturePrivateKeyPath = expectedPrivateKeyPath;
+                security.EnableBatchedIntegrityWrites = true;
+            });
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var auditOptions = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+        var securityOptions = provider.GetRequiredService<IOptions<SecurityOptions>>().Value;
+
+        Assert.That(auditOptions.HmacKey, Is.EqualTo(expectedHmacKey));
+        Assert.That(auditOptions.EnableDigitalSignatures, Is.True);
+        Assert.That(auditOptions.ApplicationName, Is.EqualTo("RegTestApp"));
+        Assert.That(auditOptions.Environment, Is.EqualTo("Test"));
+
+        Assert.That(securityOptions.DigitalSignaturePrivateKeyPath, Is.EqualTo(expectedPrivateKeyPath));
+        Assert.That(securityOptions.EnableBatchedIntegrityWrites, Is.True);
     }
 
     [Test]

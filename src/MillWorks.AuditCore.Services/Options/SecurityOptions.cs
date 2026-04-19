@@ -1,7 +1,12 @@
+using Microsoft.Extensions.Options;
+
 namespace MillWorks.AuditCore.Services.Database.Options;
 
 /// <summary>
-/// Security options for audit logging
+/// Security options for audit logging. Owns tamper-detection, distributed-locking,
+/// digital-signature key paths, and batched integrity settings.
+/// HMAC key and digital-signature enablement are owned by
+/// <c>MillWorks.AuditCore.Services.Options.AuditOptions</c>.
 /// </summary>
 public sealed class SecurityOptions
 {
@@ -21,19 +26,16 @@ public sealed class SecurityOptions
     public string? RedisConnectionString { get; set; }
 
     /// <summary>
-    /// Enable digital signatures for audit events
+    /// Path to the private key PEM file for signing audit events.
+    /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
     /// </summary>
-    public bool EnableDigitalSignatures { get; set; } = false;
+    public string? DigitalSignaturePrivateKeyPath { get; set; }
 
     /// <summary>
-    /// Path to the private key for signing audit events
+    /// Path to the public key PEM file for verifying audit event signatures.
+    /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
     /// </summary>
-    public string? PrivateKeyPath { get; set; }
-
-    /// <summary>
-    /// Path to the public key for verifying audit event signatures
-    /// </summary>
-    public string? PublicKeyPath { get; set; }
+    public string? DigitalSignaturePublicKeyPath { get; set; }
 
     /// <summary>
     /// When true, integrity record writes are deferred to a bounded background worker
@@ -56,4 +58,44 @@ public sealed class SecurityOptions
     /// Default: 500ms.
     /// </summary>
     public TimeSpan IntegrityFlushInterval { get; set; } = TimeSpan.FromMilliseconds(500);
+}
+
+/// <summary>
+/// Runtime validator for <see cref="SecurityOptions"/>. Registered via the options pipeline
+/// with <c>ValidateOnStart()</c> so misconfiguration fails at host boot, not at first use.
+/// </summary>
+internal sealed class SecurityOptionsValidator : IValidateOptions<SecurityOptions>
+{
+    public ValidateOptionsResult Validate(string? name, SecurityOptions options)
+    {
+        var failures = new List<string>();
+
+        if (options.UseRedisLocking && string.IsNullOrWhiteSpace(options.RedisConnectionString))
+        {
+            failures.Add(
+                $"{nameof(SecurityOptions.RedisConnectionString)} is required when " +
+                $"{nameof(SecurityOptions.UseRedisLocking)} is true.");
+        }
+
+        if (options.EnableBatchedIntegrityWrites)
+        {
+            if (options.IntegrityBatchSize < 1)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.IntegrityBatchSize)} must be >= 1 when " +
+                    $"{nameof(SecurityOptions.EnableBatchedIntegrityWrites)} is true.");
+            }
+
+            if (options.IntegrityFlushInterval <= TimeSpan.Zero)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.IntegrityFlushInterval)} must be > 0 when " +
+                    $"{nameof(SecurityOptions.EnableBatchedIntegrityWrites)} is true.");
+            }
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
 }

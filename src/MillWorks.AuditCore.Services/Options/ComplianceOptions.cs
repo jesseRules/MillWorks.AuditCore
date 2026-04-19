@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 
 namespace MillWorks.AuditCore.Services.Database.Options;
@@ -52,5 +53,27 @@ public sealed class ComplianceOptions
     {
         AssembliesToScan.AddRange(assemblies);
         return this;
+    }
+}
+
+/// <summary>
+/// Runtime validator for <see cref="ComplianceOptions"/>. Registered via the options
+/// pipeline with <c>ValidateOnStart()</c> so misconfiguration fails at host boot.
+/// </summary>
+internal sealed class ComplianceOptionsValidator : IValidateOptions<ComplianceOptions>
+{
+    public ValidateOptionsResult Validate(string? name, ComplianceOptions options)
+    {
+        var failures = new List<string>();
+
+        if (options.DataRetentionDays <= 0)
+        {
+            failures.Add(
+                $"{nameof(ComplianceOptions.DataRetentionDays)} must be > 0.");
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
     }
 }

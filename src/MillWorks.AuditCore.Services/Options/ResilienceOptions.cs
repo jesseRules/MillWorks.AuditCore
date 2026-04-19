@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace MillWorks.AuditCore.Services.Database.Options;
 
 /// <summary>
@@ -67,4 +69,50 @@ public sealed class ResilienceOptions
     /// Default: 5000.
     /// </summary>
     public int FileBasedHardCapacity { get; set; } = 5000;
+}
+
+/// <summary>
+/// Runtime validator for <see cref="ResilienceOptions"/>. Registered via the options
+/// pipeline with <c>ValidateOnStart()</c> so misconfiguration fails at host boot.
+/// </summary>
+internal sealed class ResilienceOptionsValidator : IValidateOptions<ResilienceOptions>
+{
+    public ValidateOptionsResult Validate(string? name, ResilienceOptions options)
+    {
+        var failures = new List<string>();
+
+        if (options.MaxRetries < 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.MaxRetries)} must be >= 0.");
+        }
+
+        if (options.RetryDelaySeconds < 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.RetryDelaySeconds)} must be >= 0.");
+        }
+
+        if (options.FileBasedMaxQueueSize <= 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.FileBasedMaxQueueSize)} must be > 0.");
+        }
+
+        if (options.FileBasedHardCapacity < 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.FileBasedHardCapacity)} must be >= 0.");
+        }
+
+        if (options.ProcessedRetention < TimeSpan.Zero)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.ProcessedRetention)} must be >= TimeSpan.Zero.");
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
 }

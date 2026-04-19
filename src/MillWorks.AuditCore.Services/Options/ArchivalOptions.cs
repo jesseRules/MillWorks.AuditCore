@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace MillWorks.AuditCore.Services.Database.Options;
 
 /// <summary>
@@ -40,4 +42,52 @@ public sealed class ArchivalOptions
     /// Container/bucket name for cloud storage
     /// </summary>
     public string ContainerName { get; set; } = "audit-archives";
+}
+
+/// <summary>
+/// Runtime validator for <see cref="ArchivalOptions"/>. Registered via the options pipeline
+/// with <c>ValidateOnStart()</c> so misconfiguration fails at host boot, not at first archive.
+/// </summary>
+internal sealed class ArchivalOptionsValidator : IValidateOptions<ArchivalOptions>
+{
+    public ValidateOptionsResult Validate(string? name, ArchivalOptions options)
+    {
+        var failures = new List<string>();
+
+        if (options.Provider == ArchivalProvider.AzureBlob
+            && string.IsNullOrWhiteSpace(options.ConnectionString))
+        {
+            failures.Add(
+                $"{nameof(ArchivalOptions.ConnectionString)} is required when " +
+                $"{nameof(ArchivalOptions.Provider)} is {nameof(ArchivalProvider.AzureBlob)}.");
+        }
+
+        if (options.RetentionDays <= 0)
+        {
+            failures.Add(
+                $"{nameof(ArchivalOptions.RetentionDays)} must be > 0.");
+        }
+
+        if (options.ArchivalIntervalHours <= 0)
+        {
+            failures.Add(
+                $"{nameof(ArchivalOptions.ArchivalIntervalHours)} must be > 0.");
+        }
+
+        if (options.VerificationIntervalHours <= 0)
+        {
+            failures.Add(
+                $"{nameof(ArchivalOptions.VerificationIntervalHours)} must be > 0.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.ContainerName))
+        {
+            failures.Add(
+                $"{nameof(ArchivalOptions.ContainerName)} must not be empty.");
+        }
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
 }

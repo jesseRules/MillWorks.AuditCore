@@ -1,9 +1,13 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
 
 namespace MillWorks.AuditCore.Tests.Services;
@@ -19,7 +23,6 @@ public class TamperDetectionServiceEdgeCaseTests
     private Mock<IAuditIntegrityRepository> _mockAuditIntegrityRepository;
     private Mock<IAuditSecurityEventService> _mockSecurityEventService;
     private Mock<ILogger<TamperDetectionService>> _mockLogger;
-    private IConfiguration _configuration;
     private TamperDetectionService _tamperDetectionService;
 
     [SetUp]
@@ -30,26 +33,21 @@ public class TamperDetectionServiceEdgeCaseTests
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();
         _mockLogger = new Mock<ILogger<TamperDetectionService>>();
 
-        var configDict = new Dictionary<string, string>
+        var auditOptions = Options.Create(new AuditOptions
         {
-            ["Audit:HmacKey"] = "test-hmac-key-for-testing-12345678",
-            ["Audit:EnableDigitalSignatures"] = "false",
-            ["Audit:UseDistributedLocking"] = "false",
-            ["Audit:TamperDetection:MaxRetryAttempts"] = "3",
-            ["Audit:TamperDetection:RetryDelayMilliseconds"] = "10",
-            ["Audit:TamperDetection:LockTimeoutSeconds"] = "5"
-        };
-
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
+            Environment = "Development",
+            HmacKey = "test-hmac-key-for-testing-12345678"
+        });
+        var securityOptions = Options.Create(new SecurityOptions());
 
         _tamperDetectionService = new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            _configuration);
+            auditOptions,
+            securityOptions,
+            new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
     }
 
     /// <summary>
