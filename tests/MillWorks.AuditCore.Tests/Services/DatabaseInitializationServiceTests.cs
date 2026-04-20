@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database;
 using MillWorks.AuditCore.Services.Database.Options;
@@ -110,7 +111,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -137,7 +138,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -164,7 +165,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -193,7 +194,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StartAsync(CancellationToken.None);
@@ -241,7 +242,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             mockDisposedServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act & Assert
         Assert.ThrowsAsync<ObjectDisposedException>(async () =>
@@ -280,7 +281,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             mockDisposedServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act & Assert
         Assert.DoesNotThrowAsync(async () =>
@@ -310,7 +311,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StartAsync(cts.Token);
@@ -329,7 +330,7 @@ public class DatabaseInitializationServiceTests
         var service = new DatabaseInitializationService(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _options);
+            Options.Create(_options));
 
         // Act
         await service.StopAsync(CancellationToken.None);
@@ -389,7 +390,7 @@ public class DatabaseInitializationServiceTests
             new DatabaseInitializationService(
                 null!,
                 _mockLogger.Object,
-                _options));
+                Options.Create(_options)));
     }
 
     /// <summary>
@@ -403,7 +404,7 @@ public class DatabaseInitializationServiceTests
             new DatabaseInitializationService(
                 _mockServiceProvider.Object,
                 null!,
-                _options));
+                Options.Create(_options)));
     }
 
     /// <summary>

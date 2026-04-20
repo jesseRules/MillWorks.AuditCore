@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -186,7 +187,11 @@ public class ArchiveVerificationBackgroundServiceTests
         return new ArchiveVerificationBackgroundService(
             serviceProvider,
             _mockLogger.Object,
-            new ArchivalOptions { VerificationIntervalHours = 24 },
+            Options.Create(new ArchivalOptions
+            {
+                EnableBackgroundArchival = true,
+                VerificationIntervalHours = 24
+            }),
             TimeProvider.System,
             startupDelay,
             intervalOverride);

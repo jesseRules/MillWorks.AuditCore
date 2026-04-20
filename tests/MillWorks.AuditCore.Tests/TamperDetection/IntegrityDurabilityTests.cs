@@ -265,12 +265,12 @@ public sealed class IntegrityDurabilityTests
             var batcher = new IntegrityWriteBatcher(
                 mockScopeFactory,
                 new Mock<ILogger<IntegrityWriteBatcher>>().Object,
-                new SecurityOptions
+                Options.Create(new SecurityOptions
                 {
                     EnableBatchedIntegrityWrites = true,
                     IntegrityBatchSize = 1,
                     IntegrityFlushInterval = TimeSpan.FromMilliseconds(100)
-                });
+                }));
 
             // Act
             await batcher.StartAsync(CancellationToken.None);
@@ -372,12 +372,12 @@ public sealed class IntegrityDurabilityTests
         return new IntegrityWriteBatcher(
             mockScopeFactory.Object,
             new Mock<ILogger<IntegrityWriteBatcher>>().Object,
-            new SecurityOptions
+            Options.Create(new SecurityOptions
             {
                 EnableBatchedIntegrityWrites = true,
                 IntegrityBatchSize = 1,
                 IntegrityFlushInterval = TimeSpan.FromMilliseconds(100)
-            });
+            }));
     }
 
     private static IServiceScopeFactory CreateScopeFactoryWithDbOptions(

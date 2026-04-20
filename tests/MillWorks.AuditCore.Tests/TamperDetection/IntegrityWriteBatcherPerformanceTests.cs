@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database.Options;
@@ -239,6 +240,7 @@ public sealed class IntegrityWriteBatcherPerformanceTests
     {
         var options = new SecurityOptions
         {
+            EnableBatchedIntegrityWrites = true,
             IntegrityBatchSize = batchSize,
             IntegrityFlushInterval = TimeSpan.FromMilliseconds(flushIntervalMs)
         };
@@ -246,7 +248,7 @@ public sealed class IntegrityWriteBatcherPerformanceTests
         return new IntegrityWriteBatcher(
             _mockScopeFactory.Object,
             _mockLogger.Object,
-            options);
+            Options.Create(options));
     }
 
     private static Task StartBatcher(IntegrityWriteBatcher batcher, CancellationToken token)

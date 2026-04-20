@@ -46,7 +46,13 @@ public static class ServiceCollectionExtensions
 
             // Register HTTP context accessor for middleware
             services.AddHttpContextAccessor();
-            services.AddOptions<AuditMiddlewareOptions>();
+
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<AuditMiddlewareOptions>, AuditMiddlewareOptionsValidator>());
+
+            services.AddOptions<AuditMiddlewareOptions>()
+                .BindConfiguration("Audit")
+                .ValidateOnStart();
 
             // Default deferred request-audit dispatcher. Consumers can replace IRequestAuditDispatcher
             // with an external implementation (for example, a Hangfire-like job bridge).
@@ -59,8 +65,11 @@ public static class ServiceCollectionExtensions
             // Register middleware - CRITICAL: Must be scoped for per-request isolation
             services.TryAddScoped<AuditContextMiddleware>();
 
-            // Create and configure builder
+            // Create and configure builder. Capture a baseline snapshot so the options-pipeline
+            // replay can distinguish consumer-set fluent values from untouched defaults, letting
+            // IConfiguration binding persist for properties the consumer did not fluent-set.
             var auditOptions = new AuditOptions();
+            var baselineAuditOptions = new AuditOptions();
             var builder = new MillWorksAuditBuilder(services, auditOptions);
 
             // Allow consumer to configure the builder
@@ -69,11 +78,35 @@ public static class ServiceCollectionExtensions
             // Validate configuration
             builder.ValidateConfiguration();
 
-            // Register options as singleton. Also expose the same instance through
-            // IOptions<AuditOptions> so services receiving typed options (e.g., TamperDetectionService)
-            // see the builder-configured values. Full options-pipeline migration lands in Phase 1 #10/#11.
-            services.AddSingleton(auditOptions);
-            services.AddSingleton<IOptions<AuditOptions>>(_ => Options.Create(auditOptions));
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IValidateOptions<AuditOptions>, AuditOptionsValidator>());
+
+            services.AddOptions<AuditOptions>()
+                .BindConfiguration("Audit")
+                .Configure(opts =>
+                {
+                    if (auditOptions.Enabled != baselineAuditOptions.Enabled)
+                        opts.Enabled = auditOptions.Enabled;
+
+                    if (auditOptions.ApplicationName != baselineAuditOptions.ApplicationName)
+                        opts.ApplicationName = auditOptions.ApplicationName;
+
+                    if (auditOptions.Environment != baselineAuditOptions.Environment)
+                        opts.Environment = auditOptions.Environment;
+
+                    if (auditOptions.HmacKey != baselineAuditOptions.HmacKey)
+                        opts.HmacKey = auditOptions.HmacKey;
+
+                    if (auditOptions.EnableDigitalSignatures != baselineAuditOptions.EnableDigitalSignatures)
+                        opts.EnableDigitalSignatures = auditOptions.EnableDigitalSignatures;
+
+                    if (auditOptions.AllowPassThroughRedactor != baselineAuditOptions.AllowPassThroughRedactor)
+                        opts.AllowPassThroughRedactor = auditOptions.AllowPassThroughRedactor;
+
+                    if (auditOptions.DefaultCustomFields.Count > 0)
+                        opts.DefaultCustomFields = new Dictionary<string, object>(auditOptions.DefaultCustomFields);
+                })
+                .ValidateOnStart();
         }
 
         /// <summary>

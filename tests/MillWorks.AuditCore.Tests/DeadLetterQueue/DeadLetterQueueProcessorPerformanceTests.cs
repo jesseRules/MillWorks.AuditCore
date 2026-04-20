@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
@@ -27,7 +28,7 @@ public sealed class DeadLetterQueueProcessorPerformanceTests
     private Mock<IAuditDeadLetterQueue> _mockDlq = null!;
     private Mock<IAuditDistributedLockService> _mockLockService = null!;
     private Mock<ILogger<DeadLetterQueueProcessor>> _mockLogger = null!;
-    private IConfiguration _configuration = null!;
+    private ResilienceOptions _resilienceOptions = null!;
 
     [SetUp]
     public void Setup()
@@ -57,14 +58,10 @@ public sealed class DeadLetterQueueProcessorPerformanceTests
             .Setup(static x => x.GetService(typeof(IServiceScopeFactory)))
             .Returns(mockScopeFactory.Object);
 
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string>
-            {
-                ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-                ["Audit:DeadLetterQueue:MaxRetries"] = "3",
-                ["Audit:DeadLetterQueue:MaxBatchSize"] = "1000"
-            }!)
-            .Build();
+        _resilienceOptions = new ResilienceOptions
+        {
+            DeadLetterQueueMaxBatchSize = 1000
+        };
     }
 
     // ── §6 DLQ: 1,000 entries, full-success throughput ──
@@ -189,7 +186,7 @@ public sealed class DeadLetterQueueProcessorPerformanceTests
         return new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _configuration,
+            Options.Create(_resilienceOptions),
             intervalOverride: TimeSpan.FromSeconds(30),
             interEventDelay: TimeSpan.Zero);
     }

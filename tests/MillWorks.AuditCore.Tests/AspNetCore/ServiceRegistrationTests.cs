@@ -68,7 +68,40 @@ public class ServiceRegistrationTests
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
 
-        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditOptions)), Is.True);
+        using var provider = _services.BuildServiceProvider();
+        var auditOptions = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+        Assert.That(auditOptions.ApplicationName, Is.EqualTo("MyTestApp"));
+    }
+
+    [Test]
+    public void AddMillWorksAudit_ConfigurationOnly_AuditHmacKeySurvivesFluentBaselineReplay()
+    {
+        // Phase 1 acceptance 2: a consumer who sets Audit:HmacKey via IConfiguration and does
+        // not touch builder.Options.HmacKey must still resolve the config-bound key from
+        // IOptions<AuditOptions>. The baseline-diff replay inside AddMillWorksAudit is what
+        // preserves this — an unconditional property copy would blank the bound value.
+        const string configHmacKey = "config-hmac-key-for-fallback-test-64chars-1234567890abcdef1234567";
+
+        _services.Remove(_services.First(s => s.ServiceType == typeof(IConfiguration)));
+        _services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:HmacKey"] = configHmacKey,
+                ["Audit:EnableDigitalSignatures"] = "true"
+            })
+            .Build());
+
+        _services.AddMillWorksAudit(static builder =>
+        {
+            builder.Options.Environment = "Development";
+            builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var auditOptions = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(auditOptions.HmacKey, Is.EqualTo(configHmacKey));
+        Assert.That(auditOptions.EnableDigitalSignatures, Is.True);
     }
 
     [Test]

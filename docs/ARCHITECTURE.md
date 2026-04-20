@@ -85,6 +85,43 @@ Important caveats in the current implementation:
 - The dead-letter path is operationally useful but not yet fully security-hardened. In the current code, DLQ implementations still persist the original failed event payload and exception stack trace without applying `IAuditFieldRedactor`.
 - The emergency fallback file is redacted, but it writes to temp storage using platform-default permissions.
 
+## Runtime Options Flow
+
+All configurable runtime behavior flows through the standard .NET options pipeline. Runtime services receive their configuration through `IOptions<T>` / `IOptionsMonitor<T>` constructor injection; none of them read `IConfiguration` directly. The hidden configuration path that formerly existed in `TamperDetectionService` (direct reads of `Audit:HmacKey` and `Audit:EnableDigitalSignatures`) has been removed.
+
+Seven options types participate. All are registered with the same shape — `AddOptions<T>().BindConfiguration("Audit").Configure(consumerOverlay).ValidateOnStart()` — and each has a corresponding `IValidateOptions<T>` registered via `TryAddEnumerable` so misconfiguration fails at host start rather than at first use.
+
+| Options type              | Registered in                               | Binds flat from `Audit` | `ValidateOnStart()` |
+|---------------------------|---------------------------------------------|-------------------------|---------------------|
+| `AuditOptions`            | `AddMillWorksAudit` (top-level)             | ✓                       | ✓                   |
+| `AuditMiddlewareOptions`  | `AddMillWorksAudit` (top-level)             | ✓                       | ✓                   |
+| `EntityFrameworkOptions`  | `MillWorksAuditBuilder.UseEntityFramework`  | ✓                       | ✓                   |
+| `SecurityOptions`         | `MillWorksAuditBuilder.UseSecurity`         | ✓                       | ✓                   |
+| `ComplianceOptions`       | `MillWorksAuditBuilder.UseCompliance`       | ✓                       | ✓                   |
+| `ArchivalOptions`         | `MillWorksAuditBuilder.UseArchival`         | ✓                       | ✓                   |
+| `ResilienceOptions`       | `MillWorksAuditBuilder.UseResilience`       | ✓                       | ✓                   |
+
+### Binding precedence
+
+Two input sources feed the resolved options instance: `IConfiguration` via `BindConfiguration("Audit")`, and the fluent builder overlay via `builder.Options.X = Y` (for `AuditOptions`) or `Use*(o => o.X = Y)` (for the per-subsystem types). Registration order is bind first, fluent overlay second, so fluent values win where the consumer explicitly set them. A consumer can leave a property untouched in the fluent builder and still have its `Audit:...` configuration value take effect.
+
+### Baseline-diff replay for `AuditOptions`
+
+`AuditOptions` is the only type the consumer mutates on a live `builder.Options` instance (exposed as a property on `MillWorksAuditBuilder`) rather than inside a `Use*(o => ...)` delegate. To replay those mutations onto the pipeline-resolved options instance without blanking the configuration-bound values the consumer did not touch, `AddMillWorksAudit` snapshots a baseline `new AuditOptions()` alongside the consumer's mutated copy and, in its `Configure` delegate, assigns each property only when the consumer-mutated value differs from the baseline. Known limitation: if a consumer fluent-sets a property to the same value as its default, the overlay cannot distinguish that from "never touched," and `IConfiguration` binding wins for that property. This is accepted for Phase 1; no currently targeted use case is blocked by it.
+
+### Hosted-service registration
+
+Six background services participate in the audit pipeline: `DatabaseInitializationService`, `IntegrityWriteBatcher`, `IntegrityReconciliationService`, `DeadLetterQueueProcessor`, `ArchiveCreationBackgroundService`, and `ArchiveVerificationBackgroundService`. Each is registered unconditionally by its owning `Use*` method (or by `AddMillWorksAudit` in the case of `InProcessRequestAuditDispatcher`). Each self-gates inside its entry method (`ExecuteAsync` or `StartAsync`) by reading `IOptions<T>.Value` and returning early if its enablement flag is false. Registration is therefore always predictable; runtime behavior is driven entirely by the typed option.
+
+### Remaining resolve-time forwarders
+
+Two options types retain a transitional resolve-time singleton forwarder of the form `Services.AddSingleton<T>(sp => sp.GetRequiredService<IOptions<T>>().Value)`:
+
+- **`SecurityOptions`** — consumed as a bare value by `FerpaValidator`, an `IComplianceValidator` implementation.
+- **`ComplianceOptions`** — consumed as a bare value inside the `AuditSaveChangesInterceptor` factory via `sp.GetService<ComplianceOptions>()`.
+
+Each forwarder is slated for removal once its last bare consumer flips its constructor to `IOptions<T>`. No other options type retains a forwarder.
+
 ## Interceptor Flow
 
 The `AuditSaveChangesInterceptor` extends EF Core's `SaveChangesInterceptor` and hooks into `SavingChangesAsync`:

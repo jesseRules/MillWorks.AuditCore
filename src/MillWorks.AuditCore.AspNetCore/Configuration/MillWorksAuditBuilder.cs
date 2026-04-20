@@ -86,9 +86,6 @@ public sealed class MillWorksAuditBuilder
     {
         Services.AddOptions<AuditMiddlewareOptions>()
             .Configure(configure);
-
-        Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IValidateOptions<AuditMiddlewareOptions>, AuditMiddlewareOptionsValidator>());
     }
 
     /// <summary>
@@ -124,11 +121,6 @@ public sealed class MillWorksAuditBuilder
 
         Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<EntityFrameworkOptions>, EntityFrameworkOptionsValidator>());
-
-        // Resolve-time forwarder so bare EntityFrameworkOptions consumers (DatabaseInitializationService)
-        // keep working until #12 flips them to IOptions<EntityFrameworkOptions>.
-        Services.AddSingleton<EntityFrameworkOptions>(
-            static sp => sp.GetRequiredService<IOptions<EntityFrameworkOptions>>().Value);
 
         // Configure Mapster
         ConfigureMapster();
@@ -231,8 +223,8 @@ public sealed class MillWorksAuditBuilder
         Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<SecurityOptions>, SecurityOptionsValidator>());
 
-        // Resolve-time forwarder so bare SecurityOptions consumers (IntegrityWriteBatcher) keep
-        // working until #12 flips them to IOptions<SecurityOptions>.
+        // Resolve-time forwarder so the remaining bare SecurityOptions consumer
+        // (FerpaValidator) keeps working until that call site flips to IOptions<SecurityOptions>.
         Services.AddSingleton<SecurityOptions>(
             static sp => sp.GetRequiredService<IOptions<SecurityOptions>>().Value);
 
@@ -377,11 +369,6 @@ public sealed class MillWorksAuditBuilder
 
         Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<ArchivalOptions>, ArchivalOptionsValidator>());
-
-        // Resolve-time forwarder so bare ArchivalOptions consumers (ArchiveCreationBackgroundService,
-        // ArchiveVerificationBackgroundService) keep working until #12 flips them.
-        Services.AddSingleton<ArchivalOptions>(
-            static sp => sp.GetRequiredService<IOptions<ArchivalOptions>>().Value);
 
         // Blob client factory. Only resolved when the AzureBlob provider is in use.
         // AzureBlob-requires-connection-string and AWSs3-not-implemented checks live in

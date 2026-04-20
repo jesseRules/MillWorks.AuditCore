@@ -90,24 +90,24 @@ This plan closes the six "top concerns" surfaced in the 2026-04-19 review. Order
 **Concern 1.** `AuditOptions.EnableDigitalSignatures` / `HmacKey` are validated in the builder at `src/MillWorks.AuditCore.AspNetCore/Configuration/Options/AuditOptions.cs:69` and `MillWorksAuditBuilder.cs:458`, but `TamperDetectionService.cs:119` re-reads `Audit:HmacKey` and `Audit:EnableDigitalSignatures` directly from `IConfiguration`. A consumer who only touches the fluent API gets either a silently generated process-scoped HMAC key (dev) or a hard throw (prod), even when they set `HmacKey` on the builder.
 
 ### Work items
-- [ ] Replace the current singleton `AuditOptions` registration in `AddMillWorksAudit(...)` with an options-pipeline registration that makes the fluent-configured instance resolve through `IOptions<AuditOptions>` / `IOptionsMonitor<AuditOptions>`. There is no `MillWorksAuditBuilder.Build()` method today; the change belongs in `ServiceCollectionExtensions.AddMillWorksAudit`.
-- [ ] Add a single authoritative tamper/security runtime options model, or clearly split ownership between `AuditOptions` and `SecurityOptions`. The unified runtime path must cover:
-  - [ ] `HmacKey`
-  - [ ] `EnableDigitalSignatures`
-  - [ ] `DigitalSignaturePrivateKeyPath`
-  - [ ] `DigitalSignaturePublicKeyPath`
-  - [ ] distributed locking enablement, reconciled with the existing `SecurityOptions.UseRedisLocking` / `RedisConnectionString`
-- [ ] Replace `TamperDetectionService`'s direct `IConfiguration` reads with typed options. Do not leave a second hidden config path for HMAC/signature/locking behavior.
-- [ ] Keep `IConfiguration` binding as a fallback by binding `IConfiguration.GetSection("Audit")` into the same typed options instance used by fluent configuration. If a new overload is needed for config binding, add it explicitly; no `AddMillWorksAudit(Action<IConfiguration>)` overload exists today.
-- [ ] Add `IValidateOptions<T>` implementations and `ValidateOnStart()` for all options registered by `MillWorksAuditBuilder`: audit, security/tamper, EF, resilience, request-audit middleware, archival, and compliance.
-- [ ] Audit every other options class for the same pattern — `AuditOptions`, `SecurityOptions`, `EntityFrameworkOptions`, `ComplianceOptions`, `ResilienceOptions`, request-audit options, archival options. Document which ones are runtime-authoritative in `ARCHITECTURE.md`.
+- [x] Replace the current singleton `AuditOptions` registration in `AddMillWorksAudit(...)` with an options-pipeline registration that makes the fluent-configured instance resolve through `IOptions<AuditOptions>` / `IOptionsMonitor<AuditOptions>`. There is no `MillWorksAuditBuilder.Build()` method today; the change belongs in `ServiceCollectionExtensions.AddMillWorksAudit`.
+- [x] Add a single authoritative tamper/security runtime options model, or clearly split ownership between `AuditOptions` and `SecurityOptions`. The unified runtime path must cover:
+  - [x] `HmacKey`
+  - [x] `EnableDigitalSignatures`
+  - [x] `DigitalSignaturePrivateKeyPath`
+  - [x] `DigitalSignaturePublicKeyPath`
+  - [x] distributed locking enablement, reconciled with the existing `SecurityOptions.UseRedisLocking` / `RedisConnectionString`
+- [x] Replace `TamperDetectionService`'s direct `IConfiguration` reads with typed options. Do not leave a second hidden config path for HMAC/signature/locking behavior.
+- [x] Keep `IConfiguration` binding as a fallback by binding `IConfiguration.GetSection("Audit")` into the same typed options instance used by fluent configuration. If a new overload is needed for config binding, add it explicitly; no `AddMillWorksAudit(Action<IConfiguration>)` overload exists today.
+- [x] Add `IValidateOptions<T>` implementations and `ValidateOnStart()` for all options registered by `MillWorksAuditBuilder`: audit, security/tamper, EF, resilience, request-audit middleware, archival, and compliance.
+- [x] Audit every other options class for the same pattern — `AuditOptions`, `SecurityOptions`, `EntityFrameworkOptions`, `ComplianceOptions`, `ResilienceOptions`, request-audit options, archival options. Document which ones are runtime-authoritative in `ARCHITECTURE.md`.
 
 ### Acceptance
-- New test `tests/.../Configuration/OptionsFlowTests.cs`: fluent `auditBuilder.Options.HmacKey = "<64-char key>"; auditBuilder.Options.EnableDigitalSignatures = true;` with **no** `IConfiguration` section produces a `TamperDetectionService` that signs with exactly that key (verified by signature round-trip). Today this test fails.
-- Existing `IConfiguration["Audit:HmacKey"]` path still works unchanged (legacy consumer coverage).
-- Fluent/private-key and configuration/private-key paths both produce the same digital-signature behavior. Tests cover both `DigitalSignaturePrivateKeyPath` and `DigitalSignaturePublicKeyPath`.
-- Distributed locking is controlled by one typed option path. Tests prove `UseRedisLocking = true` wires the Redis lock service and `false` does not, without also requiring a separate `Audit:UseDistributedLocking` value.
-- Production + no HMAC key still throws at startup (not at first write).
+- [x] New test `tests/.../Configuration/OptionsFlowTests.cs`: fluent `auditBuilder.Options.HmacKey = "<64-char key>"; auditBuilder.Options.EnableDigitalSignatures = true;` with **no** `IConfiguration` section produces a `TamperDetectionService` that signs with exactly that key (verified by signature round-trip). — `OptionsFlowTests.FluentHmacKey_FlowsThroughOptionsPipeline` + `TamperDetectionService_HmacSignature_MatchesAcrossFluentAndConfigPaths`.
+- [x] Existing `IConfiguration["Audit:HmacKey"]` path still works unchanged (legacy consumer coverage). — `ServiceRegistrationTests.AddMillWorksAudit_ConfigurationOnly_AuditHmacKeySurvivesFluentBaselineReplay` + `OptionsFlowTests.ConfigurationBinding_FallbackResolves`.
+- [x] Fluent/private-key and configuration/private-key paths both produce the same digital-signature behavior. Tests cover both `DigitalSignaturePrivateKeyPath` and `DigitalSignaturePublicKeyPath`. — covered by existing `TamperDetectionServiceDigitalSignatureTests`; not duplicated in `OptionsFlowTests.cs`.
+- [x] Distributed locking is controlled by one typed option path. Tests prove `UseRedisLocking = true` wires the Redis lock service and `false` does not, without also requiring a separate `Audit:UseDistributedLocking` value. — covered by existing builder/security tests; not duplicated in `OptionsFlowTests.cs`.
+- [x] Production + no HMAC key still throws at startup (not at first write). — `OptionsFlowTests.Production_NoHmacKey_FailsValidateOnStart`.
 
 ---
 
@@ -116,8 +116,8 @@ This plan closes the six "top concerns" surfaced in the 2026-04-19 review. Order
 **Concern 3.** `AuditLogger.ConvertToEntity` at `src/MillWorks.AuditCore.Services/AuditLogger.cs:424` writes `auditEvent.ErrorMessage` directly into the anonymous object serialized into `JsonData`. `DefaultAuditFieldRedactor.cs:37` explicitly excludes `ErrorMessage` from `SafeFields` because exception text routinely contains SQL fragments, connection strings, tokens, emails, and PHI. The redaction path simply isn't invoked here.
 
 ### Work items
-- [ ] Route `auditEvent.ErrorMessage` through `fieldRedactor.RedactValue("ErrorMessage", ...)` (or the `SensitiveContentSanitizer` the redactor delegates to) before it goes into the `JsonData` payload.
-- [ ] Do the same for the `ErrorMessage` column mapping if it exists on `AuditEventEntity` — confirm or add.
+- [x] Route `auditEvent.ErrorMessage` through `fieldRedactor.RedactValue("ErrorMessage", ...)` (or the `SensitiveContentSanitizer` the redactor delegates to) before it goes into the `JsonData` payload.
+- [x] Do the same for the `ErrorMessage` column mapping if it exists on `AuditEventEntity` — confirm or add. *(Confirmed absent: `AuditEventEntity` has no `ErrorMessage` column; the persisted error-message surface is the `JsonData` payload, already covered by checkbox 1.)*
 - [ ] Add a regression test that logs an audit event with a SQL-like exception message such as `"Login failed for user 'sa' with password 'Password123!' at server 10.0.0.5"` and asserts the persisted `JsonData` contains `[REDACTED]`-style placeholders rather than the raw password/IP. Do not construct `SqlException` directly; use a plain `Exception`, fake `DbException`, or helper exception with the same message.
 - [ ] Add a second test for PHI-in-exception (e.g., a FERPA entity whose validation throws with the student ID in the message) — asserts the ID is redacted.
 

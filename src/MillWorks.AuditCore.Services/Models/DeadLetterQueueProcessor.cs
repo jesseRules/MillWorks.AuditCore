@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 
@@ -26,9 +27,9 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
     private readonly ILogger<DeadLetterQueueProcessor> _logger;
 
     /// <summary>
-    /// Configuration
+    /// Resilience options
     /// </summary>
-    private readonly IConfiguration _configuration;
+    private readonly IOptions<ResilienceOptions> _options;
 
     private readonly TimeSpan? _intervalOverride;
     private readonly TimeSpan _interEventDelay;
@@ -36,27 +37,24 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
     /// <summary>
     /// Constructor for the dead letter queue processor
     /// </summary>
-    /// <param name="serviceProvider"></param>
-    /// <param name="logger"></param>
-    /// <param name="configuration"></param>
     public DeadLetterQueueProcessor(
         IServiceProvider serviceProvider,
         ILogger<DeadLetterQueueProcessor> logger,
-        IConfiguration configuration)
-        : this(serviceProvider, logger, configuration, null, null)
+        IOptions<ResilienceOptions> options)
+        : this(serviceProvider, logger, options, null, null)
     {
     }
 
     internal DeadLetterQueueProcessor(
         IServiceProvider serviceProvider,
         ILogger<DeadLetterQueueProcessor> logger,
-        IConfiguration configuration,
+        IOptions<ResilienceOptions> options,
         TimeSpan? intervalOverride,
         TimeSpan? interEventDelay)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _configuration = configuration;
+        _options = options;
         _intervalOverride = intervalOverride;
         _interEventDelay = interEventDelay ?? DefaultInterEventDelay;
     }
@@ -74,15 +72,15 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
     /// <returns></returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        bool enabled = _configuration.GetValue("Audit:DeadLetterQueue:AutoReprocess", true);
-        if (!enabled)
+        var options = _options.Value;
+
+        if (!options.EnableDeadLetterQueue || !options.EnableBackgroundProcessor)
         {
-            _logger.LogInformation("Dead letter queue auto-reprocessing is disabled");
+            _logger.LogInformation("DeadLetterQueueProcessor disabled by configuration");
             return;
         }
 
-        var interval = _intervalOverride ?? TimeSpan.FromMinutes(
-            _configuration.GetValue("Audit:DeadLetterQueue:ReprocessIntervalMinutes", 60.0));
+        var interval = _intervalOverride ?? TimeSpan.FromMinutes(options.ReprocessIntervalMinutes);
 
         _logger.LogInformation("Dead letter queue processor started. Interval: {Interval}", interval);
 
@@ -112,16 +110,16 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
 
     internal async Task ProcessOnceAsync(CancellationToken cancellationToken)
     {
+        var options = _options.Value;
+
         using var scope = _serviceProvider.CreateScope();
 
         var dlq = scope.ServiceProvider.GetRequiredService<IAuditDeadLetterQueue>();
         var lockService = scope.ServiceProvider.GetRequiredService<IAuditDistributedLockService>();
 
-        var maxRetries = _configuration.GetValue("Audit:DeadLetterQueue:MaxRetries", 3);
-        var maxCount = _configuration.GetValue("Audit:DeadLetterQueue:MaxBatchSize", 100);
-        var lockExpiry = TimeSpan.FromMinutes(Math.Max(
-            _configuration.GetValue("Audit:DeadLetterQueue:ReprocessIntervalMinutes", 60.0),
-            1.0));
+        var maxRetries = options.MaxRetries;
+        var maxCount = options.DeadLetterQueueMaxBatchSize;
+        var lockExpiry = TimeSpan.FromMinutes(Math.Max(options.ReprocessIntervalMinutes, 1.0));
 
         using var reprocessLock = await lockService.AcquireLockAsync(ReprocessLockName, lockExpiry, cancellationToken);
 

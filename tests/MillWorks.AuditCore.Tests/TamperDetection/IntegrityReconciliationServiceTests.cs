@@ -3,8 +3,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -52,6 +54,7 @@ public class IntegrityReconciliationServiceTests
         _service = new IntegrityReconciliationService(
             _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             _mockLogger.Object,
+            Options.Create(new SecurityOptions { EnableBatchedIntegrityWrites = true }),
             _diagnostics);
     }
 
@@ -356,6 +359,7 @@ public class IntegrityReconciliationServiceTests
         using var secondService = new IntegrityReconciliationService(
             _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             _mockLogger.Object,
+            Options.Create(new SecurityOptions { EnableBatchedIntegrityWrites = true }),
             secondDiagnostics);
 
         var firstRun = InvokeReconcileAsync();

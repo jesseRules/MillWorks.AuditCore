@@ -69,6 +69,18 @@ public sealed class ResilienceOptions
     /// Default: 5000.
     /// </summary>
     public int FileBasedHardCapacity { get; set; } = 5000;
+
+    /// <summary>
+    /// How often the background processor reprocesses dead letter queue events, in minutes.
+    /// Also bounds the distributed-lock expiry during a reprocess pass. Default: 60.
+    /// </summary>
+    public double ReprocessIntervalMinutes { get; set; } = 60.0;
+
+    /// <summary>
+    /// Maximum number of dead letter events the background processor will pull in one pass.
+    /// Default: 100.
+    /// </summary>
+    public int DeadLetterQueueMaxBatchSize { get; set; } = 100;
 }
 
 /// <summary>
@@ -117,6 +129,18 @@ internal sealed class ResilienceOptionsValidator : IValidateOptions<ResilienceOp
         {
             failures.Add(
                 $"{nameof(ResilienceOptions.ProcessedRetention)} must be >= TimeSpan.Zero.");
+        }
+
+        if (options.ReprocessIntervalMinutes <= 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.ReprocessIntervalMinutes)} must be > 0.");
+        }
+
+        if (options.DeadLetterQueueMaxBatchSize <= 0)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.DeadLetterQueueMaxBatchSize)} must be > 0.");
         }
 
         return failures.Count == 0

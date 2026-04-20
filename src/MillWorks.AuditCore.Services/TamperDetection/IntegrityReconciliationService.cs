@@ -2,11 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Services.TamperDetection;
@@ -20,6 +22,7 @@ namespace MillWorks.AuditCore.Services.TamperDetection;
 public sealed class IntegrityReconciliationService(
     IServiceScopeFactory scopeFactory,
     ILogger<IntegrityReconciliationService> logger,
+    IOptions<SecurityOptions> securityOptions,
     IAuditDiagnostics? diagnostics = null)
     : BackgroundService
 {
@@ -57,6 +60,14 @@ public sealed class IntegrityReconciliationService(
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var options = securityOptions.Value;
+
+        if (!options.EnableTamperDetection || !options.EnableBatchedIntegrityWrites)
+        {
+            logger.LogInformation("IntegrityReconciliationService disabled by configuration");
+            return;
+        }
+
         // Wait briefly for application startup to complete
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 

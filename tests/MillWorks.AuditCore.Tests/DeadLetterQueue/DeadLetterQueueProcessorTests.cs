@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
@@ -44,9 +45,9 @@ public class DeadLetterQueueProcessorTests
     private Mock<IAuditDistributedLockService> _mockDistributedLockService;
 
     /// <summary>
-    /// Configuration
+    /// Resilience options
     /// </summary>
-    private IConfiguration _configuration;
+    private ResilienceOptions _resilienceOptions;
 
     /// <summary>
     /// Processor under test
@@ -93,23 +94,17 @@ public class DeadLetterQueueProcessorTests
         _mockServiceProvider.Setup(static x => x.GetService(typeof(IServiceScopeFactory)))
             .Returns(mockScopeFactory.Object);
 
-        var configDict = new Dictionary<string, string>
+        _resilienceOptions = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "1",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 1.0
         };
-
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         _cancellationTokenSource = new CancellationTokenSource();
 
         _processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            _configuration);
+            Options.Create(_resilienceOptions));
     }
 
     /// <summary>
@@ -224,7 +219,7 @@ public class DeadLetterQueueProcessorTests
         services.AddScoped(_ => Mock.Of<IAuditDeadLetterQueue>());
         using var provider = services.BuildServiceProvider();
 
-        var processor = new DeadLetterQueueProcessor(provider, _mockLogger.Object, _configuration);
+        var processor = new DeadLetterQueueProcessor(provider, _mockLogger.Object, Options.Create(_resilienceOptions));
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await processor.StartAsync(CancellationToken.None));
 
@@ -238,19 +233,15 @@ public class DeadLetterQueueProcessorTests
     public async Task ExecuteAsync_WithAutoReprocessDisabled_ExitsImmediately()
     {
         // Arrange
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "false"
+            EnableBackgroundProcessor = false
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(2));
@@ -265,7 +256,7 @@ public class DeadLetterQueueProcessorTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("auto-reprocessing is disabled")),
+                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("disabled by configuration")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -320,21 +311,15 @@ public class DeadLetterQueueProcessorTests
             });
 
         // Use short interval for testing
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.02", // ~1.2 seconds
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.02 // ~1.2 seconds
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -403,21 +388,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(2));
@@ -471,21 +450,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -521,21 +494,15 @@ public class DeadLetterQueueProcessorTests
                 ProcessedEvents = 5
             });
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -581,21 +548,15 @@ public class DeadLetterQueueProcessorTests
                 FailedEvents = 5
             });
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -649,21 +610,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -692,21 +647,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetFailedEventsAsync(It.IsAny<int>()))
             .ThrowsAsync(new Exception("Database connection failed"));
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -756,21 +705,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.01",
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.01
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);
@@ -804,21 +747,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "10", // Long interval
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 10.0 // Long interval
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         var cts = new CancellationTokenSource();
 
@@ -856,21 +793,15 @@ public class DeadLetterQueueProcessorTests
             .Setup(static x => x.GetStatisticsAsync())
             .ReturnsAsync(new DeadLetterStatistics());
 
-        var configDict = new Dictionary<string, string>
+        var options = new ResilienceOptions
         {
-            ["Audit:DeadLetterQueue:AutoReprocess"] = "true",
-            ["Audit:DeadLetterQueue:ReprocessIntervalMinutes"] = "0.02", // ~1.2 seconds
-            ["Audit:DeadLetterQueue:MaxRetries"] = "3"
+            ReprocessIntervalMinutes = 0.02 // ~1.2 seconds
         };
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict!)
-            .Build();
 
         var processor = new DeadLetterQueueProcessor(
             _mockServiceProvider.Object,
             _mockLogger.Object,
-            config);
+            Options.Create(options));
 
         // Act
         await processor.StartAsync(CancellationToken.None);

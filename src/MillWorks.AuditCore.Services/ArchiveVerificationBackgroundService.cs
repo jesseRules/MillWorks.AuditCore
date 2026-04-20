@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
@@ -17,7 +18,7 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ArchiveVerificationBackgroundService> _logger;
-    private readonly ArchivalOptions _archivalOptions;
+    private readonly IOptions<ArchivalOptions> _archivalOptions;
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _startupDelay;
     private readonly TimeSpan? _intervalOverride;
@@ -25,7 +26,7 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
     public ArchiveVerificationBackgroundService(
         IServiceProvider serviceProvider,
         ILogger<ArchiveVerificationBackgroundService> logger,
-        ArchivalOptions archivalOptions)
+        IOptions<ArchivalOptions> archivalOptions)
         : this(serviceProvider, logger, archivalOptions, TimeProvider.System, null, null)
     {
     }
@@ -33,7 +34,7 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
     internal ArchiveVerificationBackgroundService(
         IServiceProvider serviceProvider,
         ILogger<ArchiveVerificationBackgroundService> logger,
-        ArchivalOptions archivalOptions,
+        IOptions<ArchivalOptions> archivalOptions,
         TimeProvider timeProvider,
         TimeSpan? startupDelay,
         TimeSpan? intervalOverride)
@@ -57,7 +58,15 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var verificationInterval = _intervalOverride ?? TimeSpan.FromHours(_archivalOptions.VerificationIntervalHours);
+        var options = _archivalOptions.Value;
+
+        if (!options.EnableBackgroundArchival)
+        {
+            _logger.LogInformation("ArchiveVerificationBackgroundService disabled by configuration");
+            return;
+        }
+
+        var verificationInterval = _intervalOverride ?? TimeSpan.FromHours(options.VerificationIntervalHours);
 
         if (_startupDelay > TimeSpan.Zero)
             await Task.Delay(_startupDelay, stoppingToken);
@@ -111,12 +120,14 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
 
     private async Task<(int VerifiedCount, int FailedCount)> ExecuteCycleAsync(CancellationToken stoppingToken)
     {
+        var options = _archivalOptions.Value;
+
         using IServiceScope scope = _serviceProvider.CreateScope();
         var archiveService = scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
         var archiveRepository = scope.ServiceProvider.GetRequiredService<IArchiveRecordRepository>();
 
         var archivesToVerify = await archiveRepository.GetArchivesNeedingVerificationAsync(
-            _archivalOptions.VerificationIntervalHours,
+            options.VerificationIntervalHours,
             stoppingToken);
 
         var verifiedCount = 0;

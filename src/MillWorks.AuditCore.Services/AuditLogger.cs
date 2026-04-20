@@ -440,7 +440,7 @@ public sealed class AuditLogger(
             Target = redactedTarget,
             CustomFields = redactedCustomFields,
             auditEvent.Success,
-            auditEvent.ErrorMessage
+            ErrorMessage = fieldRedactor.RedactValue("ErrorMessage", auditEvent.ErrorMessage)
         });
 
         // Store additional data (only serialize if non-empty)

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -32,6 +33,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<IntegrityWriteBatcher> _logger;
     private readonly IAuditDiagnostics? _diagnostics;
+    private readonly IOptions<SecurityOptions> _options;
     private readonly int _batchSize;
     private readonly TimeSpan _flushInterval;
 
@@ -45,14 +47,17 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     public IntegrityWriteBatcher(
         IServiceScopeFactory scopeFactory,
         ILogger<IntegrityWriteBatcher> logger,
-        SecurityOptions securityOptions,
+        IOptions<SecurityOptions> securityOptions,
         IAuditDiagnostics? diagnostics = null)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _diagnostics = diagnostics;
-        _batchSize = securityOptions.IntegrityBatchSize;
-        _flushInterval = securityOptions.IntegrityFlushInterval;
+        _options = securityOptions;
+
+        var opts = securityOptions.Value;
+        _batchSize = opts.IntegrityBatchSize;
+        _flushInterval = opts.IntegrityFlushInterval;
 
         // Bounded channel prevents unbounded memory growth under sustained backpressure.
         // 10x batch size gives enough runway without excessive memory use.
@@ -83,6 +88,14 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var securityOptions = _options.Value;
+
+        if (!securityOptions.EnableTamperDetection || !securityOptions.EnableBatchedIntegrityWrites)
+        {
+            _logger.LogInformation("IntegrityWriteBatcher disabled by configuration");
+            return;
+        }
+
         _logger.LogInformation(
             "IntegrityWriteBatcher started (batchSize={BatchSize}, flushInterval={FlushMs}ms)",
             _batchSize, _flushInterval.TotalMilliseconds);

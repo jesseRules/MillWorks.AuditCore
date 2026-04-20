@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database.Options;
@@ -262,7 +263,7 @@ public sealed class IntegrityWriteBatcherTests
         return new IntegrityWriteBatcher(
             _mockScopeFactory.Object,
             _mockLogger.Object,
-            options);
+            Options.Create(options));
     }
 
     private static async Task StartBatcher(IntegrityWriteBatcher batcher, CancellationToken token)

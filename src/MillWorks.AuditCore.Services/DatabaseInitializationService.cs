@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Database.Options;
 
@@ -25,7 +26,7 @@ public sealed class DatabaseInitializationService : IHostedService
     /// <summary>
     /// Options for Entity Framework database initialization
     /// </summary>
-    private readonly EntityFrameworkOptions _options;
+    private readonly IOptions<EntityFrameworkOptions> _options;
 
     /// <summary>
     /// Creates a new instance of the database initialization service
@@ -33,12 +34,12 @@ public sealed class DatabaseInitializationService : IHostedService
     public DatabaseInitializationService(
         IServiceProvider serviceProvider,
         ILogger<DatabaseInitializationService> logger,
-        EntityFrameworkOptions options)
+        IOptions<EntityFrameworkOptions> options)
     {
         ArgumentNullException.ThrowIfNull(serviceProvider);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(options);
-    
+
         _serviceProvider = serviceProvider;
         _logger = logger;
         _options = options;
@@ -49,7 +50,9 @@ public sealed class DatabaseInitializationService : IHostedService
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!_options.MigrateOnStartup && !_options.EnsureDatabaseCreated)
+        var options = _options.Value;
+
+        if (!options.MigrateOnStartup && !options.EnsureDatabaseCreated)
         {
             _logger.LogInformation("Database migration on startup is disabled");
             return;
@@ -62,7 +65,7 @@ public sealed class DatabaseInitializationService : IHostedService
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
 
-            if (_options.MigrateOnStartup)
+            if (options.MigrateOnStartup)
             {
                 // MigrateAsync creates the database if it doesn't exist AND applies migrations.
                 // Do NOT call EnsureCreated here — it creates schema without __EFMigrationsHistory
@@ -87,7 +90,7 @@ public sealed class DatabaseInitializationService : IHostedService
                     _logger.LogInformation("Database is up to date. No migrations needed");
                 }
             }
-            else if (_options.EnsureDatabaseCreated)
+            else if (options.EnsureDatabaseCreated)
             {
                 // EnsureCreated is for prototyping/testing only — no migration history is tracked.
                 // Do NOT combine with MigrateOnStartup.
@@ -96,7 +99,7 @@ public sealed class DatabaseInitializationService : IHostedService
             }
 
             // Optional: Seed initial data if needed
-            if (_options.SeedInitialData)
+            if (options.SeedInitialData)
             {
                 await SeedInitialDataAsync(context, cancellationToken);
             }
@@ -106,7 +109,7 @@ public sealed class DatabaseInitializationService : IHostedService
             _logger.LogError(ex, "Error occurred during database initialization");
 
             // Only throw if we're configured to fail on migration errors
-            if (_options.FailOnMigrationError)
+            if (options.FailOnMigrationError)
             {
                 throw;
             }
