@@ -278,12 +278,13 @@ builder.Services.AddMillWorksAudit(audit =>
     audit.Options.Environment = "Production";     // Default: "Production"
     audit.Options.EnableDigitalSignatures = true;
     audit.Options.HmacKey = builder.Configuration["Audit:HmacKey"]!;
+    audit.Options.FailureMode = AuditFailureMode.FailClosedForRegulated; // Regulated-app posture; see "Fail-Closed Audit Failures" below
 
     // Entity Framework storage (required)
     audit.UseEntityFramework(ef =>
     {
         ef.ConnectionString = "Server=...";
-        ef.Schema = "audit";                // SQL Server schema (default: "audit")
+        ef.Schema = "audit";                // Default schema; built-in migrations are anchored to "audit"
         ef.MigrateOnStartup = true;         // Apply EF migrations on startup (default: false)
         ef.EnsureDatabaseCreated = false;    // Use EnsureCreated for dev (default: true)
         ef.MigrationTimeoutSeconds = 120;    // Default: 300
@@ -368,6 +369,45 @@ builder.Services.AddMillWorksAudit(audit =>
 | `MigrateOnStartup` | `false` | Applies EF Core migrations on startup. Use this in production for schema evolution. |
 
 If both are set to `false`, the application assumes the audit schema already exists. The first audit write will throw a `DbUpdateException` if the tables are missing. For production deployments, either enable `MigrateOnStartup` or apply migrations as part of your deployment pipeline (`dotnet ef database update`).
+
+### Custom SQL Server Schemas
+
+`EntityFrameworkOptions.Schema` (default: `"audit"`) is applied to the runtime model at startup. It is validated against a SQL identifier pattern, and reserved names (`dbo`, `sys`, `guest`, `INFORMATION_SCHEMA`) are rejected at host boot.
+
+The built-in EF migrations shipped with this package are **anchored to the `"audit"` schema** — every `CreateTable`, `EnsureSchema`, and the `__EFMigrationsHistory` table reference `"audit"` literally. This means:
+
+- **Default schema (`Schema = "audit"`):** `MigrateOnStartup = true` works normally; packaged migrations apply cleanly.
+- **Custom schema (`Schema = "<other>"`):** **fresh-database-only**. Set `EnsureDatabaseCreated = true`; the runtime model creates tables under your configured schema. Do **not** set `MigrateOnStartup = true` under a custom schema — the packaged migrations target `"audit"` regardless of the option value and will not produce your tables.
+
+Parameterized migration regeneration (producing a migration set against a non-`"audit"` schema) is out of scope for the shipped package. If you need a custom schema with migrations, fork the migration set and regenerate it against your chosen schema as a dedicated migration path.
+
+### Fail-Closed Audit Failures
+
+`AuditOptions.FailureMode` controls what happens when the EF audit interceptor fails to build audit log records during `SaveChangesAsync`:
+
+| Mode | Behavior |
+|------|----------|
+| `AuditFailureMode.Permissive` (default) | Audit failure is logged and swallowed. Business `SaveChanges` commits without the audit record. Matches historical behavior. |
+| `AuditFailureMode.FailClosedForRegulated` | When any modified entity is regulated, the interceptor rethrows `AuditIntegrityException` and the business transaction rolls back. Non-regulated entities remain permissive. |
+| `AuditFailureMode.FailClosedAlways` | Rethrows on every audit build failure. |
+
+**Regulated-entity detection (default).** An entity is considered regulated when its class carries `[FERPA]` or `[PHI]`, or when any property carries `[SensitiveData(ApplicableStandards = ...)]` including `HIPAA`, `FERPA`, `GDPR`, or `PCI_DSS`. Register a custom `IAuditFailurePolicy` before `AddMillWorksAudit` if you need tenant-, operation-, or user-specific rules.
+
+**Regulated-application snippet.** For HIPAA / FERPA / GDPR / PCI-DSS deployments, set `FailureMode` to `FailClosedForRegulated`:
+
+```csharp
+audit.Options.FailureMode = AuditFailureMode.FailClosedForRegulated;
+```
+
+When the EF interceptor fails to build audit log records for a regulated entity, `SaveChangesAsync` will throw `AuditIntegrityException` and roll back the business transaction — preventing writes that lack a matching audit record. Non-regulated entities retain the default permissive behavior in the same deployment.
+
+**Scope.** `FailureMode` governs the **EF interceptor audit-build path only**. The following audit paths are **not** affected by `AuditFailureMode` and retain their own failure semantics:
+
+- `ResilientAuditLogger` — remains fail-open by architecture (retry → dead letter queue → emergency fallback file). Designed for direct `IAuditLogger.LogAsync` callers.
+- `AuditContextMiddleware` deferred request-audit dispatch — currently catches and logs; DLQ routing is a separate concern.
+- Background hosted services (integrity batcher/reconciler, DLQ processor, archive services) — each service decides its own failure behavior.
+
+A regulated deployment that wants end-to-end audit-completeness across every path should treat `FailClosedForRegulated` as one layer, not the single switch.
 
 ### Deferred Request Audit Middleware
 

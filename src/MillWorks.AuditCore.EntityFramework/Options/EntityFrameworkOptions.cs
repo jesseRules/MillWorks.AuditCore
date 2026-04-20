@@ -1,6 +1,7 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 
-namespace MillWorks.AuditCore.Services.Database.Options;
+namespace MillWorks.AuditCore.EntityFramework.Options;
 
 /// <summary>
 /// Entity Framework options for audit logging with enhanced migration control
@@ -50,6 +51,12 @@ public sealed class EntityFrameworkOptions
 /// </summary>
 internal sealed class EntityFrameworkOptionsValidator : IValidateOptions<EntityFrameworkOptions>
 {
+    private static readonly Regex SchemaIdentifierRegex =
+        new(@"^[A-Za-z_][A-Za-z0-9_]{0,127}$", RegexOptions.Compiled);
+
+    private static readonly HashSet<string> ReservedSchemas =
+        new(StringComparer.OrdinalIgnoreCase) { "dbo", "sys", "guest", "INFORMATION_SCHEMA" };
+
     public ValidateOptionsResult Validate(string? name, EntityFrameworkOptions options)
     {
         var failures = new List<string>();
@@ -65,6 +72,19 @@ internal sealed class EntityFrameworkOptionsValidator : IValidateOptions<EntityF
         {
             failures.Add(
                 $"{nameof(EntityFrameworkOptions.MigrationTimeoutSeconds)} must be > 0.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.Schema))
+        {
+            failures.Add($"{nameof(EntityFrameworkOptions.Schema)} must not be null or whitespace.");
+        }
+        else if (!SchemaIdentifierRegex.IsMatch(options.Schema))
+        {
+            failures.Add($"{nameof(EntityFrameworkOptions.Schema)} must match identifier pattern ^[A-Za-z_][A-Za-z0-9_]{{0,127}}$.");
+        }
+        else if (ReservedSchemas.Contains(options.Schema))
+        {
+            failures.Add($"{nameof(EntityFrameworkOptions.Schema)} must not be a reserved SQL Server schema (dbo, sys, guest, INFORMATION_SCHEMA).");
         }
 
         return failures.Count == 0

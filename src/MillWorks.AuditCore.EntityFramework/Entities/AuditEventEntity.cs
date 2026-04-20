@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// <summary>
 /// Audit Event Entity
 /// </summary>
-[Table("AuditEvents", Schema = "audit")]
+[Table("AuditEvents")]
 [Index(nameof(UserId), Name = "IX_AuditEvents_UserId")]
 [Index(nameof(AspNetUserId), Name = "IX_AuditEvents_AspNetUserId")]
 [Index(nameof(TenantId), Name = "IX_AuditEvents_TenantId")]

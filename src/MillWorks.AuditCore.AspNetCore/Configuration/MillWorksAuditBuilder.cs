@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -9,6 +10,7 @@ using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.AspNetCore.Services;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -125,6 +127,10 @@ public sealed class MillWorksAuditBuilder
         // Configure Mapster
         ConfigureMapster();
 
+        // Default audit failure policy. TryAdd lets consumers register a custom
+        // IAuditFailurePolicy before AddMillWorksAudit to override regulated-entity detection.
+        Services.TryAddSingleton<IAuditFailurePolicy, RegulatedEntityFailurePolicy>();
+
         // Register the audit interceptor as a singleton.
         // ComplianceOptions, IConsentVerificationService, and IAuditDiagnostics may not be registered
         // (UseCompliance() is optional, diagnostics is always registered). GetService returns null when not registered.
@@ -134,11 +140,15 @@ public sealed class MillWorksAuditBuilder
             var complianceOptions = sp.GetService<ComplianceOptions>();
             var consentService = sp.GetService<IConsentVerificationService>();
             var diagnostics = sp.GetService<IAuditDiagnostics>();
+            var auditOptions = sp.GetRequiredService<IOptions<AuditOptions>>().Value;
+            var failurePolicy = sp.GetRequiredService<IAuditFailurePolicy>();
             return new AuditSaveChangesInterceptor(
                 logger,
                 complianceOptions?.EnforcementMode,
                 consentService,
-                diagnostics);
+                diagnostics,
+                auditOptions.FailureMode,
+                failurePolicy);
         });
 
         // Configure DbContext with interceptor and circular dependency prevention
@@ -156,6 +166,11 @@ public sealed class MillWorksAuditBuilder
                 sqlOptions.CommandTimeout(efOptions.MigrationTimeoutSeconds);
                 sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
             });
+
+            // Replace the default model-cache-key factory so the compiled-model cache is keyed
+            // on schema alongside context type. Without this, processes that construct
+            // AuditApplicationDbContext with different schemas could reuse the wrong model.
+            options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>();
 
             var interceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
             options.AddInterceptors(interceptor);

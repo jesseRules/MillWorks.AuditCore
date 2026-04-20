@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Extensions;
+using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.EntityFramework.Primitives;
 
 namespace MillWorks.AuditCore.EntityFramework.Data;
@@ -23,6 +25,19 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// </summary>
     private readonly IFieldEncryptionService? _encryptionService;
 
+    /// <summary>
+    /// Configured schema for audit tables. Defaults to "audit" when no options are injected
+    /// (direct construction, design-time factory). Stored for use by <c>OnModelCreating</c>
+    /// in a later step; not yet consumed.
+    /// </summary>
+    private readonly string _schema;
+
+    /// <summary>
+    /// Configured schema for audit tables. Exposed for <see cref="AuditModelCacheKeyFactory"/>
+    /// so the compiled-model cache is keyed on schema alongside context type.
+    /// </summary>
+    internal string Schema => _schema;
+
     /// <inheritdoc />
     public bool BypassAuditInterceptor
     {
@@ -39,12 +54,19 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// <see cref="Attributes.EncryptedFieldAttribute"/> are automatically encrypted/decrypted
     /// via EF Core value converters.
     /// </param>
+    /// <param name="efOptions">
+    /// Optional Entity Framework options. Supplies the configured schema name. When null,
+    /// the schema defaults to "audit" for compatibility with design-time tooling and direct
+    /// construction.
+    /// </param>
     public AuditApplicationDbContext(
         DbContextOptions<AuditApplicationDbContext> options,
-        IFieldEncryptionService? encryptionService = null)
+        IFieldEncryptionService? encryptionService = null,
+        IOptions<EntityFrameworkOptions>? efOptions = null)
         : base(options)
     {
         _encryptionService = encryptionService;
+        _schema = efOptions?.Value.Schema ?? "audit";
     }
 
     /// <summary>
@@ -52,10 +74,12 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// </summary>
     protected AuditApplicationDbContext(
         DbContextOptions options,
-        IFieldEncryptionService? encryptionService = null)
+        IFieldEncryptionService? encryptionService = null,
+        IOptions<EntityFrameworkOptions>? efOptions = null)
         : base(options)
     {
         _encryptionService = encryptionService;
+        _schema = efOptions?.Value.Schema ?? "audit";
     }
 
     /// <summary>
@@ -190,6 +214,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
     /// <param name="modelBuilder"></param>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema(_schema);
+
         ConfigureAudit(modelBuilder);
         ConfigureConcurrency(modelBuilder);
 
@@ -372,14 +398,14 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
             if (isInMemory)
             {
                 // InMemory: entity property initializers handle defaults
-                entity.ToTable("ArchiveRecord", "audit");
+                entity.ToTable("ArchiveRecord");
             }
             else if (isSqlite)
             {
                 entity.Property(static e => e.CreatedAt)
                     .HasDefaultValueSql("datetime('now')");
 
-                entity.ToTable("ArchiveRecord", "audit", static t => t.HasCheckConstraint("CK_ArchiveRecord_DateRange",
+                entity.ToTable("ArchiveRecord", static t => t.HasCheckConstraint("CK_ArchiveRecord_DateRange",
                     "\"DateRangeEnd\" >= \"DateRangeStart\""));
             }
             else
@@ -388,7 +414,7 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable
                 entity.Property(static e => e.CreatedAt)
                     .HasDefaultValueSql("GETUTCDATE()");
 
-                entity.ToTable("ArchiveRecord", "audit", static t => t.HasCheckConstraint("CK_ArchiveRecord_DateRange",
+                entity.ToTable("ArchiveRecord", static t => t.HasCheckConstraint("CK_ArchiveRecord_DateRange",
                     "[DateRangeEnd] >= [DateRangeStart]"));
             }
         });

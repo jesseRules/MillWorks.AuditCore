@@ -9,7 +9,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// <summary>
 /// Enhanced AuditLogEntity with better indexes
 /// </summary>
-[Table("AuditLogs", Schema = "audit")]
+[Table("AuditLogs")]
 [Index(nameof(CreatedAt), Name = "IX_AuditLogs_CreatedAt")]
 [Index(nameof(EntityName), nameof(EntityId), Name = "IX_AuditLogs_Entity")]
 [Index(nameof(CreatedById), Name = "IX_AuditLogs_CreatedBy")]

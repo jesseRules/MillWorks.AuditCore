@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// Enhanced AuditIntegrityEntity with proper EF attributes for migrations
 /// </summary>
 [NoAudit]
-[Table("AuditIntegrity", Schema = "audit")]
+[Table("AuditIntegrity")]
 [Index(nameof(EventId), IsUnique = true, Name = "IX_AuditIntegrity_EventId")]
 [Index(nameof(SequenceNumber), IsUnique = true, Name = "IX_AuditIntegrity_SequenceNumber")]
 [Index(nameof(TrustedTimestamp), Name = "IX_AuditIntegrity_Timestamp")]

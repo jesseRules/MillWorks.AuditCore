@@ -16,7 +16,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// these work items and marks them complete after creating the integrity record.
 /// </summary>
 [NoAudit]
-[Table("AuditIntegrityWorkItems", Schema = "audit")]
+[Table("AuditIntegrityWorkItems")]
 [Index(nameof(Status), Name = "IX_IntegrityWorkItems_Status")]
 [Index(nameof(EventId), IsUnique = true, Name = "IX_IntegrityWorkItems_EventId")]
 [Index(nameof(LeaseExpiresAt), Name = "IX_IntegrityWorkItems_LeaseExpiry")]

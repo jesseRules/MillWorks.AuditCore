@@ -103,6 +103,9 @@ public static class ServiceCollectionExtensions
                     if (auditOptions.AllowPassThroughRedactor != baselineAuditOptions.AllowPassThroughRedactor)
                         opts.AllowPassThroughRedactor = auditOptions.AllowPassThroughRedactor;
 
+                    if (auditOptions.FailureMode != baselineAuditOptions.FailureMode)
+                        opts.FailureMode = auditOptions.FailureMode;
+
                     if (auditOptions.DefaultCustomFields.Count > 0)
                         opts.DefaultCustomFields = new Dictionary<string, object>(auditOptions.DefaultCustomFields);
                 })

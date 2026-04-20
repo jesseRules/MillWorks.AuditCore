@@ -77,6 +77,14 @@ public interface IAuditDiagnostics
     long IntegrityPermanentFailureCount { get; }
 
     /// <summary>
+    /// Number of times the EF audit interceptor failed to build audit log records
+    /// while processing a save. Incremented whether the failure was swallowed
+    /// (Permissive mode) or rethrown (fail-closed modes) — dashboards can pick up
+    /// sustained non-zero rates as an audit-pipeline regression signal.
+    /// </summary>
+    long InterceptorAuditFailureCount { get; }
+
+    /// <summary>
     /// Increments the specified counter by one.
     /// </summary>
     void Increment(AuditDiagnosticCounter counter);
@@ -104,5 +112,6 @@ public enum AuditDiagnosticCounter
     IntegrityBatchFlushFailure,
     IntegrityReconciliationSuccess,
     IntegrityReconciliationFailure,
-    IntegrityPermanentFailure
+    IntegrityPermanentFailure,
+    InterceptorAuditFailure
 }

@@ -100,6 +100,37 @@ public sealed class OptionsFlowTests
     }
 
     [Test]
+    public void FluentFailureMode_FlowsThroughOptionsPipeline()
+    {
+        var services = BuildServices(
+            config: null,
+            configure: builder => builder.Options.FailureMode = AuditFailureMode.FailClosedForRegulated);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(options.FailureMode, Is.EqualTo(AuditFailureMode.FailClosedForRegulated));
+    }
+
+    [Test]
+    public void ConfigurationFailureMode_FallbackResolves()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:FailureMode"] = nameof(AuditFailureMode.FailClosedAlways)
+            })
+            .Build();
+
+        var services = BuildServices(config: config, configure: null);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(options.FailureMode, Is.EqualTo(AuditFailureMode.FailClosedAlways));
+    }
+
+    [Test]
     public async Task TamperDetectionService_HmacSignature_MatchesAcrossFluentAndConfigPaths()
     {
         const string sharedKey = "shared-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";

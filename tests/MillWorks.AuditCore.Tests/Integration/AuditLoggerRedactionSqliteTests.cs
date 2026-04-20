@@ -69,4 +69,47 @@ public sealed class AuditLoggerRedactionSqliteTests : SqliteIntegrationFixture
         Assert.That(persisted.JsonData, Does.Not.Contain("Password="));
         Assert.That(persisted.JsonData, Does.Contain("[SANITIZED]"));
     }
+
+    [Test]
+    public async Task LogAsync_ErrorMessageWithStudentIdInUniqueKeyViolation_SanitizedBeforePersistence()
+    {
+        const string rawErrorMessage =
+            "Cannot insert duplicate key row in object 'dbo.StudentRecords'. The duplicate key value is ('STUDENT-12345').";
+
+        using var context = CreateContext();
+        var repository = new AuditEventRepository(context);
+        var redactor = new DefaultAuditFieldRedactor();
+
+        var securityOptions = Microsoft.Extensions.Options.Options.Create(new SecurityOptions
+        {
+            EnableTamperDetection = false,
+            EnableBatchedIntegrityWrites = false
+        });
+
+        var auditLogger = new AuditLogger(
+            NullLogger<AuditLogger>.Instance,
+            Mock.Of<IAuditEventFactory>(),
+            repository,
+            context,
+            Mock.Of<IAuditContext>(),
+            redactor,
+            tamperDetectionService: null,
+            integrityWriteBatcher: null,
+            securityOptions: securityOptions);
+
+        await auditLogger.LogAsync(new AuditEvent
+        {
+            EventId = Guid.NewGuid(),
+            EventType = "Test.FerpaValidation",
+            StartDate = DateTimeOffset.UtcNow,
+            ErrorMessage = rawErrorMessage
+        });
+
+        using var verifyContext = CreateContext();
+        var persisted = await verifyContext.Set<AuditEventEntity>().SingleAsync();
+
+        Assert.That(persisted.JsonData, Is.Not.Null);
+        Assert.That(persisted.JsonData, Does.Not.Contain("STUDENT-12345"));
+        Assert.That(persisted.JsonData, Does.Contain("[SANITIZED]"));
+    }
 }

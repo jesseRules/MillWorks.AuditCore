@@ -6,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.AspNetCore.Configuration;
 using MillWorks.AuditCore.EntityFramework.Data;
+using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Services.Core;
@@ -85,6 +86,41 @@ public class MillWorksAuditBuilderTests
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditArchivalService)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMaintenanceService)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditMetaTrackingService)), Is.True);
+    }
+
+    [Test]
+    public void UseEntityFramework_RegistersDefaultRegulatedEntityFailurePolicy()
+    {
+        _builder.UseEntityFramework(static ef =>
+        {
+            ef.ConnectionString = "Server=test;Database=test;";
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var policy = provider.GetRequiredService<IAuditFailurePolicy>();
+
+        Assert.That(policy, Is.TypeOf<RegulatedEntityFailurePolicy>());
+    }
+
+    [Test]
+    public void UseEntityFramework_RespectsConsumerOverrideOfFailurePolicy()
+    {
+        _services.AddSingleton<IAuditFailurePolicy, StubFailurePolicy>();
+
+        _builder.UseEntityFramework(static ef =>
+        {
+            ef.ConnectionString = "Server=test;Database=test;";
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var policy = provider.GetRequiredService<IAuditFailurePolicy>();
+
+        Assert.That(policy, Is.TypeOf<StubFailurePolicy>());
+    }
+
+    private sealed class StubFailurePolicy : IAuditFailurePolicy
+    {
+        public bool ShouldFailClosed(AuditFailureContext context) => false;
     }
 
     [Test]

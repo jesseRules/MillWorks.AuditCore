@@ -12,7 +12,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
-using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Mapping;
 using MillWorks.AuditCore.Services.Query;

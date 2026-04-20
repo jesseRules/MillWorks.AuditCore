@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// Security events are generated in response to suspicious activities, integrity violations,
 /// unauthorized access attempts, and other security-related incidents.
 /// </summary>
-[Table("SecurityEvents", Schema = "audit")]
+[Table("SecurityEvents")]
 [Index(nameof(EventType), Name = "IX_SecurityEvents_EventType")]
 [Index(nameof(Severity), Name = "IX_SecurityEvents_Severity")]
 [Index(nameof(DetectedAt), Name = "IX_SecurityEvents_DetectedAt")]

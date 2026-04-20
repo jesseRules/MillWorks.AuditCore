@@ -153,12 +153,12 @@ public sealed class AuditEventRedactionHelperEdgeCaseTests
     public void RedactEvent_PreservesAction()
     {
         var evt = TestAuditEventBuilder.Create()
-            .WithAction(Abstractions.Enums.AuditAction.Updated)
+            .WithAction(MillWorks.AuditCore.Abstractions.Enums.AuditAction.Updated)
             .Build();
 
         var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
 
-        result.Action.Should().Be(Abstractions.Enums.AuditAction.Updated);
+        result.Action.Should().Be(MillWorks.AuditCore.Abstractions.Enums.AuditAction.Updated);
     }
 
     [Test]

@@ -26,6 +26,7 @@ public sealed class AuditDiagnosticsTests
         Assert.That(_diagnostics.DlqReplayFailureCount, Is.Zero);
         Assert.That(_diagnostics.TamperDetectionRetryCount, Is.Zero);
         Assert.That(_diagnostics.EmergencyFallbackWriteCount, Is.Zero);
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.Zero);
     }
 
     [Test]
@@ -49,6 +50,7 @@ public sealed class AuditDiagnosticsTests
         _diagnostics.Increment(AuditDiagnosticCounter.DlqReplayFailure);
         _diagnostics.Increment(AuditDiagnosticCounter.TamperDetectionRetry);
         _diagnostics.Increment(AuditDiagnosticCounter.EmergencyFallbackWrite);
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
 
         Assert.That(_diagnostics.SnapshotSerializationFallbackCount, Is.EqualTo(1));
         Assert.That(_diagnostics.SnapshotSerializationTotalFailureCount, Is.EqualTo(1));
@@ -58,6 +60,7 @@ public sealed class AuditDiagnosticsTests
         Assert.That(_diagnostics.DlqReplayFailureCount, Is.EqualTo(1));
         Assert.That(_diagnostics.TamperDetectionRetryCount, Is.EqualTo(1));
         Assert.That(_diagnostics.EmergencyFallbackWriteCount, Is.EqualTo(1));
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -66,12 +69,14 @@ public sealed class AuditDiagnosticsTests
         _diagnostics.Increment(AuditDiagnosticCounter.SnapshotSerializationFallback);
         _diagnostics.Increment(AuditDiagnosticCounter.DlqStoreOperation);
         _diagnostics.Increment(AuditDiagnosticCounter.EmergencyFallbackWrite);
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
 
         _diagnostics.Reset();
 
         Assert.That(_diagnostics.SnapshotSerializationFallbackCount, Is.Zero);
         Assert.That(_diagnostics.DlqStoreOperationCount, Is.Zero);
         Assert.That(_diagnostics.EmergencyFallbackWriteCount, Is.Zero);
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.Zero);
     }
 
     [Test]
@@ -79,6 +84,33 @@ public sealed class AuditDiagnosticsTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             _diagnostics.Increment((AuditDiagnosticCounter)999));
+    }
+
+    [Test]
+    public void InterceptorAuditFailureCount_IsInitiallyZero()
+    {
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.Zero);
+    }
+
+    [Test]
+    public void Increment_InterceptorAuditFailure_IncrementsByOne()
+    {
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Reset_ClearsInterceptorAuditFailureCount()
+    {
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+        _diagnostics.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+
+        _diagnostics.Reset();
+
+        Assert.That(_diagnostics.InterceptorAuditFailureCount, Is.Zero);
     }
 
     [Test]

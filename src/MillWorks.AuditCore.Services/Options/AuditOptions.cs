@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Dto;
 
 namespace MillWorks.AuditCore.Services.Options;
 
@@ -86,6 +87,15 @@ public sealed class AuditOptions
     /// sensitive data (PHI/PII) will be persisted unredacted in audit storage.
     /// </summary>
     public bool AllowPassThroughRedactor { get; set; }
+
+    /// <summary>
+    /// Controls how the EF audit interceptor responds to failures building audit
+    /// log records. Default <see cref="AuditFailureMode.Permissive"/> preserves
+    /// the historical "audit must never break the application's SaveChanges"
+    /// behavior. Fail-closed modes rethrow and roll back the business transaction
+    /// when the policy considers the save regulated.
+    /// </summary>
+    public AuditFailureMode FailureMode { get; set; } = AuditFailureMode.Permissive;
 
     /// <summary>
     /// Default custom fields to include in every audit event

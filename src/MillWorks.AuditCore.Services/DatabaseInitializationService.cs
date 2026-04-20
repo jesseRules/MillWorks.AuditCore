@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Data;
-using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.EntityFramework.Options;
 
 namespace MillWorks.AuditCore.Services.Database;
 

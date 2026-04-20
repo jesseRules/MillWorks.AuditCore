@@ -21,6 +21,7 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     private long _integrityReconciliationSuccessCount;
     private long _integrityReconciliationFailureCount;
     private long _integrityPermanentFailureCount;
+    private long _interceptorAuditFailureCount;
 
     /// <inheritdoc />
     public long SnapshotSerializationFallbackCount =>
@@ -75,6 +76,10 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Read(ref _integrityPermanentFailureCount);
 
     /// <inheritdoc />
+    public long InterceptorAuditFailureCount =>
+        Interlocked.Read(ref _interceptorAuditFailureCount);
+
+    /// <inheritdoc />
     public void Increment(AuditDiagnosticCounter counter)
     {
         switch (counter)
@@ -118,6 +123,9 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
             case AuditDiagnosticCounter.IntegrityPermanentFailure:
                 Interlocked.Increment(ref _integrityPermanentFailureCount);
                 break;
+            case AuditDiagnosticCounter.InterceptorAuditFailure:
+                Interlocked.Increment(ref _interceptorAuditFailureCount);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(counter), counter,
                     $"Unhandled diagnostic counter: {counter}");
@@ -140,5 +148,6 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Exchange(ref _integrityReconciliationSuccessCount, 0);
         Interlocked.Exchange(ref _integrityReconciliationFailureCount, 0);
         Interlocked.Exchange(ref _integrityPermanentFailureCount, 0);
+        Interlocked.Exchange(ref _interceptorAuditFailureCount, 0);
     }
 }

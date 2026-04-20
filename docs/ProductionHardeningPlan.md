@@ -118,12 +118,12 @@ This plan closes the six "top concerns" surfaced in the 2026-04-19 review. Order
 ### Work items
 - [x] Route `auditEvent.ErrorMessage` through `fieldRedactor.RedactValue("ErrorMessage", ...)` (or the `SensitiveContentSanitizer` the redactor delegates to) before it goes into the `JsonData` payload.
 - [x] Do the same for the `ErrorMessage` column mapping if it exists on `AuditEventEntity` — confirm or add. *(Confirmed absent: `AuditEventEntity` has no `ErrorMessage` column; the persisted error-message surface is the `JsonData` payload, already covered by checkbox 1.)*
-- [ ] Add a regression test that logs an audit event with a SQL-like exception message such as `"Login failed for user 'sa' with password 'Password123!' at server 10.0.0.5"` and asserts the persisted `JsonData` contains `[REDACTED]`-style placeholders rather than the raw password/IP. Do not construct `SqlException` directly; use a plain `Exception`, fake `DbException`, or helper exception with the same message.
-- [ ] Add a second test for PHI-in-exception (e.g., a FERPA entity whose validation throws with the student ID in the message) — asserts the ID is redacted.
+- [x] Add a regression test that logs an audit event with a SQL-like exception message such as `"Login failed for user 'sa' with password 'Password123!' at server 10.0.0.5"` and asserts the persisted `JsonData` contains `[REDACTED]`-style placeholders rather than the raw password/IP. Do not construct `SqlException` directly; use a plain `Exception`, fake `DbException`, or helper exception with the same message.
+- [x] Add a second test for PHI-in-exception (e.g., a FERPA entity whose validation throws with the student ID in the message) — asserts the ID is redacted.
 
 ### Acceptance
-- Both redaction tests pass against a real SQLite context (not `InMemoryDatabase`, because the JSON column behavior differs).
-- `ComplianceTraceabilityMatrix.md` gets a row linking "PHI must not leak into audit payload" → this test.
+- [x] Both redaction tests pass against a real SQLite context (not `InMemoryDatabase`, because the JSON column behavior differs). — `tests/MillWorks.AuditCore.Tests/Integration/AuditLoggerRedactionSqliteTests.cs` (2 tests, both green, real SQLite via `SqliteIntegrationFixture`).
+- [x] `ComplianceTraceabilityMatrix.md` gets a row linking "PHI must not leak into audit payload" → this test. — new `## Audit Payload Protection (Cross-cutting)` section.
 
 ---
 
@@ -139,21 +139,21 @@ Two viable paths. Pick one up-front.
 **B. Remove it.** Mark `Schema` `[Obsolete("Schema is fixed to 'audit'. Override by subclassing the DbContext.", error: true)]` and delete the property in the next minor version. Document the "subclass your own context" escape hatch.
 
 ### Work items (path A — chosen unless Jesse flips)
-- [ ] Remove `Schema = "audit"` from all `[Table]` attributes on audit entities.
-- [ ] In `AuditApplicationDbContext.OnModelCreating`, call `modelBuilder.HasDefaultSchema(_efOptions.Schema)` (inject options via ctor).
-- [ ] Add an `IModelCacheKeyFactory` that includes the configured schema. EF Core caches models by context type; without this, multiple schemas in one process can reuse the wrong model.
-- [ ] Update `DesignTimeDbContextFactory` so migrations/design-time tooling has a deterministic schema. Decide whether migration generation always targets `audit` or accepts a build-time environment variable for custom schema.
-- [ ] Decide the migration support contract:
-  - [ ] Default `audit` schema must continue to migrate existing databases.
-  - [ ] Custom schema support is fresh-database only unless a live schema-rename migration is explicitly added.
-  - [ ] Document that existing deployments using `audit` cannot be moved to a custom schema by toggling configuration alone.
-- [ ] Update migrations/model snapshot strategy. Static EF migrations cannot be truly runtime-parameterized in the normal generated form, so verify the chosen approach with `dotnet ef migrations add` / model snapshot inspection before implementation is considered done.
+- [x] Remove `Schema = "audit"` from all `[Table]` attributes on audit entities.
+- [x] In `AuditApplicationDbContext.OnModelCreating`, call `modelBuilder.HasDefaultSchema(_efOptions.Schema)` (inject options via ctor).
+- [x] Add an `IModelCacheKeyFactory` that includes the configured schema. EF Core caches models by context type; without this, multiple schemas in one process can reuse the wrong model.
+- [x] Update `DesignTimeDbContextFactory` so migrations/design-time tooling has a deterministic schema. Decide whether migration generation always targets `audit` or accepts a build-time environment variable for custom schema. *(Decision: migration generation always targets `"audit"`. `DesignTimeDbContextFactory` already hardcodes this for `MigrationsHistoryTable`; no source adjustment required. Decision documented in `README.md#custom-sql-server-schemas` and `ARCHITECTURE.md#schema-configuration-and-migration-anchoring`.)*
+- [x] Decide the migration support contract:
+  - [x] Default `audit` schema must continue to migrate existing databases.
+  - [x] Custom schema support is fresh-database only unless a live schema-rename migration is explicitly added.
+  - [x] Document that existing deployments using `audit` cannot be moved to a custom schema by toggling configuration alone.
+- [x] Update migrations/model snapshot strategy. Static EF migrations cannot be truly runtime-parameterized in the normal generated form, so verify the chosen approach with `dotnet ef migrations add` / model snapshot inspection before implementation is considered done. *(Scratch `dotnet ef migrations add ScratchSchemaVerification` produced empty `Up`/`Down` bodies; snapshot diff was cosmetic only — `.HasDefaultSchema("audit")` annotation + `ProductVersion` bump. No drift.)*
 - [ ] Integration test (SQL Server, Phase 6 harness): configure `Schema = "audit_custom"`, run migrations, assert `INFORMATION_SCHEMA.TABLES` shows tables under `audit_custom`, write + read + tamper-chain verify succeed.
 
 ### Acceptance
-- The test above passes.
-- Builder-level smoke test catches `Schema` with reserved names / invalid identifiers early (regex guard in `EntityFrameworkOptions.Validate()`).
-- A design-time migration command succeeds after the schema changes, and the resulting model snapshot/table mappings match the chosen schema contract.
+- [ ] The test above passes.
+- [x] Builder-level smoke test catches `Schema` with reserved names / invalid identifiers early (regex guard in `EntityFrameworkOptions.Validate()`). — `tests/MillWorks.AuditCore.Tests/Services/EntityFrameworkOptionsTests.cs` (21 parameterized cases, all green; covers null/whitespace, non-identifier shapes, >128-char length, and case-insensitive reserved `dbo`/`sys`/`guest`/`INFORMATION_SCHEMA`).
+- [x] A design-time migration command succeeds after the schema changes, and the resulting model snapshot/table mappings match the chosen schema contract. — Scratch `dotnet ef migrations add` run in step 5 produced empty `Up`/`Down` bodies against the default schema; `ConfiguredSchemaTests` (step 4) proves entity mappings honor custom schemas at the model metadata layer.
 
 ---
 
@@ -164,18 +164,18 @@ Two viable paths. Pick one up-front.
 **User directive:** "I like giving the option to fail to the consuming app." Fail-closed must be **opt-in, granular, and documented**.
 
 ### Work items
-- [ ] Add `AuditFailureMode` enum to `AuditCore.Abstractions`: `Permissive` (current), `FailClosedForRegulated` (throws only when the entity has `[FERPA]`, `[PHI]`, or `[SensitiveData]` with regulated applicable standards), `FailClosedAlways` (throws on any audit failure).
-- [ ] Add `AuditOptions.FailureMode` with default `Permissive`. Add `IAuditFailurePolicy` extension point so consumers can inject custom predicates (per-entity, per-operation, per-tenant).
-- [ ] In `AuditSaveChangesInterceptor.cs:514` and in the companion `SavingChanges` path, consult the policy before swallowing. If fail-closed applies, rethrow an `AuditIntegrityException` that wraps the original and carries the entity name / action / failure reason.
-- [ ] Make the policy evaluate the entities involved in the failed audit attempt, not only the exception. For modified entities, preserve enough context before the failing audit write so the exception can identify regulated entity type and action.
-- [ ] Emit a specific OpenTelemetry counter `auditcore.interceptor.failures_total{mode=...,entity=...}` for both the swallowed-log path and the rethrown path so dashboards pick up regressions.
-- [ ] Document the three modes and the policy extension in `ARCHITECTURE.md` and `ComplianceTraceabilityMatrix.md`.
+- [x] Add `AuditFailureMode` enum to `AuditCore.Abstractions`: `Permissive` (current), `FailClosedForRegulated` (throws only when the entity has `[FERPA]`, `[PHI]`, or `[SensitiveData]` with regulated applicable standards), `FailClosedAlways` (throws on any audit failure).
+- [x] Add `AuditOptions.FailureMode` with default `Permissive`. Add `IAuditFailurePolicy` extension point so consumers can inject custom predicates (per-entity, per-operation, per-tenant).
+- [x] In `AuditSaveChangesInterceptor.cs:514` and in the companion `SavingChanges` path, consult the policy before swallowing. If fail-closed applies, rethrow an `AuditIntegrityException` that wraps the original and carries the entity name / action / failure reason.
+- [x] Make the policy evaluate the entities involved in the failed audit attempt, not only the exception. For modified entities, preserve enough context before the failing audit write so the exception can identify regulated entity type and action.
+- [x] Emit a specific OpenTelemetry counter `auditcore.interceptor.failures_total{mode=...,entity=...}` for both the swallowed-log path and the rethrown path so dashboards pick up regressions. *(Scoped to the existing enum-counter diagnostics abstraction: `AuditDiagnosticCounter.InterceptorAuditFailure` + `InterceptorAuditFailureCount` on `IAuditDiagnostics`. The OTel label-shape exporter is a future concern per Jesse's ruling.)*
+- [x] Document the three modes and the policy extension in `ARCHITECTURE.md` and `ComplianceTraceabilityMatrix.md`.
 
 ### Acceptance
-- Unit test against a SQLite fixture: save a FERPA entity with the interceptor audit path broken (e.g., make `AuditLogs` unavailable/non-writable or inject a failing audit-log writer) — with `FailClosedForRegulated`, `SaveChangesAsync` throws `AuditIntegrityException` and the transaction rolls back. With `Permissive` (default), the save succeeds and only a log is written. Both assertions in the same fixture.
-- Same test with a non-regulated entity confirms `FailClosedForRegulated` does **not** throw.
-- Docs updated with an example snippet for ACED's expected configuration (fail-closed for regulated).
-- Separate policy tests cover `[FERPA]`, `[PHI]`, and `[SensitiveData(ApplicableStandards = ...)]`.
+- [x] Unit test against a SQLite fixture: save a FERPA entity with the interceptor audit path broken (e.g., make `AuditLogs` unavailable/non-writable or inject a failing audit-log writer) — with `FailClosedForRegulated`, `SaveChangesAsync` throws `AuditIntegrityException` and the transaction rolls back. With `Permissive` (default), the save succeeds and only a log is written. Both assertions in the same fixture. — `tests/.../Integration/AuditInterceptorFailClosedSqliteTests.cs`.
+- [x] Same test with a non-regulated entity confirms `FailClosedForRegulated` does **not** throw. — covered by `FailClosedForRegulated_NonRegulatedEntity_SwallowsAndBusinessSaveSucceeds`.
+- [x] Docs updated with an example snippet for ACED's expected configuration (fail-closed for regulated). — README `### Fail-Closed Audit Failures` subsection + inline builder example line; `ARCHITECTURE.md` `### Configurable Fail-Closed for Interceptor Audit Failures` subsection.
+- [x] Separate policy tests cover `[FERPA]`, `[PHI]`, and `[SensitiveData(ApplicableStandards = ...)]`. — `tests/.../EntityFramework/RegulatedEntityFailurePolicyTests.cs`.
 
 ---
 

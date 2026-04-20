@@ -45,6 +45,20 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private readonly IAuditDiagnostics? _diagnostics;
 
+    /// <summary>
+    /// Configured audit failure mode — drives whether audit build failures rethrow
+    /// (fail-closed) or are logged and swallowed (permissive).
+    /// </summary>
+    private readonly AuditFailureMode _failureMode;
+
+    /// <summary>
+    /// Policy that decides, given an <see cref="AuditFailureContext"/>, whether a
+    /// failure should propagate. Non-null: factory passes the registered implementation
+    /// (default <see cref="RegulatedEntityFailurePolicy"/>); direct test construction
+    /// falls back to a local <see cref="RegulatedEntityFailurePolicy"/> instance.
+    /// </summary>
+    private readonly IAuditFailurePolicy _failurePolicy;
+
     // Use HashSet for O(1) lookups instead of multiple 'or' checks
     /// <summary>
     /// Audit entity types to exclude from auditing
@@ -111,16 +125,26 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <param name="enforcementMode">Compliance enforcement mode. Null when compliance is not configured.</param>
     /// <param name="consentService">Cache-backed consent verification. Null when compliance is not configured.</param>
     /// <param name="diagnostics">Aggregate diagnostic counters. Null when diagnostics are not registered.</param>
+    /// <param name="failureMode">Audit failure mode snapshot from <c>AuditOptions.FailureMode</c>. Defaults to <see cref="AuditFailureMode.Permissive"/>.</param>
+    /// <param name="failurePolicy">
+    /// Policy consulted on audit build failure. Null falls back to a local
+    /// <see cref="RegulatedEntityFailurePolicy"/> so direct test construction
+    /// still exercises the default regulated-entity detection.
+    /// </param>
     public AuditSaveChangesInterceptor(
         ILogger<AuditSaveChangesInterceptor> logger,
         ComplianceEnforcementMode? enforcementMode = null,
         IConsentVerificationService? consentService = null,
-        IAuditDiagnostics? diagnostics = null)
+        IAuditDiagnostics? diagnostics = null,
+        AuditFailureMode failureMode = AuditFailureMode.Permissive,
+        IAuditFailurePolicy? failurePolicy = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _enforcementMode = enforcementMode;
         _consentService = consentService;
         _diagnostics = diagnostics;
+        _failureMode = failureMode;
+        _failurePolicy = failurePolicy ?? new RegulatedEntityFailurePolicy();
     }
 
     // NOTE: No sync SavingChanges override. The sync path lacks provider dispatch
@@ -355,6 +379,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private void ProcessAuditableEntries(DbContext context, List<EntityEntry> auditableEntries)
     {
+        // Capture entity context up front so the fail-closed path can name
+        // regulated entities even if audit-log materialization throws partway through.
+        var entityContext = auditableEntries
+            .Select(static entry => new AuditFailureEntity(
+                entry.Entity.GetType(),
+                MapAction(entry.State).ToString()))
+            .ToList();
+
         try
         {
             var auditLogs = context.Set<AuditLogEntity>();
@@ -513,8 +545,30 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
         catch (Exception ex)
         {
+            _diagnostics?.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);
+
+            var failureContext = new AuditFailureContext(_failureMode, entityContext);
+            var shouldFailClosed = _failurePolicy.ShouldFailClosed(failureContext);
+
+            if (shouldFailClosed)
+            {
+                // For FailClosedForRegulated, name the first regulated entity so the
+                // exception points to the actual trigger in mixed batches. Otherwise
+                // (FailClosedAlways), name the first entity.
+                var failureEntity = _failureMode == AuditFailureMode.FailClosedForRegulated
+                    ? entityContext.FirstOrDefault(e => _failurePolicy.ShouldFailClosed(
+                        new AuditFailureContext(AuditFailureMode.FailClosedForRegulated, [e])))
+                    : entityContext.FirstOrDefault();
+
+                throw new AuditIntegrityException(
+                    failureEntity?.EntityType.Name ?? "Unknown",
+                    failureEntity?.Action ?? "Unknown",
+                    "Failed to build audit log records during SaveChanges.",
+                    ex);
+            }
+
             _logger.LogError(ex, "Error processing auditable entries");
-            // Don't throw - audit failures must never break the application's SaveChanges
+            // Permissive: log and swallow.
         }
     }
 

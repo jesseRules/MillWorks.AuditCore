@@ -163,6 +163,18 @@ Maps each validator rule to its regulatory citation, what the rule checks, and t
 
 ---
 
+## Audit Payload Protection (Cross-cutting)
+
+**Source:** `src/MillWorks.AuditCore.Services/AuditLogger.cs`, `src/MillWorks.AuditCore.Services/Core/DefaultAuditFieldRedactor.cs`, `src/MillWorks.AuditCore.Services/Core/SensitiveContentSanitizer.cs`, `src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditSaveChangesInterceptor.cs`, `src/MillWorks.AuditCore.EntityFramework/Interceptors/RegulatedEntityFailurePolicy.cs`, `src/MillWorks.AuditCore.Abstractions/Exceptions/AuditIntegrityException.cs`
+**Tests:** `tests/MillWorks.AuditCore.Tests/Integration/AuditLoggerRedactionSqliteTests.cs`, `tests/MillWorks.AuditCore.Tests/Integration/AuditInterceptorFailClosedSqliteTests.cs`, `tests/MillWorks.AuditCore.Tests/EntityFramework/RegulatedEntityFailurePolicyTests.cs`
+
+| Rule | Citation | What It Checks | Severity |
+|------|----------|----------------|----------|
+| PHI must not leak into audit payload | HIPAA 45 CFR SS 164.312(a)(1); FERPA 20 U.S.C. SS 1232g | `AuditEvent.ErrorMessage` is routed through `IAuditFieldRedactor`/`SensitiveContentSanitizer` before `JsonData` serialization. Proven by `LogAsync_ErrorMessageWithSqlConnectionString_SanitizedBeforePersistence` (connection string / IP / password leakage) and `LogAsync_ErrorMessageWithStudentIdInUniqueKeyViolation_SanitizedBeforePersistence` (FERPA student identifier leakage). | Critical |
+| Audit completeness must be enforceable for regulated entities | HIPAA 45 CFR SS 164.312(b); FERPA 20 U.S.C. SS 1232g; GDPR Article 30; PCI DSS v4.0 Req. 10.2 | `AuditOptions.FailureMode` exposes `Permissive` (default), `FailClosedForRegulated`, and `FailClosedAlways`. Under fail-closed modes the EF interceptor rethrows `AuditIntegrityException` and the business transaction rolls back when audit-log build fails. Regulated detection via `RegulatedEntityFailurePolicy` (class-level `[FERPA]`/`[PHI]`, or `[SensitiveData(ApplicableStandards = ...)]` including HIPAA/FERPA/GDPR/PCI_DSS). Proven by `AuditInterceptorFailClosedSqliteTests` (four end-to-end scenarios) and `RegulatedEntityFailurePolicyTests` (attribute-coverage cases). Scope limited to the EF interceptor audit-build path; `ResilientAuditLogger`, request-audit middleware, and background services retain their own failure modes. | Critical |
+
+---
+
 ## Limitations and Interpretation Notes
 
 1. **Event-type detection is keyword-based.** Validators check for specific substrings in `EventType`, `Action`, and `UserId` fields. The consuming application must emit events with recognizable keywords for the rule to pass. This is by design: the audit library validates that the application *is* logging the required activities, not that it *could*.

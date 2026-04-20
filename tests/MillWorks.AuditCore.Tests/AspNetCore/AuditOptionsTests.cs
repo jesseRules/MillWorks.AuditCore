@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.Tests.AspNetCore;
@@ -81,5 +82,28 @@ public sealed class AuditOptionsTests
         options.DefaultCustomFields["tenant"] = "north";
 
         Assert.DoesNotThrow(() => options.Validate());
+    }
+
+    [Test]
+    public void FailureMode_DefaultsToPermissive()
+    {
+        var options = new AuditOptions();
+
+        Assert.That(options.FailureMode, Is.EqualTo(AuditFailureMode.Permissive));
+    }
+
+    [Test]
+    public void FailureMode_CanBeConfigured()
+    {
+        var options = new AuditOptions
+        {
+            FailureMode = AuditFailureMode.FailClosedForRegulated
+        };
+
+        Assert.That(options.FailureMode, Is.EqualTo(AuditFailureMode.FailClosedForRegulated));
+
+        options.FailureMode = AuditFailureMode.FailClosedAlways;
+
+        Assert.That(options.FailureMode, Is.EqualTo(AuditFailureMode.FailClosedAlways));
     }
 }

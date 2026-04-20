@@ -85,6 +85,32 @@ Important caveats in the current implementation:
 - The dead-letter path is operationally useful but not yet fully security-hardened. In the current code, DLQ implementations still persist the original failed event payload and exception stack trace without applying `IAuditFieldRedactor`.
 - The emergency fallback file is redacted, but it writes to temp storage using platform-default permissions.
 
+### Configurable Fail-Closed for Interceptor Audit Failures
+
+The EF `AuditSaveChangesInterceptor` builds `AuditLogEntity` records inside `SavingChangesAsync`. Historically, any exception raised while building those records was caught, logged, and swallowed — the business `SaveChanges` completed with no audit record attached. That permissive default is correct for most applications but wrong for regulated ones (HIPAA, FERPA, GDPR, PCI-DSS), where a write without a matching audit record is a compliance gap. Phase 4 makes the response configurable via `AuditOptions.FailureMode`.
+
+| Mode | Behavior on interceptor audit-build failure |
+|------|---------------------------------------------|
+| `AuditFailureMode.Permissive` (default) | Log at Error level; swallow. Business `SaveChanges` proceeds and commits without the audit record. Matches historical behavior. |
+| `AuditFailureMode.FailClosedForRegulated` | If any modified entity in the failing save is regulated, rethrow `AuditIntegrityException`; EF aborts the save and the transaction rolls back. Non-regulated entities remain permissive under the same deployment. |
+| `AuditFailureMode.FailClosedAlways` | Rethrow on every interceptor audit-build failure, regardless of entity regulation. For deployments where audit completeness is non-negotiable across all data. |
+
+**Regulated-entity detection (default policy):** The shipped `RegulatedEntityFailurePolicy` considers an entity regulated when its class carries `[FERPA]` or `[PHI]`, or when any public-instance property carries `[SensitiveData(ApplicableStandards = ...)]` with at least one of `ComplianceStandard.HIPAA`, `FERPA`, `GDPR`, or `PCI_DSS`. Attribute lookup results are cached per type.
+
+**Extension point.** `IAuditFailurePolicy` in `MillWorks.AuditCore.Abstractions.Interfaces` is a single-method contract (`bool ShouldFailClosed(AuditFailureContext context)`). Consumers can register a custom implementation via `Services.AddSingleton<IAuditFailurePolicy, MyCustomPolicy>()` **before** calling `AddMillWorksAudit` — the default registration uses `TryAddSingleton` and yields to a pre-registered policy. Custom policies can inspect the full `AuditFailureContext` (mode plus the list of `(EntityType, Action)` pairs captured from the failing save) and apply tenant-, operation-, or user-specific rules.
+
+**Exception shape.** `AuditIntegrityException` in `MillWorks.AuditCore.Abstractions.Exceptions` carries `EntityName`, `Action`, and `FailureReason`, with the original exception wrapped as `InnerException`. Under `FailClosedForRegulated`, the named entity is the first regulated entity in the failing save (chosen by re-running the policy per entity) — useful diagnostics when a batch contains both regulated and non-regulated rows.
+
+**Observability.** `AuditDiagnosticCounter.InterceptorAuditFailure` (and the paired `IAuditDiagnostics.InterceptorAuditFailureCount` property) increments **unconditionally** whenever the interceptor's audit-build catch fires — on both the swallow and rethrow paths. A sustained non-zero rate indicates an audit-pipeline regression regardless of the configured failure mode.
+
+**Scope boundary — what Phase 4 does NOT change.** This fail-closed behavior is strictly scoped to the EF interceptor's audit-log-build path inside `ProcessAuditableEntries`. It does not apply to:
+
+- `ResilientAuditLogger` (the `IAuditLogger` decorator) — remains fail-open by architecture: retries, DLQ, emergency fallback file. Designed for applications calling `IAuditLogger.LogAsync` directly.
+- `AuditContextMiddleware` deferred request-audit dispatch — still catches and logs; DLQ routing is Phase 5 scope.
+- Background hosted services (`DatabaseInitializationService`, `IntegrityWriteBatcher`, `IntegrityReconciliationService`, `DeadLetterQueueProcessor`, `ArchiveCreationBackgroundService`, `ArchiveVerificationBackgroundService`) — each has its own per-operation `catch` and log behavior; not governed by `AuditFailureMode`.
+
+A regulated consumer that needs end-to-end audit-completeness across all paths should treat `FailClosedForRegulated` as one layer among several rather than the single fail-closed switch.
+
 ## Runtime Options Flow
 
 All configurable runtime behavior flows through the standard .NET options pipeline. Runtime services receive their configuration through `IOptions<T>` / `IOptionsMonitor<T>` constructor injection; none of them read `IConfiguration` directly. The hidden configuration path that formerly existed in `TamperDetectionService` (direct reads of `Audit:HmacKey` and `Audit:EnableDigitalSignatures`) has been removed.
@@ -112,6 +138,18 @@ Two input sources feed the resolved options instance: `IConfiguration` via `Bind
 ### Hosted-service registration
 
 Six background services participate in the audit pipeline: `DatabaseInitializationService`, `IntegrityWriteBatcher`, `IntegrityReconciliationService`, `DeadLetterQueueProcessor`, `ArchiveCreationBackgroundService`, and `ArchiveVerificationBackgroundService`. Each is registered unconditionally by its owning `Use*` method (or by `AddMillWorksAudit` in the case of `InProcessRequestAuditDispatcher`). Each self-gates inside its entry method (`ExecuteAsync` or `StartAsync`) by reading `IOptions<T>.Value` and returning early if its enablement flag is false. Registration is therefore always predictable; runtime behavior is driven entirely by the typed option.
+
+### Schema configuration and migration anchoring
+
+`EntityFrameworkOptions.Schema` (default: `"audit"`) is applied to the runtime model via `AuditApplicationDbContext.OnModelCreating`, which calls `modelBuilder.HasDefaultSchema(_schema)` as its first operation. Every audit entity's table mapping inherits this schema — there are no per-entity schema overrides on the entity attributes. `AuditModelCacheKeyFactory` (wired via `options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()` inside `UseEntityFramework`) includes the configured schema in the compiled-model cache key alongside the context type and design-time flag, so two `AuditApplicationDbContext` instances in the same process with different schemas get independently compiled models.
+
+**Migration anchoring — the single backward-compat constraint that survives the greenfield policy.** The built-in EF migrations in `src/MillWorks.AuditCore.EntityFramework/Migrations/` are generated against the default `"audit"` schema. Every `CreateTable`, `AddForeignKey`, `EnsureSchema`, and `__EFMigrationsHistory` reference is literal `"audit"`. The `MigrationsHistoryTable("__EFMigrationsHistory", "audit")` call in `MillWorksAuditBuilder.UseEntityFramework` is also fixed to `"audit"`. Consequences:
+
+- **Default-schema deployments (`Schema = "audit"`):** `MigrateOnStartup = true` applies the packaged migrations cleanly.
+- **Custom-schema deployments (`Schema = "<other>"`):** fresh-database-only. Set `EnsureDatabaseCreated = true`; the runtime model creates tables under the configured schema on first use. Do not set `MigrateOnStartup = true` under a custom schema — the packaged migrations target `"audit"` regardless of the option value and will not produce the expected tables.
+- **Schema identifier validation:** `EntityFrameworkOptionsValidator` enforces `^[A-Za-z_][A-Za-z0-9_]{0,127}$` on the schema value and rejects the reserved SQL Server schemas (`dbo`, `sys`, `guest`, `INFORMATION_SCHEMA`, case-insensitive) at host start via `ValidateOnStart()`.
+
+Parameterized migration regeneration against a non-`"audit"` schema is out of scope for the shipped package. A deployment that requires a custom schema with migration support must fork the migration set and regenerate it against the chosen schema as a dedicated migration path — this is explicitly not a config toggle.
 
 ### Remaining resolve-time forwarders
 
