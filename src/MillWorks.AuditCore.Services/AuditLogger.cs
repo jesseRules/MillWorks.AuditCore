@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -9,6 +10,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
@@ -26,13 +28,19 @@ public sealed class AuditLogger(
     IAuditContext auditContext,
     IAuditFieldRedactor fieldRedactor,
     ITamperDetectionService? tamperDetectionService = null,
-    IntegrityWriteBatcher? integrityWriteBatcher = null)
+    IntegrityWriteBatcher? integrityWriteBatcher = null,
+    IOptions<SecurityOptions>? securityOptions = null)
     : IAuditLogger
 {
     /// <summary>
     /// Active audit operations tracked by their operation Id
     /// </summary>
     private readonly ConcurrentDictionary<Guid, CustomAuditScope> _activeOperations = new();
+
+    // EnableTamperDetection and EnableBatchedIntegrityWrites drive routing. The injected-service
+    // nullness check is a defensive fallback only — if the service isn't registered, the branch
+    // is skipped even when the option is true.
+    private readonly SecurityOptions _securityOptions = securityOptions?.Value ?? new SecurityOptions();
 
     /// <summary>
     /// Logs an audit event asynchronously
@@ -44,7 +52,7 @@ public sealed class AuditLogger(
             // Convert to database entity
             var entity = ConvertToEntity(auditEvent);
 
-            if (tamperDetectionService is not null)
+            if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
             {
                 var integrityDto = new AuditIntegrityDto
                 {
@@ -57,7 +65,7 @@ public sealed class AuditLogger(
                     UserId = entity.UserId
                 };
 
-                if (integrityWriteBatcher is not null)
+                if (_securityOptions.EnableBatchedIntegrityWrites && integrityWriteBatcher is not null)
                 {
                     // Batched mode: persist event + durable work item in one transaction.
                     // The work item acts as an outbox — if the batcher crashes or the process
@@ -161,7 +169,7 @@ public sealed class AuditLogger(
         {
             var entities = auditEvents.Select(ConvertToEntity).ToList();
 
-            if (tamperDetectionService is not null)
+            if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
             {
                 // LogBatchAsync always uses the atomic (strict) path
                 foreach (var e in entities)

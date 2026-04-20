@@ -11,10 +11,12 @@ using Azure.Storage.Blobs.Models;
 using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
@@ -34,9 +36,14 @@ public sealed class AuditArchivalService(
     ILogger<AuditArchivalService> logger,
     IConfiguration configuration,
     ITamperDetectionService? tamperDetectionService = null,
-    BlobServiceClient? blobServiceClient = null)
+    BlobServiceClient? blobServiceClient = null,
+    IOptions<SecurityOptions>? securityOptions = null)
     : IAuditArchivalService
 {
+    // EnableTamperDetection drives integrity verification routing. Nullness of tamperDetectionService
+    // is a defensive fallback — if the service isn't available, verification is skipped even when
+    // the option is true.
+    private readonly SecurityOptions _securityOptions = securityOptions?.Value ?? new SecurityOptions();
     /// <summary>
     /// Pipe back-pressure threshold. Once this many unconsumed bytes are buffered in the
     /// producer → consumer pipe, the producer pauses until the uploader drains the buffer.
@@ -156,7 +163,7 @@ public sealed class AuditArchivalService(
 
             result.EventCount = eventCount;
 
-            if (tamperDetectionService is null)
+            if (!_securityOptions.EnableTamperDetection || tamperDetectionService is null)
             {
                 logger.LogWarning(
                     "Tamper detection is not configured — archiving {Count} events without integrity verification",
@@ -219,7 +226,7 @@ public sealed class AuditArchivalService(
                                     "Cannot archive - event with empty EventId found");
                             }
 
-                            if (tamperDetectionService is not null)
+                            if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
                             {
                                 var isValid = await tamperDetectionService
                                     .VerifyIntegrityAsync(entity.EventId, cancellationToken)

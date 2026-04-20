@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -348,7 +349,8 @@ public sealed class IntegrityDurabilityTests
             new Mock<IAuditContext>().Object,
             new PassThroughAuditFieldRedactor(),
             tamperDetection,
-            batcher);
+            batcher,
+            Options.Create(new SecurityOptions { EnableBatchedIntegrityWrites = true }));
     }
 
     private IntegrityWriteBatcher CreateStartableBatcher(ITamperDetectionService tamperDetection)

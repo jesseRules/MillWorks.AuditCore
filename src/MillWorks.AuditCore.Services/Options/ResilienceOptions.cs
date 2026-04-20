@@ -81,6 +81,14 @@ internal sealed class ResilienceOptionsValidator : IValidateOptions<ResilienceOp
     {
         var failures = new List<string>();
 
+        if (!options.EnableDeadLetterQueue)
+        {
+            failures.Add(
+                $"{nameof(ResilienceOptions.EnableDeadLetterQueue)} must be true when " +
+                "UseResilience() is configured. ResilientAuditLogger depends on a dead letter queue " +
+                "for failure handling.");
+        }
+
         if (options.MaxRetries < 0)
         {
             failures.Add(

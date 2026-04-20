@@ -84,7 +84,11 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseMiddleware(Action<AuditMiddlewareOptions> configure)
     {
-        Services.Configure(configure);
+        Services.AddOptions<AuditMiddlewareOptions>()
+            .Configure(configure);
+
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<AuditMiddlewareOptions>, AuditMiddlewareOptionsValidator>());
     }
 
     /// <summary>
@@ -113,17 +117,18 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseEntityFramework(Action<EntityFrameworkOptions> configure)
     {
-        var efOptions = new EntityFrameworkOptions();
-        configure(efOptions);
+        Services.AddOptions<EntityFrameworkOptions>()
+            .BindConfiguration("Audit")
+            .Configure(configure)
+            .ValidateOnStart();
 
-        if (string.IsNullOrWhiteSpace(efOptions.ConnectionString))
-        {
-            throw new InvalidOperationException(
-                "Entity Framework connection string is required. " +
-                "Set ConnectionString in UseEntityFramework options.");
-        }
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<EntityFrameworkOptions>, EntityFrameworkOptionsValidator>());
 
-        Services.AddSingleton(efOptions);
+        // Resolve-time forwarder so bare EntityFrameworkOptions consumers (DatabaseInitializationService)
+        // keep working until #12 flips them to IOptions<EntityFrameworkOptions>.
+        Services.AddSingleton<EntityFrameworkOptions>(
+            static sp => sp.GetRequiredService<IOptions<EntityFrameworkOptions>>().Value);
 
         // Configure Mapster
         ConfigureMapster();
@@ -145,8 +150,10 @@ public sealed class MillWorksAuditBuilder
         });
 
         // Configure DbContext with interceptor and circular dependency prevention
-        Services.AddDbContext<AuditApplicationDbContext>((serviceProvider, options) =>
+        Services.AddDbContext<AuditApplicationDbContext>(static (serviceProvider, options) =>
         {
+            var efOptions = serviceProvider.GetRequiredService<IOptions<EntityFrameworkOptions>>().Value;
+
             options.UseSqlServer(efOptions.ConnectionString, sqlOptions =>
             {
                 // Note: EnableRetryOnFailure is intentionally NOT used here because
@@ -191,11 +198,9 @@ public sealed class MillWorksAuditBuilder
         Services.AddScoped<IAuditMaintenanceService, MillWorks.AuditCore.Services.Maintenance.AuditMaintenanceService>();
         Services.AddScoped<IAuditMetaTrackingService, AuditMetaTrackingService>();
 
-        // Register database initialization service if migrations are enabled
-        if (efOptions.MigrateOnStartup || efOptions.EnsureDatabaseCreated)
-        {
-            Services.AddHostedService<DatabaseInitializationService>();
-        }
+        // DatabaseInitializationService self-gates on EntityFrameworkOptions.MigrateOnStartup /
+        // EnsureDatabaseCreated inside StartAsync. Registered unconditionally.
+        Services.AddHostedService<DatabaseInitializationService>();
     }
 
     /// <summary>
@@ -218,54 +223,68 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseSecurity(Action<SecurityOptions> configure)
     {
-        var securityOptions = new SecurityOptions();
-        configure(securityOptions);
+        Services.AddOptions<SecurityOptions>()
+            .BindConfiguration("Audit")
+            .Configure(configure)
+            .ValidateOnStart();
 
-        // Register both the plain singleton and IOptions<SecurityOptions> wrapping the same instance,
-        // so services receiving typed options (e.g., TamperDetectionService) see the builder-configured
-        // values. Full options-pipeline migration lands in Phase 1 #10/#11.
-        Services.AddSingleton(securityOptions);
-        Services.AddSingleton<IOptions<SecurityOptions>>(
-            _ => Microsoft.Extensions.Options.Options.Create(securityOptions));
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<SecurityOptions>, SecurityOptionsValidator>());
 
-        // Register security event service (required by tamper detection)
+        // Resolve-time forwarder so bare SecurityOptions consumers (IntegrityWriteBatcher) keep
+        // working until #12 flips them to IOptions<SecurityOptions>.
+        Services.AddSingleton<SecurityOptions>(
+            static sp => sp.GetRequiredService<IOptions<SecurityOptions>>().Value);
+
+        // Security event service (required by tamper detection)
         Services.AddScoped<IAuditSecurityEventService, AuditSecurityEventService>();
 
-        if (securityOptions.EnableTamperDetection)
+        // Tamper detection service. Registered unconditionally; SecurityOptions.EnableTamperDetection
+        // drives routing in consumers (AuditLogger, AuditArchivalService).
+        Services.AddScoped<ITamperDetectionService, TamperDetectionService>();
+
+        // Batched integrity writes infrastructure. Hosted services self-gate on
+        // EnableTamperDetection && EnableBatchedIntegrityWrites inside ExecuteAsync (#12).
+        Services.AddSingleton<IntegrityWriteBatcher>();
+        Services.AddHostedService(static sp => sp.GetRequiredService<IntegrityWriteBatcher>());
+        Services.AddHostedService<IntegrityReconciliationService>();
+
+        // Health check for integrity pipeline status. The check self-gates on EnableTamperDetection (#12).
+        Services.AddHealthChecks()
+            .AddCheck<IntegrityHealthCheck>("audit_integrity_pipeline",
+                tags: ["audit", "integrity"]);
+
+        // Connection multiplexer. Registered as a singleton factory; only ever resolved when the
+        // IAuditDistributedLockService factory below selects the Redis path. Throws on resolve if
+        // UseRedisLocking is false or RedisConnectionString is missing.
+        Services.AddSingleton<IConnectionMultiplexer>(static sp =>
         {
-            Services.AddScoped<ITamperDetectionService, TamperDetectionService>();
+            var options = sp.GetRequiredService<IOptions<SecurityOptions>>().Value;
 
-            // Optional: batched integrity writes for higher throughput under concurrency
-            if (securityOptions.EnableBatchedIntegrityWrites)
-            {
-                Services.AddSingleton<IntegrityWriteBatcher>();
-                Services.AddHostedService(static sp => sp.GetRequiredService<IntegrityWriteBatcher>());
+            if (!options.UseRedisLocking)
+                throw new InvalidOperationException("Redis locking is disabled.");
 
-                // Reconciliation service picks up stale pending work items on startup and on schedule
-                Services.AddHostedService<IntegrityReconciliationService>();
+            if (string.IsNullOrWhiteSpace(options.RedisConnectionString))
+                throw new InvalidOperationException(
+                    $"{nameof(SecurityOptions.RedisConnectionString)} is required when " +
+                    $"{nameof(SecurityOptions.UseRedisLocking)} is true.");
 
-                // Health check for integrity pipeline status
-                Services.AddHealthChecks()
-                    .AddCheck<IntegrityHealthCheck>("audit_integrity_pipeline",
-                        tags: ["audit", "integrity"]);
-            }
-        }
+            var configOptions = ConfigurationOptions.Parse(options.RedisConnectionString);
+            configOptions.AbortOnConnectFail = false;
+            configOptions.ConnectTimeout = 5000;
+            return ConnectionMultiplexer.Connect(configOptions);
+        });
 
-        if (securityOptions.UseRedisLocking && !string.IsNullOrEmpty(securityOptions.RedisConnectionString))
+        Services.AddScoped<IAuditDistributedLockService>(static sp =>
         {
-            Services.AddSingleton<IConnectionMultiplexer>(_ =>
-            {
-                var configOptions = ConfigurationOptions.Parse(securityOptions.RedisConnectionString);
-                configOptions.AbortOnConnectFail = false;
-                configOptions.ConnectTimeout = 5000;
-                return ConnectionMultiplexer.Connect(configOptions);
-            });
-            Services.AddScoped<IAuditDistributedLockService, RedisDistributedLockService>();
-        }
-        else
-        {
-            Services.AddScoped<IAuditDistributedLockService, InMemoryDistributedLockService>();
-        }
+            var options = sp.GetRequiredService<IOptions<SecurityOptions>>().Value;
+
+            return options.UseRedisLocking
+                ? ActivatorUtilities.CreateInstance<RedisDistributedLockService>(
+                    sp,
+                    sp.GetRequiredService<IConnectionMultiplexer>())
+                : ActivatorUtilities.CreateInstance<InMemoryDistributedLockService>(sp);
+        });
     }
 
     /// <summary>
@@ -273,10 +292,19 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseCompliance(Action<ComplianceOptions> configure)
     {
-        var complianceOptions = new ComplianceOptions();
-        configure(complianceOptions);
+        Services.AddOptions<ComplianceOptions>()
+            .BindConfiguration("Audit")
+            .Configure(configure)
+            .ValidateOnStart();
 
-        Services.AddSingleton(complianceOptions);
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<ComplianceOptions>, ComplianceOptionsValidator>());
+
+        // Resolve-time forwarder so bare ComplianceOptions consumers (e.g., the
+        // AuditSaveChangesInterceptor factory's sp.GetService<ComplianceOptions>() lookup)
+        // keep working until every call site flips.
+        Services.AddSingleton<ComplianceOptions>(
+            static sp => sp.GetRequiredService<IOptions<ComplianceOptions>>().Value);
 
         // Register IMemoryCache if not already registered (needed by ConsentVerificationService)
         Services.AddMemoryCache();
@@ -284,46 +312,57 @@ public sealed class MillWorksAuditBuilder
         // Register consent verification service (singleton — IMemoryCache is sync-safe)
         Services.AddSingleton<IConsentVerificationService, ConsentVerificationService>();
 
-        // Register attribute scanner as singleton (eagerly populates caches in constructor)
-        Services.AddSingleton<IComplianceAttributeScanner>(sp =>
+        // Register attribute scanner as singleton (eagerly populates caches in constructor).
+        // Reads the assembly list from IOptions<ComplianceOptions> at resolve time.
+        Services.AddSingleton<IComplianceAttributeScanner>(static sp =>
         {
+            var options = sp.GetRequiredService<IOptions<ComplianceOptions>>().Value;
             var logger = sp.GetService<ILogger<ComplianceAttributeScanner>>();
             return new ComplianceAttributeScanner(
-                complianceOptions.AssembliesToScan.Count > 0 ? complianceOptions.AssembliesToScan : null,
+                options.AssembliesToScan.Count > 0 ? options.AssembliesToScan : null,
                 logger);
         });
 
         // Register compliance service (will be used by AuditServiceExtensions)
         Services.AddScoped<IAuditComplianceService, AuditComplianceService>();
 
-        // Register validators based on standards
-        foreach (var standard in complianceOptions.Standards)
+        // Validator set resolved at service-resolution time based on configured standards.
+        // AuditComplianceService consumes IEnumerable<IComplianceValidator>.
+        Services.AddScoped<IEnumerable<IComplianceValidator>>(static sp =>
         {
-            switch (standard)
+            var options = sp.GetRequiredService<IOptions<ComplianceOptions>>().Value;
+            var validators = new List<IComplianceValidator>();
+
+            foreach (var standard in options.Standards)
             {
-                case ComplianceStandard.GDPR:
-                    Services.AddScoped<IComplianceValidator, GdprValidator>();
-                    break;
-                case ComplianceStandard.SOC2:
-                    Services.AddScoped<IComplianceValidator, Soc2Validator>();
-                    break;
-                case ComplianceStandard.HIPAA:
-                    Services.AddScoped<IComplianceValidator, HipaaValidator>();
-                    break;
-                case ComplianceStandard.ISO27001:
-                    Services.AddScoped<IComplianceValidator, Iso27001Validator>();
-                    break;
-                case ComplianceStandard.FERPA:
-                    Services.AddScoped<IComplianceValidator, FerpaValidator>();
-                    break;
-                case ComplianceStandard.PCI_DSS:
-                    Services.AddScoped<IComplianceValidator, PciDssValidator>();
-                    break;
-                case ComplianceStandard.STIG:
-                    Services.AddScoped<IComplianceValidator, StigValidator>();
-                    break;
+                switch (standard)
+                {
+                    case ComplianceStandard.GDPR:
+                        validators.Add(ActivatorUtilities.CreateInstance<GdprValidator>(sp));
+                        break;
+                    case ComplianceStandard.SOC2:
+                        validators.Add(ActivatorUtilities.CreateInstance<Soc2Validator>(sp));
+                        break;
+                    case ComplianceStandard.HIPAA:
+                        validators.Add(ActivatorUtilities.CreateInstance<HipaaValidator>(sp));
+                        break;
+                    case ComplianceStandard.ISO27001:
+                        validators.Add(ActivatorUtilities.CreateInstance<Iso27001Validator>(sp));
+                        break;
+                    case ComplianceStandard.FERPA:
+                        validators.Add(ActivatorUtilities.CreateInstance<FerpaValidator>(sp));
+                        break;
+                    case ComplianceStandard.PCI_DSS:
+                        validators.Add(ActivatorUtilities.CreateInstance<PciDssValidator>(sp));
+                        break;
+                    case ComplianceStandard.STIG:
+                        validators.Add(ActivatorUtilities.CreateInstance<StigValidator>(sp));
+                        break;
+                }
             }
-        }
+
+            return validators;
+        });
     }
 
     /// <summary>
@@ -331,53 +370,46 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseArchival(Action<ArchivalOptions> configure)
     {
-        var archivalOptions = new ArchivalOptions();
-        configure(archivalOptions);
+        Services.AddOptions<ArchivalOptions>()
+            .BindConfiguration("Audit")
+            .Configure(configure)
+            .ValidateOnStart();
 
-        Services.AddSingleton(archivalOptions);
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<ArchivalOptions>, ArchivalOptionsValidator>());
 
-        // Register Azure Blob Storage client based on provider
-        switch (archivalOptions.Provider)
+        // Resolve-time forwarder so bare ArchivalOptions consumers (ArchiveCreationBackgroundService,
+        // ArchiveVerificationBackgroundService) keep working until #12 flips them.
+        Services.AddSingleton<ArchivalOptions>(
+            static sp => sp.GetRequiredService<IOptions<ArchivalOptions>>().Value);
+
+        // Blob client factory. Only resolved when the AzureBlob provider is in use.
+        // AzureBlob-requires-connection-string and AWSs3-not-implemented checks live in
+        // ArchivalOptionsValidator (startup failures). Connection-string format errors are
+        // wrapped here at resolve time.
+        Services.AddSingleton<BlobServiceClient>(static sp =>
         {
-            case ArchivalProvider.AzureBlob:
-                if (!string.IsNullOrEmpty(archivalOptions.ConnectionString))
-                {
-                    // Validate eagerly so invalid connection strings fail at startup, not at first resolve
-                    try
-                    {
-                        var client = new BlobServiceClient(archivalOptions.ConnectionString);
-                        Services.AddSingleton(client);
-                    }
-                    catch (FormatException ex)
-                    {
-                        throw new InvalidOperationException(
-                            $"Azure Blob archival connection string is invalid: {ex.Message}", ex);
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        "Azure Blob archival provider requires a connection string. " +
-                        "Provide a valid Azure Storage connection string in ArchivalOptions.ConnectionString.");
-                }
+            var options = sp.GetRequiredService<IOptions<ArchivalOptions>>().Value;
 
-                break;
+            if (options.Provider != ArchivalProvider.AzureBlob)
+                throw new InvalidOperationException(
+                    $"{nameof(BlobServiceClient)} is only available when " +
+                    $"{nameof(ArchivalOptions.Provider)} is {nameof(ArchivalProvider.AzureBlob)}.");
 
-            case ArchivalProvider.FileSystem:
-                // No special registration needed for file system
-                break;
+            try
+            {
+                return new BlobServiceClient(options.ConnectionString);
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidOperationException(
+                    $"Azure Blob archival connection string is invalid: {ex.Message}", ex);
+            }
+        });
 
-            case ArchivalProvider.AWSs3:
-                // AWS S3 implementation would go here
-                throw new NotImplementedException("AWS S3 archival provider not yet implemented");
-        }
-
-        // Register background archival services if enabled
-        if (archivalOptions.EnableBackgroundArchival)
-        {
-            Services.AddHostedService<ArchiveCreationBackgroundService>();
-            Services.AddHostedService<ArchiveVerificationBackgroundService>();
-        }
+        // Archive background services self-gate on EnableBackgroundArchival inside ExecuteAsync (#12).
+        Services.AddHostedService<ArchiveCreationBackgroundService>();
+        Services.AddHostedService<ArchiveVerificationBackgroundService>();
     }
 
     /// <summary>
@@ -397,56 +429,45 @@ public sealed class MillWorksAuditBuilder
     /// </summary>
     public void UseResilience(Action<ResilienceOptions> configure)
     {
-        var resilienceOptions = new ResilienceOptions();
-        configure(resilienceOptions);
+        Services.AddOptions<ResilienceOptions>()
+            .BindConfiguration("Audit")
+            .Configure(configure)
+            .ValidateOnStart();
 
-        Services.AddSingleton(resilienceOptions);
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IValidateOptions<ResilienceOptions>, ResilienceOptionsValidator>());
 
-        if (!resilienceOptions.EnableDeadLetterQueue)
+        // Dead letter queue provider chosen at resolve time based on DeadLetterProvider.
+        Services.AddSingleton<IAuditDeadLetterQueue>(static sp =>
         {
-            throw new InvalidOperationException(
-                "UseResilience() requires EnableDeadLetterQueue to be true. " +
-                "ResilientAuditLogger depends on a dead letter queue for failure handling.");
-        }
+            var options = sp.GetRequiredService<IOptions<ResilienceOptions>>().Value;
 
-        // Verify IAuditLogger is registered before attempting to decorate it
-        var hasLogger = Services.Any(static s => s.ServiceType == typeof(IAuditLogger));
-        if (!hasLogger)
-        {
-            throw new InvalidOperationException(
-                "IAuditLogger is not registered. Call UseEntityFramework() before UseResilience().");
-        }
+            return options.DeadLetterProvider switch
+            {
+                DeadLetterProvider.InMemory => ActivatorUtilities.CreateInstance<InMemoryAuditDeadLetterQueue>(sp),
+                DeadLetterProvider.FileSystem => ActivatorUtilities.CreateInstance<FileBasedAuditDeadLetterQueue>(sp),
+                DeadLetterProvider.Redis => ActivatorUtilities.CreateInstance<RedisAuditDeadLetterQueue>(sp),
+                _ => throw new InvalidOperationException(
+                    $"Unknown {nameof(DeadLetterProvider)} value: {options.DeadLetterProvider}")
+            };
+        });
 
-        switch (resilienceOptions.DeadLetterProvider)
-        {
-            case DeadLetterProvider.InMemory:
-                Services.AddSingleton<IAuditDeadLetterQueue, InMemoryAuditDeadLetterQueue>();
-                break;
-            case DeadLetterProvider.FileSystem:
-                Services.AddSingleton<IAuditDeadLetterQueue, FileBasedAuditDeadLetterQueue>();
-                break;
-            case DeadLetterProvider.Redis:
-                Services.AddSingleton<IAuditDeadLetterQueue, RedisAuditDeadLetterQueue>();
-                break;
-        }
-
-        if (resilienceOptions.EnableBackgroundProcessor)
-        {
-            Services.AddHostedService<DeadLetterQueueProcessor>();
-        }
+        // Dead letter queue background processor self-gates on EnableBackgroundProcessor inside
+        // ExecuteAsync (#12).
+        Services.AddHostedService<DeadLetterQueueProcessor>();
 
         // Decorate IAuditLogger with resilient version
         Services.Decorate<IAuditLogger, ResilientAuditLogger>();
     }
 
     /// <summary>
-    /// Validates that the audit system is properly configured
+    /// Validates that the audit system is properly configured. Option-value checks
+    /// (HmacKey / EnableDigitalSignatures / Production HMAC requirement) live in
+    /// AuditOptionsValidator and fire via ValidateOnStart(). This method retains only
+    /// the service-graph checks that cannot be expressed as <c>IValidateOptions&lt;T&gt;</c>.
     /// </summary>
     public void ValidateConfiguration()
     {
-        // Validate audit options
-        Options.Validate();
-
         // Check if at least one storage mechanism is configured
         var hasStorage = Services.Any(static s =>
             s.ServiceType == typeof(IAuditEventRepository) ||
@@ -456,13 +477,6 @@ public sealed class MillWorksAuditBuilder
         {
             throw new InvalidOperationException(
                 "No audit storage configured. Call UseEntityFramework() to configure storage.");
-        }
-
-        // Validate that if digital signatures are enabled, a key is provided
-        if (Options.EnableDigitalSignatures && string.IsNullOrEmpty(Options.HmacKey))
-        {
-            throw new InvalidOperationException(
-                "EnableDigitalSignatures is true but no HmacKey was provided");
         }
 
         // Validate that the pass-through redactor is not registered unless explicitly allowed.

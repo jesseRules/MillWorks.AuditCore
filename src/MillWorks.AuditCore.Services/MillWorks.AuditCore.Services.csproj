@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="MillWorks.AuditCore.Tests"/>
+    <InternalsVisibleTo Include="MillWorks.AuditCore.AspNetCore"/>
   </ItemGroup>
 
   <ItemGroup>
