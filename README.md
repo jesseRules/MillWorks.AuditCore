@@ -6,7 +6,7 @@
 [![NuGet](https://img.shields.io/nuget/v/MillWorks.AuditCore)](https://www.nuget.org/packages/MillWorks.AuditCore)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-1%2C839_passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1%2C850%2B_passing-brightgreen)](tests/)
 
 MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and NIST requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing every entity change with zero modifications to existing application code.
 
@@ -476,8 +476,8 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `AuditLogs` | Entity change log with old/new values | `Id`, `EntityName`, `EntityId`, `Action`, `OldValues`, `NewValues`, `ChangedProperties`, `UserId` |
 | `AuditIntegrity` | Hash chain records for tamper detection | `Id`, `AuditEventId`, `EventHash`, `PreviousHash`, `SequenceNumber`, `HmacSignature` |
 | `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
-| `AuditArchiveRecords` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
-| `AuditSecurityEvents` | Security-relevant events and tamper alerts | `Id`, `EventType`, `Severity`, `Description`, `SourceIp`, `DetectedAt` |
+| `ArchiveRecord` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
+| `SecurityEvents` | Security-relevant events and tamper alerts | `Id`, `EventType`, `Severity`, `Description`, `SourceIp`, `DetectedAt` |
 
 Append-only entities (`AuditIntegrity`, `AuditSecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
 
