@@ -118,7 +118,12 @@ for project in "${projects[@]}"; do
         continue
     fi
 
-    package_file="$project_name.$VERSION.nupkg"
+    # Resolve the actual PackageId (may differ from project name; e.g. AspNetCore project ships as PackageId "MillWorks.AuditCore")
+    package_id=$(sed -n 's/.*<PackageId>\([^<]*\)<\/PackageId>.*/\1/p' "$csproj_file" | head -1)
+    if [ -z "$package_id" ]; then
+        package_id="$project_name"
+    fi
+    package_file="$package_id.$VERSION.nupkg"
     packages_created+=("$package_file")
     echo -e "  ${GREEN}Package created: $package_file${NC}"
     echo ""
@@ -156,7 +161,8 @@ echo -e "${CYAN}1. Add the local NuGet source to your solution:${NC}"
 echo "   dotnet nuget add source $LOCAL_REPO_PATH --name MillWorksLocal"
 echo ""
 echo -e "${CYAN}2. Add package reference to your project:${NC}"
-echo "   dotnet add package MillWorks.AuditCore.AspNetCore --version $VERSION"
+echo "   dotnet add package MillWorks.AuditCore --version $VERSION"
+echo "   (top-level umbrella package; built from MillWorks.AuditCore.AspNetCore project, published as PackageId 'MillWorks.AuditCore')"
 echo ""
 echo -e "${CYAN}Note: CI/CD is the primary publish path. See .github/workflows/publish.yml${NC}"
 echo ""

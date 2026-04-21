@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.5.2</Version>
-        <AssemblyVersion>1.5.2.0</AssemblyVersion>
-        <FileVersion>1.5.2.0</FileVersion>
+        <Version>1.5.3</Version>
+        <AssemblyVersion>1.5.3.0</AssemblyVersion>
+        <FileVersion>1.5.3.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,7 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.5.2: patch release. Bumps Microsoft.EntityFrameworkCore and Microsoft.Extensions.* dependencies from 10.0.6 to 10.0.7. No public API changes.</PackageReleaseNotes>
+        <PackageReleaseNotes>v1.5.3: patch release. AuditSaveChangesInterceptor now emits an AuditSecurityEventEntity (ComplianceViolation, High) on FERPA ConsentNotFound and ConsentServiceError under AuditOnly mode, closing the gap previously noted in the interceptor doc-comment. No public API changes.</PackageReleaseNotes>
 
         <!-- Symbols & Source Link -->
         <IncludeSymbols>true</IncludeSymbols>

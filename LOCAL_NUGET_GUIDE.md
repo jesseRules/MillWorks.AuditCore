@@ -13,7 +13,8 @@ MillWorks.AuditCore.Abstractions   — Pure interfaces, DTOs, models (no EF/ASP.
 MillWorks.AuditCore.EntityFramework — DbContext, entities, repositories, migrations
 MillWorks.AuditCore.Providers       — Entity-specific audit providers (User, etc.)
 MillWorks.AuditCore.Services        — Business logic, tamper detection, DLQ, archival, compliance
-MillWorks.AuditCore.AspNetCore      — DI registration, middleware, configuration builder
+MillWorks.AuditCore                  — Top-level umbrella package: DI registration, middleware, configuration builder
+                                       (built from the MillWorks.AuditCore.AspNetCore project; PackageId is MillWorks.AuditCore)
 ```
 
 ### Dependency Graph
@@ -29,7 +30,7 @@ Tier 2 ─ Services → Abstractions, EntityFramework, Providers
 Tier 3 ─ AspNetCore → Abstractions, EntityFramework, Providers, Services
 ```
 
-Consuming apps install `MillWorks.AuditCore.AspNetCore` (the top-level package) and get the entire stack via transitive dependencies. Apps that only need the interfaces (e.g., shared domain libraries) reference `MillWorks.AuditCore.Abstractions` alone.
+Consuming apps install `MillWorks.AuditCore` (the top-level umbrella package — produced by the `MillWorks.AuditCore.AspNetCore` project but published under PackageId `MillWorks.AuditCore`) and get the entire stack via transitive dependencies. Apps that only need the interfaces (e.g., shared domain libraries) reference `MillWorks.AuditCore.Abstractions` alone.
 
 ### Versioning
 
@@ -109,11 +110,11 @@ Add a `nuget.config` to the consuming project's repo root:
 ### 3. Add Package References
 
 ```xml
-<!-- Most apps just need the top-level package -->
-<PackageReference Include="MillWorks.AuditCore.AspNetCore" Version="1.1.0" />
+<!-- Most apps just need the top-level umbrella package -->
+<PackageReference Include="MillWorks.AuditCore" Version="1.5.3" />
 
 <!-- Shared domain libraries that only need interfaces -->
-<PackageReference Include="MillWorks.AuditCore.Abstractions" Version="1.1.0" />
+<PackageReference Include="MillWorks.AuditCore.Abstractions" Version="1.5.3" />
 ```
 
 ### 4. Restore and Run
@@ -202,7 +203,7 @@ dotnet test
 
 ```bash
 cd /Users/jesse/RiderProjects/MillWorks
-dotnet add src/MillWorks.Api/MillWorks.Api.csproj package MillWorks.AuditCore.AspNetCore --version 1.2.0
+dotnet add src/MillWorks.Api/MillWorks.Api.csproj package MillWorks.AuditCore --version 1.5.3
 ```
 
 ---
@@ -269,7 +270,7 @@ dotnet nuget locals all --clear
 dotnet list MyApp/MyApp.csproj package
 
 # Add/update a package in a consuming project
-dotnet add MyApp/MyApp.csproj package MillWorks.AuditCore.AspNetCore --version 1.2.0
+dotnet add MyApp/MyApp.csproj package MillWorks.AuditCore --version 1.5.3
 
 # Add the local NuGet source (one-time setup)
 dotnet nuget add source ~/LocalNuGetPackages --name MillWorksLocal
