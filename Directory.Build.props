@@ -19,7 +19,7 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.5.0: Streaming archival and restore (peak memory independent of archive size); Phase 1–5 hardening — EF concurrency token, cross-instance coordination on integrity reconciliation and DLQ reprocessing, correlation-ID validation, tighter SensitiveContentSanitizer coverage (hyphen-free SSN, CC, phone, SQL values), Azure.Identity 1.21 pin. New additive methods: IAuditEventRepository.StreamByDateAsync, IAuditIntegrityRepository.StreamByEventIdsAsync.</PackageReleaseNotes>
+        <PackageReleaseNotes>v1.5.1: hardening cycle release after 1.5.0. Adds SQL Server Testcontainers coverage, app-assigned AuditIntegrity SequenceNumber for deterministic chain order, SQL deadlock 1205 retry handling in TamperDetectionService integrity writes, and the Phase 6.5 100k-row endurance soak harness.</PackageReleaseNotes>
 
         <!-- Symbols & Source Link -->
         <IncludeSymbols>true</IncludeSymbols>
