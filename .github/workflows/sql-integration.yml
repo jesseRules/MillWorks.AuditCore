@@ -1,0 +1,31 @@
+name: SQL Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sql-integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pre-pull SQL Server 2022 image
+        run: docker pull mcr.microsoft.com/mssql/server:2022-latest
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run SQL Server integration tests
+        run: dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~Integration.SqlServer"

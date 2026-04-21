@@ -17,7 +17,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasDefaultSchema("audit")
+                .HasAnnotation("ProductVersion", "10.0.6")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -456,11 +457,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasColumnName("PreviousEventHash");
 
                     b.Property<long>("SequenceNumber")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
                         .HasColumnName("SequenceNumber");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SequenceNumber"));
 
                     b.Property<DateTimeOffset>("TrustedTimestamp")
                         .HasColumnType("datetimeoffset")

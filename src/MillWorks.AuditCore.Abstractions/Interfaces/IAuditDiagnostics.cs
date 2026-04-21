@@ -85,6 +85,34 @@ public interface IAuditDiagnostics
     long InterceptorAuditFailureCount { get; }
 
     /// <summary>
+    /// Number of request-audit dispatch overflow events raised by
+    /// <c>InProcessRequestAuditDispatcher</c> (bounded channel full or closed).
+    /// Incremented once per overflow regardless of the configured
+    /// <c>RequestAuditOverflowPolicy</c>, so the counter reflects raw saturation
+    /// rate independent of policy outcome. Maps to OTel metric
+    /// <c>auditcore.request_dispatcher.enqueue_timeout_total</c>.
+    /// </summary>
+    long RequestDispatcherEnqueueTimeoutCount { get; }
+
+    /// <summary>
+    /// Number of request-audit overflow events successfully stored in the
+    /// configured <c>IAuditDeadLetterQueue</c> under
+    /// <c>RequestAuditOverflowPolicy.RouteToDeadLetter</c>. Does not include
+    /// drops caused by a missing DLQ or by a failing DLQ store call. Maps to
+    /// OTel metric <c>auditcore.request_dispatcher.dlq_routed_total</c>.
+    /// </summary>
+    long RequestDispatcherDlqRoutedCount { get; }
+
+    /// <summary>
+    /// Number of queued request-audit events drained to the dead letter queue
+    /// during host shutdown. Emission lands alongside the shutdown-drain behavior
+    /// (a later Phase 5 checkbox); the counter is defined now so the shutdown
+    /// path can increment it without a second round of abstraction edits. Maps
+    /// to OTel metric <c>auditcore.request_dispatcher.shutdown_drain_total</c>.
+    /// </summary>
+    long RequestDispatcherShutdownDrainCount { get; }
+
+    /// <summary>
     /// Increments the specified counter by one.
     /// </summary>
     void Increment(AuditDiagnosticCounter counter);
@@ -113,5 +141,8 @@ public enum AuditDiagnosticCounter
     IntegrityReconciliationSuccess,
     IntegrityReconciliationFailure,
     IntegrityPermanentFailure,
-    InterceptorAuditFailure
+    InterceptorAuditFailure,
+    RequestDispatcherEnqueueTimeout,
+    RequestDispatcherDlqRouted,
+    RequestDispatcherShutdownDrain
 }

@@ -80,14 +80,17 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly SemaphoreSlim LocalFallbackLock = new(1, 1);
 
     /// <summary>
-    /// Cached previous event hash to eliminate the GetLatestBySequenceAsync DB read
-    /// from the critical section in steady state. Only the first call (or after a
-    /// duplicate-key retry) reads from the database. Subsequent calls use the cached value.
+    /// Cached chain head — previous event hash and current max SequenceNumber — to eliminate
+    /// the GetLatestBySequenceAsync DB read from the critical section in steady state. Only
+    /// the first call (or after a duplicate-key retry) reads from the database; subsequent
+    /// calls use the cached values. Treated as a single unit: both fields are populated from
+    /// one GetLatestBySequenceAsync call and invalidated together on duplicate-key retry.
     /// Static because TamperDetectionService is Scoped — the cache must survive across requests.
     /// Thread safety: all reads and writes occur inside the LocalFallbackLock / distributed lock
-    /// critical section in CreateIntegrityRecordAsync — no external synchronization needed.
+    /// critical section — no external synchronization needed.
     /// </summary>
     private static string? _cachedPreviousHash;
+    private static long _cachedMaxSequenceNumber;
     private static bool _previousHashCacheInitialized;
 
     /// <summary>
@@ -207,13 +210,16 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     localLockAcquired = true;
                 }
 
-                // Critical section — only chain linkage + insert (narrowed from full hash computation).
-                // Use cached previous hash in steady state to avoid a DB read per event.
+                // Critical section — chain linkage, sequence assignment, and insert (narrowed
+                // from full hash computation). Use cached previous-hash + max-sequence in steady
+                // state to avoid a DB read per event.
                 string? previousHash;
+                long nextSequence;
                 if (!_previousHashCacheInitialized)
                 {
                     var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
                     previousHash = previousIntegrity?.EventHash;
+                    _cachedMaxSequenceNumber = previousIntegrity?.SequenceNumber ?? 0;
                     _previousHashCacheInitialized = true;
                     _cachedPreviousHash = previousHash;
                 }
@@ -221,6 +227,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 {
                     previousHash = _cachedPreviousHash;
                 }
+                nextSequence = _cachedMaxSequenceNumber + 1;
 
                 var integrity = new AuditIntegrityEntity
                 {
@@ -228,6 +235,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     EventHash = eventHash,
                     PreviousEventHash = previousHash,
                     TrustedTimestamp = timestamp,
+                    SequenceNumber = nextSequence,
                     HmacSignature = hmacSignature,
                     Checksum = checksum,
                     AlgorithmVersion = algorithmVersion,
@@ -237,8 +245,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
                 await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
 
-                // Update cache with the hash we just wrote — next call skips the DB read
+                // Update cache with the hash and sequence we just wrote — next call skips the DB read.
                 _cachedPreviousHash = integrity.EventHash;
+                _cachedMaxSequenceNumber = integrity.SequenceNumber;
 
                 _logger.LogDebug(
                     "Created integrity record for event {EventId} with sequence {SequenceNumber} (attempt {Attempt})",
@@ -246,18 +255,22 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
                 return new AuditIntegrityDto { EventId = integrity.EventId };
             }
-            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            catch (DbUpdateException ex)
+                when (DuplicateKeyDetector.IsDuplicateKey(ex) || DeadlockDetector.IsDeadlock(ex))
             {
                 retryCount++;
 
-                // Invalidate cache — another instance may have advanced the chain
+                var conflictKind = DuplicateKeyDetector.IsDuplicateKey(ex) ? "duplicate-key" : "deadlock";
+
+                // Invalidate cache — another instance may have advanced the chain, or a deadlock
+                // victim must re-read the chain head before its retry.
                 _previousHashCacheInitialized = false;
 
                 if (retryCount >= maxRetries)
                 {
                     _logger.LogError(ex,
-                        "Failed to create integrity record for event {EventId} after {MaxRetries} attempts",
-                        auditEvent.EventId, maxRetries);
+                        "Failed to create integrity record for event {EventId} after {MaxRetries} attempts ({ConflictKind})",
+                        auditEvent.EventId, maxRetries, conflictKind);
                     throw new InvalidOperationException(
                         $"Failed to create integrity record for event {auditEvent.EventId} after {maxRetries} attempts. " +
                         "This may indicate high concurrency or a systemic issue.", ex);
@@ -272,8 +285,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
 
                 _logger.LogWarning(
-                    "Duplicate sequence number detected for event {EventId}. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
-                    auditEvent.EventId, retryCount, maxRetries, delay.TotalMilliseconds);
+                    "Retryable write conflict ({ConflictKind}) for event {EventId}. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
+                    conflictKind, auditEvent.EventId, retryCount, maxRetries, delay.TotalMilliseconds);
 
                 await Task.Delay(delay, cancellationToken);
             }
@@ -374,12 +387,14 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     localLockAcquired = true;
                 }
 
-                // Critical section: read latest sequence (cached), build chain, bulk write
+                // Critical section: read latest sequence (cached), build chain with explicit
+                // application-assigned SequenceNumber values, bulk write.
                 string? previousHash;
                 if (!_previousHashCacheInitialized)
                 {
                     var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
                     previousHash = previousIntegrity?.EventHash;
+                    _cachedMaxSequenceNumber = previousIntegrity?.SequenceNumber ?? 0;
                     _previousHashCacheInitialized = true;
                     _cachedPreviousHash = previousHash;
                 }
@@ -397,6 +412,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         EventHash = precomputed[i].EventHash,
                         PreviousEventHash = previousHash,
                         TrustedTimestamp = timestamp,
+                        SequenceNumber = _cachedMaxSequenceNumber + 1 + i,
                         HmacSignature = precomputed[i].Hmac,
                         Checksum = precomputed[i].Checksum,
                         AlgorithmVersion = algorithmVersion,
@@ -411,8 +427,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
                 await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
 
-                // Update cache to the last entity's hash — next call skips the DB read
+                // Update cache to the last entity's hash and sequence — next call skips the DB read.
                 _cachedPreviousHash = entities[^1].EventHash;
+                _cachedMaxSequenceNumber = entities[^1].SequenceNumber;
 
                 _logger.LogDebug(
                     "Created {Count} integrity records in batch (attempt {Attempt})",
@@ -420,18 +437,22 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
                 return auditEvents.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList();
             }
-            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            catch (DbUpdateException ex)
+                when (DuplicateKeyDetector.IsDuplicateKey(ex) || DeadlockDetector.IsDeadlock(ex))
             {
                 retryCount++;
 
-                // Invalidate cache — another instance may have advanced the chain
+                var conflictKind = DuplicateKeyDetector.IsDuplicateKey(ex) ? "duplicate-key" : "deadlock";
+
+                // Invalidate cache — another instance may have advanced the chain, or a deadlock
+                // victim must re-read the chain head before its retry.
                 _previousHashCacheInitialized = false;
 
                 if (retryCount >= maxRetries)
                 {
                     _logger.LogError(ex,
-                        "Failed to create batch integrity records after {MaxRetries} attempts",
-                        maxRetries);
+                        "Failed to create batch integrity records after {MaxRetries} attempts ({ConflictKind})",
+                        maxRetries, conflictKind);
                     throw new InvalidOperationException(
                         $"Failed to create batch integrity records after {maxRetries} attempts. " +
                         "This may indicate high concurrency or a systemic issue.", ex);
@@ -444,8 +465,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
                 var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
 
                 _logger.LogWarning(
-                    "Duplicate sequence number detected in batch. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
-                    retryCount, maxRetries, delay.TotalMilliseconds);
+                    "Retryable write conflict ({ConflictKind}) in batch. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
+                    conflictKind, retryCount, maxRetries, delay.TotalMilliseconds);
 
                 await Task.Delay(delay, cancellationToken);
             }
@@ -906,6 +927,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     {
         _previousHashCacheInitialized = false;
         _cachedPreviousHash = null;
+        _cachedMaxSequenceNumber = 0;
     }
 
     /// <summary>

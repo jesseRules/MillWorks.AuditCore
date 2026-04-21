@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -105,12 +106,18 @@ public sealed class AuditContextMiddleware(
                 catch (OperationCanceledException ex)
                 {
                     logger.LogWarning(ex,
-                        "Request audit dispatch was canceled for request {Path}",
-                        context.Request.Path);
+                        "Request audit dispatch was canceled for request {Path} under overflow policy {OverflowPolicy} ({PolicyDetail})",
+                        context.Request.Path,
+                        options.Value.OverflowPolicy,
+                        PolicyDetail(options.Value.OverflowPolicy));
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error dispatching request audit for request {Path}", context.Request.Path);
+                    logger.LogError(ex,
+                        "Error dispatching request audit for request {Path} under overflow policy {OverflowPolicy} ({PolicyDetail})",
+                        context.Request.Path,
+                        options.Value.OverflowPolicy,
+                        PolicyDetail(options.Value.OverflowPolicy));
                 }
             }
 
@@ -123,6 +130,14 @@ public sealed class AuditContextMiddleware(
                 logger.LogError(ex, "Error clearing audit context for request {Path}", context.Request.Path);
             }
         }
+
+        static string PolicyDetail(RequestAuditOverflowPolicy policy) => policy switch
+        {
+            RequestAuditOverflowPolicy.Throw => "swallowed; dispatcher raised overflow",
+            RequestAuditOverflowPolicy.DropAndLog => "swallowed; event dropped per policy",
+            RequestAuditOverflowPolicy.RouteToDeadLetter => "swallowed; dispatcher owns DLQ routing",
+            _ => "swallowed; unknown policy"
+        };
     }
 
     /// <summary>

@@ -481,6 +481,55 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 
 Append-only entities (`AuditIntegrity`, `AuditSecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
 
+## Testing
+
+Run the full test suite:
+
+```bash
+dotnet test
+```
+
+The SQL Server integration lane lives under `MillWorks.AuditCore.Tests.Integration.SqlServer` and uses Testcontainers to spin up a real SQL Server 2022 container. Run the lane in isolation:
+
+```bash
+dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --filter "FullyQualifiedName~Integration.SqlServer"
+```
+
+Docker is required for a real SQL Server run. When Docker is unavailable, every test in the SQL Server lane reports `Inconclusive` rather than `Failed`, so full-suite runs stay green on Docker-less developer machines without masking regressions when the gate runs in CI.
+
+GitHub Actions runs the lane on every PR and push to `main` via the [`SQL Integration`](.github/workflows/sql-integration.yml) workflow.
+
+### Endurance / soak lane
+
+The Phase 6.5 endurance soak lives under `MillWorks.AuditCore.Tests.Integration.Endurance` — deliberately **outside** the `Integration.SqlServer.*` namespace so it does not run on the default SQL lane or in CI. It exercises the integrity chain writer/verifier at 100k events with four concurrent writers and asserts the full chain is valid, the DLQ is empty, and managed memory stays within a 750 MB hard cap. The test class owns its own Testcontainers SQL Server 2022 lifecycle (started in `[OneTimeSetUp]`, disposed in `[OneTimeTearDown]`) so it is fully self-contained and never touches the `Integration.SqlServer` fixture.
+
+Recommended invocation — pass the opt-in variable via `dotnet test -e` so it reaches the NUnit worker process:
+
+```bash
+dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj \
+    --filter "FullyQualifiedName~Integration.Endurance" \
+    -e AUDITCORE_RUN_ENDURANCE=1
+```
+
+The bare prefix form (`AUDITCORE_RUN_ENDURANCE=1 dotnet test …`) depends on environment inheritance into the test host and has been observed not to propagate in some `dotnet test` / NUnit worker configurations. Prefer the `-e` form unless you have confirmed inheritance works locally.
+
+Without the opt-in variable the single test reports `Inconclusive` and does no work. Docker must be healthy — the run provisions its own database (`MillWorksAuditCoreSoakTests`) inside a dedicated SQL Server 2022 container, which is dropped on teardown. The test has a 15-minute cancellation budget; a typical run completes well inside that. Each invocation writes `notes.md` and `samples.csv` to `artifacts/phase6.5-soak/<UTC-timestamp>/`; the `artifacts/` directory is gitignored and is intended for local operator review.
+
+## Production Readiness
+
+The current hardening cycle closes the six production gaps tracked in `docs/ProductionHardeningPlan.md`:
+
+| Area | Status |
+|------|--------|
+| Runtime options binding | `TamperDetectionService` and runtime services consume typed `IOptions<T>` values; production HMAC misconfiguration fails through options validation. |
+| SQL Server schema configuration | `EntityFrameworkOptions.Schema` drives the runtime EF model, with schema-aware model caching. Built-in migrations remain anchored to the default `audit` schema; custom schemas are fresh-database-only. |
+| Error-message redaction | `AuditEvent.ErrorMessage` is redacted before it is persisted into the serialized audit payload. |
+| Fail-closed entity writes | `AuditOptions.FailureMode` supports `Permissive`, `FailClosedForRegulated`, and `FailClosedAlways`; regulated saves can roll back when the interceptor cannot build audit records. |
+| Request-audit overflow | `AuditMiddlewareOptions.OverflowPolicy` supports explicit overflow behavior, including `RouteToDeadLetter` for DLQ preservation. |
+| SQL Server verification | A Testcontainers-backed SQL Server lane covers migrations, custom schema creation, rowversion behavior, transaction rollback, tamper-chain verification, and retry/DLQ behavior. |
+
+For an ACED-style regulated deployment, start from [`docs/ACEDProductionConfiguration.md`](docs/ACEDProductionConfiguration.md): durable HMAC key, digital-signature key paths, `FailClosedForRegulated`, Redis-backed DLQ/locking, `RouteToDeadLetter`, and the default `audit` schema with migrations enabled.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and pull request guidelines.

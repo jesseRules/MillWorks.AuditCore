@@ -55,10 +55,13 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     public DateTimeOffset TrustedTimestamp { get; set; }
     
     /// <summary>
-    /// Sequence number for ordering verification - use IDENTITY for auto-increment
+    /// Sequence number for ordering verification. Application-assigned under the
+    /// integrity distributed lock; not DB-generated, because SQL Server batch-insert
+    /// IDENTITY assignment does not preserve input row order, which would break the
+    /// chain when the verifier reads rows ordered by SequenceNumber.
     /// </summary>
     [Required]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     [Column("SequenceNumber", TypeName = "bigint")]
     public long SequenceNumber { get; set; }
     

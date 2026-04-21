@@ -1,4 +1,7 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.Services.Core;
@@ -106,6 +109,34 @@ public sealed class SafeDefaultRedactionTests
     }
 
     [Test]
+    public async Task PassThroughWithExplicitAllow_EmitsStartupWarning()
+    {
+        var provider = new CapturingLoggerProvider();
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddLogging(builder => builder.AddProvider(provider));
+        services.AddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
+
+        services.AddMillWorksAudit(builder =>
+        {
+            builder.Options.ApplicationName = "TestApp";
+            builder.Options.Environment = "Production";
+            builder.Options.HmacKey = "startup-warning-test-hmac-key-32";
+            builder.Options.AllowPassThroughRedactor = true;
+            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+        });
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var warningService = serviceProvider.GetServices<IHostedService>()
+            .Single(static service => service.GetType().Name == "PassThroughRedactorStartupWarningService");
+
+        await warningService.StartAsync(CancellationToken.None);
+
+        Assert.That(provider.Messages, Has.Some.Contains("PassThroughAuditFieldRedactor is enabled"));
+        Assert.That(provider.LogLevels, Has.Some.EqualTo(LogLevel.Warning));
+    }
+
+    [Test]
     public void ValidateConfiguration_DefaultRedactorInProduction_DoesNotThrow()
     {
         var services = new ServiceCollection();
@@ -165,5 +196,34 @@ public sealed class SafeDefaultRedactionTests
     {
         public Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields) => fields;
         public string? RedactValue(string fieldName, string? value) => value;
+    }
+
+    private sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        public List<LogLevel> LogLevels { get; } = [];
+        public List<string> Messages { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(this);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class CapturingLogger(CapturingLoggerProvider provider) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            provider.LogLevels.Add(logLevel);
+            provider.Messages.Add(formatter(state, exception));
+        }
     }
 }

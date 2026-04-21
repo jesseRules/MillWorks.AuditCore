@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Dto;
 
 namespace MillWorks.AuditCore.Services.Options;
 
@@ -32,6 +33,15 @@ public sealed class AuditMiddlewareOptions
     /// Maximum time the default in-process worker will spend draining queued request audits during shutdown.
     /// </summary>
     public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Selects how the request-audit dispatcher responds when the bounded
+    /// queue cannot accept a new event. Default
+    /// <see cref="RequestAuditOverflowPolicy.Throw"/> preserves the current
+    /// dispatcher behavior. Other values are a forward declaration; the
+    /// dispatcher wiring that honors them lands in a later checkbox.
+    /// </summary>
+    public RequestAuditOverflowPolicy OverflowPolicy { get; set; } = RequestAuditOverflowPolicy.Throw;
 }
 
 /// <summary>

@@ -59,24 +59,32 @@ public class InMemoryDistributedLockServiceTests
     }
 
     /// <summary>
-    /// AcquireLockAsync succeeds after lock with short TTL expires
+    /// A held lock is NOT auto-released when the nominal expiry passes — the in-process
+    /// implementation deliberately ignores TTL for held entries (see class header on
+    /// InMemoryDistributedLockService). A second acquirer must wait for Dispose, or be
+    /// cancelled, or hit the retry budget. Phase 6.5 finding: TTL-based cleanup let two
+    /// writers into the integrity-chain critical section simultaneously, causing SQL
+    /// Server deadlocks.
     /// </summary>
     [Test]
-    public async Task AcquireLockAsync_LockExpires_CanReacquire()
+    public async Task AcquireLockAsync_HeldLockPastNominalExpiry_CannotReacquireWithoutDispose()
     {
-        // Arrange - acquire a lock with a very short expiry
+        // Arrange - acquire a lock with a very short nominal expiry, but DO NOT dispose it
         using var firstLock = await _service.AcquireLockAsync(
             "expiring-resource", TimeSpan.FromMilliseconds(100));
 
-        // Wait for the lock to expire
+        // Wait well past the nominal expiry
         await Task.Delay(TimeSpan.FromMilliseconds(200));
 
-        // Act - reacquire should succeed because the lock expired
-        using var secondLock = await _service.AcquireLockAsync(
-            "expiring-resource", TimeSpan.FromSeconds(30));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
 
-        // Assert
-        Assert.That(secondLock, Is.Not.Null);
+        // Act & Assert - second acquisition must NOT succeed while firstLock is alive,
+        // even though the nominal expiry has elapsed
+        var ex = Assert.CatchAsync<OperationCanceledException>(async () =>
+            await _service.AcquireLockAsync(
+                "expiring-resource", TimeSpan.FromSeconds(30), cts.Token));
+
+        Assert.That(ex, Is.Not.Null);
     }
 
     /// <summary>

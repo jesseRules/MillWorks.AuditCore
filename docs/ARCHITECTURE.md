@@ -106,16 +106,68 @@ The EF `AuditSaveChangesInterceptor` builds `AuditLogEntity` records inside `Sav
 **Scope boundary — what Phase 4 does NOT change.** This fail-closed behavior is strictly scoped to the EF interceptor's audit-log-build path inside `ProcessAuditableEntries`. It does not apply to:
 
 - `ResilientAuditLogger` (the `IAuditLogger` decorator) — remains fail-open by architecture: retries, DLQ, emergency fallback file. Designed for applications calling `IAuditLogger.LogAsync` directly.
-- `AuditContextMiddleware` deferred request-audit dispatch — still catches and logs; DLQ routing is Phase 5 scope.
+- `AuditContextMiddleware` deferred request-audit dispatch — still catches and logs; overflow preservation is governed by `AuditMiddlewareOptions.OverflowPolicy`.
 - Background hosted services (`DatabaseInitializationService`, `IntegrityWriteBatcher`, `IntegrityReconciliationService`, `DeadLetterQueueProcessor`, `ArchiveCreationBackgroundService`, `ArchiveVerificationBackgroundService`) — each has its own per-operation `catch` and log behavior; not governed by `AuditFailureMode`.
 
 A regulated consumer that needs end-to-end audit-completeness across all paths should treat `FailClosedForRegulated` as one layer among several rather than the single fail-closed switch.
+
+### Request-Audit Overflow Semantics
+
+Phase 5 governs what happens when the deferred HTTP request-audit pipeline overflows — when `InProcessRequestAuditDispatcher` cannot accept a new event because its bounded channel is full or closed. This is distinct from Phase 4's interceptor fail-closed behavior.
+
+**Decision: request-audit overflow does not fail the HTTP response.** The business request continues regardless of how overflow is handled. `AuditContextMiddleware` catches every exception from `IRequestAuditDispatcher.DispatchAsync` and swallows it after logging. A failed request-audit dispatch never propagates to the HTTP status line. The request-audit record is a supplementary diagnostic, not a transactional record, and audit-side saturation does not translate into 5xx responses.
+
+`AuditMiddlewareOptions.OverflowPolicy` selects one of three `RequestAuditOverflowPolicy` values. All three are implemented at the dispatcher layer; middleware branches only in its structured log detail (`{PolicyDetail}`), not in HTTP-facing behavior.
+
+| Policy | Dispatcher behavior on overflow | Event fate |
+|--------|---------------------------------|------------|
+| `Throw` (default) | Throws `TimeoutException` (zero-timeout Path A), propagates `OperationCanceledException` (timeout Path B), or propagates `ChannelClosedException`. Caller-initiated cancellation is not treated as overflow — it propagates normally. Middleware catches and logs. | Lost. |
+| `DropAndLog` | Catches overflow at the dispatcher, logs at `LogWarning`, returns without throwing. Middleware's catch blocks do not fire on overflow under this policy. | Lost (single `LogWarning` per drop). |
+| `RouteToDeadLetter` | Catches overflow and attempts `IAuditDeadLetterQueue.StoreFailedEventAsync`. On success logs at `LogWarning` (recovery, not failure). If no DLQ is registered, logs at `LogWarning` and drops. If the DLQ `Store` call itself throws, logs at `LogError` and drops. | Preserved in DLQ on success; dropped on DLQ unavailability or DLQ failure. |
+
+**Tradeoffs.**
+
+- `Throw` gives operators the loudest per-overflow signal via middleware's `LogWarning` / `LogError`. Under sustained saturation this can become noisy without preserving any of the lost events. Right for consumers who want overflow to be visible but do not operate a DLQ.
+- `DropAndLog` is the quietest policy under sustained saturation: one dispatcher-side `LogWarning` per drop, no middleware exception path. Right for consumers who explicitly prefer silent event loss over added request latency and do not operate a DLQ.
+- `RouteToDeadLetter` is the only policy that preserves saturated events for out-of-band processing. Requires `UseResilience(...)` on the builder so an `IAuditDeadLetterQueue` implementation is registered; otherwise it falls back to `DropAndLog`-style behavior with an additional `LogWarning` noting the missing DLQ. Right for regulated deployments.
+
+**Distinction from Phase 4.** `AuditOptions.FailureMode` (Phase 4) governs the EF `AuditSaveChangesInterceptor` only; it decides whether a failing audit-log-build inside `SavingChangesAsync` rolls back the business transaction for regulated entities. That decision sits on the `DbContext.SaveChanges` write path. `AuditMiddlewareOptions.OverflowPolicy` (Phase 5, this section) sits on the HTTP middleware's deferred dispatch path and does not fail the HTTP response regardless of policy. The two settings are independent — a consumer can run Phase 4 `FailClosedForRegulated` alongside any Phase 5 policy. Phase 5 deliberately does not add a request-audit failure policy: a regulated deployment that needs audit completeness on the HTTP path should wire `RouteToDeadLetter` plus a durable DLQ (for example `Redis` or `FileSystem`), not expect request-audit failures to 5xx the request.
 
 ## Runtime Options Flow
 
 All configurable runtime behavior flows through the standard .NET options pipeline. Runtime services receive their configuration through `IOptions<T>` / `IOptionsMonitor<T>` constructor injection; none of them read `IConfiguration` directly. The hidden configuration path that formerly existed in `TamperDetectionService` (direct reads of `Audit:HmacKey` and `Audit:EnableDigitalSignatures`) has been removed.
 
 Seven options types participate. All are registered with the same shape — `AddOptions<T>().BindConfiguration("Audit").Configure(consumerOverlay).ValidateOnStart()` — and each has a corresponding `IValidateOptions<T>` registered via `TryAddEnumerable` so misconfiguration fails at host start rather than at first use.
+
+```
+appsettings / environment / secrets
+    |
+    v
+IConfiguration section "Audit"
+    |
+    v
+AddOptions<T>().BindConfiguration("Audit")
+    |
+    v
+fluent builder overlay
+    - builder.Options.* for AuditOptions
+    - UseEntityFramework(o => ...)
+    - UseSecurity(o => ...)
+    - UseCompliance(o => ...)
+    - UseArchival(o => ...)
+    - UseResilience(o => ...)
+    |
+    v
+IValidateOptions<T> + ValidateOnStart()
+    |
+    v
+typed consumers
+    - IOptions<T> / IOptionsMonitor<T> in runtime services
+    - AuditApplicationDbContext schema options
+    - TamperDetectionService HMAC/signature options
+    - AuditSaveChangesInterceptor failure policy
+    - InProcessRequestAuditDispatcher overflow policy
+```
 
 | Options type              | Registered in                               | Binds flat from `Audit` | `ValidateOnStart()` |
 |---------------------------|---------------------------------------------|-------------------------|---------------------|
@@ -210,9 +262,9 @@ When `UseCompliance()` is configured with an enforcement mode, the interceptor c
 
 When tamper detection is enabled, `AuditLogger.LogAsync(...)` persists the `AuditEventEntity` and then creates a corresponding `AuditIntegrityEntity` in the same transaction.
 
-Each integrity record receives a database-generated sequence number. For a new event, `TamperDetectionService` currently:
+Each integrity record receives an application-assigned sequence number under the integrity distributed lock. The SQL Server implementation does not rely on `IDENTITY` ordering for batched inserts because SQL Server's `MERGE ... OUTPUT` path can assign identity values in an order that differs from the input entity order. For a new event, `TamperDetectionService` currently:
 
-1. Retrieves the most recent `AuditIntegrityEntity` to obtain the previous hash.
+1. Retrieves the most recent `AuditIntegrityEntity` to obtain the previous hash and highest sequence number.
 2. Canonicalizes the event payload using `AuditCanonicalizer`.
 3. Computes the event hash from the canonicalized event data.
 4. Computes an HMAC value from immutable event identity fields using the configured HMAC key.
@@ -225,14 +277,14 @@ Each integrity record receives a database-generated sequence number. For a new e
    - `Checksum`
    - `AlgorithmVersion`
    - optional `DigitalSignature`
-   - database-generated `SequenceNumber`
+   - application-assigned `SequenceNumber`
 
 The current implementation does not store a separate persisted `ChainHash` column. Chain continuity is represented by each row's `PreviousEventHash` pointer to the prior row's `EventHash`.
 
 Performance note:
 
 - Hashes are pre-computed outside the critical section.
-- The critical section is still serialized around "read latest + insert integrity row", so this remains one of the main write-path bottlenecks under concurrency.
+- The critical section is still serialized around "read latest + assign sequence + insert integrity row", so this remains one of the main write-path bottlenecks under concurrency.
 
 ### Chain Verification
 

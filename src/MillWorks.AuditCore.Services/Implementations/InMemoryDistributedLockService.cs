@@ -5,8 +5,17 @@ using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 namespace MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 
 /// <summary>
-/// In-memory distributed lock service for testing and development
-/// WARNING: This is NOT suitable for production use across multiple instances
+/// In-memory distributed lock service for testing and development.
+/// WARNING: This is NOT suitable for production use across multiple instances.
+/// <para>
+/// In-process semantics: an acquired lock lives until <see cref="IDisposable.Dispose"/> is
+/// called on the returned handle. The <c>expiry</c> parameter is retained for interface
+/// compatibility with <see cref="IAuditDistributedLockService"/> and is recorded informationally
+/// on the <c>LockInfo</c> record, but it is NOT enforced as a lease TTL. Specifically, a held
+/// lock cannot be re-acquired by another caller after <c>expiry</c> elapses unless the original
+/// holder disposes the handle. This avoids the lease-race that allowed two writers into the
+/// integrity-chain critical section under long-running batch writes (Phase 6.5 finding).
+/// </para>
 /// </summary>
 public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockService> logger)
     : IAuditDistributedLockService
@@ -23,14 +32,18 @@ public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockServi
         logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>
-    /// Acquires a distributed lock for the specified resource with a given expiry time.
+    /// Acquires a distributed lock for the specified resource.
     /// </summary>
-    /// <param name="resource"></param>
-    /// <param name="expiry"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    /// <exception cref="TimeoutException"></exception>
+    /// <param name="resource">The resource key to lock.</param>
+    /// <param name="expiry">
+    /// Recorded informationally on the lock entry; not enforced as a lease TTL by this
+    /// in-process implementation. The held lock lives until <see cref="IDisposable.Dispose"/>.
+    /// Required to be greater than <see cref="TimeSpan.Zero"/> for interface-contract validation.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token for the acquisition retry loop.</param>
+    /// <returns>A disposable lock handle. Disposing it releases the lock.</returns>
+    /// <exception cref="ArgumentException"><paramref name="expiry"/> is non-positive.</exception>
+    /// <exception cref="TimeoutException">Acquisition retries exhausted without success.</exception>
     public async Task<IDisposable> AcquireLockAsync(
         string resource,
         TimeSpan expiry,
@@ -50,10 +63,8 @@ public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockServi
 
         while (retryCount < maxRetries)
         {
-            // Clean up expired locks
-            CleanupExpiredLocks();
-
-            // Try to acquire lock
+            // Try to acquire lock. We do NOT sweep expired entries — a held lock cannot be
+            // forced out by TTL. Releases happen exclusively through InMemoryLock.Dispose.
             var lockInfo = new LockInfo(lockValue, expiresAt);
 
             if (_locks.TryAdd(resource, lockInfo))
@@ -86,27 +97,11 @@ public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockServi
     }
 
     /// <summary>
-    /// Cleans up expired locks from the in-memory store
+    /// Lock information record. <see cref="ExpiresAt"/> is informational only — see the
+    /// class header for why TTL-based cleanup was removed.
     /// </summary>
-    private void CleanupExpiredLocks()
-    {
-        var now = DateTimeOffset.UtcNow;
-        var expiredKeys = _locks
-            .Where(kvp => kvp.Value.ExpiresAt < now)
-            .Select(static kvp => kvp.Key)
-            .ToList();
-
-        foreach (var key in expiredKeys)
-        {
-            _locks.TryRemove(key, out _);
-        }
-    }
-
-    /// <summary>
-    /// Lock information record
-    /// </summary>
-    /// <param name="Value"></param>
-    /// <param name="ExpiresAt"></param>
+    /// <param name="Value">Per-acquisition lock token; matched on Dispose to prevent stale-release.</param>
+    /// <param name="ExpiresAt">Informational nominal expiry; not enforced by this implementation.</param>
     private sealed record LockInfo(string Value, DateTimeOffset ExpiresAt);
 
     /// <summary>

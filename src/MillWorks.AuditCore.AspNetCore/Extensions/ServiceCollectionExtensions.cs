@@ -64,6 +64,8 @@ public static class ServiceCollectionExtensions
 
             // Register middleware - CRITICAL: Must be scoped for per-request isolation
             services.TryAddScoped<AuditContextMiddleware>();
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IHostedService, PassThroughRedactorStartupWarningService>());
 
             // Create and configure builder. Capture a baseline snapshot so the options-pipeline
             // replay can distinguish consumer-set fluent values from untouched defaults, letting

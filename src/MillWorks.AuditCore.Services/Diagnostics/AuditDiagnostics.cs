@@ -22,6 +22,9 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     private long _integrityReconciliationFailureCount;
     private long _integrityPermanentFailureCount;
     private long _interceptorAuditFailureCount;
+    private long _requestDispatcherEnqueueTimeoutCount;
+    private long _requestDispatcherDlqRoutedCount;
+    private long _requestDispatcherShutdownDrainCount;
 
     /// <inheritdoc />
     public long SnapshotSerializationFallbackCount =>
@@ -80,6 +83,18 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Read(ref _interceptorAuditFailureCount);
 
     /// <inheritdoc />
+    public long RequestDispatcherEnqueueTimeoutCount =>
+        Interlocked.Read(ref _requestDispatcherEnqueueTimeoutCount);
+
+    /// <inheritdoc />
+    public long RequestDispatcherDlqRoutedCount =>
+        Interlocked.Read(ref _requestDispatcherDlqRoutedCount);
+
+    /// <inheritdoc />
+    public long RequestDispatcherShutdownDrainCount =>
+        Interlocked.Read(ref _requestDispatcherShutdownDrainCount);
+
+    /// <inheritdoc />
     public void Increment(AuditDiagnosticCounter counter)
     {
         switch (counter)
@@ -126,6 +141,15 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
             case AuditDiagnosticCounter.InterceptorAuditFailure:
                 Interlocked.Increment(ref _interceptorAuditFailureCount);
                 break;
+            case AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout:
+                Interlocked.Increment(ref _requestDispatcherEnqueueTimeoutCount);
+                break;
+            case AuditDiagnosticCounter.RequestDispatcherDlqRouted:
+                Interlocked.Increment(ref _requestDispatcherDlqRoutedCount);
+                break;
+            case AuditDiagnosticCounter.RequestDispatcherShutdownDrain:
+                Interlocked.Increment(ref _requestDispatcherShutdownDrainCount);
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(counter), counter,
                     $"Unhandled diagnostic counter: {counter}");
@@ -149,5 +173,8 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Exchange(ref _integrityReconciliationFailureCount, 0);
         Interlocked.Exchange(ref _integrityPermanentFailureCount, 0);
         Interlocked.Exchange(ref _interceptorAuditFailureCount, 0);
+        Interlocked.Exchange(ref _requestDispatcherEnqueueTimeoutCount, 0);
+        Interlocked.Exchange(ref _requestDispatcherDlqRoutedCount, 0);
+        Interlocked.Exchange(ref _requestDispatcherShutdownDrainCount, 0);
     }
 }

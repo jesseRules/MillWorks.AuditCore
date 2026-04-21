@@ -95,11 +95,9 @@ public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
     }
 
     /// <summary>
-    /// Gets the next sequence number for a new audit integrity record.
+    /// Returns MAX(SequenceNumber) + 1 across the integrity table. Safe under the integrity
+    /// distributed lock held by <c>TamperDetectionService</c>; not safe to call outside that lock.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    [Obsolete("SequenceNumber is a database-generated identity column. Manually reading MAX+1 is racy under concurrency. Let the database assign sequence numbers on insert.")]
     public async Task<long> GetNextSequenceNumberAsync(CancellationToken cancellationToken = default)
     {
         var maxSequence = await DbSet.AsNoTracking()

@@ -140,3 +140,37 @@ The uncovered areas are concentrated in:
 - Keep coverage deterministic: inject retry timing, clocks, randomness, and external dependencies.
 - Use property-based tests for canonicalization, hashing, and redaction where edge cases matter more than example count.
 - Use fuzz-style tests for sanitization and regex-heavy code to detect ReDoS and crash vectors.
+
+## SQL Server Integration Lane
+
+> Added after the April 2, 2026 coverage snapshot. The numbers above do not reflect this lane.
+
+Tests under `MillWorks.AuditCore.Tests.Integration.SqlServer` exercise SQL Server-specific behavior — provider migrations from empty, application-assigned `AuditIntegrityEntity.SequenceNumber`, the `AuditSaveChangesInterceptor` under a real transaction (success-atomic and `FailClosedAlways` rollback), custom-schema overrides via `HasDefaultSchema` + the `AuditModelCacheKeyFactory`, optimistic-concurrency `rowversion` round-trip on `AuditEventEntity`, a 10k-row tamper chain through `TamperDetectionService.CreateIntegrityRecordBatchAsync` + `VerifyChainIntegrityAsync`, and SQL Server retry-strategy / `ResilientAuditLogger` + DLQ wiring — against a real SQL Server 2022 container started by `Testcontainers.MsSql`.
+
+The lane is not part of the line-coverage snapshot above because it requires Docker and runs as a separate gate. Coverage of `TamperDetectionService`, `AuditApplicationDbContext`, and the EF SQL Server provider paths grows whenever the lane runs against the container; what the snapshot reports for those files is a lower bound.
+
+Run the lane:
+
+```bash
+dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --filter "FullyQualifiedName~Integration.SqlServer"
+```
+
+When Docker is unavailable, every test in the lane reports `Inconclusive` rather than `Failed`. This keeps full-suite runs green on Docker-less developer machines without masking real regressions when the gate runs in CI.
+
+## Endurance Lane
+
+> Added after the April 2, 2026 coverage snapshot. The numbers above do not reflect this lane.
+
+`MillWorks.AuditCore.Tests.Integration.Endurance.SqlServerIntegrityChainSoakTests` is the Phase 6.5 soak. It is deliberately outside `Integration.SqlServer.*` so the SQL CI filter does not pick it up — this lane is operator-initiated, not PR-gated. A single test seeds 100,000 `AuditEvent` rows in chunks of 1,000 and then runs four concurrent writers against `TamperDetectionService.CreateIntegrityRecordBatchAsync`. After the concurrent write, `VerifyChainIntegrityAsync` walks the full chain; the test asserts the chain is valid, no rows are flagged tampered, the `InMemoryAuditDeadLetterQueue` is empty, and forced-GC managed memory at the end grew by no more than 750 MB above the pre-seed baseline.
+
+The test class owns its own Testcontainers SQL Server 2022 lifecycle — `[OneTimeSetUp]` starts the container after the opt-in gate passes, `[OneTimeTearDown]` disposes it — so this lane is fully isolated from `Integration.SqlServer`'s shared fixture and does not share the `MillWorksAuditCoreTests` database. The soak's dedicated database (`MillWorksAuditCoreSoakTests`) is dropped and recreated on every run. Runtime / GC samples and a summary are written to `artifacts/phase6.5-soak/<UTC-timestamp>/` (`notes.md` + `samples.csv`); the `artifacts/` directory is gitignored.
+
+Run the lane — pass the opt-in variable via `dotnet test -e` so it reaches the NUnit worker:
+
+```bash
+dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --filter "FullyQualifiedName~Integration.Endurance" -e AUDITCORE_RUN_ENDURANCE=1
+```
+
+The bare prefix form (`AUDITCORE_RUN_ENDURANCE=1 dotnet test …`) depends on child-process environment inheritance and has been observed not to propagate to the NUnit worker in some configurations; prefer the `-e` form.
+
+The 15-minute cancellation budget is a safety ceiling, not a target; a healthy run completes well under that. If Docker is unavailable the test reports `Inconclusive` with the underlying Docker error message.

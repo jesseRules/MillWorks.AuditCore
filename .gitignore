@@ -47,6 +47,11 @@ nupkgs/
 *.trx
 coverage*/
 
+# Endurance / soak run artifacts (Phase 6.5). The soak harness writes
+# notes.md + samples.csv under artifacts/phase6.5-soak/<timestamp>/.
+# Operator inspects these locally; they are not committed.
+artifacts/
+
 # OS files
 .DS_Store
 Thumbs.db

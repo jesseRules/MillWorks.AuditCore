@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Fail-closed EF audit policy** (ProdHardening Phase 4) — `AuditFailureMode`, `AuditOptions.FailureMode`, `AuditIntegrityException`, `IAuditFailurePolicy`, and the default `RegulatedEntityFailurePolicy` let EF `SaveChanges` audit failures stay permissive by default or fail closed for regulated entities / all entities.
+- **Request-audit overflow policy** (ProdHardening Phase 5) — `RequestAuditOverflowPolicy` and `AuditMiddlewareOptions.OverflowPolicy` add explicit `Throw`, `DropAndLog`, and `RouteToDeadLetter` modes for bounded request-audit queue saturation.
+- **Request-audit DLQ and shutdown-drain coverage** (ProdHardening Phase 5) — `InProcessRequestAuditDispatcher` now accepts an optional `IAuditDeadLetterQueue`, routes configured overflow to DLQ, drains queued events on host stop, and exposes request-dispatcher diagnostics counters for enqueue timeout, DLQ routing, and shutdown drain.
+- **SQL Server Testcontainers lane** (ProdHardening Phase 6) — added a dedicated `Integration.SqlServer` test lane using `Testcontainers.MsSql` and `Respawn`, plus the `SQL Integration` GitHub Actions workflow for SQL Server scenario coverage.
+
+### Changed
+- **Runtime EF schema selection** (ProdHardening Phase 3) — `EntityFrameworkOptions.Schema` moved into the EntityFramework package and now drives `AuditApplicationDbContext` through `HasDefaultSchema(...)`; entity-level hard-coded `Schema = "audit"` attributes were removed and `AuditModelCacheKeyFactory` keys compiled models by configured schema.
+- **Audit interceptor failure handling** (ProdHardening Phase 4) — `AuditSaveChangesInterceptor` now consults `IAuditFailurePolicy`, increments `InterceptorAuditFailureCount`, and rethrows `AuditIntegrityException` when the configured failure mode requires fail-closed behavior.
+- **Integrity sequence assignment** (ProdHardening Phase 6) — `AuditIntegrityEntity.SequenceNumber` is now application-assigned under the existing integrity distributed lock instead of SQL Server identity-generated.
+- `IAuditIntegrityRepository.GetNextSequenceNumberAsync` is no longer marked obsolete; explicit sequence assignment is safe when called under the integrity distributed lock.
+
+### Fixed
+- `TamperDetectionService.CreateIntegrityRecordBatchAsync` no longer relies on SQL Server preserving input order when assigning identity values during batched inserts. The SQL Server 10k tamper-chain test exposed that `MERGE ... OUTPUT` identity ordering can differ from writer input order, causing verifier order-by-`SequenceNumber` checks to fail. The service now assigns contiguous `SequenceNumber` values in writer order and caches both the previous hash and max sequence.
+
+### Breaking Changes
+- `AuditSaveChangesInterceptor` gained optional `AuditFailureMode` and `IAuditFailurePolicy` constructor parameters. Default behavior remains permissive for existing DI construction.
+- `TamperDetectionService` construction now depends on typed `IOptions<AuditOptions>` / `IOptions<SecurityOptions>` configuration and the audit distributed lock service. Consumers constructing it manually must use the current constructor signature.
+- The greenfield EF migration baseline was regenerated as a single `Init` migration after changing `AuditIntegrityEntity.SequenceNumber` to application-assigned. Existing experimental databases created from earlier migrations should be dropped and recreated.
+- Custom SQL Server schemas remain fresh-database-only: changing `EntityFrameworkOptions.Schema` does not migrate an existing `audit` schema deployment into another schema.
+
 ## [1.5.0] - 2026-04-17
 
 ### Added
@@ -219,6 +242,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.5.0...HEAD
 [1.5.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.4.2...v1.5.0
 [1.3.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.2.0...v1.3.0

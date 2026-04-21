@@ -387,15 +387,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 MapAction(entry.State).ToString()))
             .ToList();
 
+        var auditCtx = context as AuditApplicationDbContext;
+        var correlationId = auditCtx?.CurrentCorrelationId;
+        var ipAddress = auditCtx?.CurrentIpAddress;
+        var userAgent = auditCtx?.CurrentUserAgent;
+
         try
         {
             var auditLogs = context.Set<AuditLogEntity>();
-
-            // Read request metadata from the DbContext (set by middleware)
-            var auditCtx = context as AuditApplicationDbContext;
-            var correlationId = auditCtx?.CurrentCorrelationId;
-            var ipAddress = auditCtx?.CurrentIpAddress;
-            var userAgent = auditCtx?.CurrentUserAgent;
 
             foreach (var entry in auditableEntries)
             {
@@ -560,6 +559,13 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                         new AuditFailureContext(AuditFailureMode.FailClosedForRegulated, [e])))
                     : entityContext.FirstOrDefault();
 
+                _logger.LogError(ex,
+                    "Error processing auditable entries; failing closed for entity {EntityName} action {Action} under failure mode {FailureMode} with correlation id {CorrelationId}",
+                    failureEntity?.EntityType.Name ?? "Unknown",
+                    failureEntity?.Action ?? "Unknown",
+                    _failureMode,
+                    correlationId);
+
                 throw new AuditIntegrityException(
                     failureEntity?.EntityType.Name ?? "Unknown",
                     failureEntity?.Action ?? "Unknown",
@@ -567,7 +573,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     ex);
             }
 
-            _logger.LogError(ex, "Error processing auditable entries");
+            _logger.LogError(ex,
+                "Error processing auditable entries; permissive mode swallowed audit failure under failure mode {FailureMode} with correlation id {CorrelationId}",
+                _failureMode,
+                correlationId);
             // Permissive: log and swallow.
         }
     }

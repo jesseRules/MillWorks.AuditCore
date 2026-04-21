@@ -135,8 +135,7 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                     PreviousEventHash = table.Column<string>(type: "varchar(44)", maxLength: 44, nullable: true),
                     DigitalSignature = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true),
                     TrustedTimestamp = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
-                    SequenceNumber = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    SequenceNumber = table.Column<long>(type: "bigint", nullable: false),
                     HmacSignature = table.Column<string>(type: "varchar(44)", maxLength: 44, nullable: true),
                     Checksum = table.Column<string>(type: "varchar(44)", maxLength: 44, nullable: false),
                     AlgorithmVersion = table.Column<int>(type: "int", nullable: false),
@@ -153,7 +152,7 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         principalSchema: "audit",
                         principalTable: "AuditEvents",
                         principalColumn: "EventId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -181,7 +180,7 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         principalSchema: "audit",
                         principalTable: "AuditEvents",
                         principalColumn: "EventId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(

@@ -114,6 +114,33 @@ public sealed class AuditDiagnosticsTests
     }
 
     [Test]
+    public void Increment_RequestDispatcherEnqueueTimeout_IncrementsByOne()
+    {
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout);
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout);
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout);
+
+        Assert.That(_diagnostics.RequestDispatcherEnqueueTimeoutCount, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Increment_RequestDispatcherDlqRouted_IncrementsByOne()
+    {
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherDlqRouted);
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherDlqRouted);
+
+        Assert.That(_diagnostics.RequestDispatcherDlqRoutedCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Increment_RequestDispatcherShutdownDrain_IncrementsByOne()
+    {
+        _diagnostics.Increment(AuditDiagnosticCounter.RequestDispatcherShutdownDrain);
+
+        Assert.That(_diagnostics.RequestDispatcherShutdownDrainCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public void Increment_ThreadSafety_ConcurrentIncrements()
     {
         const int threadCount = 10;
