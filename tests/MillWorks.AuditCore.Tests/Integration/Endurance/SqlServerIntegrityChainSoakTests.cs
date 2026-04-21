@@ -57,8 +57,7 @@ public sealed class SqlServerIntegrityChainSoakTests
 
         try
         {
-            _container = new MsSqlBuilder()
-                .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+            _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
                 .WithPassword("AuditCore_Test_Password_123!")
                 .Build();
             await _container.StartAsync();
