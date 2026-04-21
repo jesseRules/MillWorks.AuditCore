@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
@@ -158,6 +159,50 @@ public class FerpaEnforcementTests
             .Where(static l => l.EntityName == "FerpaConsentEntity")
             .FirstOrDefaultAsync();
         Assert.That(auditLog, Is.Not.Null);
+
+        var securityEvent = await ctx.SecurityEvents.AsNoTracking().SingleOrDefaultAsync();
+        Assert.That(securityEvent, Is.Not.Null);
+        Assert.That(securityEvent!.EventType, Is.EqualTo(SecurityEventType.ComplianceViolation));
+        Assert.That(securityEvent.Severity, Is.EqualTo(SecurityEventSeverity.High));
+        Assert.That(securityEvent.Status, Is.EqualTo(SecurityEventStatus.Open));
+        Assert.That(securityEvent.Message, Does.Contain("FERPA consent not found"));
+        Assert.That(securityEvent.DetectedBy, Is.EqualTo(nameof(AuditSaveChangesInterceptor)));
+
+        using var details = JsonDocument.Parse(securityEvent.DetailsJson!);
+        var root = details.RootElement;
+        Assert.That(root.GetProperty("standard").GetString(), Is.EqualTo("FERPA"));
+        Assert.That(root.GetProperty("regulation").GetString(), Is.EqualTo("34 CFR §99.30"));
+        Assert.That(root.GetProperty("entityType").GetString(), Is.EqualTo("FerpaConsentEntity"));
+        Assert.That(root.GetProperty("userId").GetString(), Is.EqualTo("test-user"));
+        Assert.That(root.GetProperty("mode").GetString(), Is.EqualTo("AuditOnly"));
+        Assert.That(root.GetProperty("reason").GetString(), Is.EqualTo("ConsentNotFound"));
+
+        ctx.Dispose();
+    }
+
+    [Test]
+    public async Task AuditOnly_ConsentServiceThrows_AllowsSaveAndRecordsSecurityEvent()
+    {
+        // Arrange — consent service that fails in AuditOnly mode
+        var failingService = new Mock<IConsentVerificationService>();
+        failingService.Setup(static s => s.HasActiveConsent(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Throws(new InvalidOperationException("Cache corrupted"));
+
+        var (_, ctx) = CreateContext(ComplianceEnforcementMode.AuditOnly, consentServiceOverride: failingService.Object);
+        ctx.FerpaConsentEntities.Add(new FerpaConsentEntity { Name = "ServiceFailure" });
+
+        // Act — AuditOnly allows the save but preserves the compliance failure as a security event
+        await ctx.SaveChangesAsync();
+
+        var securityEvent = await ctx.SecurityEvents.AsNoTracking().SingleOrDefaultAsync();
+        Assert.That(securityEvent, Is.Not.Null);
+        Assert.That(securityEvent!.EventType, Is.EqualTo(SecurityEventType.ComplianceViolation));
+        Assert.That(securityEvent.Severity, Is.EqualTo(SecurityEventSeverity.High));
+        Assert.That(securityEvent.Message, Does.Contain("consent verification service failed"));
+
+        using var details = JsonDocument.Parse(securityEvent.DetailsJson!);
+        Assert.That(details.RootElement.GetProperty("reason").GetString(), Is.EqualTo("ConsentServiceError"));
+        Assert.That(details.RootElement.GetProperty("errorType").GetString(), Is.EqualTo("InvalidOperationException"));
 
         ctx.Dispose();
     }

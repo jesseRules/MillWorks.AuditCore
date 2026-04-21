@@ -244,10 +244,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <list type="table">
     /// <item><term>Granted + any mode</term><description>Allow + log</description></item>
     /// <item><term>NotFound + Enforce</term><description>Throw ComplianceViolationException (fail-closed)</description></item>
-    /// <item><term>NotFound + AuditOnly</term><description>Allow + log warning</description></item>
+    /// <item><term>NotFound + AuditOnly</term><description>Allow + log warning + security event</description></item>
     /// <item><term>NotFound + Advisory</term><description>Allow + log warning</description></item>
     /// <item><term>Service error + Enforce</term><description>Throw ComplianceViolationException (fail-closed)</description></item>
-    /// <item><term>Service error + AuditOnly/Advisory</term><description>Allow + log error</description></item>
+    /// <item><term>Service error + AuditOnly</term><description>Allow + log error + security event</description></item>
+    /// <item><term>Service error + Advisory</term><description>Allow + log error</description></item>
     /// </list>
     /// </para>
     /// Non-FERPA entities and [FERPA(RequiresConsent = false)] entities are completely unaffected.
@@ -300,6 +301,19 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                         ex);
                 }
 
+                if (mode == ComplianceEnforcementMode.AuditOnly)
+                {
+                    AddComplianceSecurityEvent(
+                        context,
+                        entityTypeName,
+                        userId,
+                        "FERPA consent verification service failed for entity " +
+                        $"'{entityTypeName}' (user: {userId ?? "unknown"}). " +
+                        "Operation allowed under AuditOnly mode.",
+                        "ConsentServiceError",
+                        ex.GetType().Name);
+                }
+
                 _logger.LogError(ex,
                     "FERPA consent verification error for entity {EntityType} (user: {UserId}). " +
                     "Mode: {Mode} — allowing operation to proceed",
@@ -330,9 +344,17 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                         "from education records. Operation blocked.");
 
                 case ComplianceEnforcementMode.AuditOnly:
+                    AddComplianceSecurityEvent(
+                        context,
+                        entityTypeName,
+                        userId,
+                        $"FERPA consent not found for entity '{entityTypeName}' " +
+                        $"(user: {userId ?? "unknown"}). Operation allowed under AuditOnly mode.",
+                        "ConsentNotFound");
+
                     _logger.LogWarning(
                         "FERPA consent not found for entity {EntityType} (user: {UserId}). " +
-                        "Mode: AuditOnly — operation allowed, security event should be created. " +
+                        "Mode: AuditOnly — operation allowed and security event created. " +
                         "Regulation: 34 CFR §99.30",
                         entityTypeName, userId ?? "unknown");
                     break;
@@ -345,6 +367,43 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     break;
             }
         }
+    }
+
+    private static void AddComplianceSecurityEvent(
+        DbContext context,
+        string entityTypeName,
+        string? userId,
+        string message,
+        string reason,
+        string? errorType = null)
+    {
+        var auditCtx = context as AuditApplicationDbContext;
+        var details = new Dictionary<string, object?>
+        {
+            ["standard"] = "FERPA",
+            ["regulation"] = "34 CFR §99.30",
+            ["entityType"] = entityTypeName,
+            ["userId"] = userId,
+            ["mode"] = ComplianceEnforcementMode.AuditOnly.ToString(),
+            ["reason"] = reason
+        };
+
+        if (!string.IsNullOrWhiteSpace(errorType))
+        {
+            details["errorType"] = errorType;
+        }
+
+        context.Set<AuditSecurityEventEntity>().Add(new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.ComplianceViolation,
+            Severity = SecurityEventSeverity.High,
+            Message = Truncate(message, 500) ?? message,
+            DetailsJson = Truncate(JsonSerializer.Serialize(details, _snapshotSerializerOptions), 4000),
+            DetectedAt = DateTimeOffset.UtcNow,
+            DetectedBy = nameof(AuditSaveChangesInterceptor),
+            IpAddress = auditCtx?.CurrentIpAddress,
+            Status = SecurityEventStatus.Open
+        });
     }
 
     /// <summary>

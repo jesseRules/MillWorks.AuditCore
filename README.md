@@ -8,7 +8,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
 [![Tests](https://img.shields.io/badge/tests-1%2C850%2B_passing-brightgreen)](tests/)
 
-MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and NIST requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing every entity change with zero modifications to existing application code.
+MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and NIST requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing entity changes from DbContexts where the audit interceptor is registered without requiring per-save manual logging calls.
 
 ## Compatibility
 
@@ -83,7 +83,7 @@ This design keeps request latency bounded while preserving scoped lifetime corre
 Redis-based distributed locking ensures hash chain consistency across multiple application instances writing audit events concurrently. Falls back to in-memory locking for single-instance deployments.
 
 ### Archival
-Completed audit records can be archived to Azure Blob Storage with integrity verification. Archives are checksummed and can be restored on demand with full integrity-chain metadata preserved. Background archive creation and verification both run on configurable schedules driven by retention policies. Both archive creation and restore stream events through compression/decompression with bounded memory — peak allocation is independent of archive size, so 100k-event archives run in the same memory envelope as 100-event archives.
+Completed audit records can be archived to Azure Blob Storage with integrity verification. Archives are checksummed and can be restored on demand with full integrity-chain metadata preserved. Background archive creation and verification both run on configurable schedules driven by retention policies. Archive creation and restore stream records through compression/decompression with bounded buffering so large archives do not require full in-memory materialization.
 
 ### Custom Providers
 Per-entity audit enrichment through the `IAuditProvider` interface. Register providers for specific entity types to control which actions are audited, add domain-specific metadata, and mask sensitive properties before they reach the audit log.
@@ -177,8 +177,8 @@ Any entity saved through a DbContext that has the audit interceptor registered w
 ```csharp
 dbContext.Products.Add(new Product { Name = "Widget", Price = 9.99m });
 await dbContext.SaveChangesAsync();
-// AuditEvent is created with Action = Created, entity name, key values,
-// and a full snapshot of the new property values -- no code changes needed.
+// AuditLog rows are created with Action = Created, entity name, key values,
+// and a snapshot of the new property values -- no manual logging calls needed.
 ```
 
 ## The `IAuditProvider` Contract
@@ -477,9 +477,9 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `AuditIntegrity` | Hash chain records for tamper detection | `Id`, `AuditEventId`, `EventHash`, `PreviousHash`, `SequenceNumber`, `HmacSignature` |
 | `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
 | `ArchiveRecord` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
-| `SecurityEvents` | Security-relevant events and tamper alerts | `Id`, `EventType`, `Severity`, `Description`, `SourceIp`, `DetectedAt` |
+| `SecurityEvents` | Security-relevant events and tamper/compliance alerts | `Id`, `EventType`, `Severity`, `Message`, `DetailsJson`, `IpAddress`, `DetectedAt`, `Status` |
 
-Append-only entities (`AuditIntegrity`, `AuditSecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
+Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
 
 ## Testing
 

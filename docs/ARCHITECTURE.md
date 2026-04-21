@@ -254,7 +254,7 @@ Property-level metadata (sensitive data flags, FERPA attributes, no-audit marker
 
 ### Compliance Enforcement at the Interceptor Level
 
-When `UseCompliance()` is configured with an enforcement mode, the interceptor can block saves that violate compliance rules. For example, if FERPA enforcement is active and a FERPA-annotated entity is being modified without verified consent, the interceptor throws a `ComplianceViolationException` before `SaveChanges` reaches the database.
+When `UseCompliance()` is configured with an enforcement mode, the interceptor can block or flag saves that violate compliance rules. For example, if FERPA enforcement is active and a FERPA-annotated entity is being modified without verified consent, `Enforce` throws a `ComplianceViolationException` before `SaveChanges` reaches the database. `AuditOnly` allows the save but adds a `ComplianceViolation` row to `SecurityEvents` in the same `SaveChangesAsync` operation.
 
 ## Tamper Detection
 
@@ -467,4 +467,4 @@ The `IConsentVerificationService` (backed by `IMemoryCache` for synchronous read
 
 ### Security Event Logging
 
-The `IAuditSecurityEventService` records security-relevant events (tamper alerts, authentication failures, unauthorized access attempts) in the `AuditSecurityEvents` table. These events are separate from the main audit log and are not subject to the same hash chain, allowing security monitoring to operate independently.
+The `IAuditSecurityEventService` records security-relevant events (tamper alerts, authentication failures, unauthorized access attempts) in the `SecurityEvents` table. These events are separate from the main audit log and are not subject to the same hash chain, allowing security monitoring to operate independently. Interceptor-level compliance violations that proceed under `AuditOnly` also write directly to `SecurityEvents` so the finding commits atomically with the allowed entity save.
