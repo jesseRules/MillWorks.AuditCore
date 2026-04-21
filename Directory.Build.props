@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.5.1</Version>
-        <AssemblyVersion>1.5.1.0</AssemblyVersion>
-        <FileVersion>1.5.1.0</FileVersion>
+        <Version>1.5.2</Version>
+        <AssemblyVersion>1.5.2.0</AssemblyVersion>
+        <FileVersion>1.5.2.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,7 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.5.1: hardening cycle release after 1.5.0. Adds SQL Server Testcontainers coverage, app-assigned AuditIntegrity SequenceNumber for deterministic chain order, SQL deadlock 1205 retry handling in TamperDetectionService integrity writes, and the Phase 6.5 100k-row endurance soak harness.</PackageReleaseNotes>
+        <PackageReleaseNotes>v1.5.2: patch release. Bumps Microsoft.EntityFrameworkCore and Microsoft.Extensions.* dependencies from 10.0.6 to 10.0.7. No public API changes.</PackageReleaseNotes>
 
         <!-- Symbols & Source Link -->
         <IncludeSymbols>true</IncludeSymbols>
