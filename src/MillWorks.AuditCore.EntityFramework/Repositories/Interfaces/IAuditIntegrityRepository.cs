@@ -44,9 +44,36 @@ public interface IAuditIntegrityRepository : IRepository<AuditIntegrityEntity>
 
     /// <summary>
     /// Returns MAX(SequenceNumber) + 1 across the integrity table. Safe under the integrity
-    /// distributed lock held by <c>TamperDetectionService</c>; not safe to call outside that lock.
+    /// append lock held by <c>TamperDetectionService</c>; not safe to call outside that lock.
     /// </summary>
     Task<long> GetNextSequenceNumberAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when <see cref="AcquireAppendLockAsync"/> takes a real cross-process lock on
+    /// the active EF provider (SQL Server's <c>sp_getapplock</c>). False when it is a
+    /// no-op (e.g. the SQLite test provider); in that case the caller is responsible
+    /// for process-local serialization of the hash-chain append.
+    /// </summary>
+    bool SupportsCrossProcessAppendLock { get; }
+
+    /// <summary>
+    /// Acquires an exclusive database-level lock named <c>audit:integrity:append</c> bound to
+    /// the current transaction. Serializes hash-chain appends across every process talking
+    /// to the same database, removing the duplicate-key race on
+    /// <c>AuditIntegrity.SequenceNumber</c>.
+    /// <para>
+    /// On SQL Server, uses <c>sp_getapplock</c> with <c>LockOwner='Transaction'</c>; the lock
+    /// auto-releases when the enclosing transaction commits, rolls back, or the connection
+    /// drops — there is no lease TTL to expire mid-critical-section. On other providers
+    /// (e.g. SQLite test harness) this is a no-op; <see cref="SupportsCrossProcessAppendLock"/>
+    /// tells the caller whether to arrange its own serialization.
+    /// </para>
+    /// <para>Must be called inside an active transaction.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No active transaction.</exception>
+    /// <exception cref="TimeoutException"><c>sp_getapplock</c> returned a negative code
+    /// (timeout, cancel, deadlock, or parameter fault).</exception>
+    Task AcquireAppendLockAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets audit integrity records by algorithm version.

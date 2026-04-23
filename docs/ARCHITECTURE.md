@@ -308,11 +308,13 @@ Any mismatch indicates tampering or corruption. The result includes:
 
 `DetectTamperingAsync` combines both checks and returns a list of `TamperAlert` objects with severity and description.
 
-### Distributed Locking
+### Append Serialization
 
-In multi-instance deployments, concurrent writes to the integrity chain can race on the "latest row" lookup and insert sequence. When distributed locking is enabled, `TamperDetectionService` acquires a Redis-backed lock before reading the previous hash and inserting the new integrity row. If distributed lock acquisition times out, the current implementation falls back to a process-local static lock.
+In multi-instance deployments, concurrent writes to the integrity chain race on the "latest row" lookup and the insert of the next `SequenceNumber`. `TamperDetectionService` serializes the read-modify-write by opening a DB transaction and taking a SQL Server `sp_getapplock` named `audit:integrity:append` with `@LockOwner = 'Transaction'`. The lock is bound to the transaction, so it releases automatically on commit, rollback, or connection drop — there is no lease TTL that can expire mid-critical-section, and no dependency on Redis availability. Every API replica talking to the same database is serialized at the DB layer.
 
-This provides correctness for the common path, but the current fallback behavior prioritizes availability over strong cross-node coordination during partial Redis failure. Duplicate sequence conflicts are retried with exponential backoff and transaction rollback.
+Non-SQL-Server providers (the SQLite test harness) get a process-local `SemaphoreSlim`; the service checks `IAuditIntegrityRepository.SupportsCrossProcessAppendLock` to decide which path to take. A retry loop with exponential backoff remains as defense-in-depth: after the applock is in place it should essentially never fire, and a non-zero retry count in production is a signal that the applock was removed or weakened.
+
+The general-purpose `IAuditDistributedLockService` (Redis or in-memory) is no longer on the integrity-write path; it remains for coordination primitives that genuinely need cross-process mutual exclusion without a transaction, such as the dead-letter-queue leader election.
 
 ## Compliance Pipeline
 

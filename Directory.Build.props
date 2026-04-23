@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.5.3</Version>
-        <AssemblyVersion>1.5.3.0</AssemblyVersion>
-        <FileVersion>1.5.3.0</FileVersion>
+        <Version>1.6.1</Version>
+        <AssemblyVersion>1.6.1.0</AssemblyVersion>
+        <FileVersion>1.6.1.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.5.3: patch release. AuditSaveChangesInterceptor now emits an AuditSecurityEventEntity (ComplianceViolation, High) on FERPA ConsentNotFound and ConsentServiceError under AuditOnly mode, closing the gap previously noted in the interceptor doc-comment. No public API changes.</PackageReleaseNotes>
+        <PackageReleaseNotes>v1.6.1: critical patch over v1.6.0. TamperDetectionService.CreateIntegrityRecord[Batch]Async now joins an outer transaction already owned by the shared DbContext instead of nesting its own. When AuditLogger wraps event+integrity in a single atomic transaction (strict mode, EnableTamperDetection=true, EnableBatchedIntegrityWrites=false), v1.6.0's unconditional ExecuteInTransactionAsync opened a nested transaction that EF rejected with "connection already in a transaction"; the rollback stranded the added AuditEventEntity in the change tracker and ResilientAuditLogger's retry hit an identity-map conflict on the same EventId. v1.6.1 checks IAuditIntegrityRepository.CurrentTransaction and, if an outer transaction is active, joins it and binds sp_getapplock to it; otherwise opens its own. New regression test AuditLoggerTamperNestedTransactionTests covers the exact path. Upgrade from v1.6.0 recommended for any consumer running strict-mode tamper detection.
+
+v1.6.0 content follows below:
+
+v1.6.0: fixes the remaining cross-process duplicate-key race on AuditIntegrity.SequenceNumber and lands the queued ProdHardening phase 3–6 work. (1) TamperDetectionService now serializes hash-chain appends with SQL Server sp_getapplock (@LockOwner='Transaction', resource 'audit:integrity:append') inside the integrity-write transaction. The prior IAuditDistributedLockService path was either process-local (in-memory default — ineffective across API replicas) or Redis-leased with a 5s TTL that could expire mid-critical-section; both allowed concurrent writers to collide on IX_AuditIntegrity_SequenceNumber. The applock is bound to the transaction, auto-releases on commit/rollback/connection drop, and has no TTL to expire. A 32-parallel-writer SQL Server regression test proves the fix: green with applock, 49 retry-log entries without. (2) Non-SQL-Server providers (SQLite test harness) are serialized by a process-local semaphore gated on IAuditIntegrityRepository.SupportsCrossProcessAppendLock. (3) The retry loop remains as defense-in-depth; after this change, a non-zero retry count in production is a signal that the applock was removed or weakened. Also includes ProdHardening phases 3–6: runtime EF schema selection via HasDefaultSchema, fail-closed audit policy (AuditFailureMode + IAuditFailurePolicy + RegulatedEntityFailurePolicy), request-audit overflow policy with DLQ routing and shutdown drain, and a dedicated SQL Server Testcontainers lane. BREAKING: TamperDetectionService constructor no longer takes IAuditDistributedLockService; the lock service interface stays registered for DeadLetterQueueProcessor and other coordination primitives. IAuditIntegrityRepository gained SupportsCrossProcessAppendLock and AcquireAppendLockAsync.</PackageReleaseNotes>
 
         <!-- Symbols & Source Link -->
         <IncludeSymbols>true</IncludeSymbols>

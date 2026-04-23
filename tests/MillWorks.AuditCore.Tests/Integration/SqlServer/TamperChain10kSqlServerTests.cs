@@ -6,7 +6,6 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -113,8 +112,6 @@ public sealed class TamperChain10kSqlServerTests : SqlServerTestBase
         var eventRepo = new AuditEventRepository(context);
         var integrityRepo = new AuditIntegrityRepository(context);
         var securityEventService = new Mock<IAuditSecurityEventService>().Object;
-        var lockService = new InMemoryDistributedLockService(
-            NullLogger<InMemoryDistributedLockService>.Instance);
 
         return new TamperDetectionService(
             eventRepo,
@@ -126,7 +123,6 @@ public sealed class TamperChain10kSqlServerTests : SqlServerTestBase
                 Environment = "Development",
                 HmacKey = HmacKey
             }),
-            Options.Create(new SecurityOptions()),
-            lockService);
+            Options.Create(new SecurityOptions()));
     }
 }

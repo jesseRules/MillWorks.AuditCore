@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-04-23
+
+### Fixed
+- **Nested transaction in strict-mode tamper detection** — `TamperDetectionService.CreateIntegrityRecordAsync` and `CreateIntegrityRecordBatchAsync` now detect an outer transaction already active on the shared `DbContext` and join it instead of opening a nested `ExecuteInTransactionAsync`. In v1.6.0 the unconditional inner transaction was rejected by EF ("connection already in a transaction") whenever `AuditLogger.LogAsync` wrapped event+integrity in a single atomic transaction (`EnableTamperDetection = true, EnableBatchedIntegrityWrites = false`). The failed lambda stranded the already-added `AuditEventEntity` in the change tracker and `ResilientAuditLogger`'s retry hit an identity-map conflict on the same `EventId`, cascading through the retry budget. The fix checks `IAuditIntegrityRepository.CurrentTransaction` and binds `sp_getapplock` to the existing transaction when present; when no outer transaction exists (e.g. batched-integrity path, direct callers), the service opens its own as before. Added `AuditLoggerTamperNestedTransactionTests` (SQLite) as a regression canary.
+
+## [1.6.0] - 2026-04-23
+
 ### Added
 - **Fail-closed EF audit policy** (ProdHardening Phase 4) — `AuditFailureMode`, `AuditOptions.FailureMode`, `AuditIntegrityException`, `IAuditFailurePolicy`, and the default `RegulatedEntityFailurePolicy` let EF `SaveChanges` audit failures stay permissive by default or fail closed for regulated entities / all entities.
 - **Request-audit overflow policy** (ProdHardening Phase 5) — `RequestAuditOverflowPolicy` and `AuditMiddlewareOptions.OverflowPolicy` add explicit `Throw`, `DropAndLog`, and `RouteToDeadLetter` modes for bounded request-audit queue saturation.
@@ -16,17 +23,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Runtime EF schema selection** (ProdHardening Phase 3) — `EntityFrameworkOptions.Schema` moved into the EntityFramework package and now drives `AuditApplicationDbContext` through `HasDefaultSchema(...)`; entity-level hard-coded `Schema = "audit"` attributes were removed and `AuditModelCacheKeyFactory` keys compiled models by configured schema.
 - **Audit interceptor failure handling** (ProdHardening Phase 4) — `AuditSaveChangesInterceptor` now consults `IAuditFailurePolicy`, increments `InterceptorAuditFailureCount`, and rethrows `AuditIntegrityException` when the configured failure mode requires fail-closed behavior.
-- **Integrity sequence assignment** (ProdHardening Phase 6) — `AuditIntegrityEntity.SequenceNumber` is now application-assigned under the existing integrity distributed lock instead of SQL Server identity-generated.
-- `IAuditIntegrityRepository.GetNextSequenceNumberAsync` is no longer marked obsolete; explicit sequence assignment is safe when called under the integrity distributed lock.
+- **Integrity append serialization** — `TamperDetectionService` now serializes hash-chain appends inside the write transaction with SQL Server `sp_getapplock` (`@LockOwner = 'Transaction'`, resource `audit:integrity:append`) instead of the general-purpose `IAuditDistributedLockService`. The prior distributed lock was either process-local (the in-memory default — ineffective across API replicas) or Redis-leased with a 5 s TTL that could expire mid-critical-section; both allowed concurrent writers to collide on `IX_AuditIntegrity_SequenceNumber`. The applock is bound to the transaction, so it auto-releases on commit / rollback / connection drop and never expires mid-write. Consumers on non-SQL-Server providers (SQLite test harness) are serialized by a process-local semaphore gated on `IAuditIntegrityRepository.SupportsCrossProcessAppendLock`. The retry loop remains as defense-in-depth but should essentially never fire after this change.
+- **Integrity sequence assignment** (ProdHardening Phase 6) — `AuditIntegrityEntity.SequenceNumber` is now application-assigned inside the applock-serialized transaction instead of SQL Server identity-generated.
+- `IAuditIntegrityRepository.GetNextSequenceNumberAsync` is no longer marked obsolete; explicit sequence assignment is safe when called under the integrity append lock.
 
 ### Fixed
 - `TamperDetectionService.CreateIntegrityRecordBatchAsync` no longer relies on SQL Server preserving input order when assigning identity values during batched inserts. The SQL Server 10k tamper-chain test exposed that `MERGE ... OUTPUT` identity ordering can differ from writer input order, causing verifier order-by-`SequenceNumber` checks to fail. The service now assigns contiguous `SequenceNumber` values in writer order and caches both the previous hash and max sequence.
 
 ### Breaking Changes
 - `AuditSaveChangesInterceptor` gained optional `AuditFailureMode` and `IAuditFailurePolicy` constructor parameters. Default behavior remains permissive for existing DI construction.
-- `TamperDetectionService` construction now depends on typed `IOptions<AuditOptions>` / `IOptions<SecurityOptions>` configuration and the audit distributed lock service. Consumers constructing it manually must use the current constructor signature.
+- `TamperDetectionService` construction no longer accepts an `IAuditDistributedLockService` parameter; the integrity-write path uses SQL Server `sp_getapplock` via `IAuditIntegrityRepository.AcquireAppendLockAsync` instead. The lock service interface is still registered and used by other callers (e.g. `DeadLetterQueueProcessor`). Consumers constructing `TamperDetectionService` manually must drop the lock-service argument.
+- `IAuditIntegrityRepository` gained `SupportsCrossProcessAppendLock` and `AcquireAppendLockAsync`. Custom implementations must return `true` from the property on providers where the applock is a real cross-process lock (otherwise the caller takes a process-local semaphore).
 - The greenfield EF migration baseline was regenerated as a single `Init` migration after changing `AuditIntegrityEntity.SequenceNumber` to application-assigned. Existing experimental databases created from earlier migrations should be dropped and recreated.
 - Custom SQL Server schemas remain fresh-database-only: changing `EntityFrameworkOptions.Schema` does not migrate an existing `audit` schema deployment into another schema.
+
+## [1.5.5] - 2026-04-23
+
+### Fixed
+- `IAuditDistributedLockService` now registered as **Singleton** (was Scoped). The in-memory implementation's backing dictionary was an instance field, so under the Scoped registration every DI scope got its own empty lock table and concurrent audit writers within one process could both acquire the same named resource instantly. This defeated the integrity-chain critical section in `TamperDetectionService` and produced a duplicate-key race on `AuditIntegrity.SequenceNumber` whenever DB latency was low enough (localhost Docker; masked by Azure SQL round-trip time). Fix: register as singleton; also moved `InMemoryDistributedLockService._locks` to a `static` field as defense-in-depth so the lock serializes process-wide regardless of how it's registered.
+- Removed the process-static chain-head cache (`_cachedPreviousHash` / `_cachedMaxSequenceNumber` / `_previousHashCacheInitialized`) from `TamperDetectionService`. The cache was stale across multiple processes — another instance could advance the chain between lock acquisitions and the stale cache would drive a duplicate-key retry on the next write. Both `CreateIntegrityRecordAsync` and `CreateIntegrityRecordBatchAsync` now read the chain head from the database under the distributed lock on every iteration. Costs one extra DB roundtrip per integrity write; eliminates the cross-instance staleness window.
+- Removed `TamperDetectionService.ResetPreviousHashCache` (test-only helper) and all test call sites — no longer needed once the cache is gone.
+- `ConfigureMapster` no longer constructs a fresh `TypeAdapterConfig` and registers it via `AddSingleton`. Consumer pipelines register their Mapster configs against `TypeAdapterConfig.GlobalSettings` and expose `IMapper` from that instance; AuditCore's fresh-config registration won last-writer-wins on single-service DI resolution, silently dropping every consumer mapping not defined in AuditCore. Fix: apply `AuditMappingConfiguration` onto `TypeAdapterConfig.GlobalSettings` (the same instance every other library's `IRegister` targets) and register via `TryAddSingleton` so any consumer-owned `TypeAdapterConfig` registration wins. Structurally identical to the 1.5.4 `IConnectionMultiplexer` fix.
+
+### Removed
+- `SecurityOptions.RedisConnectionString` and the corresponding `SecurityOptionsValidator` rule that required it when `UseRedisLocking = true`. After 1.5.4 moved `IConnectionMultiplexer` ownership to the consumer, nothing in AuditCore read the options-level connection string anymore. The field became a dead hint that still triggered a validator failure if left unset.
+
+### Changed
+- README `UseSecurity` example and `docs/ACEDProductionConfiguration.md` reworked to show consumer-side `services.AddSingleton<IConnectionMultiplexer>(...)` registration instead of the removed `RedisConnectionString` option. The ACED sample configuration JSON no longer includes `"RedisConnectionString"`; the connection string now lives on the consumer side under whatever configuration key the app prefers (e.g. `ConnectionStrings:Redis`).
+
+### Breaking Changes
+- Consumers that set `security.RedisConnectionString = "..."` in a `UseSecurity(...)` callback or bound `Audit:RedisConnectionString` from configuration must remove those references. The Redis connection string now lives on the consumer's own `IConnectionMultiplexer` registration.
+- `IAuditDistributedLockService` is now a singleton. Consumers that resolved it explicitly from a scope and relied on scoped lifetime semantics (e.g. disposing it per request) must adjust — the implementation doesn't hold per-request state, so singleton is safe for both the in-memory and Redis backings.
+
+## [1.5.4] - 2026-04-23
+
+### Fixed
+- `UseSecurity` no longer registers `IConnectionMultiplexer` — that registration is now the consumer's responsibility when `SecurityOptions.UseRedisLocking = true`. The previous factory threw `InvalidOperationException("Redis locking is disabled.")` whenever it was resolved with `UseRedisLocking = false`, which crashed unrelated consumer components (token caches, rate limiters, token blacklists, SSO cache invalidation, login rate limiters) that depend on `IConnectionMultiplexer` directly — the AuditCore registration won last-writer-wins for single-service resolution whenever `AddMillWorksAudit(...)` ran after the consumer's own `services.AddSingleton<IConnectionMultiplexer>(...)`.
+- `IAuditDistributedLockService` factory now resolves `IConnectionMultiplexer` optionally via `sp.GetService<>()`. When `UseRedisLocking = true` and no `IConnectionMultiplexer` is registered, it throws a clear `InvalidOperationException` naming the missing registration. When `UseRedisLocking = false`, it falls through to `InMemoryDistributedLockService` without touching `IConnectionMultiplexer` at all.
+
+### Breaking Changes
+- Consumers that previously relied on `UseSecurity` auto-registering `IConnectionMultiplexer` from `SecurityOptions.RedisConnectionString` must now register `IConnectionMultiplexer` themselves (e.g. `services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect("..."))`) before calling `AddMillWorksAudit(...)`. Apps with `UseRedisLocking = false` are unaffected.
 
 ## [1.5.0] - 2026-04-17
 

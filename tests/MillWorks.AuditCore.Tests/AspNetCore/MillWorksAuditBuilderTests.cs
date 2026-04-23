@@ -1,3 +1,5 @@
+using Mapster;
+using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -181,6 +183,62 @@ public class MillWorksAuditBuilderTests
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.True);
     }
 
+    // Unique POCO types for the Mapster regression test — declared as nested types
+    // so their names don't collide with other test fixtures in the assembly.
+    private sealed class FakeConsumerSource
+    {
+        public int Value { get; set; }
+    }
+
+    private sealed class FakeConsumerDest
+    {
+        // Named differently from Value so convention-based mapping cannot satisfy it.
+        public int MappedValue { get; set; }
+    }
+
+    private sealed class FakeConsumerMapping : IRegister
+    {
+        public void Register(TypeAdapterConfig config)
+        {
+            config.NewConfig<FakeConsumerSource, FakeConsumerDest>()
+                .Map(dest => dest.MappedValue, src => src.Value * 2);
+        }
+    }
+
+    [Test]
+    public void UseEntityFramework_Mapster_PreservesConsumerRegistrationsOnGlobalSettings()
+    {
+        // Regression: AuditCore's ConfigureMapster previously constructed a fresh
+        // TypeAdapterConfig, applied only AuditMappingConfiguration to it, and registered
+        // it via Services.AddSingleton(config). Consumer pipelines register their Mapster
+        // configs against TypeAdapterConfig.GlobalSettings and expose IMapper from that
+        // instance — AuditCore's fresh config won last-writer-wins on IMapper resolution,
+        // silently dropping every other library's mapping rules. Structurally the same
+        // shape as the 1.5.4 IConnectionMultiplexer bug.
+        //
+        // After the fix: ConfigureMapster uses TypeAdapterConfig.GlobalSettings (shared
+        // with the consumer) and registers via TryAddSingleton so consumer-owned
+        // registrations win.
+        TypeAdapterConfig.GlobalSettings.Apply(new FakeConsumerMapping());
+
+        _builder.UseEntityFramework(static ef =>
+        {
+            ef.ConnectionString = "Server=test;Database=test;";
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var mapper = provider.GetRequiredService<IMapper>();
+
+        var source = new FakeConsumerSource { Value = 21 };
+        var dest = mapper.Map<FakeConsumerDest>(source);
+
+        // With the fix: the FakeConsumerMapping rule applies → MappedValue = 42.
+        // Without the fix: IMapper is backed by the fresh AuditCore config that never saw
+        // the consumer mapping → MappedValue stays at its default 0 (no convention match
+        // between Value and MappedValue).
+        Assert.That(dest.MappedValue, Is.EqualTo(42));
+    }
+
     [Test]
     public void UseSecurity_RegistersSecurityEventService()
     {
@@ -253,33 +311,100 @@ public class MillWorksAuditBuilderTests
         {
             security.EnableTamperDetection = false;
             security.UseRedisLocking = true;
-            security.RedisConnectionString = "localhost:6379";
         });
 
-        // IConnectionMultiplexer and IAuditDistributedLockService are both registered as
-        // resolve-time factories. Implementation is chosen from IOptions<SecurityOptions>.Value
-        // at the point of resolution, so the descriptor's ImplementationType is null.
-        Assert.That(_services.Any(static s => s.ServiceType == typeof(IConnectionMultiplexer)), Is.True);
+        // IAuditDistributedLockService is registered as a resolve-time factory. Implementation
+        // is chosen from IOptions<SecurityOptions>.Value at the point of resolution, so the
+        // descriptor's ImplementationType is null. AuditCore does NOT register
+        // IConnectionMultiplexer — that remains the consumer's responsibility when
+        // UseRedisLocking = true.
         Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService)),
             Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(IConnectionMultiplexer)), Is.False);
     }
 
     [Test]
-    public void UseSecurity_WithoutRedisConnection_FailsValidation()
+    public void UseSecurity_UseRedisLockingFalse_DoesNotOverrideConsumerConnectionMultiplexer()
+    {
+        // Consumer registers its own IConnectionMultiplexer (e.g. for a token cache or rate
+        // limiter) before AddMillWorksAudit runs. Regression: AuditCore previously registered a
+        // throwing factory for IConnectionMultiplexer inside UseSecurity, which would win
+        // last-writer-wins and crash unrelated consumer components at resolve time when
+        // UseRedisLocking = false.
+        var stub = new Mock<IConnectionMultiplexer>().Object;
+        _services.AddSingleton<IConnectionMultiplexer>(stub);
+
+        _builder.UseSecurity(static security =>
+        {
+            security.EnableTamperDetection = false;
+            security.UseRedisLocking = false;
+        });
+
+        using var provider = _services.BuildServiceProvider();
+        var resolved = provider.GetRequiredService<IConnectionMultiplexer>();
+
+        Assert.That(resolved, Is.SameAs(stub));
+    }
+
+    [Test]
+    public void UseSecurity_UseRedisLockingTrue_WithoutConnectionMultiplexer_ThrowsClearError()
     {
         _builder.UseSecurity(static security =>
         {
             security.EnableTamperDetection = false;
             security.UseRedisLocking = true;
-            security.RedisConnectionString = "";
         });
 
-        // UseRedisLocking=true with a missing RedisConnectionString is surfaced by
-        // SecurityOptionsValidator, not by a registration-time silent fallback to InMemory.
         using var provider = _services.BuildServiceProvider();
-        Assert.Throws<OptionsValidationException>(
-            () => _ = provider.GetRequiredService<IOptions<SecurityOptions>>().Value);
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            _ = provider.GetRequiredService<
+                MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService>());
+
+        Assert.That(ex!.Message, Does.Contain(nameof(IConnectionMultiplexer)));
+        Assert.That(ex.Message, Does.Contain(nameof(SecurityOptions.UseRedisLocking)));
+    }
+
+    [Test]
+    public async Task UseSecurity_DistributedLock_SerializesAcrossConcurrentScopes()
+    {
+        // Regression: the in-memory distributed lock must serialize across concurrent DI scopes
+        // in a single process. Previously the lock service was registered Scoped with its backing
+        // dictionary stored on an instance field, so each scope got its own empty dictionary and
+        // two concurrent scopes could both acquire the same named resource instantly — making the
+        // integrity-chain critical section in TamperDetectionService a no-op across concurrent
+        // audit writes and producing a duplicate-key race on AuditIntegrity.SequenceNumber under
+        // low DB latency. After the fix the lock is a singleton and serializes across scopes.
+        _builder.UseSecurity(static security =>
+        {
+            security.EnableTamperDetection = false;
+            security.UseRedisLocking = false;
+        });
+
+        using var provider = _services.BuildServiceProvider();
+
+        using var scopeA = provider.CreateScope();
+        using var scopeB = provider.CreateScope();
+
+        var lockServiceA = scopeA.ServiceProvider.GetRequiredService<
+            MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService>();
+        var lockServiceB = scopeB.ServiceProvider.GetRequiredService<
+            MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService>();
+
+        // Scope A holds the lock for the full test.
+        using var handleA = await lockServiceA.AcquireLockAsync(
+            "audit:integrity:sequence", TimeSpan.FromSeconds(30));
+
+        // Scope B tries to acquire the same resource. The lock service retries with exponential
+        // backoff internally; we bound the wait via cancellation so the test finishes fast.
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
+
+        // CatchAsync matches OperationCanceledException or any derived type (TaskCanceledException
+        // in practice). The test only cares that scope B could not acquire the lock while scope A
+        // held it — the specific cancellation subtype isn't load-bearing.
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            _ = await lockServiceB.AcquireLockAsync(
+                "audit:integrity:sequence", TimeSpan.FromSeconds(30), cts.Token));
     }
 
     [Test]

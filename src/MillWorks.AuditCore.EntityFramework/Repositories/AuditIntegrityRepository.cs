@@ -1,5 +1,9 @@
+using System.Data;
+using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
@@ -96,7 +100,7 @@ public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
 
     /// <summary>
     /// Returns MAX(SequenceNumber) + 1 across the integrity table. Safe under the integrity
-    /// distributed lock held by <c>TamperDetectionService</c>; not safe to call outside that lock.
+    /// append lock held by <c>TamperDetectionService</c>; not safe to call outside that lock.
     /// </summary>
     public async Task<long> GetNextSequenceNumberAsync(CancellationToken cancellationToken = default)
     {
@@ -104,6 +108,74 @@ public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
             .MaxAsync(static ai => (long?)ai.SequenceNumber, cancellationToken);
 
         return (maxSequence ?? 0) + 1;
+    }
+
+    /// <inheritdoc />
+    public bool SupportsCrossProcessAppendLock => Context.Database.IsSqlServer();
+
+    /// <inheritdoc />
+    public async Task AcquireAppendLockAsync(CancellationToken cancellationToken = default)
+    {
+        // Non-SQL-Server providers (SQLite in tests) don't support sp_getapplock.
+        // SQLite serializes writes natively; the caller checks
+        // SupportsCrossProcessAppendLock and arranges process-local serialization.
+        if (!Context.Database.IsSqlServer())
+        {
+            return;
+        }
+
+        var transaction = Context.Database.CurrentTransaction
+            ?? throw new InvalidOperationException(
+                "AcquireAppendLockAsync must be called inside an active transaction.");
+
+        var connection = Context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = ((IInfrastructure<DbTransaction>)transaction).Instance;
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.CommandText = "sp_getapplock";
+        // Slightly above @LockTimeout so a timed-out applock surfaces via the return
+        // code rather than a command-level SQL timeout.
+        cmd.CommandTimeout = 35;
+
+        var returnValue = cmd.CreateParameter();
+        returnValue.Direction = ParameterDirection.ReturnValue;
+        returnValue.DbType = DbType.Int32;
+        cmd.Parameters.Add(returnValue);
+
+        AddInputParameter(cmd, "@Resource", DbType.String, "audit:integrity:append");
+        AddInputParameter(cmd, "@LockMode", DbType.String, "Exclusive");
+        AddInputParameter(cmd, "@LockOwner", DbType.String, "Transaction");
+        AddInputParameter(cmd, "@LockTimeout", DbType.Int32, 30_000);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+        // sp_getapplock return codes:
+        //   0  = granted synchronously
+        //   1  = granted after waiting
+        //  -1  = lock request timed out
+        //  -2  = lock request cancelled
+        //  -3  = lock request chosen as deadlock victim
+        // -999 = parameter/call fault
+        var code = returnValue.Value is int v ? v : -999;
+        if (code < 0)
+        {
+            throw new TimeoutException(
+                $"Failed to acquire audit:integrity:append applock (sp_getapplock returned {code}).");
+        }
+    }
+
+    private static void AddInputParameter(DbCommand cmd, string name, DbType type, object value)
+    {
+        var p = cmd.CreateParameter();
+        p.ParameterName = name;
+        p.DbType = type;
+        p.Value = value;
+        cmd.Parameters.Add(p);
     }
 
     /// <summary>

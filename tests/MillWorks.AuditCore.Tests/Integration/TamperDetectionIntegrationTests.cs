@@ -10,7 +10,6 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -45,8 +44,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
                 Environment = "Development",
                 HmacKey = HmacKey
             }),
-            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()),
-            new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
+            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()));
     }
 
     private static AuditEventEntity CreateAuditEvent(

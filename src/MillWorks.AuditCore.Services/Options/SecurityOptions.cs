@@ -16,14 +16,22 @@ public sealed class SecurityOptions
     public bool EnableTamperDetection { get; set; } = true;
 
     /// <summary>
-    /// Use Redis for distributed locking
+    /// Use Redis for the general-purpose <c>IAuditDistributedLockService</c>. Does NOT govern
+    /// integrity-chain append correctness — that is serialized by SQL Server
+    /// <c>sp_getapplock</c> inside the write transaction (see
+    /// <c>IAuditIntegrityRepository.AcquireAppendLockAsync</c>) regardless of this setting.
+    /// This flag only affects callers that use the shared lock service for other coordination
+    /// (e.g. the dead-letter-queue leader election).
+    /// <para>
+    /// When true, the consuming application must register an <c>IConnectionMultiplexer</c>
+    /// in the service collection (e.g.
+    /// <c>services.AddSingleton&lt;IConnectionMultiplexer&gt;(_ =&gt; ConnectionMultiplexer.Connect("..."))</c>)
+    /// before the audit distributed lock service is resolved. AuditCore does not own the
+    /// <c>IConnectionMultiplexer</c> registration — consuming apps typically already register
+    /// one for their own components (token caches, rate limiters, etc.).
+    /// </para>
     /// </summary>
     public bool UseRedisLocking { get; set; } = false;
-
-    /// <summary>
-    /// Redis connection string for distributed locking
-    /// </summary>
-    public string? RedisConnectionString { get; set; }
 
     /// <summary>
     /// Path to the private key PEM file for signing audit events.
@@ -69,13 +77,6 @@ internal sealed class SecurityOptionsValidator : IValidateOptions<SecurityOption
     public ValidateOptionsResult Validate(string? name, SecurityOptions options)
     {
         var failures = new List<string>();
-
-        if (options.UseRedisLocking && string.IsNullOrWhiteSpace(options.RedisConnectionString))
-        {
-            failures.Add(
-                $"{nameof(SecurityOptions.RedisConnectionString)} is required when " +
-                $"{nameof(SecurityOptions.UseRedisLocking)} is true.");
-        }
 
         if (options.EnableBatchedIntegrityWrites)
         {

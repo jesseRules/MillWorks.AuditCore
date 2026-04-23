@@ -80,7 +80,7 @@ HTTP request-level audit events are dispatched off the request thread instead of
 This design keeps request latency bounded while preserving scoped lifetime correctness. Consumers that already have a job system can replace the default dispatcher with their own implementation of `IRequestAuditDispatcher`.
 
 ### Distributed Coordination
-Redis-based distributed locking ensures hash chain consistency across multiple application instances writing audit events concurrently. Falls back to in-memory locking for single-instance deployments.
+Hash-chain consistency across concurrent writers — in one process or across many API replicas against the same database — is guarded by a SQL Server `sp_getapplock` taken inside the integrity-write transaction. The lock is bound to the transaction, so it auto-releases on commit, rollback, or connection drop; there is no lease TTL to expire mid-critical-section. An in-process `SemaphoreSlim` covers non-SQL-Server providers (e.g. the SQLite test harness). The general-purpose `IAuditDistributedLockService` (Redis or in-memory) remains for other coordination primitives such as the dead-letter-queue leader lock.
 
 ### Archival
 Completed audit records can be archived to Azure Blob Storage with integrity verification. Archives are checksummed and can be restored on demand with full integrity-chain metadata preserved. Background archive creation and verification both run on configurable schedules driven by retention policies. Archive creation and restore stream records through compression/decompression with bounded buffering so large archives do not require full in-memory materialization.
@@ -290,13 +290,22 @@ builder.Services.AddMillWorksAudit(audit =>
         ef.MigrationTimeoutSeconds = 120;    // Default: 300
     });
 
-    // Security and tamper detection
+    // Security and tamper detection.
+    //
+    // When `UseRedisLocking = true`, the consuming application is responsible for
+    // registering `IConnectionMultiplexer` in the service collection before
+    // `AddMillWorksAudit(...)` runs — AuditCore does not own that registration because
+    // most apps already register it for other components (token caches, rate limiters,
+    // SSO invalidation, etc.). Example:
+    //
+    //     builder.Services.AddSingleton<IConnectionMultiplexer>(
+    //         _ => ConnectionMultiplexer.Connect(
+    //             builder.Configuration.GetConnectionString("Redis")!));
     audit.UseSecurity(security =>
     {
         security.EnableTamperDetection = true;              // Default: true
         security.EnableBatchedIntegrityWrites = false;      // Default: false (strict mode)
         security.UseRedisLocking = true;                    // Default: false
-        security.RedisConnectionString = "localhost:6379";
     });
 
     // Compliance validation

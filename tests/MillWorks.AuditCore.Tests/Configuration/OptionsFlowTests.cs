@@ -10,7 +10,6 @@ using MillWorks.AuditCore.AspNetCore.Extensions;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -27,13 +26,6 @@ namespace MillWorks.AuditCore.Tests.Configuration;
 [Category("Unit")]
 public sealed class OptionsFlowTests
 {
-    [SetUp]
-    public void Setup()
-    {
-        // Chain state bleeds across TamperDetectionService instances via a static cache.
-        TamperDetectionService.ResetPreviousHashCache();
-    }
-
     [Test]
     public void FluentHmacKey_FlowsThroughOptionsPipeline()
     {
@@ -162,10 +154,7 @@ public sealed class OptionsFlowTests
             JsonData = "{\"test\":\"same-data\"}"
         };
 
-        TamperDetectionService.ResetPreviousHashCache();
         var fluentSignature = await CaptureHmacSignatureAsync(fluentOptions, dto);
-
-        TamperDetectionService.ResetPreviousHashCache();
         var configSignature = await CaptureHmacSignatureAsync(configOptions, dto);
 
         Assert.That(fluentSignature, Is.Not.Null.And.Not.Empty);
@@ -220,6 +209,18 @@ public sealed class OptionsFlowTests
             .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuditIntegrityEntity?)null);
 
+        mockIntegrityRepo
+            .Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<Task>, CancellationToken>((action, _) => action());
+
+        mockIntegrityRepo
+            .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        mockIntegrityRepo
+            .SetupGet(static x => x.SupportsCrossProcessAppendLock)
+            .Returns(true);
+
         string? captured = null;
         mockIntegrityRepo
             .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
@@ -240,8 +241,7 @@ public sealed class OptionsFlowTests
             mockSecurityEventService.Object,
             NullLogger<TamperDetectionService>.Instance,
             auditOptions,
-            Options.Create(new SecurityOptions()),
-            new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
+            Options.Create(new SecurityOptions()));
 
         await service.CreateIntegrityRecordAsync(dto);
         return captured;

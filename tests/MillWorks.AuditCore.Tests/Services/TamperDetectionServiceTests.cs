@@ -1,14 +1,11 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
-using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -34,13 +31,27 @@ public class TamperDetectionServiceTests
     [SetUp]
     public void Setup()
     {
-        // Reset static previous-hash cache to isolate tests
-        TamperDetectionService.ResetPreviousHashCache();
-
         _mockAuditEventRepository = new Mock<IAuditEventRepository>();
         _mockAuditIntegrityRepository = new Mock<IAuditIntegrityRepository>();
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();
         _mockLogger = new Mock<ILogger<TamperDetectionService>>();
+
+        // Auto-invoke the transaction lambda so per-test setups of Get/Add/SaveChanges run.
+        // Matches the real repository's behaviour (action runs inside the transaction).
+        _mockAuditIntegrityRepository
+            .Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<Task>, CancellationToken>((action, _) => action());
+
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Emulate SQL Server: sp_getapplock path — service should not take the
+        // process-local semaphore. Mocks without this flag (default false) would
+        // exercise the SQLite fallback.
+        _mockAuditIntegrityRepository
+            .SetupGet(static x => x.SupportsCrossProcessAppendLock)
+            .Returns(true);
 
         _tamperDetectionService = CreateService();
     }
@@ -253,10 +264,14 @@ public class TamperDetectionServiceTests
     }
 
     /// <summary>
-    /// CreateIntegrityRecordBatchAsync reuses the cached previous hash on subsequent batch writes.
+    /// CreateIntegrityRecordBatchAsync re-reads the chain head from the database for every
+    /// invocation. A process-local cache of the previous hash used to exist but was removed
+    /// because it was unsafe across multiple processes: another instance could advance the
+    /// chain between our invocations and a stale cache would drive the duplicate-key race
+    /// that the sp_getapplock fix now prevents.
     /// </summary>
     [Test]
-    public async Task CreateIntegrityRecordBatchAsync_WhenCacheInitialized_ReusesCachedPreviousHash()
+    public async Task CreateIntegrityRecordBatchAsync_ReReadsChainHeadPerInvocation()
     {
         // Arrange
         var previousIntegrity = new AuditIntegrityEntity
@@ -295,26 +310,27 @@ public class TamperDetectionServiceTests
         // Assert
         Assert.That(firstBatch, Is.Not.Null);
         Assert.That(secondBatch, Is.Not.Null);
+
+        // Every invocation re-reads the DB for the chain head — both batches link to the
+        // same mock-returned head; within a batch the chain still links entry[i] to entry[i-1].
         Assert.That(firstBatch![0].PreviousEventHash, Is.EqualTo(previousIntegrity.EventHash));
-        Assert.That(secondBatch![0].PreviousEventHash, Is.EqualTo(firstBatch[^1].EventHash));
-        _mockAuditIntegrityRepository.Verify(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(firstBatch[1].PreviousEventHash, Is.EqualTo(firstBatch[0].EventHash));
+        Assert.That(secondBatch![0].PreviousEventHash, Is.EqualTo(previousIntegrity.EventHash));
+        Assert.That(secondBatch[1].PreviousEventHash, Is.EqualTo(secondBatch[0].EventHash));
+
+        _mockAuditIntegrityRepository.Verify(
+            static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 
     /// <summary>
-    /// CreateIntegrityRecordBatchAsync acquires the configured distributed lock when enabled.
+    /// CreateIntegrityRecordBatchAsync acquires the transaction-scoped append applock
+    /// (sp_getapplock on SQL Server) inside the write transaction.
     /// </summary>
     [Test]
-    public async Task CreateIntegrityRecordBatchAsync_WithDistributedLockingEnabled_AcquiresDistributedLock()
+    public async Task CreateIntegrityRecordBatchAsync_AcquiresAppendLockInsideTransaction()
     {
         // Arrange
-        var mockLockService = new Mock<IAuditDistributedLockService>();
-        var mockLockHandle = new Mock<IDisposable>();
-        mockLockService
-            .Setup(x => x.AcquireLockAsync("audit:integrity:sequence", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mockLockHandle.Object);
-
-        var service = CreateService(lockService: mockLockService.Object);
-
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync((AuditIntegrityEntity?)null);
@@ -326,13 +342,15 @@ public class TamperDetectionServiceTests
             .ReturnsAsync(1);
 
         // Act
-        await service.CreateIntegrityRecordBatchAsync(CreateBatchDtos(2));
+        await _tamperDetectionService.CreateIntegrityRecordBatchAsync(CreateBatchDtos(2));
 
-        // Assert
-        mockLockService.Verify(
-            x => x.AcquireLockAsync("audit:integrity:sequence", It.Is<TimeSpan>(t => t == TimeSpan.FromSeconds(5)), It.IsAny<CancellationToken>()),
+        // Assert — the applock is acquired inside the repository's transaction helper
+        _mockAuditIntegrityRepository.Verify(
+            static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()),
             Times.Once);
-        mockLockHandle.Verify(static x => x.Dispose(), Times.Once);
+        _mockAuditIntegrityRepository.Verify(
+            static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     /// <summary>
@@ -375,40 +393,6 @@ public class TamperDetectionServiceTests
         _mockAuditIntegrityRepository.Verify(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockAuditIntegrityRepository.Verify(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _mockAuditIntegrityRepository.Verify(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
-    }
-
-    /// <summary>
-    /// CreateIntegrityRecordBatchAsync falls back to the local lock when distributed lock acquisition times out.
-    /// </summary>
-    [Test]
-    public async Task CreateIntegrityRecordBatchAsync_WhenDistributedLockTimesOut_FallsBackToLocalLock()
-    {
-        // Arrange
-        var mockLockService = new Mock<IAuditDistributedLockService>();
-        mockLockService
-            .Setup(x => x.AcquireLockAsync("audit:integrity:sequence", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new TimeoutException("lock timeout"));
-
-        var service = CreateService(lockService: mockLockService.Object);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-        _mockAuditIntegrityRepository
-            .Setup(x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IEnumerable<AuditIntegrityEntity> entities, CancellationToken _) => entities);
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        var result = await service.CreateIntegrityRecordBatchAsync(CreateBatchDtos(2));
-
-        // Assert
-        Assert.That(result, Has.Count.EqualTo(2));
-        mockLockService.Verify(
-            x => x.AcquireLockAsync("audit:integrity:sequence", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     /// <summary>
@@ -909,63 +893,6 @@ public class TamperDetectionServiceTests
 
     #endregion
 
-    #region Distributed lock fallback tests
-
-    /// <summary>
-    /// Verifies that when the distributed lock times out, it falls back to a local lock
-    /// </summary>
-    [Test]
-    public async Task CreateIntegrityRecordAsync_WhenDistributedLockTimesOut_FallsBackToLocalLock()
-    {
-        // Arrange
-        var eventId = Guid.NewGuid();
-        var dto = new AuditIntegrityDto { EventId = eventId };
-
-        var mockDistributedLock = new Mock<IAuditDistributedLockService>();
-        mockDistributedLock
-            .Setup(static x =>
-                x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new TimeoutException("Lock timeout"));
-
-        var service = CreateService(lockService: mockDistributedLock.Object);
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AuditEventEntity
-            {
-                EventId = eventId,
-                EventType = "Test.Event",
-                User = "testuser",
-                InsertedDate = DateTimeOffset.UtcNow,
-                JsonData = "{}"
-            });
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        var result = await service.CreateIntegrityRecordAsync(dto);
-
-        // Assert
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.EventId, Is.EqualTo(eventId));
-
-        // Verify distributed lock was attempted
-        mockDistributedLock.Verify(static x => x.AcquireLockAsync(
-            It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    #endregion
-
     #region VerifyIntegrity tamper detection tests
 
     /// <summary>
@@ -1164,8 +1091,7 @@ public class TamperDetectionServiceTests
 
     private TamperDetectionService CreateService(
         AuditOptions? auditOptions = null,
-        SecurityOptions? securityOptions = null,
-        IAuditDistributedLockService? lockService = null)
+        SecurityOptions? securityOptions = null)
     {
         return new TamperDetectionService(
             _mockAuditEventRepository.Object,
@@ -1177,8 +1103,7 @@ public class TamperDetectionServiceTests
                 Environment = "Development",
                 HmacKey = "test-hmac-key-for-testing-12345678"
             }),
-            Options.Create(securityOptions ?? new SecurityOptions()),
-            lockService ?? new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
+            Options.Create(securityOptions ?? new SecurityOptions()));
     }
 
     private static List<AuditIntegrityDto> CreateBatchDtos(int count)

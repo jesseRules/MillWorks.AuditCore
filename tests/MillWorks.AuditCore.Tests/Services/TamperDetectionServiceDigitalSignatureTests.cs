@@ -2,14 +2,11 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
-using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -36,12 +33,23 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [SetUp]
     public void Setup()
     {
-        TamperDetectionService.ResetPreviousHashCache();
-
         _mockAuditEventRepository = new Mock<IAuditEventRepository>();
         _mockAuditIntegrityRepository = new Mock<IAuditIntegrityRepository>();
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();
         _mockLogger = new Mock<ILogger<TamperDetectionService>>();
+
+        // Auto-invoke the transaction lambda so per-test Get/Add/SaveChanges setups run.
+        _mockAuditIntegrityRepository
+            .Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<Task>, CancellationToken>((action, _) => action());
+
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockAuditIntegrityRepository
+            .SetupGet(static x => x.SupportsCrossProcessAppendLock)
+            .Returns(true);
 
         // Generate a real RSA key pair for digital signature tests
         _tempDir = Path.Combine(Path.GetTempPath(), $"auditcore-tests-{Guid.NewGuid():N}");
@@ -57,8 +65,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [TearDown]
     public void TearDown()
     {
-        TamperDetectionService.ResetPreviousHashCache();
-
         // Reset static cached keys between tests so each test starts fresh
         ResetStaticKeyCache();
     }
@@ -107,7 +113,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     private TamperDetectionService CreateService(
         AuditOptions? auditOptions = null,
         SecurityOptions? securityOptions = null,
-        IAuditDistributedLockService? lockService = null,
         IHostEnvironment? hostEnvironment = null)
     {
         return new TamperDetectionService(
@@ -121,7 +126,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
                 HmacKey = "test-hmac-key-for-testing-12345678"
             }),
             Options.Create(securityOptions ?? new SecurityOptions()),
-            lockService ?? new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance),
             timeProvider: null,
             hostEnvironment: hostEnvironment);
     }
@@ -604,73 +608,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             () => service.CreateIntegrityRecordAsync(
                 new AuditIntegrityDto { EventId = Guid.NewGuid() },
                 cts.Token));
-    }
-
-    #endregion
-
-    #region Distributed Lock Fallback
-
-    [Test]
-    public async Task CreateIntegrityRecordAsync_WhenDistributedLockTimesOut_FallsBackToLocalLock()
-    {
-        // Arrange
-        var eventId = Guid.NewGuid();
-        var mockLockService = new Mock<IAuditDistributedLockService>();
-        mockLockService
-            .Setup(x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new TimeoutException("Lock timeout"));
-
-        var service = CreateService(lockService: mockLockService.Object);
-
-        SetupRepositoryForCreate(eventId);
-
-        // Act
-        var result = await service.CreateIntegrityRecordAsync(new AuditIntegrityDto { EventId = eventId });
-
-        // Assert — should succeed via local lock fallback
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.EventId, Is.EqualTo(eventId));
-
-        // The distributed lock was attempted
-        mockLockService.Verify(
-            x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Test]
-    public async Task CreateIntegrityRecordBatchAsync_WhenDistributedLockTimesOut_FallsBackToLocalLock()
-    {
-        // Arrange
-        var mockLockService = new Mock<IAuditDistributedLockService>();
-        mockLockService
-            .Setup(x => x.AcquireLockAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new TimeoutException("Lock timeout"));
-
-        var service = CreateService(lockService: mockLockService.Object);
-
-        var events = new List<AuditIntegrityDto>
-        {
-            new() { EventId = Guid.NewGuid() },
-            new() { EventId = Guid.NewGuid() }
-        };
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(static (IEnumerable<AuditIntegrityEntity> e, CancellationToken _) => e);
-
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(2);
-
-        // Act
-        var results = await service.CreateIntegrityRecordBatchAsync(events);
-
-        // Assert
-        Assert.That(results, Has.Count.EqualTo(2));
     }
 
     #endregion

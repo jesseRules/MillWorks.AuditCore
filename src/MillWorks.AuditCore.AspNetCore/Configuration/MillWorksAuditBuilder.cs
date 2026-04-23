@@ -211,23 +211,38 @@ public sealed class MillWorksAuditBuilder
     }
 
     /// <summary>
-    /// Configure Mapster type adapter
+    /// Configure Mapster type adapter. Applies <see cref="AuditMappingConfiguration"/> onto
+    /// <see cref="TypeAdapterConfig.GlobalSettings"/> — the same instance every other library's
+    /// <c>IRegister</c> targets — and registers the global config via <c>TryAddSingleton</c> so
+    /// a consumer-owned registration wins. A prior implementation created a fresh
+    /// <see cref="TypeAdapterConfig"/>, applied only AuditCore's mappings, and registered it
+    /// via <c>AddSingleton</c> — that won last-writer-wins for <c>IMapper</c> resolution and
+    /// silently dropped every consumer mapping not defined in AuditCore. This is structurally
+    /// the same shape as the <c>IConnectionMultiplexer</c> fix in UseSecurity.
     /// </summary>
     private void ConfigureMapster()
     {
-        var config = new TypeAdapterConfig();
-
-        // Apply mapping configurations
+        var config = TypeAdapterConfig.GlobalSettings;
         config.Apply(new AuditMappingConfiguration());
 
-        // Register using modern Mapster.DependencyInjection approach
-        Services.AddSingleton(config);
+        Services.TryAddSingleton(config);
         Services.AddMapster();
     }
 
     /// <summary>
-    /// Use security features for audit logging
+    /// Use security features for audit logging.
     /// </summary>
+    /// <remarks>
+    /// When <see cref="SecurityOptions.UseRedisLocking"/> is enabled, the consuming application
+    /// must register an <see cref="IConnectionMultiplexer"/> in the service collection (typically
+    /// via <c>services.AddSingleton&lt;IConnectionMultiplexer&gt;(...)</c>) before the
+    /// <see cref="IAuditDistributedLockService"/> is resolved. AuditCore does not register
+    /// <see cref="IConnectionMultiplexer"/> itself because consuming apps commonly own that
+    /// registration for other components (token caches, rate limiters, etc.). When
+    /// <see cref="SecurityOptions.UseRedisLocking"/> is false, distributed locking falls back
+    /// to <c>InMemoryDistributedLockService</c> and <see cref="IConnectionMultiplexer"/> is
+    /// not required.
+    /// </remarks>
     public void UseSecurity(Action<SecurityOptions> configure)
     {
         Services.AddOptions<SecurityOptions>()
@@ -261,36 +276,38 @@ public sealed class MillWorksAuditBuilder
             .AddCheck<IntegrityHealthCheck>("audit_integrity_pipeline",
                 tags: ["audit", "integrity"]);
 
-        // Connection multiplexer. Registered as a singleton factory; only ever resolved when the
-        // IAuditDistributedLockService factory below selects the Redis path. Throws on resolve if
-        // UseRedisLocking is false or RedisConnectionString is missing.
-        Services.AddSingleton<IConnectionMultiplexer>(static sp =>
+        // IAuditDistributedLockService is registered as a singleton for callers that need a
+        // general-purpose cross-process / cross-scope mutex (e.g. DeadLetterQueueProcessor's
+        // leader election). A per-scope registration would give every caller its own lock
+        // table and defeat mutual exclusion within a process.
+        //
+        // NOTE: the integrity-chain critical section in TamperDetectionService does NOT go
+        // through this service. It serializes at the DB layer via SQL Server sp_getapplock
+        // bound to the write transaction (see AuditIntegrityRepository.AcquireAppendLockAsync).
+        // UseRedisLocking therefore has no effect on integrity-write correctness — it only
+        // governs other coordination primitives above.
+        //
+        // When UseRedisLocking is true, the consumer is responsible for registering
+        // IConnectionMultiplexer — AuditCore does not own that registration because consuming
+        // apps commonly register it for their own components (token cache, rate limiter, etc.)
+        // and an AuditCore-owned registration would collide last-writer-wins.
+        Services.AddSingleton<IAuditDistributedLockService>(static sp =>
         {
             var options = sp.GetRequiredService<IOptions<SecurityOptions>>().Value;
 
             if (!options.UseRedisLocking)
-                throw new InvalidOperationException("Redis locking is disabled.");
+                return ActivatorUtilities.CreateInstance<InMemoryDistributedLockService>(sp);
 
-            if (string.IsNullOrWhiteSpace(options.RedisConnectionString))
+            var multiplexer = sp.GetService<IConnectionMultiplexer>();
+            if (multiplexer is null)
                 throw new InvalidOperationException(
-                    $"{nameof(SecurityOptions.RedisConnectionString)} is required when " +
-                    $"{nameof(SecurityOptions.UseRedisLocking)} is true.");
+                    $"{nameof(SecurityOptions.UseRedisLocking)} is true but no " +
+                    $"{nameof(IConnectionMultiplexer)} is registered in the service collection. " +
+                    "Register one via services.AddSingleton<IConnectionMultiplexer>(...) before " +
+                    "calling AddMillWorksAudit, or set " +
+                    $"{nameof(SecurityOptions.UseRedisLocking)} = false to use the in-memory lock.");
 
-            var configOptions = ConfigurationOptions.Parse(options.RedisConnectionString);
-            configOptions.AbortOnConnectFail = false;
-            configOptions.ConnectTimeout = 5000;
-            return ConnectionMultiplexer.Connect(configOptions);
-        });
-
-        Services.AddScoped<IAuditDistributedLockService>(static sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<SecurityOptions>>().Value;
-
-            return options.UseRedisLocking
-                ? ActivatorUtilities.CreateInstance<RedisDistributedLockService>(
-                    sp,
-                    sp.GetRequiredService<IConnectionMultiplexer>())
-                : ActivatorUtilities.CreateInstance<InMemoryDistributedLockService>(sp);
+            return ActivatorUtilities.CreateInstance<RedisDistributedLockService>(sp, multiplexer);
         });
     }
 

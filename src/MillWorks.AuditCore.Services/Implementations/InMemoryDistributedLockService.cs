@@ -21,9 +21,12 @@ public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockServi
     : IAuditDistributedLockService
 {
     /// <summary>
-    /// Locks store
+    /// Process-wide lock store. Static so the in-memory lock serializes across all
+    /// instances of this service within one process, regardless of how the service is
+    /// registered in DI. Mutual exclusion must hold at the process level for the
+    /// integrity-chain critical section in <c>TamperDetectionService</c>.
     /// </summary>
-    private readonly ConcurrentDictionary<string, LockInfo> _locks = new();
+    private static readonly ConcurrentDictionary<string, LockInfo> _locks = new();
 
     /// <summary>
     /// Logger instance

@@ -14,7 +14,6 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -92,8 +91,6 @@ public sealed class SqlServerIntegrityChainSoakTests
     [SetUp]
     public async Task SetUpAsync()
     {
-        TamperDetectionService.ResetPreviousHashCache();
-
         var builder = new SqlConnectionStringBuilder(_containerConnectionString!)
         {
             InitialCatalog = SoakDatabaseName
@@ -135,7 +132,6 @@ public sealed class SqlServerIntegrityChainSoakTests
         // with EF's pool.
         SqlConnection.ClearAllPools();
         await DropDatabaseIfExistsAsync();
-        TamperDetectionService.ResetPreviousHashCache();
     }
 
     [Test]
@@ -157,10 +153,7 @@ public sealed class SqlServerIntegrityChainSoakTests
         var afterSeedBytes = GC.GetTotalMemory(forceFullCollection: false);
         samples.Add(new MemorySample("baseline", "post-seed", stopwatch.Elapsed, afterSeedBytes));
 
-        var lockService = new InMemoryDistributedLockService(
-            NullLogger<InMemoryDistributedLockService>.Instance);
-
-        await WriteIntegrityChainConcurrentlyAsync(allEventDtos, stopwatch, samples, lockService);
+        await WriteIntegrityChainConcurrentlyAsync(allEventDtos, stopwatch, samples);
 
         var afterWriteBytes = GC.GetTotalMemory(forceFullCollection: false);
         samples.Add(new MemorySample("baseline", "post-integrity-write", stopwatch.Elapsed, afterWriteBytes));
@@ -173,7 +166,7 @@ public sealed class SqlServerIntegrityChainSoakTests
         TamperDetectionResult verifyResult;
         await using (var verifyContext = CreateContext())
         {
-            var verifyService = CreateService(verifyContext, lockService);
+            var verifyService = CreateService(verifyContext);
             verifyResult = await verifyService.VerifyChainIntegrityAsync(startDate: null, endDate: null);
         }
 
@@ -272,8 +265,7 @@ public sealed class SqlServerIntegrityChainSoakTests
     private async Task WriteIntegrityChainConcurrentlyAsync(
         IReadOnlyList<AuditIntegrityDto> allEventDtos,
         Stopwatch stopwatch,
-        List<MemorySample> samples,
-        InMemoryDistributedLockService lockService)
+        List<MemorySample> samples)
     {
         var batches = new List<List<AuditIntegrityDto>>(TotalEvents / IntegrityBatchSize);
         for (int start = 0; start < allEventDtos.Count; start += IntegrityBatchSize)
@@ -290,7 +282,7 @@ public sealed class SqlServerIntegrityChainSoakTests
             async (batch, ct) =>
             {
                 await using var writerContext = CreateContext();
-                var writerService = CreateService(writerContext, lockService);
+                var writerService = CreateService(writerContext);
                 await writerService.CreateIntegrityRecordBatchAsync(batch, ct);
 
                 var done = Interlocked.Increment(ref completedBatches);
@@ -382,9 +374,7 @@ public sealed class SqlServerIntegrityChainSoakTests
         return new AuditApplicationDbContext(options);
     }
 
-    private static TamperDetectionService CreateService(
-        AuditApplicationDbContext context,
-        InMemoryDistributedLockService lockService)
+    private static TamperDetectionService CreateService(AuditApplicationDbContext context)
     {
         var eventRepo = new AuditEventRepository(context);
         var integrityRepo = new AuditIntegrityRepository(context);
@@ -400,8 +390,7 @@ public sealed class SqlServerIntegrityChainSoakTests
                 Environment = "Development",
                 HmacKey = HmacKey
             }),
-            Options.Create(new SecurityOptions()),
-            lockService);
+            Options.Create(new SecurityOptions()));
     }
 
     private async Task DropDatabaseIfExistsAsync()

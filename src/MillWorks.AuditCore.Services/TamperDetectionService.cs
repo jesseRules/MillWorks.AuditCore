@@ -9,7 +9,6 @@ using MillWorks.AuditCore.Abstractions.Canonicalization;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
@@ -17,7 +16,9 @@ using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 namespace MillWorks.AuditCore.Services.TamperDetection;
 
 /// <summary>
-/// Tamper detection service for audit events with Redis distributed locking for multi-instance coordination
+/// Tamper detection service for audit events. Cross-process serialization of the
+/// hash-chain append happens via a SQL Server <c>sp_getapplock</c> bound to the
+/// write transaction (see <see cref="IAuditIntegrityRepository.AcquireAppendLockAsync"/>).
 /// </summary>
 public sealed class TamperDetectionService : ITamperDetectionService
 {
@@ -30,11 +31,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// Audit integrity repository
     /// </summary>
     private readonly IAuditIntegrityRepository _auditIntegrityRepository;
-
-    /// <summary>
-    /// Distributed lock service
-    /// </summary>
-    private readonly IAuditDistributedLockService _distributedLockService;
 
     /// <summary>
     /// Security event service
@@ -73,25 +69,15 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly Lazy<string> DefaultHmacKey = new(GenerateDefaultHmacKey);
 
     /// <summary>
-    /// Local fallback lock for single-instance scenarios.
-    /// Static because TamperDetectionService is Scoped — an instance lock would be
-    /// private to each request, providing zero mutual exclusion across concurrent saves.
+    /// Process-local serializer used only when the active EF provider does not support
+    /// <c>sp_getapplock</c> (e.g. SQLite in tests). On SQL Server the cross-process
+    /// applock is the sole serializer — holding this semaphore there would make the
+    /// applock look correct in single-process tests even when the applock itself was
+    /// removed or broken, turning the regression test into a false positive. Static
+    /// because TamperDetectionService is Scoped — an instance lock would be private to
+    /// each request and provide zero mutual exclusion across concurrent saves.
     /// </summary>
-    private static readonly SemaphoreSlim LocalFallbackLock = new(1, 1);
-
-    /// <summary>
-    /// Cached chain head — previous event hash and current max SequenceNumber — to eliminate
-    /// the GetLatestBySequenceAsync DB read from the critical section in steady state. Only
-    /// the first call (or after a duplicate-key retry) reads from the database; subsequent
-    /// calls use the cached values. Treated as a single unit: both fields are populated from
-    /// one GetLatestBySequenceAsync call and invalidated together on duplicate-key retry.
-    /// Static because TamperDetectionService is Scoped — the cache must survive across requests.
-    /// Thread safety: all reads and writes occur inside the LocalFallbackLock / distributed lock
-    /// critical section — no external synchronization needed.
-    /// </summary>
-    private static string? _cachedPreviousHash;
-    private static long _cachedMaxSequenceNumber;
-    private static bool _previousHashCacheInitialized;
+    private static readonly SemaphoreSlim LocalAppendLock = new(1, 1);
 
     /// <summary>
     /// Cached signing key parameters. Loaded lazily on first use.
@@ -102,7 +88,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly Lock _keyLoadLock = new();
 
     /// <summary>
-    /// Tamper detection service for audit events with distributed locking support.
+    /// Tamper detection service for audit events. Serializes hash-chain appends cross-process
+    /// via a SQL Server <c>sp_getapplock</c> bound to the write transaction.
     /// HMAC key, digital-signature enable flag, and Production detection come from
     /// <see cref="AuditOptions"/>; digital-signature key paths come from <see cref="SecurityOptions"/>.
     /// <paramref name="hostEnvironment"/> is authoritative for Production detection when registered;
@@ -115,14 +102,12 @@ public sealed class TamperDetectionService : ITamperDetectionService
         ILogger<TamperDetectionService> logger,
         IOptions<AuditOptions> auditOptions,
         IOptions<SecurityOptions> securityOptions,
-        IAuditDistributedLockService distributedLockService,
         TimeProvider? timeProvider = null,
         IHostEnvironment? hostEnvironment = null)
     {
         _auditEventRepository = auditEventRepository;
         _auditIntegrityRepository = auditIntegrityRepository;
         _securityEventService = securityEventService;
-        _distributedLockService = distributedLockService;
         _logger = logger;
         _auditOptions = auditOptions.Value;
         _securityOptions = securityOptions.Value;
@@ -153,7 +138,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
     }
 
     /// <summary>
-    /// Creates an integrity record for a given audit event with distributed locking for multi-instance coordination.
+    /// Creates an integrity record for a given audit event. The read-modify-write of the
+    /// hash chain is serialized cross-process by <c>sp_getapplock</c> bound to the write
+    /// transaction (see <see cref="IAuditIntegrityRepository.AcquireAppendLockAsync"/>).
     /// </summary>
     public async Task<AuditIntegrityDto> CreateIntegrityRecordAsync(
         AuditIntegrityDto auditEvent,
@@ -161,13 +148,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        const int maxRetries = 10;
-        int retryCount = 0;
-        var baseDelay = TimeSpan.FromMilliseconds(100);
-
-        // Pre-compute hashes OUTSIDE the lock — these depend only on the event data,
-        // not on chain state (PreviousEventHash). This reduces lock hold time from
-        // ~5-20ms (DB query + hashing + DB insert) to ~1-3ms (DB query + DB insert).
+        // Pre-compute hashes OUTSIDE the append lock — these depend only on event data,
+        // not on chain state (PreviousEventHash). Hashing stays off the critical path.
         var eventHash = ComputeEventHash(auditEvent);
         var hmacSignature = ComputeHmac(auditEvent);
         var checksum = ComputeChecksum(auditEvent);
@@ -181,92 +163,104 @@ public sealed class TamperDetectionService : ITamperDetectionService
             digitalSignature = await CreateDigitalSignatureAsync(eventHash);
         }
 
-        while (retryCount < maxRetries)
-        {
-            IDisposable? distributedLock = null;
-            bool localLockAcquired = false;
+        const int maxRetries = 10;
+        var baseDelay = TimeSpan.FromMilliseconds(100);
 
+        // On SQL Server the transaction-scoped sp_getapplock is the sole serializer —
+        // taking a process-local semaphore on top would mask a broken applock in
+        // single-process tests. On providers without applock support (SQLite in tests)
+        // the semaphore is what serializes the read-modify-write.
+        var useLocalFallback = !_auditIntegrityRepository.SupportsCrossProcessAppendLock;
+
+        // The retry loop is defense-in-depth. Under sp_getapplock the read-modify-write
+        // is strictly serialized, so duplicate-key and deadlock on SequenceNumber should
+        // essentially never fire here.
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
             try
             {
-                // Acquire lock — protects only the chain linkage (read previous + insert).
-                // SecurityOptions.UseRedisLocking selects Redis vs in-memory at registration; this
-                // code path is identical for both.
+                AuditIntegrityEntity? committed = null;
+
+                if (useLocalFallback)
+                {
+                    await LocalAppendLock.WaitAsync(cancellationToken);
+                }
                 try
                 {
-                    const string lockKey = "audit:integrity:sequence";
-                    var lockTimeout = TimeSpan.FromSeconds(5);
+                    // Body of the append critical section — takes the applock, reads the
+                    // chain head, inserts the new row. Shared by the two entry paths
+                    // below (join-outer-transaction vs open-our-own).
+                    async Task AppendCore()
+                    {
+                        // sp_getapplock @LockOwner='Transaction' — cross-process serializer.
+                        // No-op on non-SQL-Server providers; the outer semaphore covers them.
+                        await _auditIntegrityRepository.AcquireAppendLockAsync(cancellationToken);
 
-                    distributedLock = await _distributedLockService.AcquireLockAsync(
-                        lockKey,
-                        lockTimeout,
-                        cancellationToken);
+                        var previousIntegrity =
+                            await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                        var previousHash = previousIntegrity?.EventHash;
+                        var nextSequence = (previousIntegrity?.SequenceNumber ?? 0) + 1;
 
-                    _logger.LogDebug("Acquired distributed lock for audit integrity sequence");
+                        var integrity = new AuditIntegrityEntity
+                        {
+                            EventId = auditEvent.EventId,
+                            EventHash = eventHash,
+                            PreviousEventHash = previousHash,
+                            TrustedTimestamp = timestamp,
+                            SequenceNumber = nextSequence,
+                            HmacSignature = hmacSignature,
+                            Checksum = checksum,
+                            AlgorithmVersion = algorithmVersion,
+                            DigitalSignature = digitalSignature
+                        };
+
+                        await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
+                        await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
+                        committed = integrity;
+                    }
+
+                    // When AuditLogger wraps event+integrity in one atomic transaction, the
+                    // context already owns a transaction on this DbContext. Opening a nested
+                    // one would throw "connection already in a transaction", corrupting EF's
+                    // change tracker and breaking ResilientAuditLogger retries. Join the
+                    // existing transaction instead; the applock still binds to it.
+                    if (_auditIntegrityRepository.CurrentTransaction is not null)
+                    {
+                        await AppendCore();
+                    }
+                    else
+                    {
+                        await _auditIntegrityRepository.ExecuteInTransactionAsync(
+                            AppendCore, cancellationToken);
+                    }
                 }
-                catch (TimeoutException)
+                finally
                 {
-                    _logger.LogWarning("Failed to acquire distributed lock, falling back to local lock");
-                    await LocalFallbackLock.WaitAsync(cancellationToken);
-                    localLockAcquired = true;
+                    if (useLocalFallback)
+                    {
+                        try
+                        {
+                            LocalAppendLock.Release();
+                        }
+                        catch (SemaphoreFullException ex)
+                        {
+                            _logger.LogWarning(ex, "Attempted to release local append lock that was not held");
+                        }
+                    }
                 }
-
-                // Critical section — chain linkage, sequence assignment, and insert (narrowed
-                // from full hash computation). Use cached previous-hash + max-sequence in steady
-                // state to avoid a DB read per event.
-                string? previousHash;
-                long nextSequence;
-                if (!_previousHashCacheInitialized)
-                {
-                    var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
-                    previousHash = previousIntegrity?.EventHash;
-                    _cachedMaxSequenceNumber = previousIntegrity?.SequenceNumber ?? 0;
-                    _previousHashCacheInitialized = true;
-                    _cachedPreviousHash = previousHash;
-                }
-                else
-                {
-                    previousHash = _cachedPreviousHash;
-                }
-                nextSequence = _cachedMaxSequenceNumber + 1;
-
-                var integrity = new AuditIntegrityEntity
-                {
-                    EventId = auditEvent.EventId,
-                    EventHash = eventHash,
-                    PreviousEventHash = previousHash,
-                    TrustedTimestamp = timestamp,
-                    SequenceNumber = nextSequence,
-                    HmacSignature = hmacSignature,
-                    Checksum = checksum,
-                    AlgorithmVersion = algorithmVersion,
-                    DigitalSignature = digitalSignature
-                };
-
-                await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
-                await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
-
-                // Update cache with the hash and sequence we just wrote — next call skips the DB read.
-                _cachedPreviousHash = integrity.EventHash;
-                _cachedMaxSequenceNumber = integrity.SequenceNumber;
 
                 _logger.LogDebug(
                     "Created integrity record for event {EventId} with sequence {SequenceNumber} (attempt {Attempt})",
-                    auditEvent.EventId, integrity.SequenceNumber, retryCount + 1);
+                    auditEvent.EventId, committed!.SequenceNumber, attempt);
 
-                return new AuditIntegrityDto { EventId = integrity.EventId };
+                return new AuditIntegrityDto { EventId = committed.EventId };
             }
             catch (DbUpdateException ex)
                 when (DuplicateKeyDetector.IsDuplicateKey(ex) || DeadlockDetector.IsDeadlock(ex))
             {
-                retryCount++;
-
                 var conflictKind = DuplicateKeyDetector.IsDuplicateKey(ex) ? "duplicate-key" : "deadlock";
 
-                // Invalidate cache — another instance may have advanced the chain, or a deadlock
-                // victim must re-read the chain head before its retry.
-                _previousHashCacheInitialized = false;
-
-                if (retryCount >= maxRetries)
+                if (attempt >= maxRetries)
                 {
                     _logger.LogError(ex,
                         "Failed to create integrity record for event {EventId} after {MaxRetries} attempts ({ConflictKind})",
@@ -276,42 +270,18 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         "This may indicate high concurrency or a systemic issue.", ex);
                 }
 
-                // Clear the change tracker to remove the failed entity
+                // Drop the failed entity so the next attempt's transaction starts clean.
                 await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
 
-                // Exponential backoff with jitter
-                var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5));
+                var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(attempt - 1, 5));
                 var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
                 var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
 
                 _logger.LogWarning(
                     "Retryable write conflict ({ConflictKind}) for event {EventId}. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
-                    conflictKind, auditEvent.EventId, retryCount, maxRetries, delay.TotalMilliseconds);
+                    conflictKind, auditEvent.EventId, attempt, maxRetries, delay.TotalMilliseconds);
 
                 await Task.Delay(delay, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error creating integrity record for event {EventId}",
-                    auditEvent.EventId);
-                throw;
-            }
-            finally
-            {
-                // CRITICAL: Always release locks in reverse order of acquisition
-                if (localLockAcquired)
-                {
-                    try
-                    {
-                        LocalFallbackLock.Release();
-                    }
-                    catch (SemaphoreFullException ex)
-                    {
-                        _logger.LogWarning(ex, "Attempted to release local lock that was not held");
-                    }
-                }
-
-                distributedLock?.Dispose();
             }
         }
 
@@ -322,7 +292,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
     /// <summary>
     /// Creates integrity records for a batch of audit events atomically.
-    /// Pre-computes per-event hashes outside the lock, then acquires the lock once
+    /// Pre-computes per-event hashes outside the append lock, then acquires the lock once
     /// to read the latest sequence and build the entire chain in memory before a single bulk write.
     /// </summary>
     public async Task<IReadOnlyList<AuditIntegrityDto>> CreateIntegrityRecordBatchAsync(
@@ -342,7 +312,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
         }
 
         const int maxRetries = 10;
-        int retryCount = 0;
         var baseDelay = TimeSpan.FromMilliseconds(100);
         var timestamp = _timeProvider.GetUtcNow();
         var algorithmVersion = AuditCanonicalizer.CurrentVersion;
@@ -362,93 +331,98 @@ public sealed class TamperDetectionService : ITamperDetectionService
             precomputed[i] = (eventHash, hmac, checksum, digitalSignature);
         }
 
-        while (retryCount < maxRetries)
-        {
-            IDisposable? distributedLock = null;
-            bool localLockAcquired = false;
+        // Semaphore is a fallback for providers without applock support — see the
+        // per-event method for the rationale.
+        var useLocalFallback = !_auditIntegrityRepository.SupportsCrossProcessAppendLock;
 
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
             try
             {
-                // Acquire lock once for the entire batch. SecurityOptions.UseRedisLocking selects
-                // Redis vs in-memory at registration; this code path is identical for both.
+                if (useLocalFallback)
+                {
+                    await LocalAppendLock.WaitAsync(cancellationToken);
+                }
                 try
                 {
-                    const string lockKey = "audit:integrity:sequence";
-                    var lockTimeout = TimeSpan.FromSeconds(5);
-                    distributedLock = await _distributedLockService.AcquireLockAsync(
-                        lockKey, lockTimeout, cancellationToken);
-                    _logger.LogDebug("Acquired distributed lock for batch audit integrity sequence ({Count} events)",
-                        auditEvents.Count);
-                }
-                catch (TimeoutException)
-                {
-                    _logger.LogWarning("Failed to acquire distributed lock for batch, falling back to local lock");
-                    await LocalFallbackLock.WaitAsync(cancellationToken);
-                    localLockAcquired = true;
-                }
-
-                // Critical section: read latest sequence (cached), build chain with explicit
-                // application-assigned SequenceNumber values, bulk write.
-                string? previousHash;
-                if (!_previousHashCacheInitialized)
-                {
-                    var previousIntegrity = await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
-                    previousHash = previousIntegrity?.EventHash;
-                    _cachedMaxSequenceNumber = previousIntegrity?.SequenceNumber ?? 0;
-                    _previousHashCacheInitialized = true;
-                    _cachedPreviousHash = previousHash;
-                }
-                else
-                {
-                    previousHash = _cachedPreviousHash;
-                }
-
-                var entities = new List<AuditIntegrityEntity>(auditEvents.Count);
-                for (int i = 0; i < auditEvents.Count; i++)
-                {
-                    var entity = new AuditIntegrityEntity
+                    async Task AppendBatchCore()
                     {
-                        EventId = auditEvents[i].EventId,
-                        EventHash = precomputed[i].EventHash,
-                        PreviousEventHash = previousHash,
-                        TrustedTimestamp = timestamp,
-                        SequenceNumber = _cachedMaxSequenceNumber + 1 + i,
-                        HmacSignature = precomputed[i].Hmac,
-                        Checksum = precomputed[i].Checksum,
-                        AlgorithmVersion = algorithmVersion,
-                        DigitalSignature = precomputed[i].DigitalSignature
-                    };
-                    entities.Add(entity);
+                        // sp_getapplock @LockOwner='Transaction' — cross-process serializer.
+                        // No-op on non-SQL-Server providers; the outer semaphore covers them.
+                        await _auditIntegrityRepository.AcquireAppendLockAsync(cancellationToken);
 
-                    // Chain: next event links to this event's hash
-                    previousHash = entity.EventHash;
+                        var previousIntegrity =
+                            await _auditIntegrityRepository.GetLatestBySequenceAsync(cancellationToken);
+                        string? previousHash = previousIntegrity?.EventHash;
+                        long baseSequence = previousIntegrity?.SequenceNumber ?? 0;
+
+                        var entities = new List<AuditIntegrityEntity>(auditEvents.Count);
+                        for (int i = 0; i < auditEvents.Count; i++)
+                        {
+                            var entity = new AuditIntegrityEntity
+                            {
+                                EventId = auditEvents[i].EventId,
+                                EventHash = precomputed[i].EventHash,
+                                PreviousEventHash = previousHash,
+                                TrustedTimestamp = timestamp,
+                                SequenceNumber = baseSequence + 1 + i,
+                                HmacSignature = precomputed[i].Hmac,
+                                Checksum = precomputed[i].Checksum,
+                                AlgorithmVersion = algorithmVersion,
+                                DigitalSignature = precomputed[i].DigitalSignature
+                            };
+                            entities.Add(entity);
+
+                            // Chain: next event links to this event's hash
+                            previousHash = entity.EventHash;
+                        }
+
+                        await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
+                        await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
+                    }
+
+                    // Join an outer transaction if one is already active (e.g. AuditLogger's
+                    // atomic event+integrity path); otherwise open our own. Nesting via
+                    // ExecuteInTransactionAsync would call BeginTransactionAsync on a context
+                    // that already has a transaction and throw, corrupting EF's change
+                    // tracker and breaking ResilientAuditLogger's retry.
+                    if (_auditIntegrityRepository.CurrentTransaction is not null)
+                    {
+                        await AppendBatchCore();
+                    }
+                    else
+                    {
+                        await _auditIntegrityRepository.ExecuteInTransactionAsync(
+                            AppendBatchCore, cancellationToken);
+                    }
                 }
-
-                await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
-                await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
-
-                // Update cache to the last entity's hash and sequence — next call skips the DB read.
-                _cachedPreviousHash = entities[^1].EventHash;
-                _cachedMaxSequenceNumber = entities[^1].SequenceNumber;
+                finally
+                {
+                    if (useLocalFallback)
+                    {
+                        try
+                        {
+                            LocalAppendLock.Release();
+                        }
+                        catch (SemaphoreFullException ex)
+                        {
+                            _logger.LogWarning(ex, "Attempted to release local append lock that was not held");
+                        }
+                    }
+                }
 
                 _logger.LogDebug(
                     "Created {Count} integrity records in batch (attempt {Attempt})",
-                    auditEvents.Count, retryCount + 1);
+                    auditEvents.Count, attempt);
 
                 return auditEvents.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList();
             }
             catch (DbUpdateException ex)
                 when (DuplicateKeyDetector.IsDuplicateKey(ex) || DeadlockDetector.IsDeadlock(ex))
             {
-                retryCount++;
-
                 var conflictKind = DuplicateKeyDetector.IsDuplicateKey(ex) ? "duplicate-key" : "deadlock";
 
-                // Invalidate cache — another instance may have advanced the chain, or a deadlock
-                // victim must re-read the chain head before its retry.
-                _previousHashCacheInitialized = false;
-
-                if (retryCount >= maxRetries)
+                if (attempt >= maxRetries)
                 {
                     _logger.LogError(ex,
                         "Failed to create batch integrity records after {MaxRetries} attempts ({ConflictKind})",
@@ -460,36 +434,15 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
                 await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
 
-                var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(retryCount - 1, 5));
+                var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(attempt - 1, 5));
                 var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
                 var delay = TimeSpan.FromMilliseconds(exponentialDelay + jitterAmount);
 
                 _logger.LogWarning(
                     "Retryable write conflict ({ConflictKind}) in batch. Retry {RetryCount}/{MaxRetries} after {DelayMs}ms",
-                    conflictKind, retryCount, maxRetries, delay.TotalMilliseconds);
+                    conflictKind, attempt, maxRetries, delay.TotalMilliseconds);
 
                 await Task.Delay(delay, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error creating batch integrity records");
-                throw;
-            }
-            finally
-            {
-                if (localLockAcquired)
-                {
-                    try
-                    {
-                        LocalFallbackLock.Release();
-                    }
-                    catch (SemaphoreFullException ex)
-                    {
-                        _logger.LogWarning(ex, "Attempted to release local lock that was not held");
-                    }
-                }
-
-                distributedLock?.Dispose();
             }
         }
 
@@ -918,16 +871,6 @@ public sealed class TamperDetectionService : ITamperDetectionService
             _cachedVerifyKey = rsa.ExportParameters(false);
             return _cachedVerifyKey.Value;
         }
-    }
-
-    /// <summary>
-    /// Resets the in-process previous-hash cache. Intended for test isolation only.
-    /// </summary>
-    internal static void ResetPreviousHashCache()
-    {
-        _previousHashCacheInitialized = false;
-        _cachedPreviousHash = null;
-        _cachedMaxSequenceNumber = 0;
     }
 
     /// <summary>

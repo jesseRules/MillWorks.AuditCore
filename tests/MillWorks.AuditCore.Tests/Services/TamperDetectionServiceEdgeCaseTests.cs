@@ -1,11 +1,9 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
@@ -33,6 +31,19 @@ public class TamperDetectionServiceEdgeCaseTests
         _mockSecurityEventService = new Mock<IAuditSecurityEventService>();
         _mockLogger = new Mock<ILogger<TamperDetectionService>>();
 
+        // Auto-invoke the transaction lambda so per-test Get/Add/SaveChanges setups run.
+        _mockAuditIntegrityRepository
+            .Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<Task>, CancellationToken>((action, _) => action());
+
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockAuditIntegrityRepository
+            .SetupGet(static x => x.SupportsCrossProcessAppendLock)
+            .Returns(true);
+
         var auditOptions = Options.Create(new AuditOptions
         {
             Environment = "Development",
@@ -46,8 +57,7 @@ public class TamperDetectionServiceEdgeCaseTests
             _mockSecurityEventService.Object,
             _mockLogger.Object,
             auditOptions,
-            securityOptions,
-            new InMemoryDistributedLockService(NullLogger<InMemoryDistributedLockService>.Instance));
+            securityOptions);
     }
 
     /// <summary>
