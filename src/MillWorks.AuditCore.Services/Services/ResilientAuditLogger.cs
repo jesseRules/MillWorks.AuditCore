@@ -1,20 +1,35 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 
 namespace MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 
 /// <summary>
-/// Resilient Audit Logger that integrates Dead Letter Queue for failure handling
+/// Resilient Audit Logger that integrates Dead Letter Queue for failure handling.
+/// <para>
+/// <see cref="LogAsync(AuditEvent, CancellationToken)"/> and
+/// <see cref="LogBatchAsync"/> create a fresh DI scope per retry attempt and resolve
+/// a fresh <see cref="AuditLogger"/> (with a fresh <c>AuditApplicationDbContext</c>)
+/// from it. Without scope-per-retry, a failed attempt leaves the
+/// <c>AuditEventEntity</c> in the scoped context's identity map; the next attempt
+/// re-adds a new instance with the same <c>EventId</c> and EF throws
+/// <c>InvalidOperationException</c> ("already being tracked"). The injected
+/// <c>innerLogger</c> is retained for <see cref="BeginOperationAsync"/> /
+/// <see cref="EndOperationAsync"/> / <see cref="CreateScope"/>, which depend on the
+/// same <c>AuditLogger</c> instance for <c>_activeOperations</c> continuity.
+/// </para>
 /// </summary>
 public sealed class ResilientAuditLogger(
     IAuditLogger innerLogger,
     IAuditDeadLetterQueue deadLetterQueue,
     IAuditEventFactory eventFactory,
     IAuditFieldRedactor fieldRedactor,
+    IServiceScopeFactory scopeFactory,
     ILogger<ResilientAuditLogger> logger,
     IAuditDiagnostics? diagnostics = null)
     : IAuditLogger
@@ -65,7 +80,14 @@ public sealed class ResilientAuditLogger(
                         auditEvent.EventId, retry + 1);
                 }
 
-                await innerLogger.LogAsync(auditEvent, cancellationToken);
+                // Fresh DI scope per attempt: a prior failed attempt may have left the
+                // AuditEventEntity tracked on its scoped DbContext, which would throw
+                // "already being tracked" on the next AddAsync with the same EventId.
+                using (var scope = scopeFactory.CreateScope())
+                {
+                    var attemptLogger = scope.ServiceProvider.GetRequiredService<AuditLogger>();
+                    await attemptLogger.LogAsync(auditEvent, cancellationToken);
+                }
                 eventWasSaved = true; // Mark as saved
 
                 if (retry > 0)
@@ -160,7 +182,15 @@ public sealed class ResilientAuditLogger(
                         auditEvents.Count, retry + 1);
                 }
 
-                var result = await innerLogger.LogBatchAsync(auditEvents, cancellationToken);
+                // Fresh DI scope per attempt — same rationale as LogAsync above. A
+                // mid-batch transaction failure strands every added AuditEventEntity in
+                // the scoped DbContext's identity map.
+                BatchAuditResult result;
+                using (var scope = scopeFactory.CreateScope())
+                {
+                    var attemptLogger = scope.ServiceProvider.GetRequiredService<AuditLogger>();
+                    result = await attemptLogger.LogBatchAsync(auditEvents, cancellationToken);
+                }
 
                 if (retry > 0)
                 {

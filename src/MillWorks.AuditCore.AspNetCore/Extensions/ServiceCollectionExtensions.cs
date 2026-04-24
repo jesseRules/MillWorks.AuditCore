@@ -29,10 +29,14 @@ public static class ServiceCollectionExtensions
         /// <returns>Service collection for chaining</returns>
         public void AddMillWorksAudit(Action<MillWorksAuditBuilder>? configure = null)
         {
-            // Register core services with proper lifetimes (TryAdd to prevent duplicates)
+            // Register core services with proper lifetimes (TryAdd to prevent duplicates).
+            // AuditLogger is registered as its concrete type so ResilientAuditLogger can
+            // resolve a fresh instance per retry scope; IAuditLogger forwards to the same
+            // AuditLogger within a scope so there's only one instance either way.
             services.TryAddScoped<IAuditContext, AuditContext>();
             services.TryAddScoped<IAuditEventFactory, AuditEventFactory>();
-            services.TryAddScoped<IAuditLogger, AuditLogger>();
+            services.TryAddScoped<AuditLogger>();
+            services.TryAddScoped<IAuditLogger>(static sp => sp.GetRequiredService<AuditLogger>());
             services.TryAddScoped<IRequestAuditProcessor, RequestAuditProcessor>();
 
             // Aggregate diagnostic counters — singleton, thread-safe, queryable from health checks

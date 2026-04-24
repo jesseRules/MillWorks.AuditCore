@@ -15,6 +15,14 @@ public abstract class SqliteIntegrationFixture : IDisposable
     private readonly SqliteConnection _connection;
     protected DbContextOptions<AuditApplicationDbContext> Options { get; }
 
+    /// <summary>
+    /// The shared in-memory SQLite connection backing every context created from
+    /// <see cref="Options"/>. Exposed so tests that wire up their own DI container can
+    /// register a DbContext pointing at the same in-memory database without reaching
+    /// into EF's internal options APIs.
+    /// </summary>
+    protected SqliteConnection Connection => _connection;
+
     protected SqliteIntegrationFixture()
     {
         // In-memory SQLite requires the connection to stay open

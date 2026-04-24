@@ -31,7 +31,6 @@ This snippet captures a representative regulated production posture for AuditCor
     "MigrationTimeoutSeconds": 300,
 
     "UseRedisLocking": true,
-    "RedisConnectionString": "",
     "EnableBatchedIntegrityWrites": false,
 
     "QueueCapacity": 1000,
@@ -55,19 +54,24 @@ This snippet captures a representative regulated production posture for AuditCor
 ## Secret Sources
 
 - `Audit:HmacKey` must come from a durable secret provider such as Azure Key Vault, Kubernetes Secret, or the deployment environment. Do not store it in JSON. The value must be stable across instances and restarts, and at least 32 characters.
-- `Audit:RedisConnectionString` must come from the same secret source as the Redis credential. It is used for distributed integrity locking and the Redis dead-letter queue.
+- The Redis connection string (used by both the audit distributed lock service and the Redis dead-letter queue) must come from the same secret source as the Redis credential. ACED owns the `IConnectionMultiplexer` registration — AuditCore consumes it via DI — so the connection string is bound on the consumer side under whatever configuration key ACED chooses (e.g. `ConnectionStrings:Redis`).
 - The digital-signature private key path must point at a mounted secret readable only by the ACED process identity. The public key path can be mounted read-only alongside it for verification.
 
 Environment variable example:
 
 ```bash
 Audit__HmacKey=<key-from-secret-store>
-Audit__RedisConnectionString=<redis-endpoint-and-secret>
+ConnectionStrings__Redis=<redis-endpoint-and-secret>
 ```
 
 ## Program.cs Wiring
 
 ```csharp
+// ACED owns the IConnectionMultiplexer registration. AuditCore's distributed lock
+// service and the Redis dead-letter queue both resolve it from DI.
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    _ => ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+
 builder.Services.AddMillWorksAudit(builder.Configuration, audit =>
 {
     audit.Options.ApplicationName = "ACED";
@@ -89,7 +93,6 @@ builder.Services.AddMillWorksAudit(builder.Configuration, audit =>
     audit.UseSecurity(security =>
     {
         security.UseRedisLocking = true;
-        security.RedisConnectionString = builder.Configuration["Audit:RedisConnectionString"];
         security.DigitalSignaturePrivateKeyPath = builder.Configuration["Audit:DigitalSignaturePrivateKeyPath"];
         security.DigitalSignaturePublicKeyPath = builder.Configuration["Audit:DigitalSignaturePublicKeyPath"];
         security.EnableBatchedIntegrityWrites = false;

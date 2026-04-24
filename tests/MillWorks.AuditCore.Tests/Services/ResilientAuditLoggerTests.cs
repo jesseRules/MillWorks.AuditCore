@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
@@ -5,6 +6,7 @@ using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services;
 
@@ -50,6 +52,16 @@ public class ResilientAuditLoggerTests
     private AuditDiagnostics _diagnostics;
 
     /// <summary>
+    /// Scope factory driving ResilientAuditLogger's scope-per-retry. Each scope
+    /// resolves a fresh <see cref="ScopeFactoryForwardingAuditLogger"/> that forwards
+    /// LogAsync / LogBatchAsync to <see cref="_mockInnerLogger"/>, so existing Moq
+    /// assertions still match without having to materialize a real DbContext per retry.
+    /// </summary>
+    private IServiceScopeFactory _scopeFactory;
+
+    private ServiceProvider _serviceProvider;
+
+    /// <summary>
     /// Setup method to initialize mocks and the resilient logger
     /// </summary>
     [SetUp]
@@ -68,13 +80,23 @@ public class ResilientAuditLoggerTests
         _mockFieldRedactor.Setup(r => r.RedactTarget(It.IsAny<AuditTarget?>()))
             .Returns<AuditTarget?>(t => t);
 
+        _serviceProvider = ScopeFactoryForwardingAuditLogger.BuildProviderForwarding(_mockInnerLogger.Object);
+        _scopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
+
         _resilientLogger = new ResilientAuditLogger(
             _mockInnerLogger.Object,
             _mockDeadLetterQueue.Object,
             _mockEventFactory.Object,
             _mockFieldRedactor.Object,
+            _scopeFactory,
             _mockLogger.Object,
             _diagnostics);
+    }
+
+    [TearDown]
+    public void Teardown()
+    {
+        _serviceProvider?.Dispose();
     }
 
     /// <summary>

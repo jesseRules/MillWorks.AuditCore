@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
@@ -11,6 +12,7 @@ using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services;
 
@@ -338,11 +340,13 @@ public class LogAsyncTraceFixTests
                 New = "[REDACTED]"
             });
 
+        using var scopeProvider = ScopeFactoryForwardingAuditLogger.BuildProviderForwarding(mockInnerLogger.Object);
         var resilientLogger = new ResilientAuditLogger(
             mockInnerLogger.Object,
             mockDlq.Object,
             mockEventFactory.Object,
             mockRedactor.Object,
+            scopeProvider.GetRequiredService<IServiceScopeFactory>(),
             mockLogger.Object);
 
         var auditEvent = new AuditEvent
@@ -399,11 +403,13 @@ public class LogAsyncTraceFixTests
         mockRedactor.Setup(r => r.RedactTarget(It.IsAny<AuditTarget?>()))
             .Returns<AuditTarget?>(t => t);
 
+        using var scopeProvider = ScopeFactoryForwardingAuditLogger.BuildProviderForwarding(mockInnerLogger.Object);
         var resilientLogger = new ResilientAuditLogger(
             mockInnerLogger.Object,
             mockDlq.Object,
             new Mock<IAuditEventFactory>().Object,
             mockRedactor.Object,
+            scopeProvider.GetRequiredService<IServiceScopeFactory>(),
             mockLogger.Object);
 
         var auditEvent = new AuditEvent { EventType = "Test" };

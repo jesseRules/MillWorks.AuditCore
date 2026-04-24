@@ -18,9 +18,12 @@ using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 namespace MillWorks.AuditCore.Services.Core;
 
 /// <summary>
-/// Core audit logger implementation
+/// Core audit logger implementation. Not sealed, and <see cref="LogAsync(AuditEvent, CancellationToken)"/> /
+/// <see cref="LogBatchAsync"/> are virtual, so test harnesses can subclass for
+/// <c>ResilientAuditLogger</c> scope-per-retry verification without spinning up a full
+/// DbContext/repository graph.
 /// </summary>
-public sealed class AuditLogger(
+public class AuditLogger(
     ILogger<AuditLogger> logger,
     IAuditEventFactory eventFactory,
     IAuditEventRepository auditEventRepository,
@@ -45,7 +48,7 @@ public sealed class AuditLogger(
     /// <summary>
     /// Logs an audit event asynchronously
     /// </summary>
-    public async Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    public virtual async Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -153,7 +156,7 @@ public sealed class AuditLogger(
     /// <summary>
     /// Logs a batch of audit events atomically.
     /// </summary>
-    public async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
+    public virtual async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
     {
         if (auditEvents.Count == 0)
             return BatchAuditResult.Succeeded(0);

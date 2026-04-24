@@ -11,6 +11,7 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -76,11 +77,13 @@ public sealed class RetryFailureBehaviorSqlServerTests
 
         var eventFactory = new Mock<IAuditEventFactory>();
 
+        using var scopeProvider = ScopeFactoryForwardingAuditLogger.BuildProviderForwarding(failingInner.Object);
         var resilientLogger = new ResilientAuditLogger(
             innerLogger: failingInner.Object,
             deadLetterQueue: deadLetterQueue,
             eventFactory: eventFactory.Object,
             fieldRedactor: fieldRedactor.Object,
+            scopeFactory: scopeProvider.GetRequiredService<IServiceScopeFactory>(),
             logger: NullLogger<ResilientAuditLogger>.Instance);
 
         var testEvent = new AuditEvent { EventType = "RetryTest" };

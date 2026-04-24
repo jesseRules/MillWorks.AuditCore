@@ -192,7 +192,13 @@ public sealed class MillWorksAuditBuilder
         // Ensure core infrastructure services are registered (no-op if AddMillWorksAudit already registered them)
         Services.TryAddScoped<IAuditContext, AuditContext>();
         Services.TryAddScoped<IAuditEventFactory, AuditEventFactory>();
-        Services.TryAddScoped<IAuditLogger, AuditLogger>();
+        // AuditLogger is registered as the concrete type so ResilientAuditLogger can
+        // resolve a fresh instance per retry scope (see UseResilience below). IAuditLogger
+        // forwards to the same scoped AuditLogger — when Decorate<IAuditLogger,
+        // ResilientAuditLogger>() runs later, Scrutor captures this forwarding factory as
+        // the pre-decoration registration.
+        Services.TryAddScoped<AuditLogger>();
+        Services.TryAddScoped<IAuditLogger>(static sp => sp.GetRequiredService<AuditLogger>());
 
         // Register core audit services that depend on repositories
         Services.AddScoped<IAuditService, AuditService>();
