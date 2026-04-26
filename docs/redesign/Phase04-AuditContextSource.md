@@ -33,8 +33,15 @@ The five hard rules from `feedback_plan_is_spec.md` apply. Additionally:
 | New | `src/MillWorks.AuditCore.Abstractions/Interfaces/IAuditContextSource.cs` | The interface |
 | Modified | `src/MillWorks.AuditCore.EntityFramework/Data/AuditApplicationDbContext.cs` | Implement `IAuditContextSource` |
 | Modified | `src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditSaveChangesInterceptor.cs` | Read context via `IAuditContextSource` |
-| Modified | `src/MillWorks.AuditCore.Services/Sinks/ImmediateSink.cs` (and the writer from Phase 02) | Read context via `IAuditContextSource` if present |
 | New | `tests/MillWorks.AuditCore.Tests/Abstractions/AuditContextSourceTests.cs` | Verifies a non-AuditApplicationDbContext that implements the interface flows context into envelopes |
+
+> **Phase 02/03 reconciliation note (added 2026-04-26):** the original draft of this
+> table also listed `ImmediateSink.cs` and the Phase 02 writer as modified. After
+> Phase 03 actually shipped, the sink and writer no longer read `DbContext` context
+> directly — they read it from `AuditEnvelope` fields the interceptor populates
+> upstream (see Phase 03's `BuildEnvelope`). The interface lift therefore touches
+> only the interceptor on the read side. Sink and writer files are intentionally
+> excluded from this phase's scope.
 
 ## Type introduced
 
@@ -152,3 +159,5 @@ the contract for consumer DbContexts.
 - `AuditContextSourceTests` is green.
 - Full test suite is green.
 - Phase doc updated with "Completed YYYY-MM-DD".
+
+Completed 2026-04-26 — `IAuditContextSource` shipped in `MillWorks.AuditCore.Abstractions.Interfaces` (read-only by design, four nullable getters, XML doc covers null semantics and threading expectations). `AuditApplicationDbContext` declares the interface; existing settable properties satisfy the contract with zero behavior change. Interceptor cast lifts at four sites (`EnforceConsentRequirements`, `AddComplianceSecurityEvent`, `ProcessAuditableEntriesAsync`, `BuildEnvelope`) replace `context as AuditApplicationDbContext` with `context as IAuditContextSource`; provider-dispatch casts at three sites stay (Phase 07/08). New 4-test `Abstractions/AuditContextSourceTests.cs` covers fully-implementing consumer context, partially-implementing context (only correlation populated), non-implementing context (all-null fallback), and an interface-satisfaction smoke check on `AuditApplicationDbContext`. Phase 02/03 reconciliation: `ImmediateSink.cs` and `AuditDbContextEntityWriter.cs` were dropped from the file table — Phase 03's envelope-as-carrier model already moved context responsibility upstream into `BuildEnvelope`. Full unit suite green: 1041 passed / 0 failed / 4 skipped (Phase 03 baseline 1037 + 4 new context-source tests).

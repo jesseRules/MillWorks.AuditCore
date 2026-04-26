@@ -13,7 +13,7 @@ namespace MillWorks.AuditCore.EntityFramework.Data;
 /// <summary>
 /// Partial class for audit-related database configuration
 /// </summary>
-public class AuditApplicationDbContext : DbContext, IAuditBypassable
+public class AuditApplicationDbContext : DbContext, IAuditBypassable, IAuditContextSource
 {
     /// <summary>
     /// Thread-safe bypass flag using AsyncLocal for per-execution-context isolation
