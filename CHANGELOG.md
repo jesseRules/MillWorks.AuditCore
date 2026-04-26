@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`IAuditSink` abstraction** (Redesign Phase 01) — new contract `MillWorks.AuditCore.Abstractions.Interfaces.IAuditSink` with a single `PublishAsync(AuditEnvelope, CancellationToken)` method. The accompanying `AuditEnvelope` record (`Models/AuditEnvelope.cs`), `AuditEnvelopePropertyChange` record (`Models/AuditEnvelopePropertyChange.cs`), and `AuditEnvelopeKind` discriminator enum (`Enums/AuditEnvelopeKind.cs`) carry every field a sink needs to persist an audit row — entity-change diffs and explicit-event payloads — without referencing any EF or persistence type. No implementations, callers, or DI registrations land in this phase; new types compile and a 9-test `AuditEnvelopeTests` fixture covers construction, immutability, and record equality. See `docs/redesign/Phase01-AuditSinkAbstraction.md` and the master `docs/RedesignPlan.md` for the full sink-redesign arc.
+
 ## [1.6.1] - 2026-04-23
 
 ### Fixed
