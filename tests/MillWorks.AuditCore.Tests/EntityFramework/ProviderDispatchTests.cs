@@ -8,6 +8,8 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Providers.Base;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -27,18 +29,36 @@ public class ProviderDispatchTests
     [SetUp]
     public void Setup()
     {
-        var mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(mockLogger.Object);
+        var dbName = $"ProviderDispatchTestDb_{Guid.NewGuid()}";
 
         _typeMap = new AuditProviderTypeMap();
         _mockDispatcher = new Mock<IAuditProviderDispatcher>();
 
         var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
         services.AddSingleton(_typeMap);
         services.AddSingleton(_mockDispatcher.Object);
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
         _serviceProvider = services.BuildServiceProvider();
 
+        var scopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
+
+        var mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
+        _interceptor = new AuditSaveChangesInterceptor(
+            mockLogger.Object,
+            scopeFactory: scopeFactory);
+
         var options = TestDbContextFactory.CreateInMemoryOptions<ProviderDispatchTestDbContext>(
+            dbName: dbName,
             configure: builder => builder.AddInterceptors(_interceptor));
 
         _dbContext = new ProviderDispatchTestDbContext(options);

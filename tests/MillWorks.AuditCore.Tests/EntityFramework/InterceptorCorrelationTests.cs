@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -17,14 +21,36 @@ public class InterceptorCorrelationTests
 {
     private AuditSaveChangesInterceptor _interceptor = null!;
     private CorrelationTestDbContext _dbContext = null!;
+    private ServiceProvider _provider = null!;
 
     [SetUp]
     public void Setup()
     {
+        var dbName = $"CorrelationTestDb_{Guid.NewGuid()}";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        _provider = services.BuildServiceProvider();
+        var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
+
         var mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(mockLogger.Object);
+        _interceptor = new AuditSaveChangesInterceptor(
+            mockLogger.Object,
+            scopeFactory: scopeFactory);
 
         var options = TestDbContextFactory.CreateInMemoryOptions<CorrelationTestDbContext>(
+            dbName: dbName,
             configure: builder => builder.AddInterceptors(_interceptor));
 
         _dbContext = new CorrelationTestDbContext(options);
@@ -34,6 +60,7 @@ public class InterceptorCorrelationTests
     public void TearDown()
     {
         _dbContext.Dispose();
+        _provider.Dispose();
     }
 
     [Test]

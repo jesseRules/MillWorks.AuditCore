@@ -11,6 +11,7 @@ using MillWorks.AuditCore.Abstractions.Constants;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Exceptions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -58,6 +59,16 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// falls back to a local <see cref="RegulatedEntityFailurePolicy"/> instance.
     /// </summary>
     private readonly IAuditFailurePolicy _failurePolicy;
+
+    /// <summary>
+    /// Scope factory used to resolve a per-save <see cref="IAuditSink"/>. The
+    /// interceptor itself is registered as a singleton; the sink is scoped, so
+    /// each <see cref="SavingChangesAsync"/> opens a fresh scope to publish into.
+    /// Null only when constructed without DI (e.g., a guard test that exercises
+    /// <see cref="ArgumentNullException"/> on the logger); reaching the publish
+    /// path with a null factory is a wiring bug and throws.
+    /// </summary>
+    private readonly IServiceScopeFactory? _scopeFactory;
 
     // Use HashSet for O(1) lookups instead of multiple 'or' checks
     /// <summary>
@@ -131,13 +142,19 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <see cref="RegulatedEntityFailurePolicy"/> so direct test construction
     /// still exercises the default regulated-entity detection.
     /// </param>
+    /// <param name="scopeFactory">
+    /// Scope factory used to resolve a per-save <see cref="IAuditSink"/>. Required
+    /// for the audit publish path; passing null is only acceptable for tests that
+    /// exercise the logger-null guard before any save runs.
+    /// </param>
     public AuditSaveChangesInterceptor(
         ILogger<AuditSaveChangesInterceptor> logger,
         ComplianceEnforcementMode? enforcementMode = null,
         IConsentVerificationService? consentService = null,
         IAuditDiagnostics? diagnostics = null,
         AuditFailureMode failureMode = AuditFailureMode.Permissive,
-        IAuditFailurePolicy? failurePolicy = null)
+        IAuditFailurePolicy? failurePolicy = null,
+        IServiceScopeFactory? scopeFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _enforcementMode = enforcementMode;
@@ -145,6 +162,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         _diagnostics = diagnostics;
         _failureMode = failureMode;
         _failurePolicy = failurePolicy ?? new RegulatedEntityFailurePolicy();
+        _scopeFactory = scopeFactory;
     }
 
     // NOTE: No sync SavingChanges override. The sync path lacks provider dispatch
@@ -170,10 +188,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         {
             // Consent enforcement runs BEFORE audit logging.
             // ComplianceViolationException propagates out — it is NOT inside
-            // ProcessAuditableEntries' try/catch that swallows audit failures.
+            // ProcessAuditableEntriesAsync' try/catch that swallows audit failures.
             EnforceConsentRequirements(eventData.Context!, entries);
 
-            ProcessAuditableEntries(eventData.Context!, entries);
+            await ProcessAuditableEntriesAsync(eventData.Context!, entries, cancellationToken);
             CaptureForProviderDispatch(eventData.Context!, entries);
         }
 
@@ -427,19 +445,25 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     }
 
     /// <summary>
-    /// Processes auditable entries and creates audit log records.
-    /// For entities decorated with [FERPA], uses FERPA-prefixed event types and
-    /// adds consent metadata. This is additive — non-FERPA entities are unaffected.
+    /// Processes auditable entries by building one <see cref="AuditEnvelope"/> per
+    /// entity entry and publishing it through the registered <see cref="IAuditSink"/>.
+    /// For entities decorated with [FERPA], the envelope description carries the
+    /// <c>[FERPA]</c> prefix and FERPA metadata rides on <see cref="AuditEnvelope.AdditionalData"/>;
+    /// the writer fans these into one row per changed property for Modified entries.
+    /// Non-FERPA entries are unaffected.
     ///
     /// Known limitation: This interceptor hooks SaveChanges and can only audit write
     /// operations (Create, Update, Delete). FERPA §99.10 requires logging who accessed
     /// records, not just who modified them. Read auditing requires a separate mechanism
     /// (middleware, EF query interceptor, or application-level logging).
     /// </summary>
-    private void ProcessAuditableEntries(DbContext context, List<EntityEntry> auditableEntries)
+    private async Task ProcessAuditableEntriesAsync(
+        DbContext context,
+        List<EntityEntry> auditableEntries,
+        CancellationToken cancellationToken)
     {
         // Capture entity context up front so the fail-closed path can name
-        // regulated entities even if audit-log materialization throws partway through.
+        // regulated entities even if envelope materialization throws partway through.
         var entityContext = auditableEntries
             .Select(static entry => new AuditFailureEntity(
                 entry.Entity.GetType(),
@@ -448,157 +472,29 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         var auditCtx = context as AuditApplicationDbContext;
         var correlationId = auditCtx?.CurrentCorrelationId;
-        var ipAddress = auditCtx?.CurrentIpAddress;
-        var userAgent = auditCtx?.CurrentUserAgent;
 
         try
         {
-            var auditLogs = context.Set<AuditLogEntity>();
+            if (_scopeFactory is null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(AuditSaveChangesInterceptor)} was constructed without an " +
+                    $"{nameof(IServiceScopeFactory)}. The audit publish path requires one " +
+                    "to resolve a scoped IAuditSink. Register the interceptor through " +
+                    "MillWorksAuditBuilder.UseEntityFramework() or pass a scope factory " +
+                    "to the constructor in tests.");
+            }
+
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var sink = scope.ServiceProvider.GetRequiredService<IAuditSink>();
 
             foreach (var entry in auditableEntries)
             {
-                var entityType = entry.Entity.GetType();
-                var entityName = entityType.Name;
-                var action = MapAction(entry.State);
-                var entityId = GetPrimaryKeyValue(entry);
+                var envelope = BuildEnvelope(entry, auditCtx);
+                if (envelope is null)
+                    continue;
 
-                // Check for [FERPA] attribute — cached per type
-                var ferpaAttr = GetFERPAAttribute(entityType);
-
-                _logger.LogDebug(
-                    "Processing audit entry for {EntityType} with state {State}",
-                    entityName,
-                    entry.State);
-
-                if (entry.State == EntityState.Modified)
-                {
-                    // One audit log per changed property for granular tracking
-                    foreach (var prop in entry.Properties.Where(static p => p.IsModified))
-                    {
-                        var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
-                        if (meta.IsNoAudit)
-                            continue;
-
-                        // Skip unchanged values (EF sometimes marks properties as modified even if value didn't change).
-                        // Use type-aware comparison: byte[] needs SequenceEqual since Equals
-                        // only checks reference equality for arrays, producing false-positive diffs.
-                        if (AreValuesEqual(prop.OriginalValue, prop.CurrentValue))
-                            continue;
-
-                        var maskedOld = MaskOrRedact(meta, prop.OriginalValue);
-                        var maskedNew = MaskOrRedact(meta, prop.CurrentValue);
-
-                        var description = ferpaAttr is not null
-                            ? $"[FERPA] Updated {prop.Metadata.Name} on {entityName}"
-                            : $"Updated {prop.Metadata.Name} on {entityName}";
-
-                        var logEntry = new AuditLogEntity
-                        {
-                            EntityName = entityName,
-                            EntityId = entityId,
-                            Action = action,
-                            PropertyName = prop.Metadata.Name,
-                            OldValue = Truncate(maskedOld, 4000),
-                            NewValue = Truncate(maskedNew, 4000),
-                            Description = description,
-                            CorrelationId = correlationId,
-                            IpAddress = ipAddress,
-                            UserAgent = userAgent
-                        };
-
-                        // For FERPA entities, add consent metadata to AdditionalData
-                        if (ferpaAttr is not null)
-                        {
-                            logEntry.AdditionalData = BuildFerpaAdditionalData(ferpaAttr, entityName, action);
-                        }
-
-                        auditLogs.Add(logEntry);
-                    }
-                }
-                else
-                {
-                    // One audit log for Added/Deleted with property snapshot in AdditionalData
-                    var properties = entry.Properties
-                        .Where(static p => !GetPropertyMetadata(p.Metadata.PropertyInfo).IsNoAudit);
-
-                    var snapshot = new Dictionary<string, object?>();
-                    foreach (var prop in properties)
-                    {
-                        var rawValue = entry.State == EntityState.Deleted
-                            ? prop.OriginalValue
-                            : prop.CurrentValue;
-                        var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
-                        snapshot[prop.Metadata.Name] = MaskOrRedact(meta, rawValue);
-                    }
-
-                    // For FERPA entities, add FERPA metadata to the snapshot
-                    if (ferpaAttr is not null)
-                    {
-                        snapshot["_FerpaEventType"] = FerpaEventTypes.EventTypeBuilder.Build(entityName, entry.State.ToString());
-                        snapshot["_ConsentRequired"] = ferpaAttr.RequiresConsent;
-                        snapshot["_RecordType"] = ferpaAttr.RecordType;
-                    }
-
-                    string? additionalData = null;
-                    try
-                    {
-                        additionalData = Truncate(JsonSerializer.Serialize(snapshot, _snapshotSerializerOptions), 4000);
-                    }
-                    catch (Exception ex)
-                    {
-                        _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationFallback);
-                        if (_diagnostics is not null)
-                        {
-                            _logger.LogWarning(ex,
-                                "Failed to serialize audit snapshot for {EntityName}. " +
-                                "FallbackCount: {FallbackCount}",
-                                entityName,
-                                _diagnostics.SnapshotSerializationFallbackCount);
-                        }
-                        else
-                        {
-                            _logger.LogWarning(ex,
-                                "Failed to serialize audit snapshot for {EntityName}",
-                                entityName);
-                        }
-
-                        // Fall back to a minimal representation so the audit record
-                        // is never hollow — it always carries at least enough data
-                        // to identify what changed, even if values couldn't be serialized.
-                        try
-                        {
-                            var fallback = new Dictionary<string, object?>
-                            {
-                                ["_serializationError"] = true,
-                                ["_entityName"] = entityName,
-                                ["_action"] = entry.State.ToString(),
-                                ["_propertyNames"] = snapshot.Keys.ToList()
-                            };
-                            additionalData = JsonSerializer.Serialize(fallback);
-                        }
-                        catch
-                        {
-                            _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationTotalFailure);
-                            // If even the fallback fails, additionalData stays null
-                        }
-                    }
-
-                    var description = ferpaAttr is not null
-                        ? $"[FERPA] {entry.State} {entityName}"
-                        : $"{entry.State} {entityName}";
-
-                    auditLogs.Add(new AuditLogEntity
-                    {
-                        EntityName = entityName,
-                        EntityId = entityId,
-                        Action = action,
-                        Description = description,
-                        AdditionalData = additionalData,
-                        CorrelationId = correlationId,
-                        IpAddress = ipAddress,
-                        UserAgent = userAgent
-                    });
-                }
+                await sink.PublishAsync(envelope, cancellationToken);
             }
         }
         catch (Exception ex)
@@ -638,6 +534,170 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 correlationId);
             // Permissive: log and swallow.
         }
+    }
+
+    /// <summary>
+    /// Constructs the <see cref="AuditEnvelope"/> for a single change-tracker entry.
+    /// One envelope per entry: Modified entries carry the per-property diff list on
+    /// <see cref="AuditEnvelope.PropertyChanges"/>; Added/Deleted entries carry the
+    /// snapshot JSON on <see cref="AuditEnvelope.AdditionalData"/>. Returns null
+    /// when a Modified entry has no surviving property diffs (all properties either
+    /// <c>[NoAudit]</c> or unchanged) — preserving the prior behavior of emitting
+    /// zero rows for that entry.
+    /// </summary>
+    private AuditEnvelope? BuildEnvelope(EntityEntry entry, AuditApplicationDbContext? auditCtx)
+    {
+        var entityType = entry.Entity.GetType();
+        var entityName = entityType.Name;
+        var action = MapAction(entry.State);
+        var entityId = GetPrimaryKeyValue(entry);
+        var ferpaAttr = GetFERPAAttribute(entityType);
+
+        _logger.LogDebug(
+            "Processing audit entry for {EntityType} with state {State}",
+            entityName,
+            entry.State);
+
+        var correlationId = auditCtx?.CurrentCorrelationId;
+        var ipAddress = auditCtx?.CurrentIpAddress;
+        var userAgent = auditCtx?.CurrentUserAgent;
+        var userId = auditCtx?.CurrentUserId;
+
+        if (entry.State == EntityState.Modified)
+        {
+            // One change record per modified property for granular tracking; the
+            // writer fans these out into one AuditLogEntity row per change.
+            var changes = new List<AuditEnvelopePropertyChange>();
+            foreach (var prop in entry.Properties.Where(static p => p.IsModified))
+            {
+                var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
+                if (meta.IsNoAudit)
+                    continue;
+
+                // Skip unchanged values (EF sometimes marks properties as modified even if value didn't change).
+                // Use type-aware comparison: byte[] needs SequenceEqual since Equals
+                // only checks reference equality for arrays, producing false-positive diffs.
+                if (AreValuesEqual(prop.OriginalValue, prop.CurrentValue))
+                    continue;
+
+                var maskedOld = MaskOrRedact(meta, prop.OriginalValue);
+                var maskedNew = MaskOrRedact(meta, prop.CurrentValue);
+
+                changes.Add(new AuditEnvelopePropertyChange(
+                    prop.Metadata.Name,
+                    Truncate(maskedOld, 4000),
+                    Truncate(maskedNew, 4000)));
+            }
+
+            if (changes.Count == 0)
+                return null;
+
+            var description = ferpaAttr is not null
+                ? $"[FERPA] Updated {entityName}"
+                : $"Updated {entityName}";
+
+            var additionalData = ferpaAttr is not null
+                ? BuildFerpaAdditionalData(ferpaAttr, entityName, action)
+                : null;
+
+            return new AuditEnvelope
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = entityName,
+                EntityId = entityId,
+                Action = action,
+                UserId = userId,
+                CorrelationId = correlationId,
+                IpAddress = ipAddress,
+                UserAgent = userAgent,
+                Description = description,
+                PropertyChanges = changes,
+                AdditionalData = additionalData,
+            };
+        }
+
+        // Added / Deleted: snapshot the property values into AdditionalData.
+        var properties = entry.Properties
+            .Where(static p => !GetPropertyMetadata(p.Metadata.PropertyInfo).IsNoAudit);
+
+        var snapshot = new Dictionary<string, object?>();
+        foreach (var prop in properties)
+        {
+            var rawValue = entry.State == EntityState.Deleted
+                ? prop.OriginalValue
+                : prop.CurrentValue;
+            var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
+            snapshot[prop.Metadata.Name] = MaskOrRedact(meta, rawValue);
+        }
+
+        if (ferpaAttr is not null)
+        {
+            snapshot["_FerpaEventType"] = FerpaEventTypes.EventTypeBuilder.Build(entityName, entry.State.ToString());
+            snapshot["_ConsentRequired"] = ferpaAttr.RequiresConsent;
+            snapshot["_RecordType"] = ferpaAttr.RecordType;
+        }
+
+        string? snapshotJson = null;
+        try
+        {
+            snapshotJson = Truncate(JsonSerializer.Serialize(snapshot, _snapshotSerializerOptions), 4000);
+        }
+        catch (Exception ex)
+        {
+            _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationFallback);
+            if (_diagnostics is not null)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to serialize audit snapshot for {EntityName}. " +
+                    "FallbackCount: {FallbackCount}",
+                    entityName,
+                    _diagnostics.SnapshotSerializationFallbackCount);
+            }
+            else
+            {
+                _logger.LogWarning(ex,
+                    "Failed to serialize audit snapshot for {EntityName}",
+                    entityName);
+            }
+
+            // Fall back to a minimal representation so the audit record
+            // is never hollow — it always carries at least enough data
+            // to identify what changed, even if values couldn't be serialized.
+            try
+            {
+                var fallback = new Dictionary<string, object?>
+                {
+                    ["_serializationError"] = true,
+                    ["_entityName"] = entityName,
+                    ["_action"] = entry.State.ToString(),
+                    ["_propertyNames"] = snapshot.Keys.ToList()
+                };
+                snapshotJson = JsonSerializer.Serialize(fallback);
+            }
+            catch
+            {
+                _diagnostics?.Increment(AuditDiagnosticCounter.SnapshotSerializationTotalFailure);
+                // If even the fallback fails, snapshotJson stays null
+            }
+        }
+
+        var addedDeletedDescription = ferpaAttr is not null
+            ? $"[FERPA] {entry.State} {entityName}"
+            : $"{entry.State} {entityName}";
+
+        return new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = entityName,
+            EntityId = entityId,
+            Action = action,
+            UserId = userId,
+            CorrelationId = correlationId,
+            IpAddress = ipAddress,
+            UserAgent = userAgent,
+            Description = addedDeletedDescription,
+            AdditionalData = snapshotJson,
+        };
     }
 
     /// <summary>

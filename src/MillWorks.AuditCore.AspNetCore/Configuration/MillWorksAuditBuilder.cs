@@ -135,6 +135,8 @@ public sealed class MillWorksAuditBuilder
         // Register the audit interceptor as a singleton.
         // ComplianceOptions, IConsentVerificationService, and IAuditDiagnostics may not be registered
         // (UseCompliance() is optional, diagnostics is always registered). GetService returns null when not registered.
+        // The IServiceScopeFactory is captured here so the singleton interceptor can resolve
+        // a scoped IAuditSink per save without taking a scoped dependency directly.
         Services.AddSingleton<AuditSaveChangesInterceptor>(static sp =>
         {
             var logger = sp.GetRequiredService<ILogger<AuditSaveChangesInterceptor>>();
@@ -143,13 +145,15 @@ public sealed class MillWorksAuditBuilder
             var diagnostics = sp.GetService<IAuditDiagnostics>();
             var auditOptions = sp.GetRequiredService<IOptions<AuditOptions>>().Value;
             var failurePolicy = sp.GetRequiredService<IAuditFailurePolicy>();
+            var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
             return new AuditSaveChangesInterceptor(
                 logger,
                 complianceOptions?.EnforcementMode,
                 consentService,
                 diagnostics,
                 auditOptions.FailureMode,
-                failurePolicy);
+                failurePolicy,
+                scopeFactory);
         });
 
         // Configure DbContext with interceptor and circular dependency prevention

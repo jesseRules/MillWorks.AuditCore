@@ -56,6 +56,7 @@ internal sealed class AuditDbContextEntityWriter(
                     OldValue = change.OldValue,
                     NewValue = change.NewValue,
                     Description = envelope.Description,
+                    AdditionalData = envelope.AdditionalData,
                     CorrelationId = envelope.CorrelationId,
                     IpAddress = envelope.IpAddress,
                     UserAgent = envelope.UserAgent
