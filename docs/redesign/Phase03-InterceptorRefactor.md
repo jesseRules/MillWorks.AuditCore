@@ -170,3 +170,5 @@ edit the README in Phase 03.
 - `InterceptorSinkRoutingTests` is green.
 - Full test suite is green.
 - Phase doc updated with "Completed YYYY-MM-DD".
+
+Completed 2026-04-26 — `AuditSaveChangesInterceptor` now publishes one `AuditEnvelope` per entry through `IAuditSink.PublishAsync` (resolved per-save via constructor-injected `IServiceScopeFactory`); private `BuildEnvelope(entry, ctx)` extraction keeps redaction order, FERPA tagging, and snapshot serialization fallback bit-for-bit identical. Modified-entry `Description` shifts to per-entity (`"Updated {Entity}"`) — the only deliberate semantic change; `PropertyName` column preserved. Phase 02 contract gap fixed first via E1 (writer applies `envelope.AdditionalData` per-row in the Modified fan-out, with new regression test). 7 pre-existing EF interceptor fixtures forklifted to build a real DI graph (sink + writer + shared in-memory DB name) so audit rows are visible to assertions. New 8-test `InterceptorSinkRoutingTests` pins the post-Phase-03 contract. Full unit suite: 1037 passed / 0 failed / 4 skipped (Phase 02 baseline 1028 + 8 routing tests + 1 writer regression).

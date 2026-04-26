@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Constants;
+using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -22,14 +26,36 @@ public class FerpaInterceptorTests
     private AuditSaveChangesInterceptor _interceptor = null!;
     private DbContextOptions<FerpaTestDbContext> _dbOptions = null!;
     private FerpaTestDbContext _dbContext = null!;
+    private ServiceProvider _provider = null!;
 
     [SetUp]
     public void Setup()
     {
+        var dbName = $"FerpaTestDb_{Guid.NewGuid()}";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        _provider = services.BuildServiceProvider();
+        var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
+
         _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(_mockLogger.Object);
+        _interceptor = new AuditSaveChangesInterceptor(
+            _mockLogger.Object,
+            scopeFactory: scopeFactory);
 
         _dbOptions = TestDbContextFactory.CreateInMemoryOptions<FerpaTestDbContext>(
+            dbName: dbName,
             configure: builder => builder.AddInterceptors(_interceptor));
 
         _dbContext = new FerpaTestDbContext(_dbOptions);
@@ -39,6 +65,7 @@ public class FerpaInterceptorTests
     public void TearDown()
     {
         _dbContext.Dispose();
+        _provider.Dispose();
     }
 
     // ── FERPA Entity: Added ──

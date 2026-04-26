@@ -1,10 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -18,19 +23,41 @@ namespace MillWorks.AuditCore.Tests.EntityFramework;
 [Category("Unit")]
 public class AuditSaveChangesInterceptorEdgeCaseTests
 {
-    private Mock<ILogger<AuditSaveChangesInterceptor>> _mockLogger;
-    private AuditSaveChangesInterceptor _interceptor;
-    private DbContextOptions<EdgeCaseTestDbContext> _dbOptions;
-    private EdgeCaseTestDbContext _dbContext;
+    private Mock<ILogger<AuditSaveChangesInterceptor>> _mockLogger = null!;
+    private AuditSaveChangesInterceptor _interceptor = null!;
+    private DbContextOptions<EdgeCaseTestDbContext> _dbOptions = null!;
+    private EdgeCaseTestDbContext _dbContext = null!;
+    private ServiceProvider _provider = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(_mockLogger.Object);
+        var dbName = $"EdgeCaseTestDb_{Guid.NewGuid()}";
 
-        _dbOptions = TestDbContextFactory.CreateInMemoryOptions<EdgeCaseTestDbContext>(configure: builder =>
-            builder.AddInterceptors(_interceptor));
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        _provider = services.BuildServiceProvider();
+        var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
+
+        _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
+        _interceptor = new AuditSaveChangesInterceptor(
+            _mockLogger.Object,
+            scopeFactory: scopeFactory);
+
+        _dbOptions = TestDbContextFactory.CreateInMemoryOptions<EdgeCaseTestDbContext>(
+            dbName: dbName,
+            configure: builder => builder.AddInterceptors(_interceptor));
 
         _dbContext = new EdgeCaseTestDbContext(_dbOptions);
     }
@@ -39,6 +66,7 @@ public class AuditSaveChangesInterceptorEdgeCaseTests
     public void TearDown()
     {
         _dbContext.Dispose();
+        _provider.Dispose();
     }
 
     // -------------------------------------------------------------------------
@@ -233,19 +261,45 @@ public class AuditSaveChangesInterceptorEdgeCaseTests
     {
         const int concurrency = 10;
 
-        // Shared interceptor instance (singleton in production) reused across all contexts
-        var sharedInterceptor = new AuditSaveChangesInterceptor(
-            new Mock<ILogger<AuditSaveChangesInterceptor>>().Object);
+        // Each task gets its own DI graph (saving DbContext + audit DbContext share a
+        // unique in-memory database name) so audit rows land where the task can read
+        // them. The shared interceptor singleton in production is exercised by the
+        // *static caches* in AuditSaveChangesInterceptor (NoAuditTypeCache,
+        // PropertyMetadataCache) — those remain process-global and are still
+        // hammered concurrently here, which is the real point of this test.
 
         var savedEntityIds = new System.Collections.Concurrent.ConcurrentBag<Guid>();
         var exceptions = new System.Collections.Concurrent.ConcurrentBag<Exception>();
+        var providers = new System.Collections.Concurrent.ConcurrentBag<ServiceProvider>();
 
         var tasks = Enumerable.Range(0, concurrency).Select(async _ =>
         {
-            // Each task uses a separate in-memory database so writes don't collide,
-            // but they all share the same AuditSaveChangesInterceptor singleton.
-            var options = TestDbContextFactory.CreateInMemoryOptions<EdgeCaseTestDbContext>(configure: builder =>
-                builder.AddInterceptors(sharedInterceptor));
+            var dbName = $"ConcurrentEdge_{Guid.NewGuid()}";
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton(Mock.Of<IAuditLogger>());
+            services.AddDbContext<AuditApplicationDbContext>(o =>
+                o.UseInMemoryDatabase(dbName)
+                    .ConfigureWarnings(static w =>
+                    {
+                        w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
+                        w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                    }));
+            services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+            services.AddScoped<IAuditSink, ImmediateSink>();
+
+            var provider = services.BuildServiceProvider();
+            providers.Add(provider);
+            var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
+            var interceptor = new AuditSaveChangesInterceptor(
+                new Mock<ILogger<AuditSaveChangesInterceptor>>().Object,
+                scopeFactory: scopeFactory);
+
+            var options = TestDbContextFactory.CreateInMemoryOptions<EdgeCaseTestDbContext>(
+                dbName: dbName,
+                configure: builder => builder.AddInterceptors(interceptor));
 
             await using var ctx = new EdgeCaseTestDbContext(options);
 
@@ -257,7 +311,7 @@ public class AuditSaveChangesInterceptorEdgeCaseTests
                 await ctx.SaveChangesAsync();
                 savedEntityIds.Add(entity.Id);
 
-                // Verify the audit log was written inside this context's own database
+                // Verify the audit log was written inside this task's own database.
                 var logs = await ctx.AuditLogs.AsNoTracking()
                     .Where(l => l.EntityId == entity.Id)
                     .ToListAsync();
@@ -272,15 +326,23 @@ public class AuditSaveChangesInterceptorEdgeCaseTests
             }
         });
 
-        await Task.WhenAll(tasks);
+        try
+        {
+            await Task.WhenAll(tasks);
 
-        // Assert — no exceptions from any task
-        Assert.That(exceptions, Is.Empty,
-            $"One or more concurrent saves threw exceptions: {string.Join("; ", exceptions.Select(static e => e.Message))}");
+            // Assert — no exceptions from any task
+            Assert.That(exceptions, Is.Empty,
+                $"One or more concurrent saves threw exceptions: {string.Join("; ", exceptions.Select(static e => e.Message))}");
 
-        // Assert — every entity was saved
-        Assert.That(savedEntityIds, Has.Count.EqualTo(concurrency),
-            "All concurrent saves must complete successfully.");
+            // Assert — every entity was saved
+            Assert.That(savedEntityIds, Has.Count.EqualTo(concurrency),
+                "All concurrent saves must complete successfully.");
+        }
+        finally
+        {
+            foreach (var p in providers)
+                p.Dispose();
+        }
     }
 
     // =========================================================================

@@ -265,6 +265,30 @@ public sealed class AuditDbContextEntityWriterTests
     }
 
     [Test]
+    public async Task WriteEntityChangeAsync_PropertyChanges_PropagatesAdditionalData()
+    {
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Updated,
+            AdditionalData = "{\"ferpa\":true}",
+            PropertyChanges =
+            [
+                new AuditEnvelopePropertyChange("Status", "Pending", "Active"),
+            ],
+        };
+
+        await _writer.WriteEntityChangeAsync(envelope, CancellationToken.None);
+
+        using var verifyScope = _provider.CreateScope();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var row = await ctx.Set<AuditLogEntity>().SingleAsync();
+
+        Assert.That(row.AdditionalData, Is.EqualTo("{\"ferpa\":true}"));
+    }
+
+    [Test]
     public async Task WriteEntityChangeAsync_NoPropertyChanges_WritesSingleRowWithAdditionalData()
     {
         var entityId = Guid.NewGuid();

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Exceptions;
@@ -11,6 +12,8 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Compliance;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
 
@@ -25,6 +28,7 @@ public class FerpaEnforcementTests
     private Mock<ILogger<AuditSaveChangesInterceptor>> _mockLogger = null!;
     private IMemoryCache _cache = null!;
     private ConsentVerificationService _consentService = null!;
+    private readonly List<ServiceProvider> _providers = [];
 
     [SetUp]
     public void Setup()
@@ -32,12 +36,16 @@ public class FerpaEnforcementTests
         _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
         _cache = new MemoryCache(new MemoryCacheOptions());
         _consentService = new ConsentVerificationService(_cache);
+        _providers.Clear();
     }
 
     [TearDown]
     public void TearDown()
     {
         _cache.Dispose();
+        foreach (var p in _providers)
+            p.Dispose();
+        _providers.Clear();
     }
 
     // ── Helper: create interceptor + context for a given enforcement mode ──
@@ -47,13 +55,33 @@ public class FerpaEnforcementTests
         string? userId = "test-user",
         IConsentVerificationService? consentServiceOverride = null)
     {
+        var dbName = $"EnforcementTest_{Guid.NewGuid()}";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        var provider = services.BuildServiceProvider();
+        _providers.Add(provider);
+        var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
         var interceptor = new AuditSaveChangesInterceptor(
             _mockLogger.Object,
             mode,
-            consentServiceOverride ?? _consentService);
+            consentServiceOverride ?? _consentService,
+            scopeFactory: scopeFactory);
 
         var options = new DbContextOptionsBuilder<EnforcementTestDbContext>()
-            .UseInMemoryDatabase($"EnforcementTest_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(dbName)
             .ConfigureWarnings(static w =>
             {
                 w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
@@ -325,10 +353,31 @@ public class FerpaEnforcementTests
     public async Task NoComplianceConfigured_InterceptorSkipsEnforcement()
     {
         // Arrange — interceptor with no enforcement mode (compliance not configured)
-        var interceptor = new AuditSaveChangesInterceptor(_mockLogger.Object);
+        var dbName = $"NoCompliance_{Guid.NewGuid()}";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        var provider = services.BuildServiceProvider();
+        _providers.Add(provider);
+        var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
+        var interceptor = new AuditSaveChangesInterceptor(
+            _mockLogger.Object,
+            scopeFactory: scopeFactory);
 
         var options = new DbContextOptionsBuilder<EnforcementTestDbContext>()
-            .UseInMemoryDatabase($"NoCompliance_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(dbName)
             .ConfigureWarnings(static w =>
             {
                 w.Ignore(InMemoryEventId.TransactionIgnoredWarning);

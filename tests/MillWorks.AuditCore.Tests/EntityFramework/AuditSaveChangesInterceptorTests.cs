@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -18,22 +22,30 @@ public class AuditSaveChangesInterceptorTests
     /// <summary>
     /// Mock logger for capturing log output
     /// </summary>
-    private Mock<ILogger<AuditSaveChangesInterceptor>> _mockLogger;
+    private Mock<ILogger<AuditSaveChangesInterceptor>> _mockLogger = null!;
 
     /// <summary>
     /// Instance of the interceptor under test
     /// </summary>
-    private AuditSaveChangesInterceptor _interceptor;
+    private AuditSaveChangesInterceptor _interceptor = null!;
 
     /// <summary>
     /// DbContext options for in-memory database
     /// </summary>
-    private DbContextOptions<TestDbContext> _dbOptions;
+    private DbContextOptions<TestDbContext> _dbOptions = null!;
 
     /// <summary>
     /// DbContext instance for testing
     /// </summary>
-    private TestDbContext _dbContext;
+    private TestDbContext _dbContext = null!;
+
+    /// <summary>
+    /// Service provider hosting the audit subsystem (sink, writer, audit DbContext).
+    /// The writer opens fresh scopes against this provider per save; the test's
+    /// TestDbContext shares the same in-memory database name so audit rows written
+    /// through the writer are visible via the test context's DbSet&lt;AuditLogEntity&gt;.
+    /// </summary>
+    private ServiceProvider _provider = null!;
 
     /// <summary>
     /// Setup method to initialize test dependencies
@@ -41,11 +53,32 @@ public class AuditSaveChangesInterceptorTests
     [SetUp]
     public void Setup()
     {
-        _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(_mockLogger.Object);
+        var dbName = $"TestDb_{Guid.NewGuid()}";
 
-        _dbOptions = TestDbContextFactory.CreateInMemoryOptions<TestDbContext>(configure: builder =>
-            builder.AddInterceptors(_interceptor));
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditApplicationDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+
+        _provider = services.BuildServiceProvider();
+        var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
+
+        _mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
+        _interceptor = new AuditSaveChangesInterceptor(
+            _mockLogger.Object,
+            scopeFactory: scopeFactory);
+
+        _dbOptions = TestDbContextFactory.CreateInMemoryOptions<TestDbContext>(
+            dbName: dbName,
+            configure: builder => builder.AddInterceptors(_interceptor));
 
         _dbContext = new TestDbContext(_dbOptions);
     }
@@ -57,6 +90,7 @@ public class AuditSaveChangesInterceptorTests
     public void TearDown()
     {
         _dbContext.Dispose();
+        _provider.Dispose();
     }
 
     /// <summary>
