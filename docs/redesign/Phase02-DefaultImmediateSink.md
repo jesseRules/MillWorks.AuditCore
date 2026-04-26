@@ -165,3 +165,5 @@ Defer to Phase 10. Do not edit README in this phase.
 - `ImmediateSinkTests` is green.
 - Full test suite is green (no regressions).
 - Phase doc is updated with a one-line "Completed YYYY-MM-DD" note.
+
+Completed 2026-04-26 — `ImmediateSink` (internal sealed) registered as default `IAuditSink`; `IAuditEntityWriter` + `AuditDbContextEntityWriter` write `AuditLogEntity` row(s) through a fresh scoped `AuditApplicationDbContext` per call (matches the locked `Immediate` end-state). 10-test `Sinks/ImmediateSinkTests.cs` covers sink dispatch, `ExplicitEvent` → `AuditEvent` mapping, unknown-kind throw, null-envelope guard, DI resolution, and SQLite-backed writer verification (PropertyChanges and AdditionalData paths). Full unit suite green.
