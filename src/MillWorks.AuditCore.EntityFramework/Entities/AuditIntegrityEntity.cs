@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
-using MillWorks.AuditCore.EntityFramework.Attributes;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.EntityFramework.Primitives;
 
 namespace MillWorks.AuditCore.EntityFramework.Entities;

@@ -1,6 +1,6 @@
 using MillWorks.AuditCore.Abstractions.Dto;
 
-namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// Marks a property as containing sensitive data (PII, PHI, etc.)

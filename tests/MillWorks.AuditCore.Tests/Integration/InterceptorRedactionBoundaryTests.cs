@@ -1,5 +1,6 @@
 using System.Reflection;
 using FluentAssertions;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Core;

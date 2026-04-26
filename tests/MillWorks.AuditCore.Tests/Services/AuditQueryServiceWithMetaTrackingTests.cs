@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Responses;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.Services.Decorator;
 using MillWorks.AuditCore.Services.Interfaces;
 

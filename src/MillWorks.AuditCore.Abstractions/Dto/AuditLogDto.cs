@@ -1,8 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using MillWorks.AuditCore.Abstractions.Enums;
 
-namespace MillWorks.AuditCore.EntityFramework.Dto;
+namespace MillWorks.AuditCore.Abstractions.Dto;
 
 /// <summary>
 /// AuditLogDto represents a Data Transfer Object for an audit log record, capturing details about actions performed on entities in the system.

@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Interfaces;
-using MillWorks.AuditCore.EntityFramework.Attributes;
 
 namespace MillWorks.AuditCore.EntityFramework.Interceptors;
 
