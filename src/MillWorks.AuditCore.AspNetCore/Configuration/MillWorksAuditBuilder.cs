@@ -28,6 +28,7 @@ using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Redis;
+using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Compliance;
@@ -199,6 +200,9 @@ public sealed class MillWorksAuditBuilder
         // the pre-decoration registration.
         Services.TryAddScoped<AuditLogger>();
         Services.TryAddScoped<IAuditLogger>(static sp => sp.GetRequiredService<AuditLogger>());
+
+        Services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        Services.AddScoped<IAuditSink, ImmediateSink>();
 
         // Register core audit services that depend on repositories
         Services.AddScoped<IAuditService, AuditService>();
