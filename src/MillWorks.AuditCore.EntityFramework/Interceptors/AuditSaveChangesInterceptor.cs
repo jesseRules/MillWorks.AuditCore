@@ -279,8 +279,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         var mode = _enforcementMode.Value;
 
-        // Get user ID from the DbContext (set by middleware)
-        var userId = (context as AuditApplicationDbContext)?.CurrentUserId;
+        // Get user ID from the DbContext via IAuditContextSource (set by middleware
+        // on AuditApplicationDbContext, or computed by any consumer DbContext that
+        // implements the interface).
+        var userId = (context as IAuditContextSource)?.CurrentUserId;
 
         foreach (var entry in entries)
         {
@@ -395,7 +397,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         string reason,
         string? errorType = null)
     {
-        var auditCtx = context as AuditApplicationDbContext;
+        var contextSource = context as IAuditContextSource;
         var details = new Dictionary<string, object?>
         {
             ["standard"] = "FERPA",
@@ -419,7 +421,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             DetailsJson = Truncate(JsonSerializer.Serialize(details, _snapshotSerializerOptions), 4000),
             DetectedAt = DateTimeOffset.UtcNow,
             DetectedBy = nameof(AuditSaveChangesInterceptor),
-            IpAddress = auditCtx?.CurrentIpAddress,
+            IpAddress = contextSource?.CurrentIpAddress,
             Status = SecurityEventStatus.Open
         });
     }
@@ -470,8 +472,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 MapAction(entry.State).ToString()))
             .ToList();
 
-        var auditCtx = context as AuditApplicationDbContext;
-        var correlationId = auditCtx?.CurrentCorrelationId;
+        var contextSource = context as IAuditContextSource;
+        var correlationId = contextSource?.CurrentCorrelationId;
 
         try
         {
@@ -490,7 +492,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             foreach (var entry in auditableEntries)
             {
-                var envelope = BuildEnvelope(entry, auditCtx);
+                var envelope = BuildEnvelope(entry, contextSource);
                 if (envelope is null)
                     continue;
 
@@ -545,7 +547,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <c>[NoAudit]</c> or unchanged) — preserving the prior behavior of emitting
     /// zero rows for that entry.
     /// </summary>
-    private AuditEnvelope? BuildEnvelope(EntityEntry entry, AuditApplicationDbContext? auditCtx)
+    private AuditEnvelope? BuildEnvelope(EntityEntry entry, IAuditContextSource? contextSource)
     {
         var entityType = entry.Entity.GetType();
         var entityName = entityType.Name;
@@ -558,10 +560,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             entityName,
             entry.State);
 
-        var correlationId = auditCtx?.CurrentCorrelationId;
-        var ipAddress = auditCtx?.CurrentIpAddress;
-        var userAgent = auditCtx?.CurrentUserAgent;
-        var userId = auditCtx?.CurrentUserId;
+        var correlationId = contextSource?.CurrentCorrelationId;
+        var ipAddress = contextSource?.CurrentIpAddress;
+        var userAgent = contextSource?.CurrentUserAgent;
+        var userId = contextSource?.CurrentUserId;
 
         if (entry.State == EntityState.Modified)
         {
