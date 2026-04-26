@@ -167,7 +167,7 @@ public sealed class ImmediateSinkTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o => o.UseSqlite(connection));
+        services.AddDbContext<AuditDbContext>(o => o.UseSqlite(connection));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
@@ -196,12 +196,12 @@ public sealed class AuditDbContextEntityWriterTests
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<AuditApplicationDbContext>(o => o.UseSqlite(_connection));
+        services.AddDbContext<AuditDbContext>(o => o.UseSqlite(_connection));
         _provider = services.BuildServiceProvider();
 
         using (var scope = _provider.CreateScope())
         {
-            var ctx = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var ctx = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
             ctx.Database.EnsureCreated();
         }
 
@@ -241,7 +241,7 @@ public sealed class AuditDbContextEntityWriterTests
         await _writer.WriteEntityChangeAsync(envelope, CancellationToken.None);
 
         using var verifyScope = _provider.CreateScope();
-        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var rows = await ctx.Set<AuditLogEntity>()
             .OrderBy(r => r.PropertyName)
             .ToListAsync();
@@ -282,7 +282,7 @@ public sealed class AuditDbContextEntityWriterTests
         await _writer.WriteEntityChangeAsync(envelope, CancellationToken.None);
 
         using var verifyScope = _provider.CreateScope();
-        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var row = await ctx.Set<AuditLogEntity>().SingleAsync();
 
         Assert.That(row.AdditionalData, Is.EqualTo("{\"ferpa\":true}"));
@@ -305,7 +305,7 @@ public sealed class AuditDbContextEntityWriterTests
         await _writer.WriteEntityChangeAsync(envelope, CancellationToken.None);
 
         using var verifyScope = _provider.CreateScope();
-        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var rows = await ctx.Set<AuditLogEntity>().ToListAsync();
 
         Assert.That(rows, Has.Count.EqualTo(1));
@@ -332,7 +332,7 @@ public sealed class AuditDbContextEntityWriterTests
         await _writer.WriteEntityChangeAsync(envelope, CancellationToken.None);
 
         using var verifyScope = _provider.CreateScope();
-        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var rows = await ctx.Set<AuditLogEntity>().ToListAsync();
 
         Assert.That(rows, Has.Count.EqualTo(1));

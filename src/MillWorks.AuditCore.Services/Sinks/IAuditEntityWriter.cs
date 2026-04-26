@@ -26,7 +26,7 @@ internal interface IAuditEntityWriter
 
 /// <summary>
 /// Default <see cref="IAuditEntityWriter"/> that resolves a fresh scoped
-/// <see cref="AuditApplicationDbContext"/> per call and commits audit rows on
+/// <see cref="AuditDbContext"/> per call and commits audit rows on
 /// its own transaction, decoupled from any consumer save in flight.
 /// </summary>
 internal sealed class AuditDbContextEntityWriter(
@@ -40,7 +40,7 @@ internal sealed class AuditDbContextEntityWriter(
         ArgumentNullException.ThrowIfNull(envelope);
 
         await using var scope = scopeFactory.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
         var changes = envelope.PropertyChanges;
         if (changes is { Count: > 0 })

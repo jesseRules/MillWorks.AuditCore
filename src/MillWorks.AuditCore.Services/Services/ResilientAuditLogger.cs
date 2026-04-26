@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 /// <para>
 /// <see cref="LogAsync(AuditEvent, CancellationToken)"/> and
 /// <see cref="LogBatchAsync"/> create a fresh DI scope per retry attempt and resolve
-/// a fresh <see cref="AuditLogger"/> (with a fresh <c>AuditApplicationDbContext</c>)
+/// a fresh <see cref="AuditLogger"/> (with a fresh <c>AuditDbContext</c>)
 /// from it. Without scope-per-retry, a failed attempt leaves the
 /// <c>AuditEventEntity</c> in the scoped context's identity map; the next attempt
 /// re-adds a new instance with the same <c>EventId</c> and EF throws

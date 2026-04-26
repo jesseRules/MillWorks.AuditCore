@@ -306,7 +306,7 @@ public class ServiceRegistrationTests
         Assert.That(scope.ServiceProvider.GetRequiredService<IAuditService>(), Is.Not.Null);
         Assert.That(scope.ServiceProvider.GetRequiredService<IAuditQueryService>(), Is.Not.Null);
         Assert.That(scope.ServiceProvider.GetRequiredService<ITamperDetectionService>(), Is.Not.Null);
-        Assert.That(scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>(), Is.Not.Null);
+        Assert.That(scope.ServiceProvider.GetRequiredService<AuditDbContext>(), Is.Not.Null);
     }
 
     [Test]

@@ -51,7 +51,7 @@ public class CorrelationIntegrationTests : IDisposable
     /// <summary>
     /// Test 0.6e: Full pipeline — interceptor stamps CorrelationId and both tables
     /// can be queried with the same value.
-    /// Note: The two paths are saved separately because AuditApplicationDbContext
+    /// Note: The two paths are saved separately because AuditDbContext
     /// sets BypassAuditInterceptor=true whenever audit entities are in the tracker,
     /// which would suppress interceptor processing for the TestEntity.
     /// </summary>
@@ -158,10 +158,10 @@ public class CorrelationIntegrationTests : IDisposable
     }
 
     /// <summary>
-    /// SQLite test context that inherits AuditApplicationDbContext and adds TestEntities.
+    /// SQLite test context that inherits AuditDbContext and adds TestEntities.
     /// </summary>
     private sealed class CorrelationSqliteDbContext(DbContextOptions<CorrelationSqliteDbContext> options)
-        : AuditApplicationDbContext(options)
+        : AuditDbContext(options)
     {
         public DbSet<TestEntity> TestEntities { get; set; } = null!;
 

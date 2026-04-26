@@ -11,7 +11,7 @@ using MillWorks.AuditCore.EntityFramework.Data;
 
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
-    [DbContext(typeof(AuditApplicationDbContext))]
+    [DbContext(typeof(AuditDbContext))]
     [Migration("20260420195321_Init")]
     partial class Init
     {

@@ -15,7 +15,7 @@ public class AuditReportServiceTests
     /// <summary>
     /// Context
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Mock logger
@@ -35,7 +35,7 @@ public class AuditReportServiceTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockLogger = new Mock<ILogger<AuditReportService>>();
 
         _reportService = new AuditReportService(

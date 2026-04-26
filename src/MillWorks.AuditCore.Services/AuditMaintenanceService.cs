@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.Services.Maintenance;
 /// <param name="context"></param>
 /// <param name="logger"></param>
 public sealed class AuditMaintenanceService(
-    AuditApplicationDbContext context,
+    AuditDbContext context,
     ILogger<AuditMaintenanceService> logger)
     : IAuditMaintenanceService
 {

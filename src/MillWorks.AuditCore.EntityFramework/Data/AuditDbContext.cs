@@ -13,7 +13,7 @@ namespace MillWorks.AuditCore.EntityFramework.Data;
 /// <summary>
 /// Partial class for audit-related database configuration
 /// </summary>
-public class AuditApplicationDbContext : DbContext, IAuditBypassable, IAuditContextSource
+public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
 {
     /// <summary>
     /// Thread-safe bypass flag using AsyncLocal for per-execution-context isolation
@@ -59,8 +59,8 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable, IAuditCont
     /// the schema defaults to "audit" for compatibility with design-time tooling and direct
     /// construction.
     /// </param>
-    public AuditApplicationDbContext(
-        DbContextOptions<AuditApplicationDbContext> options,
+    public AuditDbContext(
+        DbContextOptions<AuditDbContext> options,
         IFieldEncryptionService? encryptionService = null,
         IOptions<EntityFrameworkOptions>? efOptions = null)
         : base(options)
@@ -72,7 +72,7 @@ public class AuditApplicationDbContext : DbContext, IAuditBypassable, IAuditCont
     /// <summary>
     /// Protected constructor for derived contexts (standard EF Core inheritance pattern).
     /// </summary>
-    protected AuditApplicationDbContext(
+    protected AuditDbContext(
         DbContextOptions options,
         IFieldEncryptionService? encryptionService = null,
         IOptions<EntityFrameworkOptions>? efOptions = null)

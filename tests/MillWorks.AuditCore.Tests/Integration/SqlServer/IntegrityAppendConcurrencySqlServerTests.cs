@@ -15,7 +15,7 @@ namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
 /// <summary>
 /// Regression coverage for the <c>AuditIntegrity.SequenceNumber</c> duplicate-key race.
-/// N concurrent writers — each on its own <see cref="AuditApplicationDbContext"/> and its
+/// N concurrent writers — each on its own <see cref="AuditDbContext"/> and its
 /// own <see cref="TamperDetectionService"/> instance — append one integrity record each.
 /// The test asserts every write lands, sequences are dense 1..N, the hash chain is
 /// continuous, and no retryable write-conflict log fires.
@@ -142,7 +142,7 @@ public sealed class IntegrityAppendConcurrencySqlServerTests : SqlServerTestBase
     }
 
     private static TamperDetectionService CreateService(
-        AuditApplicationDbContext context,
+        AuditDbContext context,
         ILogger<TamperDetectionService> logger)
     {
         var eventRepo = new AuditEventRepository(context);

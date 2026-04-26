@@ -21,7 +21,7 @@ public class DatabaseInitializerInMemoryTests
     /// <summary>
     /// Context for the in-memory database
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Setup method to initialize in-memory database and service provider
@@ -33,7 +33,7 @@ public class DatabaseInitializerInMemoryTests
 
         var dbOptions = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(dbOptions);
+        _context = new AuditDbContext(dbOptions);
 
         services.AddSingleton(_context);
         services.AddSingleton(_context);

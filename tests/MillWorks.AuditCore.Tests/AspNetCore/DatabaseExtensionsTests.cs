@@ -25,12 +25,12 @@ public sealed class DatabaseExtensionsTests
     public void RunAuditMigrationsAsync_WithSqliteProvider_SurfacesMigrationFailure()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"auditcore-migrate-{Guid.NewGuid():N}.db");
-        var logger = new Mock<ILogger<AuditApplicationDbContext>>();
+        var logger = new Mock<ILogger<AuditDbContext>>();
 
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(logger.Object);
-        services.AddDbContext<AuditApplicationDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(options =>
             options.UseSqlite($"Data Source={_dbPath}")
                 .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
@@ -52,12 +52,12 @@ public sealed class DatabaseExtensionsTests
     [Test]
     public void RunAuditMigrations_WithInMemoryProvider_SurfacesError()
     {
-        var logger = new Mock<ILogger<AuditApplicationDbContext>>();
+        var logger = new Mock<ILogger<AuditDbContext>>();
 
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(logger.Object);
-        services.AddDbContext<AuditApplicationDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(options =>
             options.UseInMemoryDatabase($"db-{Guid.NewGuid():N}"));
 
         using var provider = services.BuildServiceProvider();

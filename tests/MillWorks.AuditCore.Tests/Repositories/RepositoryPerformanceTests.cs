@@ -18,17 +18,17 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 public sealed class RepositoryPerformanceTests : IDisposable
 {
     private SqliteConnection _connection = null!;
-    private AuditApplicationDbContext _dbContext = null!;
+    private AuditDbContext _dbContext = null!;
 
     [SetUp]
     public void SetUp()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .Options;
-        _dbContext = new AuditApplicationDbContext(options);
+        _dbContext = new AuditDbContext(options);
         _dbContext.Database.EnsureCreated();
     }
 
@@ -169,10 +169,10 @@ public sealed class RepositoryPerformanceTests : IDisposable
 
         var readTask = Task.Run(async () =>
         {
-            var readOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            var readOptions = new DbContextOptionsBuilder<AuditDbContext>()
                 .UseSqlite(_connection)
                 .Options;
-            await using var readCtx = new AuditApplicationDbContext(readOptions);
+            await using var readCtx = new AuditDbContext(readOptions);
             var repo = new AuditEventRepository(readCtx);
             for (var i = 0; i < 50 && !cts.Token.IsCancellationRequested; i++)
             {
@@ -182,10 +182,10 @@ public sealed class RepositoryPerformanceTests : IDisposable
 
         var writeTask = Task.Run(async () =>
         {
-            var writeOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            var writeOptions = new DbContextOptionsBuilder<AuditDbContext>()
                 .UseSqlite(_connection)
                 .Options;
-            await using var writeCtx = new AuditApplicationDbContext(writeOptions);
+            await using var writeCtx = new AuditDbContext(writeOptions);
             var repo = new AuditEventRepository(writeCtx);
             for (var i = 0; i < 20 && !cts.Token.IsCancellationRequested; i++)
             {

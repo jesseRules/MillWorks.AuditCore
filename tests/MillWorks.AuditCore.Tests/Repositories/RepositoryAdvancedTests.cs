@@ -16,14 +16,14 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 [Category("Unit")]
 public class RepositoryAdvancedTests
 {
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
     private AuditEventRepository _repository;
 
     [SetUp]
     public void Setup()
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _repository = new AuditEventRepository(_context);
     }
 

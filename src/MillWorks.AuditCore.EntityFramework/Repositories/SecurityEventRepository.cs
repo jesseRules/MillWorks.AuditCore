@@ -10,7 +10,7 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// Security event repository implementation
 /// </summary>
 /// <param name="context"></param>
-public sealed class SecurityEventRepository(AuditApplicationDbContext context)
+public sealed class SecurityEventRepository(AuditDbContext context)
     : Repository<AuditSecurityEventEntity>(context), ISecurityEventRepository
 {
     /// <summary>

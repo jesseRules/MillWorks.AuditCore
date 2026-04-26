@@ -60,7 +60,7 @@ public class FerpaEnforcementTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -358,7 +358,7 @@ public class FerpaEnforcementTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -403,10 +403,10 @@ public class FerpaEnforcementTests
     // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Test DbContext that inherits from AuditApplicationDbContext to provide
+    /// Test DbContext that inherits from AuditDbContext to provide
     /// CurrentUserId for consent enforcement. Uses InMemory provider.
     /// </summary>
-    internal class EnforcementTestDbContext : AuditApplicationDbContext
+    internal class EnforcementTestDbContext : AuditDbContext
     {
         public DbSet<FerpaConsentEntity> FerpaConsentEntities { get; set; } = null!;
         public DbSet<EnforcementRegularEntity> RegularEntities { get; set; } = null!;

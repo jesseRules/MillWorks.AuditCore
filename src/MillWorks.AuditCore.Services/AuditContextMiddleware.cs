@@ -52,7 +52,7 @@ public sealed class AuditContextMiddleware(
 
             // Pipe scoped request state to the DbContext so the singleton interceptor
             // can read it via eventData.Context in SavingChanges.
-            var dbContext = context.RequestServices.GetService<AuditApplicationDbContext>();
+            var dbContext = context.RequestServices.GetService<AuditDbContext>();
             if (dbContext != null)
             {
                 dbContext.CurrentCorrelationId = auditContext.CorrelationId;

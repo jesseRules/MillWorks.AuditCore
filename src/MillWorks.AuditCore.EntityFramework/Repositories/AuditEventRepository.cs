@@ -9,7 +9,7 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// AuditEventRepository provides methods to interact with audit events in the system, enabling comprehensive audit trail management and analysis.
 /// </summary>
 /// <param name="context"></param>
-public sealed class AuditEventRepository(AuditApplicationDbContext context)
+public sealed class AuditEventRepository(AuditDbContext context)
     : Repository<AuditEventEntity>(context), IAuditEventRepository
 {
     /// <inheritdoc />

@@ -10,8 +10,8 @@ using MillWorks.AuditCore.EntityFramework.Data;
 
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
-    [DbContext(typeof(AuditApplicationDbContext))]
-    partial class AuditApplicationDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(AuditDbContext))]
+    partial class AuditDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

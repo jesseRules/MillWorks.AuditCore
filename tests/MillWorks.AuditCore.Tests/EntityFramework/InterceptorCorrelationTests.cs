@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Tests.EntityFramework;
 
 /// <summary>
 /// Tests that the interceptor stamps CorrelationId on AuditLogEntity records
-/// when CurrentCorrelationId is set on the AuditApplicationDbContext.
+/// when CurrentCorrelationId is set on the AuditDbContext.
 /// </summary>
 [TestFixture]
 public class InterceptorCorrelationTests
@@ -31,7 +31,7 @@ public class InterceptorCorrelationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -135,9 +135,9 @@ public class InterceptorCorrelationTests
         Assert.That(updateLog.CorrelationId, Is.EqualTo("update-correlation"));
     }
 
-    // Test context that extends AuditApplicationDbContext to expose CurrentCorrelationId
+    // Test context that extends AuditDbContext to expose CurrentCorrelationId
     private sealed class CorrelationTestDbContext(DbContextOptions<CorrelationTestDbContext> options)
-        : AuditApplicationDbContext(options)
+        : AuditDbContext(options)
     {
         public DbSet<TestEntity> TestEntities { get; set; } = null!;
 

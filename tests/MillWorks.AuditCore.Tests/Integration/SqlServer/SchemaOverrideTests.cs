@@ -163,17 +163,17 @@ public sealed class SchemaOverrideTests
         });
     }
 
-    private AuditApplicationDbContext CreateCustomSchemaContext()
+    private AuditDbContext CreateCustomSchemaContext()
     {
         // Mirrors MillWorksAuditBuilder.cs:173 — without this, EF's default model cache
         // keys on context type alone and a previously compiled "audit"-schema model is
         // returned from cache, so HasDefaultSchema(_schema) is silently ignored.
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlServer(_customSchemaConnectionString)
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
         var efOptions = Options.Create(new EntityFrameworkOptions { Schema = CustomSchema });
-        return new AuditApplicationDbContext(options, encryptionService: null, efOptions: efOptions);
+        return new AuditDbContext(options, encryptionService: null, efOptions: efOptions);
     }
 
     private async Task DropAndCreateDatabaseAsync()

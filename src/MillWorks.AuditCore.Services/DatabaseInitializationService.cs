@@ -63,7 +63,7 @@ public sealed class DatabaseInitializationService : IHostedService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             if (options.MigrateOnStartup)
             {
@@ -119,7 +119,7 @@ public sealed class DatabaseInitializationService : IHostedService
     /// <summary>
     /// Seeds initial data if needed
     /// </summary>
-    private async Task SeedInitialDataAsync(AuditApplicationDbContext context, CancellationToken cancellationToken)
+    private async Task SeedInitialDataAsync(AuditDbContext context, CancellationToken cancellationToken)
     {
         try
         {
@@ -164,7 +164,7 @@ public class DatabaseInitializer
         {
             logger.LogInformation("Manually initializing MillWorks.Audit database...");
 
-            var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             // MigrateAsync creates the database if needed AND applies migrations.
             // Do NOT call EnsureCreated — it creates schema without __EFMigrationsHistory
@@ -186,7 +186,7 @@ public class DatabaseInitializer
     public static async Task<bool> NeedsMigrationAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
         var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
         return pendingMigrations.Any();
@@ -198,7 +198,7 @@ public class DatabaseInitializer
     public static async Task<IEnumerable<string>> GetPendingMigrationsAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
         return await context.Database.GetPendingMigrationsAsync();
     }

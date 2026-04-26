@@ -8,7 +8,7 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 /// <summary>
 /// Regression for the transaction guard gap in <c>Repository&lt;T&gt;.BeginTransactionAsync</c>.
 /// <para>
-/// Two repositories constructed against the same <see cref="AuditApplicationDbContext"/>
+/// Two repositories constructed against the same <see cref="AuditDbContext"/>
 /// instance each keep their own <c>_currentTransaction</c> field. When repository A opens
 /// a transaction, repository B's field stays <see langword="null"/>. Before the fix,
 /// B's <c>BeginTransactionAsync</c> only checked its own field and would happily call
@@ -26,18 +26,18 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 public sealed class RepositorySharedContextTransactionTests
 {
     private SqliteConnection _connection = null!;
-    private DbContextOptions<AuditApplicationDbContext> _options = null!;
-    private AuditApplicationDbContext _context = null!;
+    private DbContextOptions<AuditDbContext> _options = null!;
+    private AuditDbContext _context = null!;
 
     [SetUp]
     public void Setup()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
-        _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        _options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .Options;
-        _context = new AuditApplicationDbContext(_options);
+        _context = new AuditDbContext(_options);
         _context.Database.EnsureCreated();
     }
 

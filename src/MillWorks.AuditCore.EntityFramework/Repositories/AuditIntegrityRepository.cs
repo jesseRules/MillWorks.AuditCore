@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// AuditIntegrityRepository provides methods to interact with audit integrity records for tamper evidence and blockchain-style verification.
 /// </summary>
 /// <param name="context"></param>
-public sealed class AuditIntegrityRepository(AuditApplicationDbContext context)
+public sealed class AuditIntegrityRepository(AuditDbContext context)
     : Repository<AuditIntegrityEntity>(context), IAuditIntegrityRepository
 {
     /// <summary>

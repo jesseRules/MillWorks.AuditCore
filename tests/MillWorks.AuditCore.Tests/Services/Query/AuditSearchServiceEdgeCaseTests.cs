@@ -19,7 +19,7 @@ public class AuditSearchServiceEdgeCaseTests
     /// <summary>
     /// In-memory database context.
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Mock mapper.
@@ -43,7 +43,7 @@ public class AuditSearchServiceEdgeCaseTests
     public void Setup()
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditSearchService>>();
         _searchService = new AuditSearchService(_context, _mockMapper.Object, _mockLogger.Object);

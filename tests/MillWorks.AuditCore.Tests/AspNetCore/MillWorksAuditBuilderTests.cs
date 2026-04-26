@@ -65,7 +65,7 @@ public class MillWorksAuditBuilderTests
             ef.ConnectionString = "Server=test;Database=test;";
         });
 
-        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditApplicationDbContext)), Is.True);
+        Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditDbContext)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditEventRepository)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditIntegrityRepository)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditLogRepository)), Is.True);

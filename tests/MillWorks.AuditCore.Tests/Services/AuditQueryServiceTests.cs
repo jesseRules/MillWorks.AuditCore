@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Tests.Services;
 [TestFixture]
 public class AuditQueryServiceTests
 {
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
     private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditQueryService>> _mockLogger;
     private AuditQueryService _queryService;
@@ -27,7 +27,7 @@ public class AuditQueryServiceTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditQueryService>>();
 

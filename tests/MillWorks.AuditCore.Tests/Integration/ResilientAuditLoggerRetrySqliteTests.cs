@@ -56,7 +56,7 @@ public sealed class ResilientAuditLoggerRetrySqliteTests : SqliteIntegrationFixt
         // Re-bind the fixture's SQLite connection into the DI-managed context so that
         // every DI-created scope (including ResilientAuditLogger's per-retry scope)
         // points at the same in-memory database as the verification context.
-        services.AddDbContext<AuditApplicationDbContext>(opts => opts.UseSqlite(Connection));
+        services.AddDbContext<AuditDbContext>(opts => opts.UseSqlite(Connection));
 
         services.AddScoped<IAuditEventRepository, AuditEventRepository>();
         services.AddScoped<IAuditIntegrityRepository, AuditIntegrityRepository>();
@@ -86,7 +86,7 @@ public sealed class ResilientAuditLoggerRetrySqliteTests : SqliteIntegrationFixt
         using (var seedScope = provider.CreateScope())
         {
             // Ensure the fixture-created schema matches the DI-created context.
-            await seedScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>()
+            await seedScope.ServiceProvider.GetRequiredService<AuditDbContext>()
                 .Database.EnsureCreatedAsync();
         }
 

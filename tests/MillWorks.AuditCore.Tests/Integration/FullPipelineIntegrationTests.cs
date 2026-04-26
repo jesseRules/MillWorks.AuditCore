@@ -58,7 +58,7 @@ public class FullPipelineIntegrationTests : IDisposable
         services.AddSingleton<AuditSaveChangesInterceptor>();
 
         // DbContext with SQLite directly — avoids the dual-provider issue
-        services.AddDbContext<AuditApplicationDbContext>((sp, options) =>
+        services.AddDbContext<AuditDbContext>((sp, options) =>
         {
             options.UseSqlite(_connection);
             options.ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
@@ -95,7 +95,7 @@ public class FullPipelineIntegrationTests : IDisposable
 
         // Create schema
         using var scope = _provider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
         context.Database.EnsureCreated();
     }
 
@@ -124,7 +124,7 @@ public class FullPipelineIntegrationTests : IDisposable
         using var scope = _provider.CreateScope();
         var sp = scope.ServiceProvider;
         var service = sp.GetRequiredService<IAuditService>();
-        var context = sp.GetRequiredService<AuditApplicationDbContext>();
+        var context = sp.GetRequiredService<AuditDbContext>();
 
         var eventId = Guid.NewGuid();
         context.AuditEvents.Add(new AuditEventEntity
@@ -152,7 +152,7 @@ public class FullPipelineIntegrationTests : IDisposable
         using var scope = _provider.CreateScope();
         var sp = scope.ServiceProvider;
         var queryService = sp.GetRequiredService<IAuditQueryService>();
-        var context = sp.GetRequiredService<AuditApplicationDbContext>();
+        var context = sp.GetRequiredService<AuditDbContext>();
 
         for (int i = 0; i < 15; i++)
         {
@@ -187,7 +187,7 @@ public class FullPipelineIntegrationTests : IDisposable
     public void CleanupData()
     {
         using var scope = _provider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditEvents\"");
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditIntegrity\"");
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditLogs\"");

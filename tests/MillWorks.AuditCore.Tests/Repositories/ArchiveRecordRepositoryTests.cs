@@ -13,8 +13,8 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 [TestFixture]
 public class ArchiveRecordRepositoryTests
 {
-    private DbContextOptions<AuditApplicationDbContext> _options;
-    private AuditApplicationDbContext _context;
+    private DbContextOptions<AuditDbContext> _options;
+    private AuditDbContext _context;
     private ArchiveRecordRepository _repository;
 
     [SetUp]
@@ -22,7 +22,7 @@ public class ArchiveRecordRepositoryTests
     {
         _options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(_options);
+        _context = new AuditDbContext(_options);
         _repository = new ArchiveRecordRepository(_context);
     }
 

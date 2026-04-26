@@ -18,7 +18,7 @@ public class AuditSearchServiceTests
     /// <summary>
     /// Context for in-memory database
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Mock AutoMapper
@@ -43,7 +43,7 @@ public class AuditSearchServiceTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditSearchService>>();
 

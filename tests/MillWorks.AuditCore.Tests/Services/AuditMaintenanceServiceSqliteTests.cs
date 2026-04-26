@@ -12,7 +12,7 @@ namespace MillWorks.AuditCore.Tests.Services;
 public class AuditMaintenanceServiceSqliteTests
 {
     private SqliteConnection _connection = null!;
-    private AuditApplicationDbContext _context = null!;
+    private AuditDbContext _context = null!;
     private AuditMaintenanceService _service = null!;
     private Mock<ILogger<AuditMaintenanceService>> _mockLogger = null!;
 
@@ -22,11 +22,11 @@ public class AuditMaintenanceServiceSqliteTests
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .Options;
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _context.Database.EnsureCreated();
 
         _mockLogger = new Mock<ILogger<AuditMaintenanceService>>();

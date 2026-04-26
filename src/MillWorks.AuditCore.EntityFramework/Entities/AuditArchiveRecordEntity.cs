@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// Entity representing an archived audit collection record stored in the database
 /// </summary>
 // Table name and schema for this entity are configured fluently in
-// AuditApplicationDbContext.ConfigureAudit (actual table name is "ArchiveRecord",
+// AuditDbContext.ConfigureAudit (actual table name is "ArchiveRecord",
 // singular); schema comes from HasDefaultSchema(EntityFrameworkOptions.Schema).
 [Index(nameof(ArchiveId), IsUnique = true)]
 [Index(nameof(CreatedAt))]

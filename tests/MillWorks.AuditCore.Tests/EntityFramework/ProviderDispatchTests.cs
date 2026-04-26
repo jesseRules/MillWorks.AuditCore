@@ -39,7 +39,7 @@ public class ProviderDispatchTests
         services.AddSingleton(Mock.Of<IAuditLogger>());
         services.AddSingleton(_typeMap);
         services.AddSingleton(_mockDispatcher.Object);
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -253,7 +253,7 @@ public class ProviderDispatchTests
     }
 
     private sealed class ProviderDispatchTestDbContext(DbContextOptions<ProviderDispatchTestDbContext> options)
-        : AuditApplicationDbContext(options)
+        : AuditDbContext(options)
     {
         public DbSet<TestEntity> TestEntities { get; set; } = null!;
 

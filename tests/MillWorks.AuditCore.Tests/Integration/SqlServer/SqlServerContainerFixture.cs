@@ -95,26 +95,26 @@ public sealed class SqlServerContainerFixture
         await _respawner.ResetAsync(connection);
     }
 
-    public static AuditApplicationDbContext CreateContext()
+    public static AuditDbContext CreateContext()
     {
         // Mirrors MillWorksAuditBuilder.cs:173 so both this overload and CreateContext(string)
         // share the same model-cache-key strategy. Without it, EF's default cache keys on
         // context type alone and a model compiled for one schema can be returned for another.
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlServer(ConnectionString)
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
-        return new AuditApplicationDbContext(options);
+        return new AuditDbContext(options);
     }
 
-    public static AuditApplicationDbContext CreateContext(string schema)
+    public static AuditDbContext CreateContext(string schema)
     {
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlServer(ConnectionString)
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
         var efOptions = Options.Create(new EntityFrameworkOptions { Schema = schema });
-        return new AuditApplicationDbContext(options, encryptionService: null, efOptions: efOptions);
+        return new AuditDbContext(options, encryptionService: null, efOptions: efOptions);
     }
 
     private static async Task EnsureDatabaseAndSchemasAsync(

@@ -10,7 +10,7 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// Archive Record Repository implementation for managing audit archive metadata
 /// </summary>
 /// <param name="context">Database context</param>
-public sealed class ArchiveRecordRepository(AuditApplicationDbContext context)
+public sealed class ArchiveRecordRepository(AuditDbContext context)
     : Repository<AuditArchiveRecordEntity>(context), IArchiveRecordRepository
 {
     /// <summary>

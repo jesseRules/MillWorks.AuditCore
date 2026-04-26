@@ -42,7 +42,7 @@ public class DatabaseInitializationServiceTests
     /// <summary>
     /// Context for the in-memory database
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Service provider for dependency injection
@@ -59,7 +59,7 @@ public class DatabaseInitializationServiceTests
 
         var dbOptions = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(dbOptions);
+        _context = new AuditDbContext(dbOptions);
 
         services.AddSingleton(_context);
         services.AddSingleton(_context);
@@ -76,7 +76,7 @@ public class DatabaseInitializationServiceTests
         _mockScopeFactory.Setup(static x => x.CreateScope()).Returns(_mockScope.Object);
         _mockServiceProvider.Setup(static x => x.GetService(typeof(IServiceScopeFactory)))
             .Returns(_mockScopeFactory.Object);
-        _mockServiceProvider.Setup(static x => x.GetService(typeof(AuditApplicationDbContext)))
+        _mockServiceProvider.Setup(static x => x.GetService(typeof(AuditDbContext)))
             .Returns(_context);
 
         _mockLogger = new Mock<ILogger<DatabaseInitializationService>>();
@@ -222,7 +222,7 @@ public class DatabaseInitializationServiceTests
         _options.FailOnMigrationError = true;
 
         // Create a disposed context to cause an error
-        var disposedContext = new AuditApplicationDbContext(
+        var disposedContext = new AuditDbContext(
             TestDbContextFactory.CreateInMemoryOptions());
         disposedContext.Dispose();
 
@@ -261,7 +261,7 @@ public class DatabaseInitializationServiceTests
         _options.FailOnMigrationError = false;
 
         // Create a disposed context to cause an error
-        var disposedContext = new AuditApplicationDbContext(
+        var disposedContext = new AuditDbContext(
             TestDbContextFactory.CreateInMemoryOptions());
         await disposedContext.DisposeAsync();
 

@@ -99,7 +99,7 @@ public sealed class IntegrityReconciliationService(
         try
         {
             using var scope = scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
 
             var staleWorkItems = await ClaimStaleWorkItemsAsync(dbContext, cancellationToken);
@@ -270,7 +270,7 @@ public sealed class IntegrityReconciliationService(
     /// reconciler instance processes a given item at a time.
     /// </summary>
     private async Task<List<AuditIntegrityWorkItemEntity>> ClaimStaleWorkItemsAsync(
-        AuditApplicationDbContext dbContext,
+        AuditDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;

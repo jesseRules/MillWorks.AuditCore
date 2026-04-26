@@ -103,7 +103,7 @@ public sealed class IntegrityHealthCheckTests
 
         scope.Setup(x => x.ServiceProvider).Returns(services.Object);
         scopeFactory.Setup(x => x.CreateScope()).Returns(scope.Object);
-        services.Setup(x => x.GetService(typeof(AuditApplicationDbContext)))
+        services.Setup(x => x.GetService(typeof(AuditDbContext)))
             .Throws(new InvalidOperationException("Server=prod;Password=secret"));
 
         var healthCheck = new IntegrityHealthCheck(scopeFactory.Object);
@@ -138,18 +138,18 @@ public sealed class IntegrityHealthCheckTests
         Assert.That(results.All(r => Equals(r.Data["pending_total"], 1)), Is.True);
     }
 
-    private static ServiceProvider BuildProvider(Action<AuditApplicationDbContext>? seed = null)
+    private static ServiceProvider BuildProvider(Action<AuditDbContext>? seed = null)
     {
         var services = new ServiceCollection();
         var dbName = $"IntegrityHealth_{Guid.NewGuid()}";
 
-        services.AddDbContext<AuditApplicationDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(options =>
             options.UseInMemoryDatabase(dbName));
 
         var provider = services.BuildServiceProvider();
 
         using var scope = provider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
         seed?.Invoke(db);
         db.SaveChanges();
 

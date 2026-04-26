@@ -13,13 +13,13 @@ public sealed class InternalAuditEventRepository
     /// <summary>
     /// Context for database operations
     /// </summary>
-    private readonly AuditApplicationDbContext _context;
+    private readonly AuditDbContext _context;
 
     /// <summary>
     /// Creates a new internal audit event repository
     /// </summary>
     /// <param name="context">Database context</param>
-    public InternalAuditEventRepository(AuditApplicationDbContext context)
+    public InternalAuditEventRepository(AuditDbContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
@@ -29,7 +29,7 @@ public sealed class InternalAuditEventRepository
     /// This prevents infinite recursion when saving audit events.
     /// </summary>
     /// <remarks>
-    /// <see cref="AuditApplicationDbContext.SaveChangesAsync(CancellationToken)"/> already detects
+    /// <see cref="AuditDbContext.SaveChangesAsync(CancellationToken)"/> already detects
     /// audit entities and sets <c>BypassAuditInterceptor = true</c> automatically,
     /// so no manual flag toggling is needed here.
     /// </remarks>

@@ -27,7 +27,7 @@ public class AuditLogger(
     ILogger<AuditLogger> logger,
     IAuditEventFactory eventFactory,
     IAuditEventRepository auditEventRepository,
-    AuditApplicationDbContext dbContext,
+    AuditDbContext dbContext,
     IAuditContext auditContext,
     IAuditFieldRedactor fieldRedactor,
     ITamperDetectionService? tamperDetectionService = null,

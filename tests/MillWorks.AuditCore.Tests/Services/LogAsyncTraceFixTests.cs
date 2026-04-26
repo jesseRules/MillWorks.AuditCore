@@ -22,8 +22,8 @@ namespace MillWorks.AuditCore.Tests.Services;
 [TestFixture]
 public class LogAsyncTraceFixTests
 {
-    private static AuditApplicationDbContext CreateInMemoryDbContext() =>
-        new(new DbContextOptionsBuilder<AuditApplicationDbContext>()
+    private static AuditDbContext CreateInMemoryDbContext() =>
+        new(new DbContextOptionsBuilder<AuditDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options);
 

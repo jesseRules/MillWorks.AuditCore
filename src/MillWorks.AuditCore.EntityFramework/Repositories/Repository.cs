@@ -15,18 +15,18 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// </summary>
 /// <param name="context"></param>
 /// <typeparam name="T"></typeparam>
-public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
+public class Repository<T>(AuditDbContext context) : IRepository<T>
     where T : class
 {
     /// <summary>
     /// Context for database operations.
     /// </summary>
-    private readonly AuditApplicationDbContext _context = context;
+    private readonly AuditDbContext _context = context;
 
     /// <summary>
     /// Database context accessible to derived repositories.
     /// </summary>
-    protected AuditApplicationDbContext Context => _context;
+    protected AuditDbContext Context => _context;
 
     /// <summary>
     /// DbSet for the entity type T, allowing access to the database table for T.
@@ -44,11 +44,11 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
     protected ILogger<Repository<T>>? Logger { get; set; }
 
     /// <summary>
-    /// Transaction currently active on this repository's <see cref="AuditApplicationDbContext"/>.
+    /// Transaction currently active on this repository's <see cref="AuditDbContext"/>.
     /// Falls back from the transaction this instance opened to whatever <c>Database.CurrentTransaction</c>
     /// reports on the shared context, so a second repository on the same context observes the
     /// same transaction without having to open it itself. This is authoritative for the one-context-per-
-    /// connection model AuditCore uses; if a caller enrolls two <see cref="AuditApplicationDbContext"/>
+    /// connection model AuditCore uses; if a caller enrolls two <see cref="AuditDbContext"/>
     /// instances on the same underlying connection, they must coordinate via <c>UseTransaction</c>
     /// so each context's own <c>Database.CurrentTransaction</c> stays accurate.
     /// </summary>

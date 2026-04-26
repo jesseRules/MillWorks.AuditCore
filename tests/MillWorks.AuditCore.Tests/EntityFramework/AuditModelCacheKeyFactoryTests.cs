@@ -7,7 +7,7 @@ namespace MillWorks.AuditCore.Tests.EntityFramework;
 
 /// <summary>
 /// Verifies that the compiled-model cache is keyed on schema so two
-/// <see cref="AuditApplicationDbContext"/> instances with different schemas
+/// <see cref="AuditDbContext"/> instances with different schemas
 /// do not share a cached model.
 /// </summary>
 [TestFixture]
@@ -55,14 +55,14 @@ public sealed class AuditModelCacheKeyFactoryTests
         Assert.That(runtimeKey, Is.Not.EqualTo(designTimeKey));
     }
 
-    private static AuditApplicationDbContext CreateContext(string schema)
+    private static AuditDbContext CreateContext(string schema)
     {
-        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
         var efOptions = Options.Create(new EntityFrameworkOptions { Schema = schema });
 
-        return new AuditApplicationDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
+        return new AuditDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
     }
 }

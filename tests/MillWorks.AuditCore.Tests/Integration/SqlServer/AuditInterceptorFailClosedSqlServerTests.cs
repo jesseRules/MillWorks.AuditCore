@@ -166,7 +166,7 @@ public sealed class AuditInterceptorFailClosedSqlServerTests
 
     // ── Test fixture types ───────────────────────────────────────────────────
 
-    private sealed class FailClosedTestDbContext : AuditApplicationDbContext
+    private sealed class FailClosedTestDbContext : AuditDbContext
     {
         public FailClosedTestDbContext(DbContextOptions<FailClosedTestDbContext> options)
             : base(options)

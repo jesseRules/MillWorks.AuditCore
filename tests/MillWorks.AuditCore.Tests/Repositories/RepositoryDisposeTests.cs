@@ -21,7 +21,7 @@ public class RepositoryDisposeTests
         // Arrange
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        var context = new AuditApplicationDbContext(options);
+        var context = new AuditDbContext(options);
         var repository = new AuditEventRepository(context);
 
         // Seed data via repo
@@ -55,7 +55,7 @@ public class RepositoryDisposeTests
         // Arrange
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        var context = new AuditApplicationDbContext(options);
+        var context = new AuditDbContext(options);
         var repository = new AuditEventRepository(context);
 
         var entity = new AuditEventEntity
@@ -88,7 +88,7 @@ public class RepositoryDisposeTests
         // Arrange
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        var context = new AuditApplicationDbContext(options);
+        var context = new AuditDbContext(options);
         var repo1 = new AuditEventRepository(context);
         var repo2 = new AuditEventRepository(context);
 

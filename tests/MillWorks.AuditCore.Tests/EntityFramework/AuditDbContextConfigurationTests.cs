@@ -12,7 +12,7 @@ namespace MillWorks.AuditCore.Tests.EntityFramework;
 public class AuditDbContextConfigurationTests : IDisposable
 {
     private SqliteConnection _connection;
-    private DbContextOptions<AuditApplicationDbContext> _options;
+    private DbContextOptions<AuditDbContext> _options;
 
     [SetUp]
     public void Setup()
@@ -20,7 +20,7 @@ public class AuditDbContextConfigurationTests : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        _options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
@@ -41,7 +41,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AllDbSetsExist()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
 
         Assert.That(context.AuditEvents, Is.Not.Null);
         Assert.That(context.AuditIntegrity, Is.Not.Null);
@@ -53,7 +53,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditEvents_HasCorrectTableName()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditEventEntity));
 
         Assert.That(entityType, Is.Not.Null);
@@ -63,7 +63,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditIntegrity_HasCorrectTableName()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity));
 
         Assert.That(entityType, Is.Not.Null);
@@ -73,7 +73,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditLogs_HasCorrectTableName()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditLogEntity));
 
         Assert.That(entityType, Is.Not.Null);
@@ -83,7 +83,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_SecurityEvents_HasCorrectTableName()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditSecurityEventEntity));
 
         Assert.That(entityType, Is.Not.Null);
@@ -93,7 +93,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditEvents_HasExpectedIndexes()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditEventEntity))!;
         var indexes = entityType.GetIndexes().ToList();
 
@@ -111,7 +111,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditIntegrity_HasHashChainIndex()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
         var indexes = entityType.GetIndexes().ToList();
 
@@ -124,7 +124,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditIntegrity_EventIdIsUnique()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
         var eventIdIndex = entityType.GetIndexes()
             .FirstOrDefault(static i => i.Name == "IX_AuditIntegrity_EventId");
@@ -136,7 +136,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditLogs_HasEntityIndex()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditLogEntity))!;
         var indexes = entityType.GetIndexes().ToList();
 
@@ -150,7 +150,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditEventEntity_RequiredProperties()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditEventEntity))!;
 
         var eventIdProp = entityType.FindProperty(nameof(AuditEventEntity.EventId));
@@ -161,7 +161,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditIntegrityEntity_RequiredProperties()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
 
         var eventIdProp = entityType.FindProperty(nameof(AuditIntegrityEntity.EventId));
@@ -176,7 +176,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_MaxLengths_AreApplied()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditEventEntity))!;
 
         var eventTypeProp = entityType.FindProperty(nameof(AuditEventEntity.EventType));
@@ -189,7 +189,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditLogEntity_MaxLengths()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditLogEntity))!;
 
         var entityNameProp = entityType.FindProperty(nameof(AuditLogEntity.EntityName));
@@ -202,7 +202,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_AuditIntegrity_HasNavigationToAuditEvent()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditIntegrityEntity))!;
         var navigation = entityType.FindNavigation(nameof(AuditIntegrityEntity.AuditEvent));
 
@@ -212,7 +212,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void ConfigureAudit_SecurityEvent_HasNavigationToAuditEvent()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         var entityType = context.Model.FindEntityType(typeof(AuditSecurityEventEntity))!;
         var navigation = entityType.FindNavigation(nameof(AuditSecurityEventEntity.RelatedAuditEvent));
 
@@ -222,7 +222,7 @@ public class AuditDbContextConfigurationTests : IDisposable
     [Test]
     public void EnsureCreated_CreatesAllTables()
     {
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         context.Database.EnsureCreated();
 
         // Verify we can query all tables without error

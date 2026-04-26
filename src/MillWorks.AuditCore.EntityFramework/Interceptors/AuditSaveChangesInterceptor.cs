@@ -220,7 +220,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         DbContextErrorEventData eventData,
         CancellationToken cancellationToken = default)
     {
-        if (eventData.Context is AuditApplicationDbContext auditCtx)
+        if (eventData.Context is AuditDbContext auditCtx)
             auditCtx.PendingProviderDispatches = null;
 
         return base.SaveChangesFailedAsync(eventData, cancellationToken);
@@ -281,7 +281,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var mode = _enforcementMode.Value;
 
         // Get user ID from the DbContext via IAuditContextSource (set by middleware
-        // on AuditApplicationDbContext, or computed by any consumer DbContext that
+        // on AuditDbContext, or computed by any consumer DbContext that
         // implements the interface).
         var userId = (context as IAuditContextSource)?.CurrentUserId;
 
@@ -735,7 +735,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private static void CaptureForProviderDispatch(DbContext context, List<EntityEntry> auditableEntries)
     {
-        if (context is not AuditApplicationDbContext auditCtx || auditCtx.ScopedServiceProvider == null)
+        if (context is not AuditDbContext auditCtx || auditCtx.ScopedServiceProvider == null)
             return;
 
         var map = auditCtx.ScopedServiceProvider.GetService<AuditProviderTypeMap>();
@@ -773,7 +773,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private async Task DispatchProvidersAsync(DbContext? context, CancellationToken cancellationToken)
     {
-        if (context is not AuditApplicationDbContext auditCtx)
+        if (context is not AuditDbContext auditCtx)
             return;
 
         // Re-entrancy guard — prevents infinite recursion if a provider triggers another save

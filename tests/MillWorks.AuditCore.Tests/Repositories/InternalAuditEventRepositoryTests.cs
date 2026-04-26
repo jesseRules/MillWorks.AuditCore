@@ -8,13 +8,13 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 
 /// <summary>
 /// Tests for InternalAuditEventRepository add/save/exists operations.
-/// Validates the simplified SaveChangesAsync that relies on AuditApplicationDbContext bypass.
+/// Validates the simplified SaveChangesAsync that relies on AuditDbContext bypass.
 /// </summary>
 [TestFixture]
 public class InternalAuditEventRepositoryNewTests
 {
-    private DbContextOptions<AuditApplicationDbContext> _options;
-    private AuditApplicationDbContext _context;
+    private DbContextOptions<AuditDbContext> _options;
+    private AuditDbContext _context;
     private InternalAuditEventRepository _repository;
 
     [SetUp]
@@ -22,7 +22,7 @@ public class InternalAuditEventRepositoryNewTests
     {
         _options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(_options);
+        _context = new AuditDbContext(_options);
         _repository = new InternalAuditEventRepository(_context);
     }
 

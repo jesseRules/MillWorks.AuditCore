@@ -16,7 +16,7 @@ namespace MillWorks.AuditCore.Tests.Helpers;
 /// <c>ResilientAuditLogger</c> tests observe calls that flow through scope-per-retry
 /// by routing every per-scope resolution back to the shared mock.
 /// Base-class ctor dependencies are satisfied with a per-instance in-memory
-/// <see cref="AuditApplicationDbContext"/> so <see cref="AuditLogger"/> construction
+/// <see cref="AuditDbContext"/> so <see cref="AuditLogger"/> construction
 /// doesn't null-deref on the non-nullable <c>dbContext</c> primary-constructor parameter,
 /// even though the overridden methods never touch it.
 /// </summary>
@@ -29,8 +29,8 @@ public sealed class ScopeFactoryForwardingAuditLogger : AuditLogger
             logger: NullLogger<AuditLogger>.Instance,
             eventFactory: Mock.Of<IAuditEventFactory>(),
             auditEventRepository: Mock.Of<IAuditEventRepository>(),
-            dbContext: new AuditApplicationDbContext(
-                new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            dbContext: new AuditDbContext(
+                new DbContextOptionsBuilder<AuditDbContext>()
                     .UseInMemoryDatabase(Guid.NewGuid().ToString())
                     .Options),
             auditContext: Mock.Of<IAuditContext>(),

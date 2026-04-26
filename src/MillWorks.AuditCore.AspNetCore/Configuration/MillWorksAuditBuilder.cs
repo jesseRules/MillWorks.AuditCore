@@ -157,7 +157,7 @@ public sealed class MillWorksAuditBuilder
         });
 
         // Configure DbContext with interceptor and circular dependency prevention
-        Services.AddDbContext<AuditApplicationDbContext>(static (serviceProvider, options) =>
+        Services.AddDbContext<AuditDbContext>(static (serviceProvider, options) =>
         {
             var efOptions = serviceProvider.GetRequiredService<IOptions<EntityFrameworkOptions>>().Value;
 
@@ -174,7 +174,7 @@ public sealed class MillWorksAuditBuilder
 
             // Replace the default model-cache-key factory so the compiled-model cache is keyed
             // on schema alongside context type. Without this, processes that construct
-            // AuditApplicationDbContext with different schemas could reuse the wrong model.
+            // AuditDbContext with different schemas could reuse the wrong model.
             options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>();
 
             var interceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
@@ -504,7 +504,7 @@ public sealed class MillWorksAuditBuilder
         // Check if at least one storage mechanism is configured
         var hasStorage = Services.Any(static s =>
             s.ServiceType == typeof(IAuditEventRepository) ||
-            s.ServiceType == typeof(AuditApplicationDbContext));
+            s.ServiceType == typeof(AuditDbContext));
 
         if (!hasStorage)
         {

@@ -107,7 +107,7 @@ public sealed class TamperChain10kSqlServerTests : SqlServerTestBase
         });
     }
 
-    private static TamperDetectionService CreateService(AuditApplicationDbContext context)
+    private static TamperDetectionService CreateService(AuditDbContext context)
     {
         var eventRepo = new AuditEventRepository(context);
         var integrityRepo = new AuditIntegrityRepository(context);
