@@ -354,10 +354,14 @@ public class TamperDetectionServiceTests
     }
 
     /// <summary>
-    /// CreateIntegrityRecordBatchAsync retries after a duplicate-key failure and clears the failed tracked entities.
+    /// CreateIntegrityRecordBatchAsync retries after a duplicate-key failure and detaches
+    /// only the integrity entities it added in the failed attempt — it must not call
+    /// <c>ClearChangeTrackerAsync</c>, which would also strip entities an outer transaction
+    /// is holding (see <c>TamperDetectionRetryChangeTrackerTests</c> for the integration-level
+    /// regression).
     /// </summary>
     [Test]
-    public async Task CreateIntegrityRecordBatchAsync_OnDuplicateKey_RetriesAfterClearingChangeTracker()
+    public async Task CreateIntegrityRecordBatchAsync_OnDuplicateKey_DetachesOnlyFailedBatchThenRetries()
     {
         // Arrange
         var duplicate = new DbUpdateException("Duplicate", new Exception("UNIQUE constraint failed"));
@@ -381,8 +385,11 @@ public class TamperDetectionServiceTests
             .ThrowsAsync(duplicate)
             .ReturnsAsync(1);
 
+        IEnumerable<AuditIntegrityEntity>? detachedBatch = null;
         _mockAuditIntegrityRepository
-            .Setup(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.DetachRangeAsync(
+                It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback((IEnumerable<AuditIntegrityEntity> entities, CancellationToken _) => detachedBatch = entities.ToList())
             .Returns(Task.CompletedTask);
 
         // Act
@@ -390,9 +397,15 @@ public class TamperDetectionServiceTests
 
         // Assert
         Assert.That(result, Has.Count.EqualTo(2));
-        _mockAuditIntegrityRepository.Verify(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuditIntegrityRepository.Verify(static x => x.DetachRangeAsync(
+            It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuditIntegrityRepository.Verify(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Retry cleanup must not fall back to clearing the whole change tracker.");
         _mockAuditIntegrityRepository.Verify(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
         _mockAuditIntegrityRepository.Verify(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        Assert.That(detachedBatch, Is.Not.Null.And.Count.EqualTo(2),
+            "Detach must cover exactly the two entities the failed attempt added.");
     }
 
     /// <summary>
@@ -819,7 +832,7 @@ public class TamperDetectionServiceTests
             .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()))
+            .Setup(static x => x.DetachAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var callCount = 0;
@@ -836,11 +849,17 @@ public class TamperDetectionServiceTests
         // Act
         var result = await _tamperDetectionService.CreateIntegrityRecordAsync(dto);
 
-        // Assert
+        // Assert — the retry must detach only the failed integrity entity (not clear the
+        // whole change tracker, which would also strip an outer transaction's entities).
         Assert.That(result, Is.Not.Null);
         Assert.That(result.EventId, Is.EqualTo(eventId));
         _mockAuditIntegrityRepository.Verify(
-            static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()), Times.Once);
+            static x => x.DetachAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockAuditIntegrityRepository.Verify(
+            static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Retry cleanup must not fall back to clearing the whole change tracker.");
     }
 
     /// <summary>

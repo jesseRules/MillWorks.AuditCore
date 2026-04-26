@@ -44,7 +44,13 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
     protected ILogger<Repository<T>>? Logger { get; set; }
 
     /// <summary>
-    /// Current Transaction
+    /// Transaction currently active on this repository's <see cref="AuditApplicationDbContext"/>.
+    /// Falls back from the transaction this instance opened to whatever <c>Database.CurrentTransaction</c>
+    /// reports on the shared context, so a second repository on the same context observes the
+    /// same transaction without having to open it itself. This is authoritative for the one-context-per-
+    /// connection model AuditCore uses; if a caller enrolls two <see cref="AuditApplicationDbContext"/>
+    /// instances on the same underlying connection, they must coordinate via <c>UseTransaction</c>
+    /// so each context's own <c>Database.CurrentTransaction</c> stays accurate.
     /// </summary>
     public IDbContextTransaction? CurrentTransaction => _currentTransaction ?? _context.Database.CurrentTransaction;
 
@@ -272,6 +278,23 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
     public virtual Task ClearChangeTrackerAsync(CancellationToken cancellationToken = default)
     {
         _context.ChangeTracker.Clear();
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public virtual Task DetachAsync(T entity, CancellationToken cancellationToken = default)
+    {
+        _context.Entry(entity).State = EntityState.Detached;
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public virtual Task DetachRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
+    {
+        foreach (var entity in entities)
+        {
+            _context.Entry(entity).State = EntityState.Detached;
+        }
         return Task.CompletedTask;
     }
 
@@ -617,9 +640,18 @@ public class Repository<T>(AuditApplicationDbContext context) : IRepository<T>
     /// <returns>The database transaction</returns>
     public virtual async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
     {
-        if (_currentTransaction != null)
+        // Two guards, one message: reject if THIS repository already owns a transaction,
+        // or if the shared DbContext already has one (opened by another repository on the
+        // same scope). Without the second check, a sibling repo's active transaction would
+        // silently co-exist with a new one begun here — producing a no-op nested begin on
+        // some providers or an ambiguous "connection already in a transaction" deep inside
+        // EF on others. Callers in that position should join via CurrentTransaction instead.
+        if (_currentTransaction is not null || _context.Database.CurrentTransaction is not null)
         {
-            throw new InvalidOperationException("A transaction is already in progress");
+            throw new InvalidOperationException(
+                "A transaction is already in progress on this DbContext. " +
+                "Repositories sharing a DbContext must join the existing transaction " +
+                "(via CurrentTransaction) rather than opening a nested one.");
         }
 
         _currentTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
