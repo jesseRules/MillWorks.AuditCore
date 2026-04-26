@@ -66,7 +66,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// Lazily-generated default HMAC key shared across all instances when no key is configured.
     /// Static to ensure consistency across Scoped service lifetimes within the same process.
     /// </summary>
-    private static readonly Lazy<string> DefaultHmacKey = new(GenerateDefaultHmacKey);
+    private static readonly Lazy<string> _defaultHmacKey = new(GenerateDefaultHmacKey);
 
     /// <summary>
     /// Process-local serializer used only when the active EF provider does not support
@@ -77,14 +77,22 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// because TamperDetectionService is Scoped — an instance lock would be private to
     /// each request and provide zero mutual exclusion across concurrent saves.
     /// </summary>
-    private static readonly SemaphoreSlim LocalAppendLock = new(1, 1);
+    private static readonly SemaphoreSlim _localAppendLock = new(1, 1);
 
     /// <summary>
     /// Cached signing key parameters. Loaded lazily on first use.
     /// Assumes keys are static at runtime — no rotation while the process is running.
     /// </summary>
     private static RSAParameters? _cachedSigningKey;
+
+    /// <summary>
+    /// Cached verification key parameters. Loaded lazily on first use. Separate from signing key to allow
+    /// </summary>
     private static RSAParameters? _cachedVerifyKey;
+
+    /// <summary>
+    /// Lock for synchronizing access to the signing key cache. Only used when digital signatures are enabled.
+    /// </summary>
     private static readonly Lock _keyLoadLock = new();
 
     /// <summary>
@@ -117,7 +125,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         {
             // IHostEnvironment wins when registered; otherwise AuditOptions.Environment.
             var isProduction = hostEnvironment?.IsProduction()
-                ?? string.Equals(_auditOptions.Environment, "Production", StringComparison.OrdinalIgnoreCase);
+                               ?? string.Equals(_auditOptions.Environment, "Production",
+                                   StringComparison.OrdinalIgnoreCase);
 
             if (isProduction)
             {
@@ -129,7 +138,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
             _logger.LogWarning(
                 "Audit:HmacKey is not configured. Using a process-scoped generated key. " +
                 "HMAC signatures will not survive application restarts. Configure Audit:HmacKey for production use");
-            _hmacKey = DefaultHmacKey.Value;
+            _hmacKey = _defaultHmacKey.Value;
         }
         else
         {
@@ -177,14 +186,22 @@ public sealed class TamperDetectionService : ITamperDetectionService
         // essentially never fire here.
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            // Captured by AppendCore and read by the retry/catch below so we can detach
+            // ONLY the integrity entity we just added, not clear the whole change tracker.
+            // Clearing would also detach entities AuditLogger has tracked in the outer
+            // transaction (e.g. the AuditEventEntity it just saved), silently decoupling
+            // them from EF even though their rows still live inside the same SQL transaction.
+            AuditIntegrityEntity? pendingIntegrity = null;
+
             try
             {
                 AuditIntegrityEntity? committed = null;
 
                 if (useLocalFallback)
                 {
-                    await LocalAppendLock.WaitAsync(cancellationToken);
+                    await _localAppendLock.WaitAsync(cancellationToken);
                 }
+
                 try
                 {
                     // Body of the append critical section — takes the applock, reads the
@@ -201,7 +218,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         var previousHash = previousIntegrity?.EventHash;
                         var nextSequence = (previousIntegrity?.SequenceNumber ?? 0) + 1;
 
-                        var integrity = new AuditIntegrityEntity
+                        pendingIntegrity = new AuditIntegrityEntity
                         {
                             EventId = auditEvent.EventId,
                             EventHash = eventHash,
@@ -214,9 +231,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
                             DigitalSignature = digitalSignature
                         };
 
-                        await _auditIntegrityRepository.AddAsync(integrity, cancellationToken);
+                        await _auditIntegrityRepository.AddAsync(pendingIntegrity, cancellationToken);
                         await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
-                        committed = integrity;
+                        committed = pendingIntegrity;
                     }
 
                     // When AuditLogger wraps event+integrity in one atomic transaction, the
@@ -240,7 +257,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     {
                         try
                         {
-                            LocalAppendLock.Release();
+                            _localAppendLock.Release();
                         }
                         catch (SemaphoreFullException ex)
                         {
@@ -270,8 +287,13 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         "This may indicate high concurrency or a systemic issue.", ex);
                 }
 
-                // Drop the failed entity so the next attempt's transaction starts clean.
-                await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
+                // Detach only the integrity entity this attempt added. Leaves any entities
+                // tracked by an outer transaction (e.g. AuditLogger's AuditEventEntity)
+                // attached so the outer commit still persists them.
+                if (pendingIntegrity is not null)
+                {
+                    await _auditIntegrityRepository.DetachAsync(pendingIntegrity, cancellationToken);
+                }
 
                 var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(attempt - 1, 5));
                 var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
@@ -318,7 +340,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         var enableDigitalSignatures = _auditOptions.EnableDigitalSignatures;
 
         // Pre-compute all per-event hashes OUTSIDE the lock
-        var precomputed = new (string EventHash, string Hmac, string Checksum, string? DigitalSignature)[auditEvents.Count];
+        var precomputed =
+            new (string EventHash, string Hmac, string Checksum, string? DigitalSignature)[auditEvents.Count];
         for (int i = 0; i < auditEvents.Count; i++)
         {
             var evt = auditEvents[i];
@@ -337,12 +360,19 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            // Captured by AppendBatchCore and read by the retry/catch below so we can detach
+            // ONLY the integrity entities we added in this attempt, not clear the whole change
+            // tracker. See the per-event method for the rationale — clearing would also strip
+            // AuditLogger's tracked AuditEventEntity rows out of the outer transaction's view.
+            List<AuditIntegrityEntity>? pendingEntities = null;
+
             try
             {
                 if (useLocalFallback)
                 {
-                    await LocalAppendLock.WaitAsync(cancellationToken);
+                    await _localAppendLock.WaitAsync(cancellationToken);
                 }
+
                 try
                 {
                     async Task AppendBatchCore()
@@ -377,6 +407,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                             previousHash = entity.EventHash;
                         }
 
+                        pendingEntities = entities;
                         await _auditIntegrityRepository.AddRangeAsync(entities, cancellationToken);
                         await _auditIntegrityRepository.SaveChangesAsync(cancellationToken);
                     }
@@ -402,7 +433,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     {
                         try
                         {
-                            LocalAppendLock.Release();
+                            _localAppendLock.Release();
                         }
                         catch (SemaphoreFullException ex)
                         {
@@ -415,7 +446,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
                     "Created {Count} integrity records in batch (attempt {Attempt})",
                     auditEvents.Count, attempt);
 
-                return auditEvents.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList();
+                return auditEvents.Select(static e => new AuditIntegrityDto { EventId = e.EventId }).ToList();
             }
             catch (DbUpdateException ex)
                 when (DuplicateKeyDetector.IsDuplicateKey(ex) || DeadlockDetector.IsDeadlock(ex))
@@ -432,7 +463,13 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         "This may indicate high concurrency or a systemic issue.", ex);
                 }
 
-                await _auditIntegrityRepository.ClearChangeTrackerAsync(cancellationToken);
+                // Detach only the integrity entities this attempt added. Leaves any entities
+                // tracked by an outer transaction (e.g. AuditLogger's AuditEventEntity rows)
+                // attached so the outer commit still persists them.
+                if (pendingEntities is { Count: > 0 })
+                {
+                    await _auditIntegrityRepository.DetachRangeAsync(pendingEntities, cancellationToken);
+                }
 
                 var exponentialDelay = baseDelay.TotalMilliseconds * Math.Pow(2, Math.Min(attempt - 1, 5));
                 var jitterAmount = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));

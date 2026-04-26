@@ -237,6 +237,27 @@ public interface IRepository<T> where T : class
     /// <returns></returns>
     Task ClearChangeTrackerAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Detaches a single tracked entity from the change tracker without touching any
+    /// others. Prefer this over <see cref="ClearChangeTrackerAsync"/> when a caller
+    /// needs to drop an entity it just failed to persist but must not disturb entities
+    /// tracked by other participants in the same <c>DbContext</c> (for example, an
+    /// outer transaction holding audit event rows while an inner integrity write retries).
+    /// No-op if the entity is already detached.
+    /// </summary>
+    /// <param name="entity">Entity to detach.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DetachAsync(T entity, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Detaches a sequence of tracked entities from the change tracker. Same contract
+    /// as <see cref="DetachAsync"/> but for batch writes that added multiple entities
+    /// and need to undo all of them together on failure.
+    /// </summary>
+    /// <param name="entities">Entities to detach.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DetachRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default);
+
     #endregion
 
     #region Transaction Support
