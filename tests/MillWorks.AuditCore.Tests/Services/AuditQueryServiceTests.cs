@@ -1,7 +1,7 @@
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Query;
 using MillWorks.AuditCore.Tests.Helpers;

@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.Services.Validators;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 

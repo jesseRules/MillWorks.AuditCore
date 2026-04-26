@@ -1,5 +1,5 @@
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;

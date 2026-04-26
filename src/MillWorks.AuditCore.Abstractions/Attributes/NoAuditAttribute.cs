@@ -1,4 +1,4 @@
-﻿namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// NoAuditAttribute is used to mark classes or properties that should not be audited.

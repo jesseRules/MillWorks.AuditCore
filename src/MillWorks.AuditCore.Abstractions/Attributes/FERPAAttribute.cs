@@ -1,4 +1,4 @@
-namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// Marks a class as containing FERPA-protected educational records.

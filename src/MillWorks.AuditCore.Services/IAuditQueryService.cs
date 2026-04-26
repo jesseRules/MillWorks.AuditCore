@@ -1,6 +1,5 @@
 ﻿using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Responses;
-using MillWorks.AuditCore.EntityFramework.Dto;
 
 namespace MillWorks.AuditCore.Services.Interfaces;
 

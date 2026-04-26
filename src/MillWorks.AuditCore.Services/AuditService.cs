@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Requests;
 using MillWorks.AuditCore.Abstractions.Responses;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;

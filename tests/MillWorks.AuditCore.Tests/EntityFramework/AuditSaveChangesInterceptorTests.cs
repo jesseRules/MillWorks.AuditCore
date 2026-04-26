@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Attributes;

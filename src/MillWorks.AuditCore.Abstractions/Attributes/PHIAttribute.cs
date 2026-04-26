@@ -1,4 +1,4 @@
-namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// Marks a class as containing PHI (Protected Health Information) for HIPAA compliance
@@ -10,12 +10,12 @@ public sealed class PHIAttribute : Attribute
     /// Type of PHI
     /// </summary>
     public string DataType { get; set; } = "HealthRecord";
-    
+
     /// <summary>
     /// Whether this is a limited data set
     /// </summary>
     public bool IsLimitedDataSet { get; set; } = false;
-    
+
     /// <summary>
     /// Whether to log all access for HIPAA audit trail
     /// </summary>

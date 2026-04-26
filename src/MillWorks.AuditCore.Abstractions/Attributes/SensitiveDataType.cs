@@ -1,4 +1,4 @@
-namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// Types of sensitive data
