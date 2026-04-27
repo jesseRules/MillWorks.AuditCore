@@ -1,5 +1,7 @@
 # Phase 06 — Transactional outbox sink
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase05-AuditDbContextSeparation.md`](Phase05-AuditDbContextSeparation.md)
 

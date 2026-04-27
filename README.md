@@ -37,17 +37,18 @@ Most consumers install only `MillWorks.AuditCore`. The other packages are availa
 ## Features
 
 ### Automatic Entity Auditing
-EF Core `SaveChangesInterceptor` automatically captures create, update, and delete operations across all tracked entities when using `SaveChangesAsync`. The synchronous `SaveChanges()` path intentionally does not produce audit records because it cannot support the full provider-dispatch pipeline, which would result in partial or inconsistent auditing. Entities are diffed at the property level, recording old values, new values, and changed property lists. No attribute decoration or manual logging calls required -- opt out with `[NoAudit]` when needed.
+Any DbContext that has `AuditSaveChangesInterceptor` registered will produce audit envelopes for tracked entity changes. The interceptor is a producer; the audit sink owns persistence. Consumer DbContexts do not need to map AuditCore entities — they may optionally implement `IAuditContextSource` to flow user/correlation context into envelopes, and `IAuditProviderDispatchSource` to participate in `IAuditProvider` dispatch. Entities are diffed at the property level, recording old values, new values, and changed property lists. No attribute decoration or manual logging calls required — opt out with `[NoAudit]` when needed. The synchronous `SaveChanges()` path does not produce audit records because it cannot support the full provider-dispatch pipeline.
 
 ### Tamper Detection
 Every audit event is linked into a cryptographic hash chain. Each record's SHA-256 hash incorporates the previous record's hash, forming an append-only ledger that detects insertion, deletion, or modification of any record in the sequence. Chain integrity can be verified on demand or on a schedule. Tamper alerts are recorded as security events.
 
-Two integrity modes are available:
+Integrity modes and sink modes:
 
 | Mode | Behavior |
 |---|---|
-| **Strict** (default) | Audit event and integrity record are committed atomically in a single transaction. |
-| **Batched** | Audit event and a durable work item are committed atomically. Integrity records are created asynchronously by a background batcher for higher throughput. Pending work survives process crashes via a durable outbox, and a reconciliation service retries stale items on startup and on schedule. |
+| **Strict (Immediate sink)** | Audit envelope is published, persisted, and chain-extended on the audit-owned DbContext. Decoupled from consumer transaction. |
+| **Strict (TransactionalOutbox sink)** | Audit envelope is staged in the saving consumer's transaction via outbox row; chain-extension happens after commit via background drainer. |
+| **Batched (legacy IntegrityWriteBatcher)** | Existing high-throughput batched-integrity path. Independent of sink mode. |
 
 ### Field-Level Encryption
 AES-256-GCM encryption for sensitive entity fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Encrypted fields are redacted in audit snapshots (recorded as `[ENCRYPTED]` or masked) to prevent sensitive values from appearing in the audit log. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
@@ -119,6 +120,7 @@ builder.Services.AddMillWorksAudit(audit =>
     audit.UseSecurity(security =>
     {
         security.EnableTamperDetection = true;
+        security.AuditSinkMode = AuditSinkMode.TransactionalOutbox;  // for FailClosedForRegulated
     });
 
     audit.UseMiddleware(middleware =>
@@ -172,13 +174,26 @@ scope.SetCustomField("ShippedAt", DateTimeOffset.UtcNow);
 
 ### Automatic Entity Change Tracking
 
-Any entity saved through a DbContext that has the audit interceptor registered will be captured automatically:
+Any entity saved through a DbContext that has the audit interceptor registered will be captured automatically. Consumer DbContexts do not need to map AuditCore entities — they may optionally implement `IAuditContextSource` to flow user/correlation context:
 
 ```csharp
-dbContext.Products.Add(new Product { Name = "Widget", Price = 9.99m });
-await dbContext.SaveChangesAsync();
-// AuditLog rows are created with Action = Created, entity name, key values,
-// and a snapshot of the new property values -- no manual logging calls needed.
+public class ProjectDbContext(DbContextOptions<ProjectDbContext> options)
+    : DbContext(options), IAuditContextSource
+{
+    public string? CurrentUserId { get; set; }
+    public string? CurrentCorrelationId { get; set; }
+    public string? CurrentIpAddress { get; set; }
+    public string? CurrentUserAgent { get; set; }
+
+    // No AuditCore entity mapping required — the sink owns persistence.
+}
+
+// In the host (e.g., MillWorks.Api/Program.cs):
+services.AddDbContext<ProjectDbContext>((sp, options) =>
+{
+    options.UseSqlServer(connectionString);
+    options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+});
 ```
 
 ## The `IAuditProvider` Contract
@@ -245,26 +260,49 @@ The `[NoAudit]` attribute can be applied at two levels:
 ## Architecture
 
 ```
-Abstractions          (pure .NET -- no EF, no ASP.NET dependencies)
-  Models, DTOs, Interfaces, Enums, Constants, Requests, Responses
-    |
-EntityFramework       (EF Core data layer)
-  DbContext, Entities, Interceptor, Repositories, Migrations, Value Converters
-    |
-Providers             (entity-specific audit enrichment; references ASP.NET Core for IHttpContextAccessor)
-  IAuditProvider, BaseAuditProvider, per-entity implementations
-    |
-Services              (business logic)
-  Compliance validators, Tamper detection, Encryption, Dead letter queue,
-  Query/Search/Report, Archival, Maintenance, Mapping, Deferred request-audit dispatch/processing
-    |
-AspNetCore            (application entry point)
-  MillWorksAuditBuilder, ServiceCollectionExtensions, Middleware, Options
+┌─────────────────────────────────────────────────────────────────────┐
+│ Consumer library (Compliance, Identity, ...)                        │
+│   - References MillWorks.AuditCore.Abstractions (and EF only when   │
+│     it uses [EncryptedField]/UseFieldEncryption — Compliance only)  │
+│   - Defines local abstraction I{Library}AuditPublisher              │
+│   - Service layer calls I{Library}AuditPublisher.PublishAsync       │
+│     OR DbContext has interceptor registered (by Api, not library)   │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      │ AuditEnvelope
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ MillWorks.Api / AuditBridge   (scoped lifetime)                     │
+│   - Implements every I{Library}AuditPublisher                       │
+│   - Forwards to IAuditSink (resolved per request scope)             │
+│   - Registers AuditSaveChangesInterceptor on consumer DbContexts    │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ MillWorks.AuditCore.AspNetCore / Services                           │
+│   IAuditSink (one of:)                                              │
+│   ├── ImmediateSink (default)                                       │
+│   │     - Builds AuditLogEntity / AuditEventEntity / AuditIntegrity │
+│   │     - Writes directly to AuditDbContext (its own connection)    │
+│   │     - Chain construction lives here                             │
+│   └── TransactionalOutboxSink (opt-in)                              │
+│         - Writes AuditOutboxEntity in saving DbContext's txn        │
+│         - Background drainer commits to AuditDbContext              │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ MillWorks.AuditCore.EntityFramework / AuditDbContext                │
+│   - Owns audit schema (tables: AuditLogs, AuditEvents,              │
+│     AuditIntegrity, SecurityEvents, ArchiveRecords, IntegrityWork,  │
+│     AuditOutbox)                                                    │
+│   - Owns its own connection (may differ from consumer connection)   │
+│   - Owns its migrations                                             │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Abstractions** is a pure .NET library with no framework dependencies. It can be referenced from console applications, background workers, Azure Functions, or any .NET host without pulling in ASP.NET Core or Entity Framework.
-
-Each layer depends only on the layers below it. The `AspNetCore` package is the top-level integration point that wires everything together through dependency injection.
+**Abstractions** (`MillWorks.AuditCore.Abstractions`) is a pure .NET library with no framework dependencies. Most consumer libraries depend only on Abstractions — they receive audit capabilities through the interceptor + sink pipeline without mapping AuditCore entities.
 
 ## Configuration
 
@@ -410,6 +448,11 @@ audit.Options.FailureMode = AuditFailureMode.FailClosedForRegulated;
 
 When the EF interceptor fails to build audit log records for a regulated entity, `SaveChangesAsync` will throw `AuditIntegrityException` and roll back the business transaction — preventing writes that lack a matching audit record. Non-regulated entities retain the default permissive behavior in the same deployment.
 
+**Sink mode behavior.** `FailClosedForRegulated` works under both sink modes:
+
+- Under `AuditSinkMode.Immediate` (default), audit-build or audit-publish failures are visible inside the interceptor's `try` block, so they rethrow `AuditIntegrityException` and the consumer's `SaveChangesAsync` rolls back the business write. The audit-side write happens on a separate connection — it never lands.
+- Under `AuditSinkMode.TransactionalOutbox`, the same rethrow happens on outbox-write failure (which propagates through the interceptor's `try`). The added value of outbox is durability across audit-subsystem crashes — once the outbox row commits with the consumer transaction, a later drainer crash does not lose the envelope. Use this mode when zero-loss durability is required (HIPAA / FERPA / PCI-DSS or any posture where audit-subsystem failures must not lose envelopes).
+
 **Scope.** `FailureMode` governs the **EF interceptor audit-build path only**. The following audit paths are **not** affected by `AuditFailureMode` and retain their own failure semantics:
 
 - `ResilientAuditLogger` — remains fail-open by architecture (retry → dead letter queue → emergency fallback file). Designed for direct `IAuditLogger.LogAsync` callers.
@@ -487,6 +530,7 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
 | `ArchiveRecord` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
 | `SecurityEvents` | Security-relevant events and tamper/compliance alerts | `Id`, `EventType`, `Severity`, `Message`, `DetailsJson`, `IpAddress`, `DetectedAt`, `Status` |
+| `AuditOutbox` | Durable handoff for `TransactionalOutbox` sink | `Id`, `EnvelopeJson`, `Status`, `CreatedAt`, `CompletedAt`, `AttemptCount`, `LastError` |
 
 Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
 
@@ -536,6 +580,7 @@ The current hardening cycle closes the six production gaps tracked in `docs/Prod
 | Fail-closed entity writes | `AuditOptions.FailureMode` supports `Permissive`, `FailClosedForRegulated`, and `FailClosedAlways`; regulated saves can roll back when the interceptor cannot build audit records. |
 | Request-audit overflow | `AuditMiddlewareOptions.OverflowPolicy` supports explicit overflow behavior, including `RouteToDeadLetter` for DLQ preservation. |
 | SQL Server verification | A Testcontainers-backed SQL Server lane covers migrations, custom schema creation, rowversion behavior, transaction rollback, tamper-chain verification, and retry/DLQ behavior. |
+| Sink-based audit pipeline | `IAuditSink` + `ImmediateSink` / `TransactionalOutboxSink` decouple persistence from interceptor; consumer DbContexts no longer require AuditCore entity mapping. Documented in `docs/RedesignPlan.md`. |
 
 For an ACED-style regulated deployment, start from [`docs/ACEDProductionConfiguration.md`](docs/ACEDProductionConfiguration.md): durable HMAC key, digital-signature key paths, `FailClosedForRegulated`, Redis-backed DLQ/locking, `RouteToDeadLetter`, and the default `audit` schema with migrations enabled.
 

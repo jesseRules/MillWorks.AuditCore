@@ -1,5 +1,7 @@
 # Phase 09 — Consumer library migrations
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on:
 - [`Phase04-5-AttributesToAbstractions.md`](Phase04-5-AttributesToAbstractions.md)

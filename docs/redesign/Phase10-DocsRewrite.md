@@ -1,5 +1,7 @@
 # Phase 10 — README & docs rewrite
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase09-ConsumerLibraryMigrations.md`](Phase09-ConsumerLibraryMigrations.md)
 

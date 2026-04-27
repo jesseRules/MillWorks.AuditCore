@@ -1,4 +1,4 @@
-﻿namespace MillWorks.AuditCore.EntityFramework.Attributes;
+namespace MillWorks.AuditCore.Abstractions.Attributes;
 
 /// <summary>
 /// Attribute to mark classes or properties as auditable.
@@ -21,7 +21,6 @@ public class AuditableAttribute : Attribute
     /// </summary>
     public string[]? ExcludeProperties { get; set; }
 
-    //AuditReads
     /// <summary>
     /// Allows auditing of read operations on the entity.
     /// </summary>

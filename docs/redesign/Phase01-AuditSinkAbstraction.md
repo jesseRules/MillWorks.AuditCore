@@ -1,5 +1,7 @@
 # Phase 01 — IAuditSink abstraction
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 
 ## Goal
