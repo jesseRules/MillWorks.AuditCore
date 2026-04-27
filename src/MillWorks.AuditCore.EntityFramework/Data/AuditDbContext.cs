@@ -13,7 +13,7 @@ namespace MillWorks.AuditCore.EntityFramework.Data;
 /// <summary>
 /// Partial class for audit-related database configuration
 /// </summary>
-public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
+public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, IAuditProviderDispatchSource
 {
     /// <summary>
     /// Thread-safe bypass flag using AsyncLocal for per-execution-context isolation
@@ -115,7 +115,7 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
     /// <summary>
     /// Pending provider dispatches captured in SavingChanges, processed in SavedChanges.
     /// </summary>
-    public List<PendingProviderDispatch>? PendingProviderDispatches { get; set; }
+    public IReadOnlyList<PendingProviderDispatch>? PendingProviderDispatches { get; set; }
 
     /// <summary>
     /// Re-entrancy guard — prevents infinite recursion if a provider triggers another save.
@@ -152,6 +152,12 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
     /// </summary>
     public virtual DbSet<AuditIntegrityWorkItemEntity> IntegrityWorkItems { get; set; } = null!;
 
+    /// <summary>
+    /// Transactional outbox for audit envelope handoff. Written by
+    /// <c>TransactionalOutboxSink</c> inside the consumer's transaction,
+    /// drained by <c>AuditOutboxDrainer</c> to the audit DbContext.
+    /// </summary>
+    public virtual DbSet<AuditOutboxEntity> AuditOutbox { get; set; } = null!;
 
     /// <summary>
     /// Saves changes with automatic bypass detection for audit entities
@@ -163,7 +169,8 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
         // Detect if we're saving audit entities to prevent infinite loops
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity);
+                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity
+                or AuditOutboxEntity);
 
         if (!savingAuditEntities)
             return await base.SaveChangesAsync(cancellationToken);
@@ -191,7 +198,8 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
         // Detect if we're saving audit entities
         var savingAuditEntities = ChangeTracker.Entries()
             .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity);
+                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity
+                or AuditOutboxEntity);
 
         if (!savingAuditEntities)
             return base.SaveChanges();
@@ -444,6 +452,43 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource
                 .HasConversion<int>()
                 .HasDefaultValue(IntegrityStatus.Pending)
                 .HasSentinel((IntegrityStatus)0);
+
+            if (isInMemory)
+            {
+                // InMemory: property initializers handle defaults
+            }
+            else if (isSqlite)
+            {
+                entity.Property(static e => e.CreatedAt)
+                    .HasDefaultValueSql("datetime('now')");
+            }
+            else
+            {
+                // SQL Server
+                entity.Property(static e => e.CreatedAt)
+                    .HasDefaultValueSql("GETUTCDATE()");
+            }
+        });
+
+        // AuditOutboxEntity configuration (transactional outbox for audit envelope handoff)
+        modelBuilder.Entity<AuditOutboxEntity>(entity =>
+        {
+            entity.ToTable("AuditOutbox", _schema);
+            entity.HasKey(static e => e.Id);
+
+            entity.Property(static e => e.Status)
+                .HasConversion<int>()
+                .HasDefaultValue(AuditOutboxStatus.Pending)
+                .HasSentinel((AuditOutboxStatus)0);
+
+            entity.Property(static e => e.EnvelopeVersion)
+                .HasDefaultValue(1);
+
+            entity.HasIndex(static e => e.Status)
+                .HasDatabaseName("IX_AuditOutbox_Status");
+
+            entity.HasIndex(static e => e.CreatedAt)
+                .HasDatabaseName("IX_AuditOutbox_CreatedAt");
 
             if (isInMemory)
             {

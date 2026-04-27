@@ -14,6 +14,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Compliance;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
 
@@ -68,6 +69,7 @@ public class FerpaEnforcementTests
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         var provider = services.BuildServiceProvider();
@@ -366,6 +368,7 @@ public class FerpaEnforcementTests
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         var provider = services.BuildServiceProvider();

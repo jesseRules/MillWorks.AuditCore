@@ -228,3 +228,5 @@ Note in commit/PR description; do NOT edit README in this phase.
 - Both sink modes have green test coverage.
 - `FailClosedForRegulated` works under outbox mode.
 - Phase doc updated with "Completed YYYY-MM-DD".
+
+**Completed 2026-04-26**

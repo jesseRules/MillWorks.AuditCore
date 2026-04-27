@@ -9,6 +9,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.Abstractions;
 
@@ -34,6 +35,7 @@ public sealed class AuditContextSourceTests
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddSingleton<IAuditSink>(_sink);
         _provider = services.BuildServiceProvider();
 

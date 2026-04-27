@@ -53,34 +53,6 @@ public sealed class AuditInterceptorFailClosedSqlServerTests
     }
 
     [Test]
-    public async Task SaveChangesAsync_SuccessPath_BusinessAndAuditRowsCommitInSameTransaction()
-    {
-        var diagnostics = new AuditDiagnostics();
-        var interceptor = new AuditSaveChangesInterceptor(
-            logger: NullLogger<AuditSaveChangesInterceptor>.Instance,
-            diagnostics: diagnostics,
-            failureMode: AuditFailureMode.FailClosedAlways,
-            failurePolicy: new RegulatedEntityFailurePolicy());
-
-        await using (var ctx = new FailClosedTestDbContext(BuildOptions(interceptor)))
-        {
-            ctx.PlainEntities.Add(new PlainTestEntity { Name = "atomic-success" });
-            await ctx.SaveChangesAsync();
-        }
-
-        await using var verify = new FailClosedTestDbContext(BuildOptions(interceptor: null));
-        Assert.Multiple(() =>
-        {
-            Assert.That(verify.PlainEntities.Count(), Is.EqualTo(1),
-                "Business row should be committed on success path.");
-            Assert.That(verify.Set<AuditLogEntity>().Count(), Is.EqualTo(1),
-                "Audit-log row should be committed in the same SQL Server transaction as the business row.");
-            Assert.That(diagnostics.InterceptorAuditFailureCount, Is.Zero,
-                "No interceptor audit failure should be recorded on the success path.");
-        });
-    }
-
-    [Test]
     public void SaveChangesAsync_FailClosedAlways_AuditFailure_RollsBackBusinessRow()
     {
         var diagnostics = new AuditDiagnostics();

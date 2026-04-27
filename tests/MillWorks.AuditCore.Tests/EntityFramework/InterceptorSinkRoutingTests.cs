@@ -13,6 +13,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
 
@@ -40,6 +41,7 @@ public sealed class InterceptorSinkRoutingTests
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddSingleton<IAuditSink>(_sink);
         _provider = services.BuildServiceProvider();
 
@@ -221,6 +223,7 @@ public sealed class InterceptorSinkRoutingTests
         var throwingSink = new ThrowingSink(new InvalidOperationException("simulated sink failure"));
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddSingleton<IAuditSink>(throwingSink);
         _provider = services.BuildServiceProvider();
         var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
@@ -260,6 +263,7 @@ public sealed class InterceptorSinkRoutingTests
         var throwingSink = new ThrowingSink(new InvalidOperationException("simulated sink failure"));
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddSingleton<IAuditSink>(throwingSink);
         _provider = services.BuildServiceProvider();
         var scopeFactory = _provider.GetRequiredService<IServiceScopeFactory>();
