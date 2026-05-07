@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Services.Encryption;
 using MillWorks.AuditCore.Services.Encryption.Providers;
@@ -9,7 +10,7 @@ namespace MillWorks.AuditCore.AspNetCore.Configuration;
 /// Extension methods for configuring field-level encryption.
 /// Encryption is applied via EF Core value converters — properties marked with
 /// <see cref="EntityFramework.Attributes.EncryptedFieldAttribute"/> or
-/// <see cref="EntityFramework.Attributes.SensitiveDataAttribute"/> (with AutoEncrypt)
+/// <see cref="SensitiveDataAttribute"/> (with AutoEncrypt)
 /// are automatically encrypted at the database layer.
 /// </summary>
 public static class EncryptionConfigurationExtensions

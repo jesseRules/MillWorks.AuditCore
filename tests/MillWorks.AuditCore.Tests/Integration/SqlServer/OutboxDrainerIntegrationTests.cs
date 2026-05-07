@@ -161,7 +161,7 @@ public sealed class OutboxDrainerIntegrationTests
 
         // Catch any unobserved task exceptions
         var drainerTask = drainer.StartAsync(cts.Token);
-        drainerTask.ContinueWith(t =>
+        _ = drainerTask.ContinueWith(t =>
         {
             if (t.IsFaulted)
             {
@@ -206,7 +206,7 @@ public sealed class OutboxDrainerIntegrationTests
         var row = await consumerCtx.Database
             .SqlQueryRaw<OutboxStatusRow>(
                 "SELECT Status, CompletedAt, AttemptCount, LastError FROM [dbo].[AuditOutbox]")
-            .SingleAsync();
+            .SingleAsync(cancellationToken: cts.Token);
 
         Assert.Multiple(() =>
         {
