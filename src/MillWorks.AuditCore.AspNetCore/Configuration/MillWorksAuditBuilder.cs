@@ -157,6 +157,9 @@ public sealed class MillWorksAuditBuilder
                 scopeFactory);
         });
 
+        // SQL metrics interceptor for Azure SQL observability (throttling, deadlock, connection pool errors)
+        Services.AddSingleton<AuditSqlCommandInterceptor>();
+
         // Configure DbContext with interceptor and circular dependency prevention
         Services.AddDbContext<AuditDbContext>(static (serviceProvider, options) =>
         {
@@ -178,8 +181,9 @@ public sealed class MillWorksAuditBuilder
             // AuditDbContext with different schemas could reuse the wrong model.
             options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>();
 
-            var interceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
-            options.AddInterceptors(interceptor);
+            var saveChangesInterceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
+            var sqlCommandInterceptor = serviceProvider.GetRequiredService<AuditSqlCommandInterceptor>();
+            options.AddInterceptors(saveChangesInterceptor, sqlCommandInterceptor);
 
             options.EnableSensitiveDataLogging(false);
             options.EnableDetailedErrors(false);

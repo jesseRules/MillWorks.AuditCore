@@ -92,6 +92,9 @@ Per-entity audit enrichment through the `IAuditProvider` interface. Register pro
 ### Query and Reporting
 Multi-field text search, date-range filtering, entity trail reconstruction, user activity timelines, event type distribution, and top-user reports -- provided across `AuditQueryService`, `AuditSearchService`, and `AuditReportService`. Compliance reports can be generated per standard for any date range. Audit event data can be exported in JSON or CSV format. All query services use `AsNoTracking()` for read performance.
 
+### Observability
+OpenTelemetry-compatible metrics for SQL operations: command duration histograms, error counts by category (throttling, deadlock, connection pool, transient), slow query counters, and retry tracking. Azure SQL error codes are classified automatically for DTU throttling detection. See the [Observability](#observability) section for meter names and integration examples.
+
 ## Quick Start
 
 Install the primary package (pulls in all dependencies):
@@ -533,6 +536,108 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `AuditOutbox` | Durable handoff for `TransactionalOutbox` sink | `Id`, `EnvelopeJson`, `Status`, `CreatedAt`, `CompletedAt`, `AttemptCount`, `LastError` |
 
 Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
+
+## Observability
+
+AuditCore emits OpenTelemetry-compatible metrics for SQL operations and audit pipeline health. These metrics are exposed via `System.Diagnostics.Metrics` and can be consumed by any OpenTelemetry-compatible collector.
+
+### Meters
+
+| Meter Name | Purpose |
+|------------|---------|
+| `MillWorks.AuditCore.Sql` | SQL command duration, errors, retries, slow queries |
+| `MillWorks.AuditCore.OutboxDrainer` | Outbox processing failures (transactional outbox mode) |
+
+### SQL Metrics
+
+The `AuditSqlCommandInterceptor` (registered automatically when using `UseEntityFramework`) emits:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `sql_command_duration_seconds` | Histogram | Per-command latency with `operation` and `outcome` tags |
+| `sql_errors_total` | Counter | Error counts by `category` (throttling, connection_pool, deadlock, transient, other) |
+| `sql_slow_commands_total` | Counter | Commands exceeding 1 second threshold |
+| `sql_retries_total` | Counter | Retry attempts from `ResilientAuditLogger` with `operation` tag |
+
+**Azure SQL error classification.** The interceptor classifies SQL Server errors into categories useful for Azure SQL diagnostics:
+
+| Category | Error Codes | Meaning |
+|----------|-------------|---------|
+| `throttling` | 10928, 10929, 40501, 40544, 40549-40553, 49918-49920 | DTU/resource throttling |
+| `connection_pool` | -2, 233, 10053, 10054, 10060, 40143, 40197, 40613 | Connection pool exhaustion or network issues |
+| `deadlock` | 1205 | SQL Server deadlock victim |
+| `transient` | -1, 2, 53, 121, 1232, 4060, 4221, 18456 | Transient network/auth errors |
+| `other` | * | Unclassified errors |
+
+### Subscribing to Metrics
+
+**OpenTelemetry SDK (recommended):**
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics =>
+    {
+        metrics.AddMeter("MillWorks.AuditCore.Sql");
+        metrics.AddMeter("MillWorks.AuditCore.OutboxDrainer");
+        
+        // Add exporters
+        metrics.AddOtlpExporter();           // For Jaeger, Grafana, etc.
+        // metrics.AddConsoleExporter();     // For local dev
+    });
+```
+
+**OTLP Collector (Jaeger, Grafana, etc.):**
+
+```json
+{
+  "OpenTelemetry": {
+    "OtlpEndpoint": "http://localhost:4317"
+  }
+}
+```
+
+Run a local collector:
+
+```bash
+docker run -d --name jaeger -p 4317:4317 -p 16686:16686 jaegertracing/all-in-one:latest
+```
+
+Then open http://localhost:16686 for traces.
+
+**Console exporter (local dev):**
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics =>
+    {
+        metrics.AddMeter("MillWorks.AuditCore.Sql");
+        metrics.AddConsoleExporter();
+    });
+```
+
+### Key Metrics to Watch
+
+| Metric | What to Alert On |
+|--------|------------------|
+| `sql_errors_total{category="throttling"}` | Azure SQL DTU limits hit — scale up or optimize queries |
+| `sql_errors_total{category="deadlock"}` | Deadlocks occurring — review transaction isolation and lock ordering |
+| `sql_errors_total{category="connection_pool"}` | Pool exhaustion — increase pool size or reduce connection hold time |
+| `sql_slow_commands_total` | Slow queries — add indexes or optimize queries |
+| `sql_retries_total` | Non-zero in steady state indicates recurring transient failures |
+
+### Programmatic Error Classification
+
+The interceptor exposes static helpers for use in custom retry logic:
+
+```csharp
+// Classify an exception for logging/metrics
+string category = AuditSqlCommandInterceptor.ClassifyError(exception);
+// Returns: "throttling", "connection_pool", "deadlock", "transient", or "other"
+
+// Check if an exception is likely transient (safe to retry)
+bool shouldRetry = AuditSqlCommandInterceptor.IsTransient(exception);
+// Returns true for: transient, throttling, deadlock, connection_pool, timeout
+```
 
 ## Testing
 

@@ -177,10 +177,10 @@ public sealed class OutboxDrainerIntegrationTests
             await Task.Delay(100);
             using var checkScope = sp.CreateScope();
             var auditCtx = checkScope.ServiceProvider.GetRequiredService<AuditDbContext>();
-            var checkRow = await auditCtx.AuditOutbox.FirstOrDefaultAsync();
+            var checkRow = await auditCtx.AuditOutbox.FirstOrDefaultAsync(cancellationToken: cts.Token);
             if (checkRow is not null && checkRow.Status != AuditOutboxStatus.Pending)
             {
-                TestContext.WriteLine($"Row changed: Status={checkRow.Status}, AttemptCount={checkRow.AttemptCount}");
+                TestContext.Out.WriteLine($"Row changed: Status={checkRow.Status}, AttemptCount={checkRow.AttemptCount}");
                 finalStatus = checkRow.Status;
                 break;
             }
@@ -191,7 +191,7 @@ public sealed class OutboxDrainerIntegrationTests
         // Print all log messages
         foreach (var msg in logMessages)
         {
-            TestContext.WriteLine($"LOG: {msg}");
+            TestContext.Out.WriteLine($"LOG: {msg}");
         }
 
         if (finalStatus == AuditOutboxStatus.Pending)

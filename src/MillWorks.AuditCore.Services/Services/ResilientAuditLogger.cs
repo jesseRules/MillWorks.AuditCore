@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -71,6 +72,8 @@ public sealed class ResilientAuditLogger(
                             auditEvent.EventId);
                         return; // Don't retry saves
                     }
+
+                    AuditSqlCommandInterceptor.RecordRetry("audit_log");
 
                     // Exponential backoff with jitter to avoid thundering herd
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
@@ -175,6 +178,8 @@ public sealed class ResilientAuditLogger(
 
                 if (retry > 0)
                 {
+                    AuditSqlCommandInterceptor.RecordRetry("audit_log_batch");
+
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
                     var jitter = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
                     await Task.Delay(TimeSpan.FromMilliseconds(exponentialDelay + jitter), cancellationToken);
