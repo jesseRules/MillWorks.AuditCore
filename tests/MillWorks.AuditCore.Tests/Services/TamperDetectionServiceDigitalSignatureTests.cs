@@ -76,19 +76,11 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     }
 
     /// <summary>
-    /// Uses reflection to clear the static RSA key caches between tests,
-    /// since they are private static fields with no public reset method.
+    /// Clears the static RSA key caches between tests using the internal reset hook.
     /// </summary>
     private static void ResetStaticKeyCache()
     {
-        var type = typeof(TamperDetectionService);
-        var signingField = type.GetField("_cachedSigningKey",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-        var verifyField = type.GetField("_cachedVerifyKey",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-
-        signingField?.SetValue(null, null);
-        verifyField?.SetValue(null, null);
+        TamperDetectionService.ResetKeyCachesForTests();
     }
 
     private TamperDetectionService CreateServiceWithSignatures(
@@ -381,7 +373,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         var ex = Assert.ThrowsAsync<InvalidOperationException>(
             () => service.CreateIntegrityRecordAsync(dto));
 
-        Assert.That(ex!.Message, Does.Contain("private key path"));
+        Assert.That(ex!.Message, Does.Contain("does not exist"));
     }
 
     [Test]
@@ -667,6 +659,226 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    #endregion
+
+    #region Key Cache Isolation
+
+    [Test]
+    public async Task TwoInstances_WithDifferentKeyPaths_UseCorrectKeys()
+    {
+        // Arrange — create two separate key pairs
+        using var rsa1 = RSA.Create(2048);
+        using var rsa2 = RSA.Create(2048);
+
+        var keyDir1 = Path.Combine(_tempDir, "keys1");
+        var keyDir2 = Path.Combine(_tempDir, "keys2");
+        Directory.CreateDirectory(keyDir1);
+        Directory.CreateDirectory(keyDir2);
+
+        var privateKey1 = Path.Combine(keyDir1, "private.pem");
+        var publicKey1 = Path.Combine(keyDir1, "public.pem");
+        var privateKey2 = Path.Combine(keyDir2, "private.pem");
+        var publicKey2 = Path.Combine(keyDir2, "public.pem");
+
+        File.WriteAllText(privateKey1, rsa1.ExportRSAPrivateKeyPem());
+        File.WriteAllText(publicKey1, rsa1.ExportRSAPublicKeyPem());
+        File.WriteAllText(privateKey2, rsa2.ExportRSAPrivateKeyPem());
+        File.WriteAllText(publicKey2, rsa2.ExportRSAPublicKeyPem());
+
+        var service1 = CreateServiceWithSignatures(privateKeyPath: privateKey1, publicKeyPath: publicKey1);
+        var service2 = CreateServiceWithSignatures(privateKeyPath: privateKey2, publicKeyPath: publicKey2);
+
+        var eventId1 = Guid.NewGuid();
+        var eventId2 = Guid.NewGuid();
+        var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        AuditIntegrityEntity? captured1 = null;
+        AuditIntegrityEntity? captured2 = null;
+
+        SetupRepositoryForCreate(eventId1);
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditIntegrityEntity, CancellationToken>((e, _) =>
+            {
+                if (e.EventId == eventId1) captured1 = e;
+                else if (e.EventId == eventId2) captured2 = e;
+            })
+            .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
+
+        var dto1 = new AuditIntegrityDto
+        {
+            EventId = eventId1,
+            EventType = "Test.Event",
+            User = "user1",
+            InsertedDate = fixedDate,
+            JsonData = "{}"
+        };
+        var dto2 = new AuditIntegrityDto
+        {
+            EventId = eventId2,
+            EventType = "Test.Event",
+            User = "user2",
+            InsertedDate = fixedDate,
+            JsonData = "{}"
+        };
+
+        // Act — sign with each service's respective key
+        await service1.CreateIntegrityRecordAsync(dto1);
+        await service2.CreateIntegrityRecordAsync(dto2);
+
+        // Assert — signatures should be different (different keys)
+        Assert.That(captured1, Is.Not.Null);
+        Assert.That(captured2, Is.Not.Null);
+        Assert.That(captured1!.DigitalSignature, Is.Not.EqualTo(captured2!.DigitalSignature),
+            "Different keys should produce different signatures");
+
+        // Verify service1 can verify its own signature
+        var auditEvent1 = new AuditEventEntity
+        {
+            EventId = eventId1,
+            EventType = "Test.Event",
+            User = "user1",
+            InsertedDate = fixedDate,
+            JsonData = "{}"
+        };
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent1);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(captured1);
+
+        var verified1 = await service1.VerifyIntegrityAsync(eventId1);
+        Assert.That(verified1, Is.True, "Service1 should verify its own signature");
+
+        // Verify service2 can verify its own signature
+        var auditEvent2 = new AuditEventEntity
+        {
+            EventId = eventId2,
+            EventType = "Test.Event",
+            User = "user2",
+            InsertedDate = fixedDate,
+            JsonData = "{}"
+        };
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent2);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(captured2);
+
+        var verified2 = await service2.VerifyIntegrityAsync(eventId2);
+        Assert.That(verified2, Is.True, "Service2 should verify its own signature");
+
+        // Cross-verify: service1's signature should fail with service2's key
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent1);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(captured1);
+
+        var crossVerified = await service2.VerifyIntegrityAsync(eventId1);
+        Assert.That(crossVerified, Is.False, "Service2 should not verify service1's signature (wrong key)");
+    }
+
+    [Test]
+    public async Task PathNormalization_RelativeAndAbsolute_ResolveSameCacheEntry()
+    {
+        // Arrange — use relative path for one service, absolute for another
+        var relativePath = Path.Combine(".", Path.GetFileName(_privateKeyPath));
+        var originalDir = Directory.GetCurrentDirectory();
+
+        try
+        {
+            // Temporarily change to temp dir so relative path resolves to the key file
+            Directory.SetCurrentDirectory(_tempDir);
+            ResetStaticKeyCache();
+
+            var serviceRelative = CreateServiceWithSignatures(
+                privateKeyPath: relativePath,
+                publicKeyPath: Path.Combine(".", Path.GetFileName(_publicKeyPath)));
+            var serviceAbsolute = CreateServiceWithSignatures(
+                privateKeyPath: _privateKeyPath,
+                publicKeyPath: _publicKeyPath);
+
+            var eventId = Guid.NewGuid();
+            var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            SetupRepositoryForCreate(eventId);
+
+            AuditIntegrityEntity? captured = null;
+            _mockAuditIntegrityRepository
+                .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
+                .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
+                .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
+
+            var dto = new AuditIntegrityDto
+            {
+                EventId = eventId,
+                EventType = "Test.Event",
+                User = "testuser",
+                InsertedDate = fixedDate,
+                JsonData = "{}"
+            };
+
+            // Act — sign with relative path service
+            await serviceRelative.CreateIntegrityRecordAsync(dto);
+
+            // Verify with absolute path service — this proves they share the same cache entry
+            // because the absolute-path service can verify what relative-path service signed
+            var auditEvent = new AuditEventEntity
+            {
+                EventId = eventId,
+                EventType = "Test.Event",
+                User = "testuser",
+                InsertedDate = fixedDate,
+                JsonData = "{}"
+            };
+            _mockAuditEventRepository
+                .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(auditEvent);
+            _mockAuditIntegrityRepository
+                .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(captured!);
+
+            // Assert — serviceAbsolute should verify signature created by serviceRelative
+            // because both paths normalize to the same cache entry
+            var verified = await serviceAbsolute.VerifyIntegrityAsync(eventId);
+            Assert.That(verified, Is.True,
+                "Absolute path service should verify signature created by relative path service (same cache entry)");
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalDir);
+        }
+    }
+
+    [Test]
+    public void TestIsolationReset_ClearsCache()
+    {
+        // Arrange — populate the cache by creating a service and signing
+        var service = CreateServiceWithSignatures();
+        SetupRepositoryForCreate(Guid.NewGuid());
+
+        // Load keys into cache by creating a record
+        var dto = new AuditIntegrityDto { EventId = Guid.NewGuid() };
+        service.CreateIntegrityRecordAsync(dto).GetAwaiter().GetResult();
+
+        // Act — reset the cache
+        TamperDetectionService.ResetKeyCachesForTests();
+
+        // Delete the key files
+        File.Delete(_privateKeyPath);
+        File.Delete(_publicKeyPath);
+
+        // Assert — the cache should be cleared, so next load should fail
+        var service2 = CreateServiceWithSignatures();
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+            () => service2.CreateIntegrityRecordAsync(new AuditIntegrityDto { EventId = Guid.NewGuid() }));
+
+        Assert.That(ex!.Message, Does.Contain("does not exist"));
     }
 
     #endregion

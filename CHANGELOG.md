@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.5] - 2026-05-18
+
+### Changed
+- **File-based key provider fail-safe mode** — `FileBasedKeyProvider` now defaults to `allowAutoKeyGeneration: false`. When no encryption keys exist, it throws `KeyProviderException` instead of silently auto-generating keys. Dev/bootstrap scenarios can opt-in with `UseFieldEncryptionWithFileStorage(..., allowAutoKeyGeneration: true)`. Production deployments must pre-provision keys or explicitly enable auto-generation.
+- **Query service page size limits** — `AuditQueryService` and `AuditSearchService` now enforce consistent page size limits via `QueryLimits.Clamp()`: requests above `MaxPageSize` (1000) are clamped, requests ≤0 default to `DefaultPageSize` (50).
+- **RSA key cache path isolation** — `TamperDetectionService` RSA key caching changed from static nullable fields to path-keyed `ConcurrentDictionary<string, Lazy<RSAParameters>>`. Multiple service instances with different key paths (multi-tenant hosts, test isolation) now correctly load and cache their respective keys instead of sharing a single global cache.
+- **Startup jitter for reconciliation** — `IntegrityReconciliationService` adds random jitter (0-5s) to the 10s startup delay to avoid thundering herd when multiple nodes restart simultaneously.
+
+### Fixed
+- **`AuditDbContext` rename cleanup** — Updated remaining references from `AuditApplicationDbContext` to `AuditDbContext` in `AuditModelCacheKeyFactory` and `DesignTimeDbContextFactory`.
+
 ## [Unreleased]
 
 ### Added
@@ -309,7 +320,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
-[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...HEAD
+[1.7.5]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.2...v1.7.5
+[1.6.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.5.5...v1.6.0
+[1.5.5]: https://github.com/jesserules/millworks.auditcore/compare/v1.5.4...v1.5.5
+[1.5.4]: https://github.com/jesserules/millworks.auditcore/compare/v1.5.0...v1.5.4
 [1.5.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.4.2...v1.5.0
 [1.3.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.2.0...v1.3.0

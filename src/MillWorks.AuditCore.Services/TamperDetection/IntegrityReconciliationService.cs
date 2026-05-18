@@ -68,8 +68,10 @@ public sealed class IntegrityReconciliationService(
             return;
         }
 
-        // Wait briefly for application startup to complete
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        // Wait briefly for application startup to complete, with jitter to avoid
+        // thundering herd when multiple nodes restart simultaneously
+        var startupJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(5000));
+        await Task.Delay(TimeSpan.FromSeconds(10) + startupJitter, stoppingToken);
 
         logger.LogInformation("IntegrityReconciliationService: running startup reconciliation");
         await ReconcileAsync(stoppingToken);

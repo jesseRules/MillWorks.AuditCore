@@ -59,6 +59,7 @@ public sealed class AuditQueryService(
         int take = 50,
         CancellationToken cancellationToken = default)
     {
+        take = QueryLimits.Clamp(take);
         logger.LogDebug("Getting user activity for user {UserId}", userId);
 
         IQueryable<AuditEventEntity> query = context.AuditEvents.AsNoTracking()
@@ -89,7 +90,7 @@ public sealed class AuditQueryService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        if (limit <= 0) limit = 50;
+        limit = QueryLimits.Clamp(limit);
         if (offset < 0) offset = 0;
 
         logger.LogDebug("Getting audit events with offset {Offset} and limit {Limit}", offset, limit);
@@ -182,7 +183,7 @@ public sealed class AuditQueryService(
         List<AuditEventEntity> events = await context.AuditEvents.AsNoTracking()
             .Where(e => e.InsertedDate >= since)
             .OrderByDescending(static e => e.InsertedDate)
-            .Take(1000)
+            .Take(QueryLimits.MaxPageSize)
             .ToListAsync(cancellationToken);
 
         return MapToAuditLogDtos(events);

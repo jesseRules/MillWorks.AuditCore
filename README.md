@@ -393,8 +393,11 @@ builder.Services.AddMillWorksAudit(audit =>
     // Field-level encryption (Azure Key Vault)
     audit.UseFieldEncryption("https://my-vault.vault.azure.net/");
 
-    // Or file-based encryption for air-gapped environments
+    // Or file-based encryption for air-gapped environments (production default: fail-safe)
     // audit.UseFieldEncryptionWithFileStorage("/secure/keys", "<master-key>");
+    //
+    // For dev/bootstrap, enable auto-generation of initial keys:
+    // audit.UseFieldEncryptionWithFileStorage("/secure/keys", "<master-key>", allowAutoKeyGeneration: true);
 
     // Custom per-entity audit providers
     audit.RegisterProviders(registry =>

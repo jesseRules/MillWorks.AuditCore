@@ -29,7 +29,7 @@ public class EncryptionKeyProviderTests
         RandomNumberGenerator.Fill(masterKey);
         _masterKeyBase64 = Convert.ToBase64String(masterKey);
 
-        _provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        _provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
     }
 
     [TearDown]
@@ -132,7 +132,7 @@ public class EncryptionKeyProviderTests
         string version = await _provider.GetCurrentKeyVersionAsync();
 
         // Act - create a new provider instance pointing to the same key store
-        var newProvider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var newProvider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         byte[] reloadedKey = await newProvider.GetEncryptionKeyAsync("ConsistentField", version);
 
         // Assert - key should be identical across provider instances
