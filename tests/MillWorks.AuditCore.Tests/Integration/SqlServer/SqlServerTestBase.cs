@@ -19,9 +19,9 @@ public abstract class SqlServerTestBase
 
     protected static string ConnectionString => SqlServerContainerFixture.ConnectionString;
 
-    protected static AuditApplicationDbContext CreateContext()
+    protected static AuditDbContext CreateContext()
         => SqlServerContainerFixture.CreateContext();
 
-    protected static AuditApplicationDbContext CreateContext(string schema)
+    protected static AuditDbContext CreateContext(string schema)
         => SqlServerContainerFixture.CreateContext(schema);
 }

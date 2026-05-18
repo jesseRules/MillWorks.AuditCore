@@ -92,7 +92,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task GetEncryptionKey_DifferentFields_DifferentDerivedKeys()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
 
         var key1 = await provider.GetEncryptionKeyAsync("FieldA");
         var key2 = await provider.GetEncryptionKeyAsync("FieldB");
@@ -105,7 +105,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task GetEncryptionKey_SameField_ReturnsCachedKey()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
 
         var key1 = await provider.GetEncryptionKeyAsync("CachedField");
         var key2 = await provider.GetEncryptionKeyAsync("CachedField");
@@ -119,7 +119,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task RotateKeysAsync_NewVersionAndNewKeys()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
 
         var v1 = await provider.GetCurrentKeyVersionAsync();
         var keyV1 = await provider.GetEncryptionKeyAsync("TestField");
@@ -138,7 +138,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task RotateKeysAsync_OldVersionStillAccessible()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
 
         var v1 = await provider.GetCurrentKeyVersionAsync();
         var keyV1 = await provider.GetEncryptionKeyAsync("TestField", v1);
@@ -156,7 +156,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task GetEncryptionKey_Returns32ByteKey()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         var key = await provider.GetEncryptionKeyAsync("SizeCheck");
 
         key.Length.Should().Be(32, "AES-256 requires 32-byte keys");
@@ -167,7 +167,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task GetEncryptionKeyAsync_ConcurrentReads_AllSucceed()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         // Initialize a key first
         await provider.GetEncryptionKeyAsync("ConcurrentField");
 
@@ -188,11 +188,11 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task NewProviderInstance_ReadsExistingKeys()
     {
-        var provider1 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider1 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         var version = await provider1.GetCurrentKeyVersionAsync();
         var key1 = await provider1.GetEncryptionKeyAsync("PersistField", version);
 
-        // Create a completely new provider instance
+        // Create a completely new provider instance (no auto-gen needed since keys exist)
         var provider2 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
         var key2 = await provider2.GetEncryptionKeyAsync("PersistField", version);
 
@@ -204,7 +204,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public async Task WrongMasterKey_CannotDecryptKeyFiles()
     {
-        var provider1 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider1 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         var version = await provider1.GetCurrentKeyVersionAsync();
 
         // Create provider with different master key
@@ -220,7 +220,7 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public void GetCurrentKeyVersion_Sync_ReturnsValidVersion()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         var version = provider.GetCurrentKeyVersion();
 
         version.Should().NotBeNullOrEmpty();
@@ -230,9 +230,79 @@ public class FileBasedKeyProviderSecurityTests
     [Test]
     public void GetEncryptionKey_Sync_ReturnsValidKey()
     {
-        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object);
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
         var key = provider.GetEncryptionKey("SyncField");
 
         key.Length.Should().Be(32);
+    }
+
+    // ── Auto-key-generation disabled tests ──
+
+    [Test]
+    public void GetCurrentKeyVersion_AutoGenDisabled_NoKeys_ThrowsKeyProviderException()
+    {
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: false);
+
+        var act = () => provider.GetCurrentKeyVersion();
+
+        act.Should().Throw<KeyProviderException>()
+            .WithMessage("*automatic key generation is disabled*");
+    }
+
+    [Test]
+    public async Task GetCurrentKeyVersionAsync_AutoGenDisabled_NoKeys_ThrowsKeyProviderException()
+    {
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: false);
+
+        var act = () => provider.GetCurrentKeyVersionAsync();
+
+        await act.Should().ThrowAsync<KeyProviderException>()
+            .WithMessage("*automatic key generation is disabled*");
+    }
+
+    [Test]
+    public async Task GetCurrentKeyVersionAsync_AutoGenEnabled_NoKeys_CreatesKeyAndReturnsVersion()
+    {
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
+
+        var version = await provider.GetCurrentKeyVersionAsync();
+
+        version.Should().NotBeNullOrEmpty();
+        version.Should().StartWith("v");
+
+        // Verify key file was created
+        var keyFilePath = Path.Combine(_keyStorePath, $"key-{version}.encrypted");
+        File.Exists(keyFilePath).Should().BeTrue();
+    }
+
+    [Test]
+    public void GetCurrentKeyVersion_AutoGenEnabled_NoKeys_LogsWarning()
+    {
+        var provider = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
+
+        _ = provider.GetCurrentKeyVersion();
+
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Auto-generating initial key")),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task GetCurrentKeyVersionAsync_ExistingKeys_WorksRegardlessOfFlag()
+    {
+        // First create keys with auto-gen enabled
+        var provider1 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: true);
+        var version = await provider1.GetCurrentKeyVersionAsync();
+
+        // Now create provider with auto-gen disabled - should still work because keys exist
+        var provider2 = new FileBasedKeyProvider(_keyStorePath, _masterKeyBase64, _mockLogger.Object, allowAutoKeyGeneration: false);
+        var version2 = await provider2.GetCurrentKeyVersionAsync();
+
+        version2.Should().Be(version);
     }
 }

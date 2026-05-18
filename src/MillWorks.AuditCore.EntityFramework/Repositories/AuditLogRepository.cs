@@ -9,7 +9,7 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 /// AuditLogRepository provides methods to interact with audit logs in the project management system, allowing retrieval of audit trails for entities and user activities.
 /// </summary>
 /// <param name="context"></param>
-public sealed class AuditLogRepository(AuditApplicationDbContext context)
+public sealed class AuditLogRepository(AuditDbContext context)
     : Repository<AuditLogEntity>(context), IAuditLogRepository
 {
     /// <inheritdoc />

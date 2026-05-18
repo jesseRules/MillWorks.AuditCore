@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -14,7 +15,7 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Services;
 /// <para>
 /// <see cref="LogAsync(AuditEvent, CancellationToken)"/> and
 /// <see cref="LogBatchAsync"/> create a fresh DI scope per retry attempt and resolve
-/// a fresh <see cref="AuditLogger"/> (with a fresh <c>AuditApplicationDbContext</c>)
+/// a fresh <see cref="AuditLogger"/> (with a fresh <c>AuditDbContext</c>)
 /// from it. Without scope-per-retry, a failed attempt leaves the
 /// <c>AuditEventEntity</c> in the scoped context's identity map; the next attempt
 /// re-adds a new instance with the same <c>EventId</c> and EF throws
@@ -71,6 +72,8 @@ public sealed class ResilientAuditLogger(
                             auditEvent.EventId);
                         return; // Don't retry saves
                     }
+
+                    AuditSqlCommandInterceptor.RecordRetry("audit_log");
 
                     // Exponential backoff with jitter to avoid thundering herd
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
@@ -175,6 +178,8 @@ public sealed class ResilientAuditLogger(
 
                 if (retry > 0)
                 {
+                    AuditSqlCommandInterceptor.RecordRetry("audit_log_batch");
+
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
                     var jitter = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
                     await Task.Delay(TimeSpan.FromMilliseconds(exponentialDelay + jitter), cancellationToken);

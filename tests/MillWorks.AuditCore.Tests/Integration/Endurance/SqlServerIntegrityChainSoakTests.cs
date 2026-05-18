@@ -363,18 +363,18 @@ public sealed class SqlServerIntegrityChainSoakTests
         await notesWriter.WriteLineAsync("- `samples.csv` — every GC sample captured during the run.");
     }
 
-    private AuditApplicationDbContext CreateContext()
+    private AuditDbContext CreateContext()
     {
         // Mirrors SqlServerContainerFixture.CreateContext + MillWorksAuditBuilder.cs:173 so
         // the schema-aware model cache behaves identically to production.
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlServer(_soakConnectionString)
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
-        return new AuditApplicationDbContext(options);
+        return new AuditDbContext(options);
     }
 
-    private static TamperDetectionService CreateService(AuditApplicationDbContext context)
+    private static TamperDetectionService CreateService(AuditDbContext context)
     {
         var eventRepo = new AuditEventRepository(context);
         var integrityRepo = new AuditIntegrityRepository(context);

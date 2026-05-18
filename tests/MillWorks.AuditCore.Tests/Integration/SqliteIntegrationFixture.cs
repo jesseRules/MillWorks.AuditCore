@@ -13,7 +13,7 @@ namespace MillWorks.AuditCore.Tests.Integration;
 public abstract class SqliteIntegrationFixture : IDisposable
 {
     private readonly SqliteConnection _connection;
-    protected DbContextOptions<AuditApplicationDbContext> Options { get; }
+    protected DbContextOptions<AuditDbContext> Options { get; }
 
     /// <summary>
     /// The shared in-memory SQLite connection backing every context created from
@@ -29,7 +29,7 @@ public abstract class SqliteIntegrationFixture : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        Options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        Options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
@@ -39,9 +39,9 @@ public abstract class SqliteIntegrationFixture : IDisposable
         context.Database.EnsureCreated();
     }
 
-    protected AuditApplicationDbContext CreateContext()
+    protected AuditDbContext CreateContext()
     {
-        return new AuditApplicationDbContext(Options);
+        return new AuditDbContext(Options);
     }
 
     /// <summary>

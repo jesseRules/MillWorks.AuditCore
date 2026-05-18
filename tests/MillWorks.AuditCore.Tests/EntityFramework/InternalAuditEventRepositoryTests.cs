@@ -15,12 +15,12 @@ public class InternalAuditEventRepositoryTests
     /// <summary>
     /// Options for the in-memory database
     /// </summary>
-    private DbContextOptions<AuditApplicationDbContext> _options;
+    private DbContextOptions<AuditDbContext> _options;
 
     /// <summary>
     /// Context for the in-memory database
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Repository under test
@@ -35,7 +35,7 @@ public class InternalAuditEventRepositoryTests
     {
         _options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(_options);
+        _context = new AuditDbContext(_options);
         _repository = new InternalAuditEventRepository(_context);
     }
 

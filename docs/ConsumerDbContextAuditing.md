@@ -1,5 +1,16 @@
 # Plan — Consumer DbContext Auditing
 
+> **SUPERSEDED.** This plan is replaced by
+> [`RedesignPlan.md`](RedesignPlan.md). The original three items map to
+> phases in the redesign:
+> - Item 01 → Phase 07 (consumer DbContexts no longer need to map
+>   `AuditLogEntity`)
+> - Item 02 → Phases 02, 06, 07 (chain coverage falls out of sink-owned
+>   persistence)
+> - Item 03 → tracked separately as a follow-up after Phase 11
+>
+> Retained for historical context.
+
 Two upstream gaps surfaced while wiring `MillWorks.Compliance` (in
 `/Users/jesse/RiderProjects/MillWorks/MillWorks.Compliance/`) onto AuditCore's EF
 interceptor. Both affect every consumer library that references

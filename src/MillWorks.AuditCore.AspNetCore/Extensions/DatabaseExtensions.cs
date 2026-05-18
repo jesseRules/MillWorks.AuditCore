@@ -20,8 +20,8 @@ public static class DatabaseExtensions
         public void RunAuditMigrations()
         {
             using var scope = serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
-            var logger = scope.ServiceProvider.GetService<ILogger<AuditApplicationDbContext>>();
+            var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+            var logger = scope.ServiceProvider.GetService<ILogger<AuditDbContext>>();
 
             try
             {
@@ -54,8 +54,8 @@ public static class DatabaseExtensions
         public async Task RunAuditMigrationsAsync(CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
-            var logger = scope.ServiceProvider.GetService<ILogger<AuditApplicationDbContext>>();
+            var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+            var logger = scope.ServiceProvider.GetService<ILogger<AuditDbContext>>();
 
             try
             {

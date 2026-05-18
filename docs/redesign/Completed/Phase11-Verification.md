@@ -1,5 +1,7 @@
 # Phase 11 — Verification & soak
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase10-DocsRewrite.md`](Phase10-DocsRewrite.md)
 

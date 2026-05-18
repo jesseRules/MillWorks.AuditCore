@@ -10,12 +10,12 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 [Category("Unit")]
 public class RepositoryOptimisticUpdateTests
 {
-    private AuditApplicationDbContext _context = null!;
+    private AuditDbContext _context = null!;
 
     [SetUp]
     public void Setup()
     {
-        _context = new AuditApplicationDbContext(TestDbContextFactory.CreateInMemoryOptions());
+        _context = new AuditDbContext(TestDbContextFactory.CreateInMemoryOptions());
     }
 
     [TearDown]
@@ -126,7 +126,7 @@ public class RepositoryOptimisticUpdateTests
             InsertedDate = DateTimeOffset.UtcNow
         };
 
-    private sealed class TestOptimisticRepository(AuditApplicationDbContext context, AuditEventEntity seedEntity)
+    private sealed class TestOptimisticRepository(AuditDbContext context, AuditEventEntity seedEntity)
         : Repository<AuditEventEntity>(context)
     {
         private readonly Queue<Exception?> _saveOutcomes = new();

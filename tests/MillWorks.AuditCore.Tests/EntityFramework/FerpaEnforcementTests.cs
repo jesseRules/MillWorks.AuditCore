@@ -14,6 +14,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Compliance;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
 
@@ -60,7 +61,7 @@ public class FerpaEnforcementTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -68,6 +69,7 @@ public class FerpaEnforcementTests
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         var provider = services.BuildServiceProvider();
@@ -358,7 +360,7 @@ public class FerpaEnforcementTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -366,6 +368,7 @@ public class FerpaEnforcementTests
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         var provider = services.BuildServiceProvider();
@@ -403,10 +406,10 @@ public class FerpaEnforcementTests
     // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Test DbContext that inherits from AuditApplicationDbContext to provide
+    /// Test DbContext that inherits from AuditDbContext to provide
     /// CurrentUserId for consent enforcement. Uses InMemory provider.
     /// </summary>
-    internal class EnforcementTestDbContext : AuditApplicationDbContext
+    internal class EnforcementTestDbContext : AuditDbContext
     {
         public DbSet<FerpaConsentEntity> FerpaConsentEntities { get; set; } = null!;
         public DbSet<EnforcementRegularEntity> RegularEntities { get; set; } = null!;

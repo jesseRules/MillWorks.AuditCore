@@ -9,12 +9,13 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.Abstractions;
 
 /// <summary>
 /// Verifies that <see cref="IAuditContextSource"/> is the supported way for any
-/// <c>DbContext</c> (not just <see cref="AuditApplicationDbContext"/>) to flow
+/// <c>DbContext</c> (not just <see cref="AuditDbContext"/>) to flow
 /// request context (<c>UserId</c>, <c>CorrelationId</c>, <c>IpAddress</c>,
 /// <c>UserAgent</c>) into <see cref="AuditEnvelope"/> instances published by
 /// <see cref="AuditSaveChangesInterceptor"/>.
@@ -34,6 +35,7 @@ public sealed class AuditContextSourceTests
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddSingleton<IAuditSink>(_sink);
         _provider = services.BuildServiceProvider();
 
@@ -53,7 +55,7 @@ public sealed class AuditContextSourceTests
     public async Task ConsumerDbContext_ImplementingInterface_FlowsAllFourFieldsIntoEnvelope()
     {
         // A consumer DbContext that depends only on Abstractions for context fields,
-        // not on AuditApplicationDbContext.
+        // not on AuditDbContext.
         var options = new DbContextOptionsBuilder<ConsumerContextSourceDbContext>()
             .UseInMemoryDatabase($"AuditContextSource_{Guid.NewGuid()}")
             .ConfigureWarnings(static w =>
@@ -153,13 +155,13 @@ public sealed class AuditContextSourceTests
     }
 
     [Test]
-    public void AuditApplicationDbContext_ImplementsIAuditContextSource()
+    public void AuditDbContext_ImplementsIAuditContextSource()
     {
         // Smoke check: the existing audit-owned DbContext satisfies the interface so
         // the cast in the interceptor's hot path returns the same instance as before.
-        Assert.That(typeof(IAuditContextSource).IsAssignableFrom(typeof(AuditApplicationDbContext)),
+        Assert.That(typeof(IAuditContextSource).IsAssignableFrom(typeof(AuditDbContext)),
             Is.True,
-            $"{nameof(AuditApplicationDbContext)} must implement {nameof(IAuditContextSource)} so " +
+            $"{nameof(AuditDbContext)} must implement {nameof(IAuditContextSource)} so " +
             "the cast in AuditSaveChangesInterceptor returns the existing context.");
     }
 

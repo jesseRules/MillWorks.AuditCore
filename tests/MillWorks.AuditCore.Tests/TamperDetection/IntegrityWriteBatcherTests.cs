@@ -19,7 +19,7 @@ public sealed class IntegrityWriteBatcherTests
     private Mock<IServiceProvider> _mockScopeProvider = null!;
     private Mock<ITamperDetectionService> _mockTamperDetection = null!;
     private Mock<ILogger<IntegrityWriteBatcher>> _mockLogger = null!;
-    private AuditApplicationDbContext _dbContext = null!;
+    private AuditDbContext _dbContext = null!;
 
     [SetUp]
     public void SetUp()
@@ -31,10 +31,10 @@ public sealed class IntegrityWriteBatcherTests
         _mockLogger = new Mock<ILogger<IntegrityWriteBatcher>>();
 
         // SQLite in-memory context for ExecuteUpdateAsync support
-        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite("DataSource=:memory:")
             .Options;
-        _dbContext = new AuditApplicationDbContext(dbOptions);
+        _dbContext = new AuditDbContext(dbOptions);
         _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
 
@@ -42,7 +42,7 @@ public sealed class IntegrityWriteBatcherTests
         _mockScope.Setup(s => s.ServiceProvider).Returns(_mockScopeProvider.Object);
         _mockScopeProvider.Setup(p => p.GetService(typeof(ITamperDetectionService)))
             .Returns(_mockTamperDetection.Object);
-        _mockScopeProvider.Setup(p => p.GetService(typeof(AuditApplicationDbContext)))
+        _mockScopeProvider.Setup(p => p.GetService(typeof(AuditDbContext)))
             .Returns(_dbContext);
     }
 

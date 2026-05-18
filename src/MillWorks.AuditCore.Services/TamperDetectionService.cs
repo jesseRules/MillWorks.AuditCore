@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -80,20 +81,17 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly SemaphoreSlim _localAppendLock = new(1, 1);
 
     /// <summary>
-    /// Cached signing key parameters. Loaded lazily on first use.
-    /// Assumes keys are static at runtime — no rotation while the process is running.
+    /// Path-keyed cache of signing key parameters. Each unique key path gets its own cached RSA parameters,
+    /// enabling correct behavior in multi-tenant hosts or tests with different key configurations.
+    /// Wrapped in Lazy to guarantee exactly-once initialization per key under concurrent access.
     /// </summary>
-    private static RSAParameters? _cachedSigningKey;
+    private static readonly ConcurrentDictionary<string, Lazy<RSAParameters>> _signingKeyCache = new();
 
     /// <summary>
-    /// Cached verification key parameters. Loaded lazily on first use. Separate from signing key to allow
+    /// Path-keyed cache of verification key parameters. Keyed by normalized path like _signingKeyCache.
+    /// Wrapped in Lazy to guarantee exactly-once initialization per key under concurrent access.
     /// </summary>
-    private static RSAParameters? _cachedVerifyKey;
-
-    /// <summary>
-    /// Lock for synchronizing access to the signing key cache. Only used when digital signatures are enabled.
-    /// </summary>
-    private static readonly Lock _keyLoadLock = new();
+    private static readonly ConcurrentDictionary<string, Lazy<RSAParameters>> _verifyKeyCache = new();
 
     /// <summary>
     /// Tamper detection service for audit events. Serializes hash-chain appends cross-process
@@ -858,56 +856,72 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
     /// <summary>
     /// Loads and caches the private signing key from the PEM file.
-    /// Thread-safe — only reads the file once across all instances.
+    /// Thread-safe via ConcurrentDictionary + Lazy — guarantees exactly-once initialization per path.
     /// </summary>
     private RSAParameters GetOrLoadSigningKey()
     {
-        if (_cachedSigningKey.HasValue) return _cachedSigningKey.Value;
-
-        lock (_keyLoadLock)
+        var keyPath = _securityOptions.DigitalSignaturePrivateKeyPath;
+        if (string.IsNullOrEmpty(keyPath))
         {
-            if (_cachedSigningKey.HasValue) return _cachedSigningKey.Value;
+            throw new InvalidOperationException(
+                "Digital signature private key path is not configured.");
+        }
 
-            var keyPath = _securityOptions.DigitalSignaturePrivateKeyPath;
-            if (string.IsNullOrEmpty(keyPath) || !File.Exists(keyPath))
+        var normalizedPath = Path.GetFullPath(keyPath);
+
+        return _signingKeyCache.GetOrAdd(normalizedPath, path => new Lazy<RSAParameters>(() =>
+        {
+            if (!File.Exists(path))
             {
                 throw new InvalidOperationException(
-                    "Digital signature private key path is not configured or file does not exist.");
+                    $"Digital signature private key file does not exist: {path}");
             }
 
-            var privateKeyPem = File.ReadAllText(keyPath);
+            var privateKeyPem = File.ReadAllText(path);
             using var rsa = RSA.Create();
             rsa.ImportFromPem(privateKeyPem.ToCharArray());
-            _cachedSigningKey = rsa.ExportParameters(true);
-            return _cachedSigningKey.Value;
-        }
+            return rsa.ExportParameters(true);
+        })).Value;
     }
 
     /// <summary>
     /// Loads and caches the public verification key from the PEM file.
-    /// Thread-safe — only reads the file once across all instances.
+    /// Thread-safe via ConcurrentDictionary + Lazy — guarantees exactly-once initialization per path.
     /// </summary>
     private RSAParameters GetOrLoadVerifyKey()
     {
-        if (_cachedVerifyKey.HasValue) return _cachedVerifyKey.Value;
-
-        lock (_keyLoadLock)
+        var publicKeyPath = _securityOptions.DigitalSignaturePublicKeyPath;
+        if (string.IsNullOrEmpty(publicKeyPath))
         {
-            if (_cachedVerifyKey.HasValue) return _cachedVerifyKey.Value;
+            throw new InvalidOperationException(
+                "Digital signature public key path is not configured.");
+        }
 
-            var publicKeyPath = _securityOptions.DigitalSignaturePublicKeyPath;
-            if (string.IsNullOrEmpty(publicKeyPath) || !File.Exists(publicKeyPath))
+        var normalizedPath = Path.GetFullPath(publicKeyPath);
+
+        return _verifyKeyCache.GetOrAdd(normalizedPath, path => new Lazy<RSAParameters>(() =>
+        {
+            if (!File.Exists(path))
             {
                 throw new InvalidOperationException(
-                    "Digital signature public key path is not configured or file does not exist.");
+                    $"Digital signature public key file does not exist: {path}");
             }
 
-            var publicKeyPem = File.ReadAllText(publicKeyPath);
+            var publicKeyPem = File.ReadAllText(path);
             using var rsa = RSA.Create();
             rsa.ImportFromPem(publicKeyPem.ToCharArray());
-            _cachedVerifyKey = rsa.ExportParameters(false);
-            return _cachedVerifyKey.Value;
-        }
+            return rsa.ExportParameters(false);
+        })).Value;
+    }
+
+    /// <summary>
+    /// Clears the static RSA key caches for test isolation. Internal so tests can call it
+    /// without reflection, but non-public to prevent accidental use in production code.
+    /// </summary>
+    internal static void ResetKeyCachesForTests()
+    {
+        _signingKeyCache.Clear();
+        _verifyKeyCache.Clear();
     }
 
     /// <summary>

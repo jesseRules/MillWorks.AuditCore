@@ -8,7 +8,7 @@ using MillWorks.AuditCore.EntityFramework.Options;
 namespace MillWorks.AuditCore.Tests.EntityFramework;
 
 /// <summary>
-/// Verifies that <see cref="AuditApplicationDbContext"/> applies the configured
+/// Verifies that <see cref="AuditDbContext"/> applies the configured
 /// <see cref="EntityFrameworkOptions.Schema"/> to every audit entity's table mapping.
 /// Metadata-only — no provider required.
 /// </summary>
@@ -81,21 +81,21 @@ public sealed class ConfiguredSchemaTests
         Assert.That(entityType.GetSchema(), Is.EqualTo(customSchema));
     }
 
-    private static AuditApplicationDbContext CreateContext(string? schema)
+    private static AuditDbContext CreateContext(string? schema)
     {
         // Wire the schema-aware cache key factory so tests with different schemas get
         // independently compiled models — mirrors what UseEntityFramework does in production.
-        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
 
         if (schema is null)
         {
-            return new AuditApplicationDbContext(dbOptions);
+            return new AuditDbContext(dbOptions);
         }
 
         var efOptions = Options.Create(new EntityFrameworkOptions { Schema = schema });
-        return new AuditApplicationDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
+        return new AuditDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
     }
 }

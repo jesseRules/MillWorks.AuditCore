@@ -29,6 +29,7 @@ using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Compliance;
@@ -156,8 +157,11 @@ public sealed class MillWorksAuditBuilder
                 scopeFactory);
         });
 
+        // SQL metrics interceptor for Azure SQL observability (throttling, deadlock, connection pool errors)
+        Services.AddSingleton<AuditSqlCommandInterceptor>();
+
         // Configure DbContext with interceptor and circular dependency prevention
-        Services.AddDbContext<AuditApplicationDbContext>(static (serviceProvider, options) =>
+        Services.AddDbContext<AuditDbContext>(static (serviceProvider, options) =>
         {
             var efOptions = serviceProvider.GetRequiredService<IOptions<EntityFrameworkOptions>>().Value;
 
@@ -174,11 +178,12 @@ public sealed class MillWorksAuditBuilder
 
             // Replace the default model-cache-key factory so the compiled-model cache is keyed
             // on schema alongside context type. Without this, processes that construct
-            // AuditApplicationDbContext with different schemas could reuse the wrong model.
+            // AuditDbContext with different schemas could reuse the wrong model.
             options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>();
 
-            var interceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
-            options.AddInterceptors(interceptor);
+            var saveChangesInterceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
+            var sqlCommandInterceptor = serviceProvider.GetRequiredService<AuditSqlCommandInterceptor>();
+            options.AddInterceptors(saveChangesInterceptor, sqlCommandInterceptor);
 
             options.EnableSensitiveDataLogging(false);
             options.EnableDetailedErrors(false);
@@ -206,7 +211,24 @@ public sealed class MillWorksAuditBuilder
         Services.TryAddScoped<IAuditLogger>(static sp => sp.GetRequiredService<AuditLogger>());
 
         Services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
-        Services.AddScoped<IAuditSink, ImmediateSink>();
+        Services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
+        Services.AddScoped<IAuditOutboxWriter, AuditOutboxWriter>();
+
+        // IAuditSink is selected at resolve time based on SecurityOptions.AuditSinkMode.
+        // Default is ImmediateSink; TransactionalOutbox requires UseSecurity() to configure the mode.
+        Services.AddScoped<ImmediateSink>();
+        Services.AddScoped<TransactionalOutboxSink>();
+        Services.AddScoped<IAuditSink>(static sp =>
+        {
+            var securityOptions = sp.GetService<IOptions<SecurityOptions>>();
+            var mode = securityOptions?.Value.AuditSinkMode ?? AuditSinkMode.Immediate;
+
+            return mode switch
+            {
+                AuditSinkMode.TransactionalOutbox => sp.GetRequiredService<TransactionalOutboxSink>(),
+                _ => sp.GetRequiredService<ImmediateSink>(),
+            };
+        });
 
         // Register core audit services that depend on repositories
         Services.AddScoped<IAuditService, AuditService>();
@@ -222,6 +244,10 @@ public sealed class MillWorksAuditBuilder
         // DatabaseInitializationService self-gates on EntityFrameworkOptions.MigrateOnStartup /
         // EnsureDatabaseCreated inside StartAsync. Registered unconditionally.
         Services.AddHostedService<DatabaseInitializationService>();
+
+        // AuditOutboxDrainer self-gates on AuditSinkMode.TransactionalOutbox inside ExecuteAsync.
+        // Registered unconditionally — no-op when Immediate mode is active.
+        Services.AddHostedService<AuditOutboxDrainer>();
     }
 
     /// <summary>
@@ -504,7 +530,7 @@ public sealed class MillWorksAuditBuilder
         // Check if at least one storage mechanism is configured
         var hasStorage = Services.Any(static s =>
             s.ServiceType == typeof(IAuditEventRepository) ||
-            s.ServiceType == typeof(AuditApplicationDbContext));
+            s.ServiceType == typeof(AuditDbContext));
 
         if (!hasStorage)
         {

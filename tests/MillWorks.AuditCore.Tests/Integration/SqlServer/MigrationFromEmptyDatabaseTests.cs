@@ -108,15 +108,15 @@ public sealed class MigrationFromEmptyDatabaseTests
         });
     }
 
-    private AuditApplicationDbContext CreateMigrationContext()
+    private AuditDbContext CreateMigrationContext()
     {
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlServer(_migrationConnectionString, sqlOptions =>
             {
                 sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
             })
             .Options;
-        return new AuditApplicationDbContext(options);
+        return new AuditDbContext(options);
     }
 
     private async Task DropAndCreateDatabaseAsync()

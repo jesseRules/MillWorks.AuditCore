@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Tests.Services.Query;
 [Category("Unit")]
 public class AuditReportServiceEdgeCaseTests
 {
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
     private Mock<ILogger<AuditReportService>> _mockLogger;
     private AuditReportService _reportService;
 
@@ -22,7 +22,7 @@ public class AuditReportServiceEdgeCaseTests
     public void Setup()
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockLogger = new Mock<ILogger<AuditReportService>>();
         _reportService = new AuditReportService(_context, _mockLogger.Object);
     }

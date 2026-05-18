@@ -20,7 +20,7 @@ namespace MillWorks.AuditCore.Tests.TamperDetection;
 public class IntegrityReconciliationServiceTests
 {
     private SqliteConnection _connection = null!;
-    private DbContextOptions<AuditApplicationDbContext> _options = null!;
+    private DbContextOptions<AuditDbContext> _options = null!;
     private ServiceProvider _serviceProvider = null!;
     private Mock<ITamperDetectionService> _mockTamperDetection = null!;
     private Mock<ILogger<IntegrityReconciliationService>> _mockLogger = null!;
@@ -33,7 +33,7 @@ public class IntegrityReconciliationServiceTests
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        _options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .Options;
 
@@ -380,7 +380,7 @@ public class IntegrityReconciliationServiceTests
             Is.EqualTo(1));
     }
 
-    private AuditApplicationDbContext CreateContext() => new(_options);
+    private AuditDbContext CreateContext() => new(_options);
 
     private async Task InvokeReconcileAsync(CancellationToken cancellationToken = default)
         => await InvokeReconcileAsync(_service, cancellationToken);

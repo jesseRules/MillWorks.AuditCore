@@ -10,6 +10,7 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -59,7 +60,7 @@ public class AuditSaveChangesInterceptorTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -67,6 +68,7 @@ public class AuditSaveChangesInterceptorTests
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         _provider = services.BuildServiceProvider();

@@ -10,6 +10,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -39,7 +40,7 @@ public class ProviderDispatchTests
         services.AddSingleton(Mock.Of<IAuditLogger>());
         services.AddSingleton(_typeMap);
         services.AddSingleton(_mockDispatcher.Object);
-        services.AddDbContext<AuditApplicationDbContext>(o =>
+        services.AddDbContext<AuditDbContext>(o =>
             o.UseInMemoryDatabase(dbName)
                 .ConfigureWarnings(static w =>
                 {
@@ -47,6 +48,7 @@ public class ProviderDispatchTests
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
         services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
         _serviceProvider = services.BuildServiceProvider();
 
@@ -253,7 +255,7 @@ public class ProviderDispatchTests
     }
 
     private sealed class ProviderDispatchTestDbContext(DbContextOptions<ProviderDispatchTestDbContext> options)
-        : AuditApplicationDbContext(options)
+        : AuditDbContext(options)
     {
         public DbSet<TestEntity> TestEntities { get; set; } = null!;
 

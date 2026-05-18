@@ -36,7 +36,7 @@ public sealed class IntegrityHealthCheck(
         {
             cancellationToken.ThrowIfCancellationRequested();
             using var scope = scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             var checkedAtUtc = DateTimeOffset.UtcNow;
             var staleCutoff = checkedAtUtc - StaleThreshold;

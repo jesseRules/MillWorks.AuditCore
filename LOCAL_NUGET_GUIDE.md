@@ -55,7 +55,7 @@ AuditCore repo                         Consuming repo (MillWorks, IExcel, etc.)
 │ src/...Services/         │            │   <PackageReference          │
 │ src/...EntityFramework/  │  pack      │     Include="MillWorks       │
 │ src/...Providers/        │ ────────►  │     .AuditCore.AspNetCore"   │
-│ src/...Abstractions/     │  writes to │     Version="1.1.0" />       │
+│ src/...Abstractions/     │  writes to │     Version="1.6.2" />       │
 │                          │  feed      │                              │
 │ ~/LocalNuGetPackages/    │◄──────────│ nuget.config                 │
 │   *.nupkg                │  restore   │   points to feed             │
@@ -111,10 +111,10 @@ Add a `nuget.config` to the consuming project's repo root:
 
 ```xml
 <!-- Most apps just need the top-level umbrella package -->
-<PackageReference Include="MillWorks.AuditCore" Version="1.5.3" />
+<PackageReference Include="MillWorks.AuditCore" Version="1.6.2" />
 
 <!-- Shared domain libraries that only need interfaces -->
-<PackageReference Include="MillWorks.AuditCore.Abstractions" Version="1.5.3" />
+<PackageReference Include="MillWorks.AuditCore.Abstractions" Version="1.6.2" />
 ```
 
 ### 4. Restore and Run
@@ -203,7 +203,7 @@ dotnet test
 
 ```bash
 cd /Users/jesse/RiderProjects/MillWorks
-dotnet add src/MillWorks.Api/MillWorks.Api.csproj package MillWorks.AuditCore --version 1.5.3
+dotnet add src/MillWorks.Api/MillWorks.Api.csproj package MillWorks.AuditCore --version 1.6.2
 ```
 
 ---
@@ -270,7 +270,7 @@ dotnet nuget locals all --clear
 dotnet list MyApp/MyApp.csproj package
 
 # Add/update a package in a consuming project
-dotnet add MyApp/MyApp.csproj package MillWorks.AuditCore --version 1.5.3
+dotnet add MyApp/MyApp.csproj package MillWorks.AuditCore --version 1.6.2
 
 # Add the local NuGet source (one-time setup)
 dotnet nuget add source ~/LocalNuGetPackages --name MillWorksLocal

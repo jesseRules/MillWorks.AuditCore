@@ -1,5 +1,7 @@
 # Phase 08 — MillWorks.Api bridge wiring
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase07-DropEntityCoupling.md`](Phase07-DropEntityCoupling.md)
 

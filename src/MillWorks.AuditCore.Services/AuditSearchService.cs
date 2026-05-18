@@ -18,7 +18,7 @@ namespace MillWorks.AuditCore.Services.Query;
 /// <param name="mapper"></param>
 /// <param name="logger"></param>
 public sealed class AuditSearchService(
-    AuditApplicationDbContext context,
+    AuditDbContext context,
     IMapper mapper,
     ILogger<AuditSearchService> logger)
     : IAuditSearchService
@@ -33,7 +33,7 @@ public sealed class AuditSearchService(
         AuditSearchRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.Limit <= 0) request.Limit = 50;
+        request.Limit = QueryLimits.Clamp(request.Limit);
         if (request.Offset < 0) request.Offset = 0;
 
         logger.LogDebug("Searching audit events with criteria: User={User}, EventType={EventType}, EntityType={EntityType}, StartDate={StartDate}, EndDate={EndDate}",
@@ -123,7 +123,7 @@ public sealed class AuditSearchService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        if (limit <= 0) limit = 50;
+        limit = QueryLimits.Clamp(limit);
         if (offset < 0) offset = 0;
 
         // Don't use SearchAuditEventsAsync - query by EntityType directly

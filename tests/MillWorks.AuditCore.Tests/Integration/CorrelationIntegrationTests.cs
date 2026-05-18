@@ -1,11 +1,16 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
-using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.EntityFramework.Sinks;
+using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
@@ -20,6 +25,7 @@ public class CorrelationIntegrationTests : IDisposable
     private SqliteConnection _connection = null!;
     private DbContextOptions<CorrelationSqliteDbContext> _options = null!;
     private AuditSaveChangesInterceptor _interceptor = null!;
+    private ServiceProvider _provider = null!;
 
     [OneTimeSetUp]
     public void Setup()
@@ -27,8 +33,20 @@ public class CorrelationIntegrationTests : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        var mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
-        _interceptor = new AuditSaveChangesInterceptor(mockLogger.Object);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditDbContext>(o =>
+            o.UseSqlite(_connection)
+                .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)));
+        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
+        services.AddScoped<IAuditSink, ImmediateSink>();
+        _provider = services.BuildServiceProvider();
+
+        _interceptor = new AuditSaveChangesInterceptor(
+            NullLogger<AuditSaveChangesInterceptor>.Instance,
+            scopeFactory: _provider.GetRequiredService<IServiceScopeFactory>());
 
         _options = new DbContextOptionsBuilder<CorrelationSqliteDbContext>()
             .UseSqlite(_connection)
@@ -51,7 +69,7 @@ public class CorrelationIntegrationTests : IDisposable
     /// <summary>
     /// Test 0.6e: Full pipeline — interceptor stamps CorrelationId and both tables
     /// can be queried with the same value.
-    /// Note: The two paths are saved separately because AuditApplicationDbContext
+    /// Note: The two paths are saved separately because AuditDbContext
     /// sets BypassAuditInterceptor=true whenever audit entities are in the tracker,
     /// which would suppress interceptor processing for the TestEntity.
     /// </summary>
@@ -153,15 +171,16 @@ public class CorrelationIntegrationTests : IDisposable
 
     public void Dispose()
     {
+        _provider?.Dispose();
         _connection?.Close();
         _connection?.Dispose();
     }
 
     /// <summary>
-    /// SQLite test context that inherits AuditApplicationDbContext and adds TestEntities.
+    /// SQLite test context that inherits AuditDbContext and adds TestEntities.
     /// </summary>
     private sealed class CorrelationSqliteDbContext(DbContextOptions<CorrelationSqliteDbContext> options)
-        : AuditApplicationDbContext(options)
+        : AuditDbContext(options)
     {
         public DbSet<TestEntity> TestEntities { get; set; } = null!;
 

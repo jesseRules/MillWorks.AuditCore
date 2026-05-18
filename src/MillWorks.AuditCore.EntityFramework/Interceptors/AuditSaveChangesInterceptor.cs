@@ -16,6 +16,7 @@ using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Abstractions.Enums;
 
 namespace MillWorks.AuditCore.EntityFramework.Interceptors;
@@ -220,8 +221,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         DbContextErrorEventData eventData,
         CancellationToken cancellationToken = default)
     {
-        if (eventData.Context is AuditApplicationDbContext auditCtx)
-            auditCtx.PendingProviderDispatches = null;
+        if (eventData.Context is IAuditProviderDispatchSource dispatchSource)
+            dispatchSource.PendingProviderDispatches = null;
 
         return base.SaveChangesFailedAsync(eventData, cancellationToken);
     }
@@ -281,7 +282,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var mode = _enforcementMode.Value;
 
         // Get user ID from the DbContext via IAuditContextSource (set by middleware
-        // on AuditApplicationDbContext, or computed by any consumer DbContext that
+        // on AuditDbContext, or computed by any consumer DbContext that
         // implements the interface).
         var userId = (context as IAuditContextSource)?.CurrentUserId;
 
@@ -429,15 +430,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     /// <summary>
     /// Materializes the filtered list of auditable change tracker entries once.
-    /// Returns null if the context is null or doesn't include AuditLogEntity.
+    /// Returns null if the context is null.
     /// </summary>
     private static List<EntityEntry>? GetAuditableEntries(DbContext? context)
     {
         if (context == null)
-            return null;
-
-        // Check if the context model includes AuditLogEntity
-        if (context.Model.FindEntityType(typeof(AuditLogEntity)) == null)
             return null;
 
         return context.ChangeTracker.Entries()
@@ -490,14 +487,18 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             await using var scope = _scopeFactory.CreateAsyncScope();
             var sink = scope.ServiceProvider.GetRequiredService<IAuditSink>();
+            var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
 
-            foreach (var entry in auditableEntries)
+            using (accessor.SetCurrent(context))
             {
-                var envelope = BuildEnvelope(entry, contextSource);
-                if (envelope is null)
-                    continue;
+                foreach (var entry in auditableEntries)
+                {
+                    var envelope = BuildEnvelope(entry, contextSource);
+                    if (envelope is null)
+                        continue;
 
-                await sink.PublishAsync(envelope, cancellationToken);
+                    await sink.PublishAsync(envelope, cancellationToken);
+                }
             }
         }
         catch (Exception ex)
@@ -735,10 +736,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private static void CaptureForProviderDispatch(DbContext context, List<EntityEntry> auditableEntries)
     {
-        if (context is not AuditApplicationDbContext auditCtx || auditCtx.ScopedServiceProvider == null)
+        if (context is not IAuditProviderDispatchSource dispatchSource || dispatchSource.ScopedServiceProvider == null)
             return;
 
-        var map = auditCtx.ScopedServiceProvider.GetService<AuditProviderTypeMap>();
+        var map = dispatchSource.ScopedServiceProvider.GetService<AuditProviderTypeMap>();
         if (map == null) return;
 
         var dispatches = new List<PendingProviderDispatch>();
@@ -762,7 +763,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
 
         if (dispatches.Count > 0)
-            auditCtx.PendingProviderDispatches = dispatches;
+            dispatchSource.PendingProviderDispatches = dispatches;
     }
 
     /// <summary>
@@ -773,22 +774,22 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private async Task DispatchProvidersAsync(DbContext? context, CancellationToken cancellationToken)
     {
-        if (context is not AuditApplicationDbContext auditCtx)
+        if (context is not IAuditProviderDispatchSource dispatchSource)
             return;
 
         // Re-entrancy guard — prevents infinite recursion if a provider triggers another save
-        if (auditCtx.IsDispatchingProviders) return;
+        if (dispatchSource.IsDispatchingProviders) return;
 
-        var dispatches = auditCtx.PendingProviderDispatches;
-        auditCtx.PendingProviderDispatches = null;
+        var dispatches = dispatchSource.PendingProviderDispatches;
+        dispatchSource.PendingProviderDispatches = null;
         if (dispatches == null || dispatches.Count == 0) return;
 
-        if (auditCtx.ScopedServiceProvider == null) return;
+        if (dispatchSource.ScopedServiceProvider == null) return;
 
-        var dispatcher = auditCtx.ScopedServiceProvider.GetService<IAuditProviderDispatcher>();
+        var dispatcher = dispatchSource.ScopedServiceProvider.GetService<IAuditProviderDispatcher>();
         if (dispatcher == null) return;
 
-        auditCtx.IsDispatchingProviders = true;
+        dispatchSource.IsDispatchingProviders = true;
         try
         {
             await dispatcher.DispatchAsync(dispatches, cancellationToken);
@@ -799,7 +800,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
         finally
         {
-            auditCtx.IsDispatchingProviders = false;
+            dispatchSource.IsDispatchingProviders = false;
         }
     }
 

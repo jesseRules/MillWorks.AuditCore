@@ -29,3 +29,26 @@ public enum AuditFailureMode
     /// </summary>
     FailClosedAlways = 2
 }
+
+/// <summary>
+/// Selects which <c>IAuditSink</c> implementation handles audit envelopes at
+/// runtime. Default is <see cref="Immediate"/>; <see cref="TransactionalOutbox"/>
+/// is the opt-in posture for deployments that require audit + business writes
+/// to succeed atomically (regulated / zero-loss durability).
+/// </summary>
+public enum AuditSinkMode
+{
+    /// <summary>
+    /// Audit writes happen on the audit-owned DbContext / connection.
+    /// Decoupled from the consumer's transaction. Default.
+    /// </summary>
+    Immediate = 0,
+
+    /// <summary>
+    /// Audit writes participate in the consumer's transaction via outbox
+    /// row. A background drainer commits the outbox row's payload to the
+    /// audit DbContext after commit. Required for FailClosedForRegulated
+    /// when business + audit must succeed atomically.
+    /// </summary>
+    TransactionalOutbox = 1,
+}

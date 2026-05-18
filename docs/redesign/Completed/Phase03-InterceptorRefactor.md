@@ -1,5 +1,7 @@
 # Phase 03 — Interceptor → IAuditSink refactor
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase02-DefaultImmediateSink.md`](Phase02-DefaultImmediateSink.md)
 

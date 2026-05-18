@@ -4,18 +4,18 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace MillWorks.AuditCore.EntityFramework.Data;
 
 /// <summary>
-/// Design time factory for AuditApplicationDbContext
+/// Design time factory for AuditDbContext
 /// </summary>
-public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuditApplicationDbContext>
+public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuditDbContext>
 {
     /// <summary>
-    /// Creates a new instance of AuditApplicationDbContext for design-time use
+    /// Creates a new instance of AuditDbContext for design-time use
     /// </summary>
     /// <param name="args"></param>
     /// <returns></returns>
-    public AuditApplicationDbContext CreateDbContext(string[] args)
+    public AuditDbContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<AuditApplicationDbContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<AuditDbContext>();
         
         // Try to get connection string from environment variable first
         var connectionString = Environment.GetEnvironmentVariable("AUDIT_MIGRATION_CONNECTION_STRING")
@@ -27,6 +27,6 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuditAppli
                 sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
             });
         
-        return new AuditApplicationDbContext(optionsBuilder.Options);
+        return new AuditDbContext(optionsBuilder.Options);
     }
 }

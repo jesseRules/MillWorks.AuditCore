@@ -110,7 +110,7 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
     /// Seeds an AuditIntegrityEntity via raw SQL to work around SQLite IDENTITY limitation.
     /// </summary>
     private async Task SeedIntegrityRecordAsync(
-        AuditApplicationDbContext context,
+        AuditDbContext context,
         AuditEventEntity auditEvent,
         long sequenceNumber,
         string? previousEventHash = null)

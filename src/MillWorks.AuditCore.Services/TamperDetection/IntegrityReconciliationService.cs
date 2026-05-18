@@ -68,8 +68,10 @@ public sealed class IntegrityReconciliationService(
             return;
         }
 
-        // Wait briefly for application startup to complete
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        // Wait briefly for application startup to complete, with jitter to avoid
+        // thundering herd when multiple nodes restart simultaneously
+        var startupJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(5000));
+        await Task.Delay(TimeSpan.FromSeconds(10) + startupJitter, stoppingToken);
 
         logger.LogInformation("IntegrityReconciliationService: running startup reconciliation");
         await ReconcileAsync(stoppingToken);
@@ -99,7 +101,7 @@ public sealed class IntegrityReconciliationService(
         try
         {
             using var scope = scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
 
             var staleWorkItems = await ClaimStaleWorkItemsAsync(dbContext, cancellationToken);
@@ -270,7 +272,7 @@ public sealed class IntegrityReconciliationService(
     /// reconciler instance processes a given item at a time.
     /// </summary>
     private async Task<List<AuditIntegrityWorkItemEntity>> ClaimStaleWorkItemsAsync(
-        AuditApplicationDbContext dbContext,
+        AuditDbContext dbContext,
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;

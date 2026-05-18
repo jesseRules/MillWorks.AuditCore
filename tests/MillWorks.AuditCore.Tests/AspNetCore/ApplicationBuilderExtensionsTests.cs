@@ -87,7 +87,7 @@ public sealed class ApplicationBuilderExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<AuditApplicationDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(options =>
             options.UseInMemoryDatabase($"auditcore-appbuilder-{Guid.NewGuid():N}"));
 
         using var provider = services.BuildServiceProvider();

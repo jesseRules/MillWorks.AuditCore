@@ -12,8 +12,8 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 [TestFixture]
 public class AuditEventRepositoryTests
 {
-    private DbContextOptions<AuditApplicationDbContext> _options;
-    private AuditApplicationDbContext _context;
+    private DbContextOptions<AuditDbContext> _options;
+    private AuditDbContext _context;
     private AuditEventRepository _repository;
 
     [SetUp]
@@ -21,7 +21,7 @@ public class AuditEventRepositoryTests
     {
         _options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(_options);
+        _context = new AuditDbContext(_options);
         _repository = new AuditEventRepository(_context);
     }
 

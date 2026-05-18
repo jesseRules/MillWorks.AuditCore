@@ -11,11 +11,11 @@ namespace MillWorks.AuditCore.Tests.Helpers;
 public static class TestDbContextFactory
 {
     /// <summary>
-    /// Creates InMemory DbContextOptions for AuditApplicationDbContext with standard test warnings suppressed.
+    /// Creates InMemory DbContextOptions for AuditDbContext with standard test warnings suppressed.
     /// </summary>
-    public static DbContextOptions<AuditApplicationDbContext> CreateInMemoryOptions(string? dbName = null)
+    public static DbContextOptions<AuditDbContext> CreateInMemoryOptions(string? dbName = null)
     {
-        return new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        return new DbContextOptionsBuilder<AuditDbContext>()
             .UseInMemoryDatabase(dbName ?? $"TestDb_{Guid.NewGuid()}")
             .ConfigureWarnings(static w =>
             {

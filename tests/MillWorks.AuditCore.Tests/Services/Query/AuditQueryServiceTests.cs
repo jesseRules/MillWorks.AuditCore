@@ -6,6 +6,7 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Services.Query;
 using MillWorks.AuditCore.Tests.Helpers;
+using static MillWorks.AuditCore.Services.Query.QueryLimits;
 
 namespace MillWorks.AuditCore.Tests.Services.Query;
 
@@ -18,7 +19,7 @@ public class AuditQueryServiceTests
     /// <summary>
     /// Context
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Mock Mapper
@@ -43,7 +44,7 @@ public class AuditQueryServiceTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditQueryService>>();
 
@@ -854,6 +855,202 @@ public class AuditQueryServiceTests
         // Assert
         var auditLogDtos = result.ToList();
         Assert.That(auditLogDtos[0].Action, Is.EqualTo(AuditAction.Unknown));
+    }
+
+    #endregion
+
+    #region Page Size Limits Tests
+
+    [Test]
+    public async Task GetAuditEventsAsync_WithLimit5000_ClampedTo1000()
+    {
+        // Arrange
+        var events = Enumerable.Range(0, 5)
+            .Select(static i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: 5000);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.MaxPageSize));
+    }
+
+    [Test]
+    public async Task GetAuditEventsAsync_WithNegativeLimit_DefaultsTo50()
+    {
+        // Arrange
+        var events = Enumerable.Range(0, 5)
+            .Select(static i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: -1);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.DefaultPageSize));
+    }
+
+    [Test]
+    public async Task GetAuditEventsAsync_WithZeroLimit_DefaultsTo50()
+    {
+        // Arrange
+        var events = Enumerable.Range(0, 5)
+            .Select(static i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: 0);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.DefaultPageSize));
+    }
+
+    [TestCase(100)]
+    [TestCase(1000)]
+    public async Task GetAuditEventsAsync_WithValidLimit_Unchanged(int requestedLimit)
+    {
+        // Arrange
+        var events = Enumerable.Range(0, 5)
+            .Select(static i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: requestedLimit);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(requestedLimit));
+    }
+
+    [Test]
+    public async Task GetUserActivityAsync_WithTake5000_ClampedTo1000()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var events = Enumerable.Range(0, 1500)
+            .Select(i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                UserId = userId,
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _queryService.GetUserActivityAsync(userId, take: 5000);
+
+        // Assert
+        var activities = result.ToList();
+        Assert.That(activities.Count, Is.EqualTo(MaxPageSize));
+    }
+
+    [Test]
+    public async Task GetUserActivityAsync_WithNegativeTake_DefaultsTo50()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var events = Enumerable.Range(0, 100)
+            .Select(i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                UserId = userId,
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _queryService.GetUserActivityAsync(userId, take: -1);
+
+        // Assert
+        var activities = result.ToList();
+        Assert.That(activities.Count, Is.EqualTo(DefaultPageSize));
+    }
+
+    [Test]
+    public async Task GetUserActivityAsync_WithZeroTake_DefaultsTo50()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var events = Enumerable.Range(0, 100)
+            .Select(i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                UserId = userId,
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _queryService.GetUserActivityAsync(userId, take: 0);
+
+        // Assert
+        var activities = result.ToList();
+        Assert.That(activities.Count, Is.EqualTo(DefaultPageSize));
     }
 
     #endregion

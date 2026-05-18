@@ -21,7 +21,7 @@ namespace MillWorks.AuditCore.Tests.Integration;
 /// <c>sp_getapplock</c>. <c>AuditLogger.LogAsync</c> in strict mode opens a transaction
 /// via <c>auditEventRepository.ExecuteInTransactionAsync</c> and, inside that lambda,
 /// calls <c>tamperDetectionService.CreateIntegrityRecordAsync</c>. Both repositories
-/// share the same <see cref="AuditApplicationDbContext"/>. If <c>CreateIntegrityRecordAsync</c>
+/// share the same <see cref="AuditDbContext"/>. If <c>CreateIntegrityRecordAsync</c>
 /// tries to open its own nested <c>ExecuteInTransactionAsync</c>, EF throws
 /// "connection already in a transaction". The rollback leaves the already-added
 /// <c>AuditEventEntity</c> in the change tracker, so <c>ResilientAuditLogger</c>'s

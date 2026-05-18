@@ -10,15 +10,15 @@ using MillWorks.AuditCore.EntityFramework.Data;
 
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
-    [DbContext(typeof(AuditApplicationDbContext))]
-    partial class AuditApplicationDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(AuditDbContext))]
+    partial class AuditDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("audit")
-                .HasAnnotation("ProductVersion", "10.0.6")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -636,6 +636,52 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         {
                             t.HasCheckConstraint("CK_AuditLogs_Action", "[Action] >= 0 AND [Action] <= 10");
                         });
+                });
+
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetimeoffset")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("EnvelopeJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EnvelopeVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_AuditOutbox_CreatedAt");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_AuditOutbox_Status");
+
+                    b.ToTable("AuditOutbox", "audit");
                 });
 
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditSecurityEventEntity", b =>

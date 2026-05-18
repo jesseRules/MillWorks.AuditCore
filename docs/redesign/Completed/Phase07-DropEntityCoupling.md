@@ -1,5 +1,7 @@
 # Phase 07 — Drop AuditLogEntity coupling
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase06-OutboxSink.md`](Phase06-OutboxSink.md)
 
@@ -204,3 +206,7 @@ Note in commit/PR; do NOT edit README in this phase.
 - `BareConsumerDbContextTests` green.
 - Full test suite + SQL Server lane green.
 - Phase doc updated with "Completed YYYY-MM-DD".
+
+---
+
+**Completed 2026-04-26**

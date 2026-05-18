@@ -17,7 +17,7 @@ namespace MillWorks.AuditCore.Tests.Integration;
 public class AuditInterceptorIntegrationTests : IDisposable
 {
     private SqliteConnection _connection = null!;
-    private DbContextOptions<AuditApplicationDbContext> _options;
+    private DbContextOptions<AuditDbContext> _options;
 
     [SetUp]
     public void Setup()
@@ -25,14 +25,14 @@ public class AuditInterceptorIntegrationTests : IDisposable
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        _options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .AddInterceptors(new AuditSaveChangesInterceptor(
                 NullLogger<AuditSaveChangesInterceptor>.Instance))
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 
-        using var context = new AuditApplicationDbContext(_options);
+        using var context = new AuditDbContext(_options);
         context.Database.EnsureCreated();
     }
 
@@ -47,7 +47,7 @@ public class AuditInterceptorIntegrationTests : IDisposable
     public async Task SavingAuditEntity_DoesNotCreateAuditLog()
     {
         // Arrange — saving an AuditEventEntity (an audit entity) should NOT create audit logs
-        await using var context = new AuditApplicationDbContext(_options);
+        await using var context = new AuditDbContext(_options);
 
         context.AuditEvents.Add(new AuditEventEntity
         {
@@ -70,7 +70,7 @@ public class AuditInterceptorIntegrationTests : IDisposable
     {
         // This test validates that the bypass mechanism prevents infinite recursion:
         // Save AuditEvent -> interceptor fires -> checks bypass -> skips audit -> no infinite loop
-        await using var context = new AuditApplicationDbContext(_options);
+        await using var context = new AuditDbContext(_options);
 
         for (int i = 0; i < 10; i++)
         {
@@ -95,7 +95,7 @@ public class AuditInterceptorIntegrationTests : IDisposable
     public async Task BypassFlag_PreventsInterceptorFromFiring()
     {
         // Arrange
-        await using var context = new AuditApplicationDbContext(_options);
+        await using var context = new AuditDbContext(_options);
 
         // Manually set bypass flag
         context.BypassAuditInterceptor = true;

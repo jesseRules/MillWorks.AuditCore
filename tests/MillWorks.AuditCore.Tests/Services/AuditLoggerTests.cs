@@ -46,7 +46,7 @@ public class AuditLoggerTests
     /// <summary>
     /// In-memory DbContext for work item operations
     /// </summary>
-    private AuditApplicationDbContext _dbContext;
+    private AuditDbContext _dbContext;
 
     /// <summary>
     /// AuditLogger instance under test
@@ -65,10 +65,10 @@ public class AuditLoggerTests
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockAuditContext = new Mock<IAuditContext>();
 
-        var dbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _dbContext = new AuditApplicationDbContext(dbOptions);
+        _dbContext = new AuditDbContext(dbOptions);
 
         // LogAsync wraps event + integrity in ExecuteInTransactionAsync when tamper detection is enabled.
         // The mock must invoke the lambda so the inner logic actually executes.

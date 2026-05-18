@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.Tests.Repositories;
 public class RepositoryOptimisticUpdateSqliteTests
 {
     private SqliteConnection _connection = null!;
-    private DbContextOptions<AuditApplicationDbContext> _options = null!;
+    private DbContextOptions<AuditDbContext> _options = null!;
 
     [SetUp]
     public void Setup()
@@ -19,7 +19,7 @@ public class RepositoryOptimisticUpdateSqliteTests
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        _options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite(_connection)
             .Options;
 
@@ -120,7 +120,7 @@ public class RepositoryOptimisticUpdateSqliteTests
         Assert.That(persisted.EventType, Is.EqualTo("Concurrent-2"));
     }
 
-    private AuditApplicationDbContext CreateContext() => new(_options);
+    private AuditDbContext CreateContext() => new(_options);
 
     private async Task<Guid> SeedEventAsync()
     {

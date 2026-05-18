@@ -6,6 +6,7 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Query;
 using MillWorks.AuditCore.Tests.Helpers;
+using static MillWorks.AuditCore.Services.Query.QueryLimits;
 
 namespace MillWorks.AuditCore.Tests.Services.Query;
 
@@ -18,7 +19,7 @@ public class AuditSearchServiceTests
     /// <summary>
     /// Context for in-memory database
     /// </summary>
-    private AuditApplicationDbContext _context;
+    private AuditDbContext _context;
 
     /// <summary>
     /// Mock AutoMapper
@@ -43,7 +44,7 @@ public class AuditSearchServiceTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
-        _context = new AuditApplicationDbContext(options);
+        _context = new AuditDbContext(options);
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditSearchService>>();
 
@@ -805,6 +806,153 @@ public class AuditSearchServiceTests
 
         // Assert
         Assert.That(result.TotalItems, Is.EqualTo(1));
+    }
+
+    #endregion
+
+    #region Page Size Limits Tests
+
+    [Test]
+    public async Task SearchAuditEventsAsync_WithLimit5000_ClampedTo1000()
+    {
+        // Arrange
+        var events = CreateTestEvents(5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        var request = new AuditSearchRequest { Offset = 0, Limit = 5000 };
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchAuditEventsAsync(request);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.MaxPageSize));
+    }
+
+    [Test]
+    public async Task SearchAuditEventsAsync_WithNegativeLimit_DefaultsTo50()
+    {
+        // Arrange
+        var events = CreateTestEvents(5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        var request = new AuditSearchRequest { Offset = 0, Limit = -1 };
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchAuditEventsAsync(request);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.DefaultPageSize));
+    }
+
+    [Test]
+    public async Task SearchAuditEventsAsync_WithZeroLimit_DefaultsTo50()
+    {
+        // Arrange
+        var events = CreateTestEvents(5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        var request = new AuditSearchRequest { Offset = 0, Limit = 0 };
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchAuditEventsAsync(request);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.DefaultPageSize));
+    }
+
+    [TestCase(100)]
+    [TestCase(1000)]
+    public async Task SearchAuditEventsAsync_WithValidLimit_Unchanged(int requestedLimit)
+    {
+        // Arrange
+        var events = CreateTestEvents(5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        var request = new AuditSearchRequest { Offset = 0, Limit = requestedLimit };
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchAuditEventsAsync(request);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(requestedLimit));
+    }
+
+    [Test]
+    public async Task SearchByEntityAsync_WithLimit5000_ClampedTo1000()
+    {
+        // Arrange
+        var entityType = "Product";
+        var events = CreateTestEventsWithEntityType(entityType, 5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchByEntityAsync(entityType, limit: 5000);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.MaxPageSize));
+    }
+
+    [Test]
+    public async Task SearchByEntityAsync_WithNegativeLimit_DefaultsTo50()
+    {
+        // Arrange
+        var entityType = "Product";
+        var events = CreateTestEventsWithEntityType(entityType, 5);
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
+            {
+                EventId = e.EventId
+            }).ToList());
+
+        // Act
+        var result = await _searchService.SearchByEntityAsync(entityType, limit: -1);
+
+        // Assert
+        Assert.That(result.Limit, Is.EqualTo(QueryLimits.DefaultPageSize));
     }
 
     #endregion

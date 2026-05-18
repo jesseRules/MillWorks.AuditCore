@@ -177,7 +177,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var tamperDetection = scope.ServiceProvider.GetRequiredService<ITamperDetectionService>();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             var events = batch.Select(static b => b.Event).ToList();
             var results = await tamperDetection.CreateIntegrityRecordBatchAsync(events, cancellationToken);
@@ -221,7 +221,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
             try
             {
                 using var failScope = _scopeFactory.CreateScope();
-                var failDbContext = failScope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+                var failDbContext = failScope.ServiceProvider.GetRequiredService<AuditDbContext>();
                 var failedEventIds = batch.Select(static b => b.Event.EventId).ToList();
 
                 await failDbContext.IntegrityWorkItems

@@ -37,7 +37,7 @@ public sealed class RetryFailureBehaviorSqlServerTests
 
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<AuditApplicationDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
         var strategy = ctx.Database.CreateExecutionStrategy();
 

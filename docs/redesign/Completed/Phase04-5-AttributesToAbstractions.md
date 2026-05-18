@@ -1,5 +1,7 @@
 # Phase 04.5 — Lift marker attributes + `AuditLogDto` to Abstractions
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase04-AuditContextSource.md`](Phase04-AuditContextSource.md)
 

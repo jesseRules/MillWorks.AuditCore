@@ -33,6 +33,11 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     private readonly byte[] _masterKey;
 
     /// <summary>
+    /// Whether to allow automatic key generation when no keys exist
+    /// </summary>
+    private readonly bool _allowAutoKeyGeneration;
+
+    /// <summary>
     /// Current version file name
     /// </summary>
     private const string CurrentVersionFile = "current-version.txt";
@@ -45,18 +50,25 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     /// <summary>
     /// File-based key provider constructor
     /// </summary>
-    /// <param name="keyStorePath"></param>
-    /// <param name="masterKeyBase64"></param>
-    /// <param name="logger"></param>
+    /// <param name="keyStorePath">Directory path for key storage</param>
+    /// <param name="masterKeyBase64">Base64-encoded 256-bit master key</param>
+    /// <param name="logger">Logger instance</param>
+    /// <param name="allowAutoKeyGeneration">
+    /// When true, automatically generates initial encryption keys if none exist.
+    /// Default is false (fail-safe) — missing keys throw KeyProviderException.
+    /// Enable only for dev/bootstrap scenarios.
+    /// </param>
     public FileBasedKeyProvider(
         string keyStorePath,
         string masterKeyBase64,
-        ILogger<FileBasedKeyProvider> logger)
+        ILogger<FileBasedKeyProvider> logger,
+        bool allowAutoKeyGeneration = false)
     {
         _keyStorePath = keyStorePath;
         _logger = logger;
         _keyCache = new ConcurrentDictionary<string, byte[]>();
         _masterKey = Convert.FromBase64String(masterKeyBase64);
+        _allowAutoKeyGeneration = allowAutoKeyGeneration;
 
         // Ensure key store directory exists
         Directory.CreateDirectory(_keyStorePath);
@@ -110,11 +122,26 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
 
             if (!File.Exists(versionFilePath))
             {
+                if (!_allowAutoKeyGeneration)
+                {
+                    throw new KeyProviderException(
+                        "No encryption keys found and automatic key generation is disabled. " +
+                        "Initialize keys manually or enable allowAutoKeyGeneration for dev/bootstrap scenarios.");
+                }
+
+                _logger.LogWarning(
+                    "No encryption keys found at {KeyStorePath}. Auto-generating initial key (allowAutoKeyGeneration=true)",
+                    _keyStorePath);
+
                 var initialVersion = await InitializeFirstKeyAsync(cancellationToken);
                 return initialVersion;
             }
 
             return await File.ReadAllTextAsync(versionFilePath, cancellationToken);
+        }
+        catch (KeyProviderException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -170,10 +197,25 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
 
             if (!File.Exists(versionFilePath))
             {
+                if (!_allowAutoKeyGeneration)
+                {
+                    throw new KeyProviderException(
+                        "No encryption keys found and automatic key generation is disabled. " +
+                        "Initialize keys manually or enable allowAutoKeyGeneration for dev/bootstrap scenarios.");
+                }
+
+                _logger.LogWarning(
+                    "No encryption keys found at {KeyStorePath}. Auto-generating initial key (allowAutoKeyGeneration=true)",
+                    _keyStorePath);
+
                 return InitializeFirstKeySync();
             }
 
             return File.ReadAllText(versionFilePath);
+        }
+        catch (KeyProviderException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

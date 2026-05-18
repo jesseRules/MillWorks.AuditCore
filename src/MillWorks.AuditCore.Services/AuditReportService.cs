@@ -14,7 +14,7 @@ namespace MillWorks.AuditCore.Services.Query;
 /// <param name="context"></param>
 /// <param name="logger"></param>
 public sealed class AuditReportService(
-    AuditApplicationDbContext context,
+    AuditDbContext context,
     ILogger<AuditReportService> logger)
     : IAuditReportService
 {

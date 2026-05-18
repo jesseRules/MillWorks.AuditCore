@@ -30,15 +30,15 @@ namespace MillWorks.AuditCore.Tests.TamperDetection;
 [Category("Unit")]
 public sealed class IntegrityDurabilityTests
 {
-    private AuditApplicationDbContext _dbContext = null!;
+    private AuditDbContext _dbContext = null!;
 
     [SetUp]
     public void SetUp()
     {
-        var options = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+        var options = new DbContextOptionsBuilder<AuditDbContext>()
             .UseSqlite("DataSource=:memory:")
             .Options;
-        _dbContext = new AuditApplicationDbContext(options);
+        _dbContext = new AuditDbContext(options);
         _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
     }
@@ -229,13 +229,13 @@ public sealed class IntegrityDurabilityTests
         var dbPath = Path.Combine(Path.GetTempPath(), $"audit_test_{Guid.NewGuid()}.db");
         try
         {
-            var fileDbOptions = new DbContextOptionsBuilder<AuditApplicationDbContext>()
+            var fileDbOptions = new DbContextOptionsBuilder<AuditDbContext>()
                 .UseSqlite($"DataSource={dbPath}")
                 .Options;
 
             // Seed data
             var eventId = Guid.NewGuid();
-            using (var seedCtx = new AuditApplicationDbContext(fileDbOptions))
+            using (var seedCtx = new AuditDbContext(fileDbOptions))
             {
                 seedCtx.Database.EnsureCreated();
                 seedCtx.AuditEvents.Add(new AuditEventEntity
@@ -287,7 +287,7 @@ public sealed class IntegrityDurabilityTests
             await batcher.StopAsync(CancellationToken.None);
 
             // Assert — read from a fresh context
-            using var verifyCtx = new AuditApplicationDbContext(fileDbOptions);
+            using var verifyCtx = new AuditDbContext(fileDbOptions);
             var workItem = await verifyCtx.IntegrityWorkItems.FirstAsync(w => w.EventId == eventId);
             Assert.That(workItem.Status, Is.EqualTo(IntegrityStatus.Completed));
             Assert.That(workItem.CompletedAt, Is.Not.Null);
@@ -361,7 +361,7 @@ public sealed class IntegrityDurabilityTests
             var mockScopeProvider = new Mock<IServiceProvider>();
             mockScopeProvider.Setup(p => p.GetService(typeof(ITamperDetectionService)))
                 .Returns(tamperDetection);
-            mockScopeProvider.Setup(p => p.GetService(typeof(AuditApplicationDbContext)))
+            mockScopeProvider.Setup(p => p.GetService(typeof(AuditDbContext)))
                 .Returns(_dbContext);
 
             var mockScope = new Mock<IServiceScope>();
@@ -382,17 +382,17 @@ public sealed class IntegrityDurabilityTests
 
     private static IServiceScopeFactory CreateScopeFactoryWithDbOptions(
         ITamperDetectionService tamperDetection,
-        DbContextOptions<AuditApplicationDbContext> dbOptions)
+        DbContextOptions<AuditDbContext> dbOptions)
     {
         var mockScopeFactory = new Mock<IServiceScopeFactory>();
         mockScopeFactory.Setup(f => f.CreateScope()).Returns(() =>
         {
             // Each scope gets a fresh DbContext to avoid cross-thread issues
-            var ctx = new AuditApplicationDbContext(dbOptions);
+            var ctx = new AuditDbContext(dbOptions);
             var mockScopeProvider = new Mock<IServiceProvider>();
             mockScopeProvider.Setup(p => p.GetService(typeof(ITamperDetectionService)))
                 .Returns(tamperDetection);
-            mockScopeProvider.Setup(p => p.GetService(typeof(AuditApplicationDbContext)))
+            mockScopeProvider.Setup(p => p.GetService(typeof(AuditDbContext)))
                 .Returns(ctx);
 
             var mockScope = new Mock<IServiceScope>();

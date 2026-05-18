@@ -1,5 +1,7 @@
 # Phase 02 — Default ImmediateSink
 
+**Completed 2026-04-26**
+
 Master plan: [`../RedesignPlan.md`](../RedesignPlan.md)
 Depends on: [`Phase01-AuditSinkAbstraction.md`](Phase01-AuditSinkAbstraction.md)
 

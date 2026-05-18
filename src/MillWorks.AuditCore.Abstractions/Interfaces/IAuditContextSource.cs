@@ -11,7 +11,7 @@ namespace MillWorks.AuditCore.Abstractions.Interfaces;
 /// <remarks>
 /// <para>
 /// <b>Why this interface exists.</b> Before this contract, the interceptor cast
-/// the saving <c>DbContext</c> to <c>AuditApplicationDbContext</c> to read these
+/// the saving <c>DbContext</c> to <c>AuditDbContext</c> to read these
 /// fields. That coupled every audited <c>DbContext</c> to a specific AuditCore
 /// type and prevented consumer libraries from referencing only
 /// <c>MillWorks.AuditCore.Abstractions</c>. Implementing

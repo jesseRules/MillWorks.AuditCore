@@ -16,7 +16,7 @@ MillWorks.AuditCore.Abstractions
   v
 MillWorks.AuditCore.EntityFramework
   |  EF Core data layer. References Abstractions only.
-  |  Contains: AuditApplicationDbContext with schema configuration,
+  |  Contains: AuditDbContext with schema configuration,
   |  Entity classes (AuditEventEntity, AuditLogEntity, AuditIntegrityEntity,
   |  AuditArchiveRecordEntity, AuditSecurityEventEntity),
   |  Primitive base classes (AuditAggregateRoot, AppendOnlyEntity, AuditEntity),
@@ -71,7 +71,7 @@ The EF Core interceptor captures entity changes during `SaveChangesAsync`. If th
 
 1. **Type exclusion set**: The interceptor maintains a `HashSet<Type>` of audit-owned entity types. Any `EntityEntry` whose `ClrType` appears in this set is skipped during change detection.
 
-2. **DbContext bypass for audit entities**: `AuditApplicationDbContext.SaveChanges()` / `SaveChangesAsync()` detect when audit entities are being saved and temporarily set the bypass flag so the interceptor does not recurse while persisting `AuditEventEntity`, `AuditIntegrityEntity`, `AuditLogEntity`, `AuditArchiveRecordEntity`, or `AuditSecurityEventEntity`.
+2. **DbContext bypass for audit entities**: `AuditDbContext.SaveChanges()` / `SaveChangesAsync()` detect when audit entities are being saved and temporarily set the bypass flag so the interceptor does not recurse while persisting `AuditEventEntity`, `AuditIntegrityEntity`, `AuditLogEntity`, `AuditArchiveRecordEntity`, or `AuditSecurityEventEntity`.
 
 `InternalAuditEventRepository` still exists as an internal helper around audit-event persistence, but the interceptor's `AuditLogEntity` path currently writes directly to `context.Set<AuditLogEntity>()` and relies on the exclusion set plus the DbContext bypass behavior to prevent recursion.
 
@@ -163,7 +163,7 @@ IValidateOptions<T> + ValidateOnStart()
     v
 typed consumers
     - IOptions<T> / IOptionsMonitor<T> in runtime services
-    - AuditApplicationDbContext schema options
+    - AuditDbContext schema options
     - TamperDetectionService HMAC/signature options
     - AuditSaveChangesInterceptor failure policy
     - InProcessRequestAuditDispatcher overflow policy
@@ -193,7 +193,7 @@ Six background services participate in the audit pipeline: `DatabaseInitializati
 
 ### Schema configuration and migration anchoring
 
-`EntityFrameworkOptions.Schema` (default: `"audit"`) is applied to the runtime model via `AuditApplicationDbContext.OnModelCreating`, which calls `modelBuilder.HasDefaultSchema(_schema)` as its first operation. Every audit entity's table mapping inherits this schema — there are no per-entity schema overrides on the entity attributes. `AuditModelCacheKeyFactory` (wired via `options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()` inside `UseEntityFramework`) includes the configured schema in the compiled-model cache key alongside the context type and design-time flag, so two `AuditApplicationDbContext` instances in the same process with different schemas get independently compiled models.
+`EntityFrameworkOptions.Schema` (default: `"audit"`) is applied to the runtime model via `AuditDbContext.OnModelCreating`, which calls `modelBuilder.HasDefaultSchema(_schema)` as its first operation. Every audit entity's table mapping inherits this schema — there are no per-entity schema overrides on the entity attributes. `AuditModelCacheKeyFactory` (wired via `options.ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()` inside `UseEntityFramework`) includes the configured schema in the compiled-model cache key alongside the context type and design-time flag, so two `AuditDbContext` instances in the same process with different schemas get independently compiled models.
 
 **Migration anchoring — the single backward-compat constraint that survives the greenfield policy.** The built-in EF migrations in `src/MillWorks.AuditCore.EntityFramework/Migrations/` are generated against the default `"audit"` schema. Every `CreateTable`, `AddForeignKey`, `EnsureSchema`, and `__EFMigrationsHistory` reference is literal `"audit"`. The `MigrationsHistoryTable("__EFMigrationsHistory", "audit")` call in `MillWorksAuditBuilder.UseEntityFramework` is also fixed to `"audit"`. Consequences:
 
@@ -235,7 +235,7 @@ Application calls DbContext.SaveChangesAsync()
    c. For Modified: emit one AuditLogEntity per changed property
    d. For Added / Deleted: emit one AuditLogEntity with a property snapshot in AdditionalData
    e. For [SensitiveData] properties: mask or redact values before persistence
-   f. Stamp CorrelationId / IpAddress / UserAgent from AuditApplicationDbContext request metadata
+   f. Stamp CorrelationId / IpAddress / UserAgent from AuditDbContext request metadata
    g. For FERPA entities: include FERPA metadata in AdditionalData
     |
     v

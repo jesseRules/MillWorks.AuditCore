@@ -106,7 +106,7 @@ public class AuditArchivalIntegrationTests : SqliteIntegrationFixture
     #region Helpers
 
     private static async Task SeedArchive(
-        MillWorks.AuditCore.EntityFramework.Data.AuditApplicationDbContext context,
+        MillWorks.AuditCore.EntityFramework.Data.AuditDbContext context,
         string archiveId,
         MillWorksArchiveStatus status = MillWorksArchiveStatus.Completed,
         DateTimeOffset? createdAt = null,
