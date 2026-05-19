@@ -95,9 +95,11 @@ public sealed class AuditReportService(
                 // Date-based groupings use client-side evaluation because EF cannot translate
                 // DateTimeOffset grouping expressions across all providers (e.g. SQLite).
                 // Only the InsertedDate column is projected to minimize data transfer.
-                // For very large tables, consider database-specific date-truncation functions.
+                // Capped at MaxChartDataRows to prevent unbounded memory growth.
                 var dates = await baseQuery
                     .Where(static e => e.InsertedDate.HasValue)
+                    .OrderByDescending(static e => e.InsertedDate)
+                    .Take(QueryLimits.MaxChartDataRows)
                     .Select(static e => e.InsertedDate!.Value)
                     .ToListAsync(cancellationToken);
 
@@ -261,10 +263,12 @@ public sealed class AuditReportService(
         DateTimeOffset endDate,
         CancellationToken cancellationToken)
     {
+        // Capped at MaxExportRows to prevent unbounded StringBuilder growth
         var query = context.AuditEvents
             .AsNoTracking()
             .Where(e => e.InsertedDate >= startDate && e.InsertedDate <= endDate)
-            .OrderBy(static e => e.InsertedDate);
+            .OrderBy(static e => e.InsertedDate)
+            .Take(QueryLimits.MaxExportRows);
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("EventId,InsertedDate,EventType,EntityType,EntityId,Action,User,UserFullName,Environment");

@@ -366,6 +366,88 @@ public sealed class OutboxDrainerIntegrationTests
     private sealed record BackoffStatusRow(int AttemptCount, DateTimeOffset? NextRetryAt);
 
     [Test]
+    public async Task BatchFailure_DoesNotDuplicateExplicitEvents()
+    {
+        await using var consumerCtx = CreateConsumerContext();
+        await consumerCtx.Database.EnsureCreatedAsync();
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        // Insert 2 explicit events and 2 entity changes
+        var explicitEvent1 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.ExplicitEvent,
+            EventType = "UserLogin",
+            EntityName = "Session",
+            Action = AuditAction.Created,
+            UserId = "user-explicit-1",
+        };
+        var explicitEvent2 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.ExplicitEvent,
+            EventType = "UserLogout",
+            EntityName = "Session",
+            Action = AuditAction.Deleted,
+            UserId = "user-explicit-2",
+        };
+        var entityChange1 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Updated,
+            UserId = "user-entity-1",
+        };
+        var entityChange2 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+            UserId = "user-entity-2",
+        };
+
+        foreach (var envelope in new[] { explicitEvent1, explicitEvent2, entityChange1, entityChange2 })
+        {
+            var json = JsonSerializer.Serialize(envelope, jsonOptions);
+            await consumerCtx.Database.ExecuteSqlRawAsync(
+                "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+                "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
+                Guid.NewGuid(), json, 1, 0, DateTimeOffset.UtcNow, 0);
+        }
+
+        var opts = CreateSecurityOptions();
+        var countingLogger = new CountingAuditLogger();
+        var batchFailingWriter = new BatchFailingEntityWriter();
+        var sp = BuildDrainerServiceProviderWithCustomServices(opts, countingLogger, batchFailingWriter);
+
+        var drainer = new AuditOutboxDrainer(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditOutboxDrainer>.Instance,
+            Options.Create(opts));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        _ = drainer.StartAsync(cts.Token);
+
+        // Wait for processing
+        await Task.Delay(TimeSpan.FromMilliseconds(800));
+        await drainer.StopAsync(CancellationToken.None);
+
+        // Verify explicit events were logged exactly twice (once each), not four times
+        // The bug would cause them to be replayed in the fallback loop after batch failure
+        Assert.That(countingLogger.LogAsyncCallCount, Is.EqualTo(2),
+            "Explicit events should be logged exactly once each, not duplicated on batch fallback");
+
+        // Verify entity changes were written (batch failed, then succeeded one-at-a-time)
+        Assert.That(batchFailingWriter.SingleWriteCount, Is.EqualTo(2),
+            "Entity changes should fall back to one-at-a-time after batch failure");
+
+        // Verify all rows completed
+        var completedCount = await consumerCtx.Database
+            .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox] WHERE Status = {(int)AuditOutboxStatus.Completed}")
+            .SingleAsync();
+        Assert.That(completedCount, Is.EqualTo(4), "All 4 rows should be marked Completed");
+    }
+
+    [Test]
     public async Task ExhaustedRetries_RoutesToDlq()
     {
         await using var consumerCtx = CreateConsumerContext();
@@ -480,6 +562,34 @@ public sealed class OutboxDrainerIntegrationTests
         return services.BuildServiceProvider();
     }
 
+    private IServiceProvider BuildDrainerServiceProviderWithCustomServices(
+        SecurityOptions opts,
+        IAuditLogger auditLogger,
+        IAuditEntityWriter entityWriter)
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton(Options.Create(opts));
+        var efOptions = Options.Create(new EntityFrameworkOptions { Schema = "dbo" });
+        services.AddSingleton(efOptions);
+        services.AddScoped<AuditDbContext>(sp =>
+        {
+            var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
+                .UseSqlServer(_connectionString)
+                .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
+                .Options;
+            return new AuditDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
+        });
+
+        services.AddScoped<IAuditDistributedLockService, NoOpLockService>();
+        services.AddSingleton(auditLogger);
+        services.AddSingleton(entityWriter);
+        services.AddScoped<ImmediateSink>();
+
+        return services.BuildServiceProvider();
+    }
+
     private async Task DropAndCreateDatabaseAsync()
     {
         await DropDatabaseIfExistsAsync();
@@ -582,6 +692,51 @@ public sealed class OutboxDrainerIntegrationTests
 
         public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Simulated drain failure");
+    }
+
+    private sealed class BatchFailingEntityWriter : IAuditEntityWriter
+    {
+        private int _singleWriteCount;
+        public int SingleWriteCount => _singleWriteCount;
+
+        public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _singleWriteCount);
+            return Task.CompletedTask;
+        }
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Simulated batch failure");
+    }
+
+    private sealed class CountingAuditLogger : IAuditLogger
+    {
+        private int _logAsyncCallCount;
+        public int LogAsyncCallCount => _logAsyncCallCount;
+
+        public Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _logAsyncCallCount);
+            return Task.CompletedTask;
+        }
+
+        public Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
+            => Task.FromResult(new BatchAuditResult());
+
+        public Task LogAsync(string eventType, object? data = null, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task LogAsync(string eventType, string message, Dictionary<string, object?> data, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<Guid> BeginOperationAsync(string operationType, object? metadata = null)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task EndOperationAsync(Guid operationId, bool success = true, object? result = null)
+            => Task.CompletedTask;
+
+        public ICustomAuditScope CreateScope(string eventType, object? target = null)
+            => Mock.Of<ICustomAuditScope>();
     }
 
     private sealed class NoOpAuditLogger : IAuditLogger

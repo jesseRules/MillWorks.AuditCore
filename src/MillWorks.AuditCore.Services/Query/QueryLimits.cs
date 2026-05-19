@@ -24,6 +24,18 @@ public static class QueryLimits
     /// </summary>
     public const int MaxOutboxBatchSize = 300;
 
+    /// <summary>
+    /// Maximum rows for chart data queries.
+    /// Prevents unbounded memory when grouping timestamps client-side.
+    /// </summary>
+    public const int MaxChartDataRows = 100_000;
+
+    /// <summary>
+    /// Maximum rows for CSV export.
+    /// Prevents unbounded StringBuilder growth for large date ranges.
+    /// </summary>
+    public const int MaxExportRows = 50_000;
+
     public static int Clamp(int limit) =>
         limit <= 0 ? DefaultPageSize : Math.Min(limit, MaxPageSize);
 }
