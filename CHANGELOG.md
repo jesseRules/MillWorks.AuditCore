@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2026-05-19
+
+### Added
+- **OpenTelemetry distributed tracing** — `AuditActivitySource` (`MillWorks.AuditCore` ActivitySource) emits spans for audit operations: `audit.write`, `audit.write_batch`, `audit.query`, `audit.archive`, `audit.restore`, `outbox.write`, `outbox.drain`, `integrity.write`, `integrity.flush`. Spans include contextual tags (`audit.event.id`, `audit.event.type`, `batch.size`, `outcome`, etc.) and events for retries, DLQ routing, and integrity failures. Zero overhead when no listener is registered.
+- **`AddAuditCoreInstrumentation()` extension** — registers the AuditCore ActivitySource with OpenTelemetry's `TracerProviderBuilder` for Jaeger/Zipkin/OTLP export.
+- **`AuditActivitySourceTests`** — 13 unit tests verifying span creation, tags, events, trace context propagation, and zero-overhead when no listener.
+
+### Changed
+- **README Observability section** — updated to document both metrics and distributed tracing, with combined `WithMetrics()` + `WithTracing()` example.
+
 ## [1.7.5] - 2026-05-18
 
 ### Changed
@@ -320,7 +330,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
-[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...HEAD
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.6...HEAD
+[1.7.6]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...v1.7.6
 [1.7.5]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.2...v1.7.5
 [1.6.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.0...v1.6.1
