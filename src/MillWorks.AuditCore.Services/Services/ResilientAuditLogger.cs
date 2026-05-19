@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
@@ -52,6 +54,13 @@ public sealed class ResilientAuditLogger(
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
 
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditWrite,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.AuditEventId, auditEvent.EventId.ToString());
+        activity?.SetTag(AuditActivitySource.Tags.AuditEventType, auditEvent.EventType);
+
         Exception? lastException = null;
         bool eventWasSaved = false;
 
@@ -70,10 +79,13 @@ public sealed class ResilientAuditLogger(
                         logger.LogWarning(
                             "Event {EventId} was already saved but encountered error. Not retrying save.",
                             auditEvent.EventId);
+                        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
                         return; // Don't retry saves
                     }
 
                     AuditSqlCommandInterceptor.RecordRetry("audit_log");
+                    activity?.SetTag(AuditActivitySource.Tags.RetryAttempt, retry);
+                    activity?.AddEvent(new ActivityEvent(AuditActivitySource.Events.RetryAttempt));
 
                     // Exponential backoff with jitter to avoid thundering herd
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
@@ -99,10 +111,12 @@ public sealed class ResilientAuditLogger(
                         auditEvent.EventId, retry + 1);
                 }
 
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
                 return;
             }
             catch (OperationCanceledException)
             {
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "cancelled");
                 // Don't retry or send to DLQ on cancellation - just propagate
                 throw;
             }
@@ -112,6 +126,7 @@ public sealed class ResilientAuditLogger(
                 logger.LogWarning(
                     "Event {EventId} already exists in database. Treating as success.",
                     auditEvent.EventId);
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "duplicate");
                 return; // Don't retry or send to DLQ
             }
             catch (Exception ex)
@@ -126,6 +141,9 @@ public sealed class ResilientAuditLogger(
         }
 
         // All retries failed - send to dead letter queue
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "dlq");
+        activity?.AddEvent(new ActivityEvent(AuditActivitySource.Events.DlqRouted));
+
         try
         {
             diagnostics?.Increment(AuditDiagnosticCounter.DlqStoreOperation);
@@ -168,6 +186,12 @@ public sealed class ResilientAuditLogger(
         if (auditEvents.Count == 0)
             return BatchAuditResult.Succeeded(0);
 
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditWriteBatch,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.BatchSize, auditEvents.Count);
+
         Exception? lastException = null;
 
         for (int retry = 0; retry <= _maxRetries; retry++)
@@ -179,6 +203,8 @@ public sealed class ResilientAuditLogger(
                 if (retry > 0)
                 {
                     AuditSqlCommandInterceptor.RecordRetry("audit_log_batch");
+                    activity?.SetTag(AuditActivitySource.Tags.RetryAttempt, retry);
+                    activity?.AddEvent(new ActivityEvent(AuditActivitySource.Events.RetryAttempt));
 
                     var exponentialDelay = _baseRetryDelay.TotalMilliseconds * Math.Pow(2, retry - 1);
                     var jitter = Random.Shared.Next(0, (int)(exponentialDelay * 0.3));
@@ -203,15 +229,19 @@ public sealed class ResilientAuditLogger(
                         auditEvents.Count, retry + 1);
                 }
 
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+                activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, auditEvents.Count);
                 return result;
             }
             catch (OperationCanceledException)
             {
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "cancelled");
                 throw;
             }
             catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
                 logger.LogWarning("Batch contains duplicate keys. Treating as success.");
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "duplicate");
                 return BatchAuditResult.Succeeded(auditEvents.Count);
             }
             catch (Exception ex)
@@ -223,6 +253,9 @@ public sealed class ResilientAuditLogger(
         }
 
         // All retries failed — send each event individually to DLQ
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "dlq");
+        activity?.AddEvent(new ActivityEvent(AuditActivitySource.Events.DlqRouted));
+
         logger.LogError(lastException,
             "Batch of {Count} audit events failed after all retries. Sending individually to DLQ.",
             auditEvents.Count);

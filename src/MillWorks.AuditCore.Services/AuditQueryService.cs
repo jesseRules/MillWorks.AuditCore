@@ -1,7 +1,9 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Responses;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -35,12 +37,23 @@ public sealed class AuditQueryService(
         Guid entityId,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "entity_trail");
+        activity?.SetTag(AuditActivitySource.Tags.AuditEntityType, entityName);
+        activity?.SetTag(AuditActivitySource.Tags.AuditEntityId, entityId.ToString());
+
         logger.LogDebug("Getting audit trail for {EntityName} with ID {EntityId}", entityName, entityId);
 
         List<AuditEventEntity> events = await context.AuditEvents.AsNoTracking()
             .Where(e => e.EntityType == entityName && e.EntityId == entityId.ToString())
             .OrderByDescending(static e => e.InsertedDate)
             .ToListAsync(cancellationToken);
+
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, events.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
 
         return MapToAuditLogDtos(events);
     }
@@ -59,6 +72,13 @@ public sealed class AuditQueryService(
         int take = 50,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "user_activity");
+        activity?.SetTag(AuditActivitySource.Tags.AuditUserId, userId.ToString());
+
         take = QueryLimits.Clamp(take);
         logger.LogDebug("Getting user activity for user {UserId}", userId);
 
@@ -75,6 +95,9 @@ public sealed class AuditQueryService(
             .Take(take)
             .ToListAsync(cancellationToken);
 
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, events.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+
         return MapToAuditLogDtos(events);
     }
 
@@ -90,6 +113,12 @@ public sealed class AuditQueryService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "paginated");
+
         limit = QueryLimits.Clamp(limit);
         if (offset < 0) offset = 0;
 
@@ -120,6 +149,9 @@ public sealed class AuditQueryService(
                 logger.LogWarning(ex, "Failed to parse JSON data for event {EventId}", item.EventId);
             }
         }
+
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, items.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
 
         return new AuditEventsResponse
         {

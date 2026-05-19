@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.IO.Pipelines;
@@ -12,6 +13,7 @@ using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -104,12 +106,18 @@ public sealed class AuditArchivalService(
         string? archiveId = null,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditArchive,
+            ActivityKind.Internal);
+
         if (archiveId != null)
         {
             var existing = await archiveRecordRepository.GetByArchiveIdAsync(archiveId, cancellationToken);
 
             if (existing?.Status == MillWorksArchiveStatus.Completed)
             {
+                activity?.SetTag(AuditActivitySource.Tags.ArchiveId, archiveId);
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, "already_exists");
                 return new AuditArchivalResult
                 {
                     ArchiveId = archiveId,
@@ -124,6 +132,8 @@ public sealed class AuditArchivalService(
             ArchiveId = archiveId ?? Guid.NewGuid().ToString(),
             StartTime = DateTimeOffset.UtcNow
         };
+
+        activity?.SetTag(AuditActivitySource.Tags.ArchiveId, result.ArchiveId);
 
         if (blobServiceClient is null)
         {
@@ -360,6 +370,9 @@ public sealed class AuditArchivalService(
             result.Message = $"Successfully archived {eventIds.Count} events";
             result.ArchiveSize = uploadSize;
 
+            activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, eventIds.Count);
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+
             logger.LogInformation("Archive completed: {ArchiveId} with {Count} events",
                 result.ArchiveId, result.EventCount);
 
@@ -426,6 +439,7 @@ public sealed class AuditArchivalService(
                     MillWorksArchiveStatus.Failed, ex.Message, CancellationToken.None);
             }
 
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "failure");
             result.Success = false;
             result.Message = $"Archive failed: {ex.Message}";
             return result;
@@ -443,6 +457,12 @@ public sealed class AuditArchivalService(
         string archiveId,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditRestore,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.ArchiveId, archiveId);
+
         var result = new AuditRestoreResult { ArchiveId = archiveId };
 
         var archiveRecord = await archiveRecordRepository.GetByArchiveIdAsync(archiveId, cancellationToken);
@@ -513,6 +533,9 @@ public sealed class AuditArchivalService(
             result.RestoredEventCount = restoredEvents;
             result.Message = $"Successfully restored {restoredEvents} events";
 
+            activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, restoredEvents);
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+
             logger.LogInformation("Restore completed: {ArchiveId} with {Count} events",
                 archiveId, restoredEvents);
 
@@ -523,6 +546,9 @@ public sealed class AuditArchivalService(
             logger.LogError(
                 "Archive {ArchiveId} integrity check failed. Expected: {Expected}, Actual: {Actual}",
                 archiveId, ex.ExpectedHash, ex.ComputedHash);
+
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "integrity_failed");
+            activity?.AddEvent(new ActivityEvent(AuditActivitySource.Events.IntegrityFailed));
 
             try
             {
@@ -541,6 +567,7 @@ public sealed class AuditArchivalService(
         }
         catch (Exception ex)
         {
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "failure");
             logger.LogError(ex, "Restore operation failed for archive {ArchiveId}", archiveId);
             result.Message = $"Restore failed: {ex.Message}";
             return result;

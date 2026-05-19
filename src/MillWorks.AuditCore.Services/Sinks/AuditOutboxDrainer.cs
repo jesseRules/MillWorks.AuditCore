@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -135,6 +137,10 @@ public sealed class AuditOutboxDrainer : BackgroundService
 
     private async Task<int> DrainBatchAsync(IServiceProvider sp, CancellationToken ct)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.OutboxDrain,
+            ActivityKind.Internal);
+
         var opts = _options.Value;
         var auditCtx = sp.GetRequiredService<AuditDbContext>();
         var sink = sp.GetRequiredService<ImmediateSink>();
@@ -147,7 +153,12 @@ public sealed class AuditOutboxDrainer : BackgroundService
             .ToListAsync(ct);
 
         if (pending.Count == 0)
+        {
+            activity?.SetTag(AuditActivitySource.Tags.BatchSize, 0);
             return 0;
+        }
+
+        activity?.SetTag(AuditActivitySource.Tags.BatchSize, pending.Count);
 
         var processed = 0;
 
@@ -182,6 +193,9 @@ public sealed class AuditOutboxDrainer : BackgroundService
                 {
                     row.Status = AuditOutboxStatus.Failed;
                     _failedCounter.Add(1, new KeyValuePair<string, object?>("stage", "drain"));
+                    activity?.AddEvent(new ActivityEvent(
+                        AuditActivitySource.Events.OutboxExhausted,
+                        tags: new ActivityTagsCollection { { AuditActivitySource.Tags.OutboxRowId, row.Id.ToString() } }));
 
                     if (dlq is not null)
                     {
@@ -225,6 +239,9 @@ public sealed class AuditOutboxDrainer : BackgroundService
         }
 
         await auditCtx.SaveChangesAsync(ct);
+
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, processed);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
 
         _logger.LogDebug("Drained {Processed}/{Total} outbox rows", processed, pending.Count);
         return processed;

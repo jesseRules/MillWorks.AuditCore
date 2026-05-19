@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -76,13 +78,21 @@ public sealed class IntegrityWriteBatcher : BackgroundService
         AuditIntegrityDto auditEvent,
         CancellationToken cancellationToken)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.IntegrityWrite,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.AuditEventId, auditEvent.EventId.ToString());
+
         var tcs = new TaskCompletionSource<AuditIntegrityDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pending = new PendingIntegrityWrite(auditEvent, tcs);
 
         await _channel.Writer.WriteAsync(pending, cancellationToken);
 
         // Wait for the batch flush to complete this specific write
-        return await tcs.Task;
+        var result = await tcs.Task;
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+        return result;
     }
 
     /// <inheritdoc />
@@ -173,6 +183,12 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     {
         if (batch.Count == 0) return;
 
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.IntegrityFlush,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.BatchSize, batch.Count);
+
         try
         {
             using var scope = _scopeFactory.CreateScope();
@@ -209,11 +225,15 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                 batch[i].Completion.TrySetResult(results[i]);
             }
 
+            activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, batch.Count);
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+
             _diagnostics?.Increment(AuditDiagnosticCounter.IntegrityBatchFlush);
             _logger.LogDebug("IntegrityWriteBatcher: flushed {Count} records", batch.Count);
         }
         catch (Exception ex)
         {
+            activity?.SetTag(AuditActivitySource.Tags.Outcome, "failure");
             _diagnostics?.Increment(AuditDiagnosticCounter.IntegrityBatchFlushFailure);
             _logger.LogError(ex, "IntegrityWriteBatcher: batch flush failed for {Count} records", batch.Count);
 
