@@ -1,7 +1,5 @@
-using System.Text;
 using System.Text.Json;
 using FluentAssertions;
-using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Services;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Tests.Helpers;

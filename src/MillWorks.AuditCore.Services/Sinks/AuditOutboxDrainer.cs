@@ -146,8 +146,10 @@ public sealed class AuditOutboxDrainer : BackgroundService
         var sink = sp.GetRequiredService<ImmediateSink>();
         var dlq = sp.GetService<IAuditDeadLetterQueue>();
 
+        var now = DateTimeOffset.UtcNow;
         var pending = await auditCtx.AuditOutbox
-            .Where(static o => o.Status == AuditOutboxStatus.Pending)
+            .Where(o => o.Status == AuditOutboxStatus.Pending &&
+                        (o.NextRetryAt == null || o.NextRetryAt <= now))
             .OrderBy(static o => o.CreatedAt)
             .Take(opts.OutboxDrainerBatchSize)
             .ToListAsync(ct);
@@ -231,9 +233,10 @@ public sealed class AuditOutboxDrainer : BackgroundService
                 else
                 {
                     var backoff = GetBackoffWithJitter(row.AttemptCount - 1, opts);
+                    row.NextRetryAt = DateTimeOffset.UtcNow.Add(backoff);
                     _logger.LogWarning(ex,
-                        "Outbox row {RowId} attempt {Attempt} failed, will retry after {Backoff}s",
-                        row.Id, row.AttemptCount, backoff.TotalSeconds);
+                        "Outbox row {RowId} attempt {Attempt} failed, will retry after {Backoff}s at {NextRetryAt:O}",
+                        row.Id, row.AttemptCount, backoff.TotalSeconds, row.NextRetryAt);
                 }
             }
         }

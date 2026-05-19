@@ -24,4 +24,14 @@ public interface IAuditSink
     /// envelope is queryable when this method returns.
     /// </remarks>
     Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Publish multiple audit envelopes to the sink in a single batch. Uses one
+    /// database connection and transaction for all envelopes, avoiding connection
+    /// pool exhaustion under high-throughput scenarios.
+    /// </summary>
+    /// <param name="envelopes">The envelopes to publish. Must not be null or contain nulls.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that completes when the sink has accepted all envelopes.</returns>
+    Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default);
 }

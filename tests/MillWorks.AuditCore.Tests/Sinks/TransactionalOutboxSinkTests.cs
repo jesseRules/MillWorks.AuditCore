@@ -63,6 +63,80 @@ public sealed class TransactionalOutboxSinkTests
     }
 
     [Test]
+    public void PublishBatchAsync_NullEnvelopes_Throws()
+    {
+        var writer = new RecordingWriter();
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+
+        Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await sink.PublishBatchAsync(null!));
+    }
+
+    [Test]
+    public async Task PublishBatchAsync_EmptyList_NoOps()
+    {
+        var writer = new RecordingWriter();
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+
+        await sink.PublishBatchAsync([]);
+
+        Assert.That(writer.BatchCallCount, Is.Zero);
+        Assert.That(writer.AllRows, Is.Empty);
+    }
+
+    [Test]
+    public async Task PublishBatchAsync_MultipleEnvelopes_WritesAllInSingleBatch()
+    {
+        var writer = new RecordingWriter();
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+
+        var envelopes = new List<AuditEnvelope>
+        {
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Created,
+                CorrelationId = "batch-1",
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Visit",
+                Action = AuditAction.Updated,
+                CorrelationId = "batch-2",
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.ExplicitEvent,
+                EntityName = "User.Login",
+                Action = AuditAction.Unknown,
+                EventType = "User.Login",
+                CorrelationId = "batch-3",
+            },
+        };
+
+        await sink.PublishBatchAsync(envelopes);
+
+        Assert.That(writer.BatchCallCount, Is.EqualTo(1), "Should call WriteBatchAsync once");
+        Assert.That(writer.AllRows, Has.Count.EqualTo(3));
+        Assert.That(writer.AllRows.All(r => r.version == TransactionalOutboxSink.CurrentEnvelopeVersion));
+
+        // Verify each envelope was serialized correctly
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var deserialized = writer.AllRows
+            .Select(r => JsonSerializer.Deserialize<AuditEnvelope>(r.json, options)!)
+            .ToList();
+
+        Assert.That(deserialized[0].EntityName, Is.EqualTo("Patient"));
+        Assert.That(deserialized[0].CorrelationId, Is.EqualTo("batch-1"));
+        Assert.That(deserialized[1].EntityName, Is.EqualTo("Visit"));
+        Assert.That(deserialized[1].CorrelationId, Is.EqualTo("batch-2"));
+        Assert.That(deserialized[2].EventType, Is.EqualTo("User.Login"));
+        Assert.That(deserialized[2].CorrelationId, Is.EqualTo("batch-3"));
+    }
+
+    [Test]
     public void Accessor_Current_ThrowsWhenNotSet()
     {
         var accessor = new ConsumerDbContextAccessor();
@@ -131,14 +205,29 @@ public sealed class TransactionalOutboxSinkTests
     private sealed class RecordingWriter : IAuditOutboxWriter
     {
         public int CallCount { get; private set; }
+        public int BatchCallCount { get; private set; }
         public string? LastJson { get; private set; }
         public int LastVersion { get; private set; }
+        public List<(string json, int version)> AllRows { get; } = [];
 
         public Task WriteAsync(string envelopeJson, int envelopeVersion, CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastJson = envelopeJson;
             LastVersion = envelopeVersion;
+            AllRows.Add((envelopeJson, envelopeVersion));
+            return Task.CompletedTask;
+        }
+
+        public Task WriteBatchAsync(IReadOnlyList<(string envelopeJson, int envelopeVersion)> rows, CancellationToken cancellationToken = default)
+        {
+            BatchCallCount++;
+            foreach (var row in rows)
+            {
+                LastJson = row.envelopeJson;
+                LastVersion = row.envelopeVersion;
+                AllRows.Add(row);
+            }
             return Task.CompletedTask;
         }
     }

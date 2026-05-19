@@ -162,6 +162,48 @@ public class AuditSearchServiceEdgeCaseTests
     }
 
     /// <summary>
+    /// A search term shorter than MinSearchTermLength must return zero results
+    /// rather than silently dropping the filter and widening the query.
+    /// </summary>
+    [Test]
+    public async Task SearchAuditEventsAsync_ShortSearchTerm_ReturnsZeroResults()
+    {
+        // Arrange - seed events that would match if filter were dropped
+        var events = Enumerable.Range(0, 5)
+            .Select(static i => new AuditEventEntity
+            {
+                EventId = Guid.NewGuid(),
+                JsonData = "{\"name\":\"test\"}",
+                InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        await _context.AuditEvents.AddRangeAsync(events);
+        await _context.SaveChangesAsync();
+
+        _mockMapper
+            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
+            .Returns(static (List<AuditEventEntity> src) =>
+                src.Select(static e => new AuditEventDto { EventId = e.EventId }).ToList());
+
+        // Search term "ab" is 2 chars, below MinSearchTermLength of 3
+        var request = new AuditSearchRequest
+        {
+            SearchTerm = "ab",
+            Offset = 0,
+            Limit = 50
+        };
+
+        // Act
+        var result = await _searchService.SearchAuditEventsAsync(request);
+
+        // Assert - should return 0 results, not 5
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.TotalItems, Is.EqualTo(0), "Short search term should fail fast with zero results, not widen the query");
+        Assert.That(result.Items, Is.Empty);
+    }
+
+    /// <summary>
     /// A request with no optional filters set should match every event in the database.
     /// </summary>
     [Test]

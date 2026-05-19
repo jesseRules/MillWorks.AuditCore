@@ -55,4 +55,29 @@ internal sealed class TransactionalOutboxSink : IAuditSink
             envelope.Kind,
             envelope.EntityName);
     }
+
+    public async Task PublishBatchAsync(
+        IReadOnlyList<AuditEnvelope> envelopes,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(envelopes);
+        if (envelopes.Count == 0)
+            return;
+
+        var rows = new List<(string envelopeJson, int envelopeVersion)>(envelopes.Count);
+        foreach (var envelope in envelopes)
+        {
+            if (envelope is null)
+                continue;
+
+            var json = JsonSerializer.Serialize(envelope, _jsonOptions);
+            rows.Add((json, CurrentEnvelopeVersion));
+        }
+
+        await _outboxWriter.WriteBatchAsync(rows, cancellationToken);
+
+        _logger.LogDebug(
+            "Wrote {Count} outbox row(s) in batch",
+            rows.Count);
+    }
 }

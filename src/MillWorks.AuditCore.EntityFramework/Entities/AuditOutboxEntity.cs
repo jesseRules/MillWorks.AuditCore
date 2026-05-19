@@ -38,6 +38,12 @@ public sealed class AuditOutboxEntity
 
     public DateTimeOffset? CompletedAt { get; set; }
 
+    /// <summary>
+    /// Earliest time this row may be retried. Null means immediately eligible.
+    /// Set on failure to enforce exponential backoff between attempts.
+    /// </summary>
+    public DateTimeOffset? NextRetryAt { get; set; }
+
     public int AttemptCount { get; set; }
 
     [MaxLength(2000)]

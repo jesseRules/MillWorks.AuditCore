@@ -1,7 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -35,12 +34,27 @@ public sealed class ImmediateSinkTests
     private sealed class RecordingEntityWriter : IAuditEntityWriter
     {
         public int CallCount { get; private set; }
+        public int BatchCallCount { get; private set; }
         public AuditEnvelope? LastEnvelope { get; private set; }
+        public List<AuditEnvelope> AllEnvelopes { get; } = [];
 
         public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken)
         {
             CallCount++;
             LastEnvelope = envelope;
+            AllEnvelopes.Add(envelope);
+            return Task.CompletedTask;
+        }
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken)
+        {
+            BatchCallCount++;
+            foreach (var envelope in envelopes)
+            {
+                LastEnvelope = envelope;
+                AllEnvelopes.Add(envelope);
+            }
+
             return Task.CompletedTask;
         }
     }
@@ -48,8 +62,7 @@ public sealed class ImmediateSinkTests
     [Test]
     public void PublishAsync_NullEnvelope_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(
-            () => _sink.PublishAsync(null!, CancellationToken.None));
+        Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishAsync(null!, CancellationToken.None));
     }
 
     [Test]
@@ -95,14 +108,13 @@ public sealed class ImmediateSinkTests
 
         AuditEvent? captured = null;
         _auditLogger
-            .Setup(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .Setup(static l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
             .Callback<AuditEvent, CancellationToken>((e, _) => captured = e)
             .Returns(Task.CompletedTask);
 
         await _sink.PublishAsync(envelope);
 
-        _auditLogger.Verify(
-            l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
+        _auditLogger.Verify(static l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
             Times.Once);
         Assert.That(_entityWriter.CallCount, Is.Zero);
 
@@ -133,7 +145,7 @@ public sealed class ImmediateSinkTests
 
         AuditEvent? captured = null;
         _auditLogger
-            .Setup(l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .Setup(static l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
             .Callback<AuditEvent, CancellationToken>((e, _) => captured = e)
             .Returns(Task.CompletedTask);
 
@@ -154,8 +166,7 @@ public sealed class ImmediateSinkTests
             Action = AuditAction.Created,
         };
 
-        Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sink.PublishAsync(envelope));
+        Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishAsync(envelope));
     }
 
     [Test]
@@ -177,6 +188,119 @@ public sealed class ImmediateSinkTests
         var sink = scope.ServiceProvider.GetRequiredService<IAuditSink>();
 
         Assert.That(sink, Is.TypeOf<ImmediateSink>());
+    }
+
+    [Test]
+    public void PublishBatchAsync_NullEnvelopes_Throws()
+    {
+        Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishBatchAsync(null!, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task PublishBatchAsync_EmptyList_NoOps()
+    {
+        await _sink.PublishBatchAsync([], CancellationToken.None);
+
+        Assert.That(_entityWriter.BatchCallCount, Is.Zero);
+        _auditLogger.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task PublishBatchAsync_MultipleEntityChanges_DelegatesToWriterInSingleBatch()
+    {
+        var envelopes = new List<AuditEnvelope>
+        {
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Created,
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Updated,
+                PropertyChanges = [new AuditEnvelopePropertyChange("Status", "Pending", "Active")],
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Visit",
+                Action = AuditAction.Deleted,
+            },
+        };
+
+        await _sink.PublishBatchAsync(envelopes, CancellationToken.None);
+
+        Assert.That(_entityWriter.BatchCallCount, Is.EqualTo(1), "Should call WriteBatchAsync once");
+        Assert.That(_entityWriter.AllEnvelopes, Has.Count.EqualTo(3));
+        _auditLogger.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task PublishBatchAsync_MixedKinds_BatchesEntityChanges_IndividualExplicitEvents()
+    {
+        AuditEvent? capturedEvent = null;
+        _auditLogger
+            .Setup(static l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditEvent, CancellationToken>((e, _) => capturedEvent = e)
+            .Returns(Task.CompletedTask);
+
+        var envelopes = new List<AuditEnvelope>
+        {
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Created,
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.ExplicitEvent,
+                EntityName = "User.Login",
+                Action = AuditAction.Unknown,
+                EventType = "User.Login",
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Visit",
+                Action = AuditAction.Updated,
+            },
+        };
+
+        await _sink.PublishBatchAsync(envelopes, CancellationToken.None);
+
+        Assert.That(_entityWriter.BatchCallCount, Is.EqualTo(1), "EntityChanges batched");
+        Assert.That(_entityWriter.AllEnvelopes, Has.Count.EqualTo(2));
+        _auditLogger.Verify(static l => l.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()),
+            Times.Once,
+            "ExplicitEvent forwarded individually");
+        Assert.That(capturedEvent, Is.Not.Null);
+        Assert.That(capturedEvent!.EventType, Is.EqualTo("User.Login"));
+    }
+
+    [Test]
+    public void PublishBatchAsync_UnknownKind_Throws()
+    {
+        var envelopes = new List<AuditEnvelope>
+        {
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Created,
+            },
+            new()
+            {
+                Kind = (AuditEnvelopeKind)999,
+                EntityName = "X",
+                Action = AuditAction.Created,
+            },
+        };
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishBatchAsync(envelopes, CancellationToken.None));
     }
 }
 
@@ -243,23 +367,23 @@ public sealed class AuditDbContextEntityWriterTests
         using var verifyScope = _provider.CreateScope();
         var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
         var rows = await ctx.Set<AuditLogEntity>()
-            .OrderBy(r => r.PropertyName)
+            .OrderBy(static r => r.PropertyName)
             .ToListAsync();
 
         Assert.That(rows, Has.Count.EqualTo(2));
-        Assert.That(rows.All(r => r.EntityName == "Patient"));
+        Assert.That(rows.All(static r => r.EntityName == "Patient"));
         Assert.That(rows.All(r => r.EntityId == entityId));
-        Assert.That(rows.All(r => r.Action == AuditAction.Updated));
-        Assert.That(rows.All(r => r.CorrelationId == "corr-xyz"));
-        Assert.That(rows.All(r => r.IpAddress == "10.0.0.2"));
-        Assert.That(rows.All(r => r.UserAgent == "ua/test"));
-        Assert.That(rows.All(r => r.Description == "Updated patient record"));
+        Assert.That(rows.All(static r => r.Action == AuditAction.Updated));
+        Assert.That(rows.All(static r => r.CorrelationId == "corr-xyz"));
+        Assert.That(rows.All(static r => r.IpAddress == "10.0.0.2"));
+        Assert.That(rows.All(static r => r.UserAgent == "ua/test"));
+        Assert.That(rows.All(static r => r.Description == "Updated patient record"));
 
-        var status = rows.Single(r => r.PropertyName == "Status");
+        var status = rows.Single(static r => r.PropertyName == "Status");
         Assert.That(status.OldValue, Is.EqualTo("Pending"));
         Assert.That(status.NewValue, Is.EqualTo("Active"));
 
-        var updatedAt = rows.Single(r => r.PropertyName == "UpdatedAt");
+        var updatedAt = rows.Single(static r => r.PropertyName == "UpdatedAt");
         Assert.That(updatedAt.OldValue, Is.Null);
         Assert.That(updatedAt.NewValue, Is.EqualTo("2026-04-26"));
     }
@@ -342,7 +466,113 @@ public sealed class AuditDbContextEntityWriterTests
     [Test]
     public void WriteEntityChangeAsync_NullEnvelope_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(
-            () => _writer.WriteEntityChangeAsync(null!, CancellationToken.None));
+        Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteEntityChangeAsync(null!, CancellationToken.None));
+    }
+
+    [Test]
+    public void WriteBatchAsync_NullEnvelopes_Throws()
+    {
+        Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteBatchAsync(null!, CancellationToken.None));
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_EmptyList_NoOps()
+    {
+        await _writer.WriteBatchAsync([], CancellationToken.None);
+
+        using var verifyScope = _provider.CreateScope();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        Assert.That(await ctx.Set<AuditLogEntity>().CountAsync(), Is.Zero);
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_MultipleEnvelopes_WritesAllInSingleTransaction()
+    {
+        var entityId1 = Guid.NewGuid();
+        var entityId2 = Guid.NewGuid();
+        var envelopes = new List<AuditEnvelope>
+        {
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Created,
+                EntityId = entityId1,
+                CorrelationId = "batch-corr",
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Updated,
+                EntityId = entityId2,
+                CorrelationId = "batch-corr",
+                PropertyChanges =
+                [
+                    new AuditEnvelopePropertyChange("Status", "Pending", "Active"),
+                    new AuditEnvelopePropertyChange("UpdatedAt", null, "2026-05-19"),
+                ],
+            },
+            new()
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Visit",
+                Action = AuditAction.Deleted,
+                EntityId = Guid.NewGuid(),
+                CorrelationId = "batch-corr",
+            },
+        };
+
+        await _writer.WriteBatchAsync(envelopes, CancellationToken.None);
+
+        using var verifyScope = _provider.CreateScope();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        var rows = await ctx.Set<AuditLogEntity>()
+            .OrderBy(static r => r.EntityName)
+            .ThenBy(static r => r.Action)
+            .ToListAsync();
+
+        // Expected: 1 row for Created (no property changes), 2 rows for Updated, 1 row for Deleted
+        Assert.That(rows, Has.Count.EqualTo(4));
+        Assert.That(rows.All(static r => r.CorrelationId == "batch-corr"));
+
+        var patientCreated = rows.Single(static r => r.EntityName == "Patient" && r.Action == AuditAction.Created);
+        Assert.That(patientCreated.EntityId, Is.EqualTo(entityId1));
+        Assert.That(patientCreated.PropertyName, Is.Null);
+
+        var patientUpdates = rows.Where(static r => r.EntityName == "Patient" && r.Action == AuditAction.Updated)
+            .ToList();
+        Assert.That(patientUpdates, Has.Count.EqualTo(2));
+        Assert.That(patientUpdates.All(r => r.EntityId == entityId2));
+
+        var visitDeleted = rows.Single(static r => r.EntityName == "Visit");
+        Assert.That(visitDeleted.Action, Is.EqualTo(AuditAction.Deleted));
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_100Envelopes_SingleDatabaseRoundTrip()
+    {
+        var envelopes = Enumerable.Range(0, 100)
+            .Select(static i => new AuditEnvelope
+            {
+                Kind = AuditEnvelopeKind.EntityChange,
+                EntityName = "Patient",
+                Action = AuditAction.Updated,
+                EntityId = Guid.NewGuid(),
+                CorrelationId = "bulk-test",
+                PropertyChanges =
+                [
+                    new AuditEnvelopePropertyChange($"Field{i}", "old", "new"),
+                ],
+            })
+            .ToList();
+
+        await _writer.WriteBatchAsync(envelopes, CancellationToken.None);
+
+        using var verifyScope = _provider.CreateScope();
+        var ctx = verifyScope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        var count = await ctx.Set<AuditLogEntity>().CountAsync();
+
+        Assert.That(count, Is.EqualTo(100));
     }
 }

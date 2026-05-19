@@ -491,14 +491,16 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             using (accessor.SetCurrent(context))
             {
+                var envelopes = new List<AuditEnvelope>(auditableEntries.Count);
                 foreach (var entry in auditableEntries)
                 {
                     var envelope = BuildEnvelope(entry, contextSource);
-                    if (envelope is null)
-                        continue;
-
-                    await sink.PublishAsync(envelope, cancellationToken);
+                    if (envelope is not null)
+                        envelopes.Add(envelope);
                 }
+
+                if (envelopes.Count > 0)
+                    await sink.PublishBatchAsync(envelopes, cancellationToken);
             }
         }
         catch (Exception ex)

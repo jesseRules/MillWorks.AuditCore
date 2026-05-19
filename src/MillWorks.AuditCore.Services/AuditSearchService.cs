@@ -64,9 +64,10 @@ public sealed class AuditSearchService(
 
     /// <summary>
     /// Gets a list of distinct users who have performed actions in the audit log.
+    /// Results are limited to <see cref="QueryLimits.MaxDistinctValues"/> to prevent unbounded scans.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Up to 500 distinct usernames, ordered alphabetically.</returns>
     public async Task<List<string>> GetDistinctUsersAsync(CancellationToken cancellationToken = default)
     {
         return await context.AuditEvents.AsNoTracking()
@@ -74,14 +75,16 @@ public sealed class AuditSearchService(
             .Select(static e => e.User!)
             .Distinct()
             .OrderBy(static u => u)
+            .Take(QueryLimits.MaxDistinctValues)
             .ToListAsync(cancellationToken);
     }
 
     /// <summary>
-    /// Gets a list of distinct users who have performed actions in the audit log.
+    /// Gets a list of distinct event types from the audit log.
+    /// Results are limited to <see cref="QueryLimits.MaxDistinctValues"/> to prevent unbounded scans.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Up to 500 distinct event types, ordered alphabetically.</returns>
     public async Task<List<string>> GetDistinctEventTypesAsync(CancellationToken cancellationToken = default)
     {
         return await context.AuditEvents.AsNoTracking()
@@ -89,14 +92,16 @@ public sealed class AuditSearchService(
             .Select(static e => e.EventType!)
             .Distinct()
             .OrderBy(static t => t)
+            .Take(QueryLimits.MaxDistinctValues)
             .ToListAsync(cancellationToken);
     }
 
     /// <summary>
     /// Gets a list of distinct entity types that have been audited.
+    /// Results are limited to <see cref="QueryLimits.MaxDistinctValues"/> to prevent unbounded scans.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Up to 500 distinct entity types, ordered alphabetically.</returns>
     public async Task<List<string>> GetDistinctEntityTypesAsync(CancellationToken cancellationToken = default)
     {
         return await context.AuditEvents.AsNoTracking()
@@ -104,6 +109,7 @@ public sealed class AuditSearchService(
             .Select(static e => e.EntityType!)
             .Distinct()
             .OrderBy(static t => t)
+            .Take(QueryLimits.MaxDistinctValues)
             .ToListAsync(cancellationToken);
     }
 
@@ -224,20 +230,30 @@ public sealed class AuditSearchService(
             query = query.Where(e => e.EntityType == request.EntityType);
         }
 
-        // General search term — leading-wildcard LIKE cannot use indexes; consider full-text search for large tables
-        if (string.IsNullOrWhiteSpace(request.SearchTerm)) return query;
+        // General search term — leading-wildcard LIKE cannot use indexes.
+        // Require minimum length to avoid expensive full-table scans on short terms.
+        if (string.IsNullOrWhiteSpace(request.SearchTerm))
         {
-            string pattern = $"%{request.SearchTerm}%";
-            query = query.Where(e =>
-                (e.JsonData != null && EF.Functions.Like(e.JsonData, pattern)) ||
-                (e.User != null && EF.Functions.Like(e.User, pattern)) ||
-                (e.UserFullName != null && EF.Functions.Like(e.UserFullName, pattern)) ||
-                (e.EventType != null && EF.Functions.Like(e.EventType, pattern)) ||
-                (e.EntityType != null && EF.Functions.Like(e.EntityType, pattern)) ||
-                (e.EntityId != null && EF.Functions.Like(e.EntityId, pattern)) ||
-                (e.AdditionalData != null && EF.Functions.Like(e.AdditionalData, pattern))
-            );
+            return query;
         }
+
+        // If a search term was provided but is too short, return zero results
+        // rather than silently dropping the filter and widening the query.
+        if (request.SearchTerm.Length < QueryLimits.MinSearchTermLength)
+        {
+            return query.Where(static _ => false);
+        }
+
+        var pattern = $"%{request.SearchTerm}%";
+        query = query.Where(e =>
+            (e.JsonData != null && EF.Functions.Like(e.JsonData, pattern)) ||
+            (e.User != null && EF.Functions.Like(e.User, pattern)) ||
+            (e.UserFullName != null && EF.Functions.Like(e.UserFullName, pattern)) ||
+            (e.EventType != null && EF.Functions.Like(e.EventType, pattern)) ||
+            (e.EntityType != null && EF.Functions.Like(e.EntityType, pattern)) ||
+            (e.EntityId != null && EF.Functions.Like(e.EntityId, pattern)) ||
+            (e.AdditionalData != null && EF.Functions.Like(e.AdditionalData, pattern))
+        );
 
         return query;
     }

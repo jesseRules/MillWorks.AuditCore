@@ -13,7 +13,6 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Services.Database.Options;
@@ -288,6 +287,85 @@ public sealed class OutboxDrainerIntegrationTests
     }
 
     [Test]
+    public async Task FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired()
+    {
+        await using var consumerCtx = CreateConsumerContext();
+        await consumerCtx.Database.EnsureCreatedAsync();
+
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "BackoffEntity",
+            Action = AuditAction.Created,
+            UserId = "user-backoff",
+        };
+
+        var envelopeJson = JsonSerializer.Serialize(envelope, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var rowId = Guid.NewGuid();
+        await consumerCtx.Database.ExecuteSqlRawAsync(
+            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
+            rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+
+        var opts = CreateSecurityOptions();
+        opts.OutboxDrainerMaxAttempts = 5;
+        opts.OutboxDrainerRetryBackoff = [TimeSpan.FromHours(1)]; // Long backoff so it won't be retried
+
+        var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true);
+
+        var drainer = new AuditOutboxDrainer(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditOutboxDrainer>.Instance,
+            Options.Create(opts));
+
+        // First poll: should fail and set NextRetryAt
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        _ = drainer.StartAsync(cts.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        await drainer.StopAsync(CancellationToken.None);
+
+        // Verify NextRetryAt was set
+        var row = await consumerCtx.Database
+            .SqlQueryRaw<BackoffStatusRow>(
+                "SELECT AttemptCount, NextRetryAt FROM [dbo].[AuditOutbox] WHERE Id = {0}", rowId)
+            .SingleAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.AttemptCount, Is.EqualTo(1), "AttemptCount should be 1 after first failure");
+            Assert.That(row.NextRetryAt, Is.Not.Null, "NextRetryAt should be set after failure");
+            Assert.That(row.NextRetryAt!.Value, Is.GreaterThan(DateTimeOffset.UtcNow.AddMinutes(30)),
+                "NextRetryAt should be at least 30 minutes in the future (1 hour backoff minus jitter)");
+        });
+
+        // Start drainer again and verify it does NOT process the row (backoff not expired)
+        var sp2 = BuildDrainerServiceProvider(opts, throwOnPublish: true);
+        var drainer2 = new AuditOutboxDrainer(
+            sp2.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditOutboxDrainer>.Instance,
+            Options.Create(opts));
+
+        using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        _ = drainer2.StartAsync(cts2.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        await drainer2.StopAsync(CancellationToken.None);
+
+        var rowAfterSecondPoll = await consumerCtx.Database
+            .SqlQueryRaw<BackoffStatusRow>(
+                "SELECT AttemptCount, NextRetryAt FROM [dbo].[AuditOutbox] WHERE Id = {0}", rowId)
+            .SingleAsync();
+
+        Assert.That(rowAfterSecondPoll.AttemptCount, Is.EqualTo(1),
+            "AttemptCount should still be 1 - row was skipped due to backoff");
+    }
+
+    private sealed record BackoffStatusRow(int AttemptCount, DateTimeOffset? NextRetryAt);
+
+    [Test]
     public async Task ExhaustedRetries_RoutesToDlq()
     {
         await using var consumerCtx = CreateConsumerContext();
@@ -457,9 +535,11 @@ public sealed class OutboxDrainerIntegrationTests
                 e.Property(x => x.EnvelopeVersion).HasDefaultValue(1);
                 e.Property(x => x.Status).HasDefaultValue(AuditOutboxStatus.Pending);
                 e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                e.Property(x => x.NextRetryAt);
                 e.Property(x => x.LastError).HasMaxLength(2000);
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.CreatedAt);
+                e.HasIndex(x => new { x.Status, x.NextRetryAt, x.CreatedAt });
             });
         }
     }
@@ -490,11 +570,17 @@ public sealed class OutboxDrainerIntegrationTests
     {
         public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class ThrowingAuditEntityWriter : IAuditEntityWriter
     {
         public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Simulated drain failure");
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Simulated drain failure");
     }
 

@@ -22,12 +22,19 @@ internal interface IAuditEntityWriter
     /// Map the envelope to <see cref="AuditLogEntity"/> row(s) and persist them.
     /// </summary>
     Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Map multiple envelopes to <see cref="AuditLogEntity"/> rows and persist them
+    /// in a single database round-trip. Uses one connection and transaction for all
+    /// envelopes, avoiding connection pool exhaustion under batch writes.
+    /// </summary>
+    Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// Default <see cref="IAuditEntityWriter"/> that resolves a fresh scoped
-/// <see cref="AuditDbContext"/> per call and commits audit rows on
-/// its own transaction, decoupled from any consumer save in flight.
+/// Default <see cref="IAuditEntityWriter"/> that resolves a scoped
+/// <see cref="AuditDbContext"/> and commits audit rows on its own
+/// transaction, decoupled from any consumer save in flight.
 /// </summary>
 internal sealed class AuditDbContextEntityWriter(
     IServiceScopeFactory scopeFactory,
@@ -38,49 +45,69 @@ internal sealed class AuditDbContextEntityWriter(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(envelope);
+        await WriteBatchAsync([envelope], cancellationToken);
+    }
+
+    public async Task WriteBatchAsync(
+        IReadOnlyList<AuditEnvelope> envelopes,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(envelopes);
+        if (envelopes.Count == 0)
+            return;
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        var auditLogSet = dbContext.Set<AuditLogEntity>();
+        var totalRows = 0;
 
-        var changes = envelope.PropertyChanges;
-        if (changes is { Count: > 0 })
+        foreach (var envelope in envelopes)
         {
-            foreach (var change in changes)
+            if (envelope is null)
+                continue;
+
+            var changes = envelope.PropertyChanges;
+            if (changes is { Count: > 0 })
             {
-                dbContext.Set<AuditLogEntity>().Add(new AuditLogEntity
+                foreach (var change in changes)
+                {
+                    auditLogSet.Add(new AuditLogEntity
+                    {
+                        EntityName = envelope.EntityName,
+                        EntityId = envelope.EntityId,
+                        Action = envelope.Action,
+                        PropertyName = change.PropertyName,
+                        OldValue = change.OldValue,
+                        NewValue = change.NewValue,
+                        Description = envelope.Description,
+                        AdditionalData = envelope.AdditionalData,
+                        CorrelationId = envelope.CorrelationId,
+                        IpAddress = envelope.IpAddress,
+                        UserAgent = envelope.UserAgent
+                    });
+                    totalRows++;
+                }
+            }
+            else
+            {
+                auditLogSet.Add(new AuditLogEntity
                 {
                     EntityName = envelope.EntityName,
                     EntityId = envelope.EntityId,
                     Action = envelope.Action,
-                    PropertyName = change.PropertyName,
-                    OldValue = change.OldValue,
-                    NewValue = change.NewValue,
                     Description = envelope.Description,
                     AdditionalData = envelope.AdditionalData,
                     CorrelationId = envelope.CorrelationId,
                     IpAddress = envelope.IpAddress,
                     UserAgent = envelope.UserAgent
                 });
+                totalRows++;
             }
-        }
-        else
-        {
-            dbContext.Set<AuditLogEntity>().Add(new AuditLogEntity
-            {
-                EntityName = envelope.EntityName,
-                EntityId = envelope.EntityId,
-                Action = envelope.Action,
-                Description = envelope.Description,
-                AdditionalData = envelope.AdditionalData,
-                CorrelationId = envelope.CorrelationId,
-                IpAddress = envelope.IpAddress,
-                UserAgent = envelope.UserAgent
-            });
         }
 
         var written = await dbContext.SaveChangesAsync(cancellationToken);
         logger.LogDebug(
-            "Wrote {RowCount} AuditLog row(s) for entity {EntityName} action {Action}",
-            written, envelope.EntityName, envelope.Action);
+            "Wrote {RowCount} AuditLog row(s) for {EnvelopeCount} envelope(s)",
+            written, envelopes.Count);
     }
 }

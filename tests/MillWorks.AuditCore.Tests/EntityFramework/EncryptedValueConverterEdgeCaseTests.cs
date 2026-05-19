@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Attributes;
-using MillWorks.AuditCore.EntityFramework.Conversion;
 using MillWorks.AuditCore.EntityFramework.Extensions;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;

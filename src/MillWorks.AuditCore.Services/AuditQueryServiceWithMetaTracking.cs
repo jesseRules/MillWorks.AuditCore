@@ -22,22 +22,24 @@ public sealed class AuditQueryServiceWithMetaTracking(
     /// <summary>
     /// Gets the audit trail for a specific entity.
     /// </summary>
-    /// <param name="entityName"></param>
-    /// <param name="entityId"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="entityName">The entity type name.</param>
+    /// <param name="entityId">The entity identifier.</param>
+    /// <param name="maxResults">Maximum number of results to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The audit trail entries.</returns>
     public async Task<IEnumerable<AuditLogDto>> GetEntityAuditTrailAsync(
         string entityName,
         Guid entityId,
+        int maxResults = 1000,
         CancellationToken cancellationToken = default)
     {
-        var result = await inner.GetEntityAuditTrailAsync(entityName, entityId, cancellationToken);
+        var result = await inner.GetEntityAuditTrailAsync(entityName, entityId, maxResults, cancellationToken);
 
         // Log the access
         IEnumerable<AuditLogDto> entityAuditTrailAsync = result as AuditLogDto[] ?? result.ToArray();
         await metaTracking.LogAuditQueryAsync(
             "EntityTrail",
-            $"Entity={entityName}, Id={entityId}",
+            $"Entity={entityName}, Id={entityId}, MaxResults={maxResults}",
             "Entity History Review",
             entityAuditTrailAsync.Count(), cancellationToken: cancellationToken);
 

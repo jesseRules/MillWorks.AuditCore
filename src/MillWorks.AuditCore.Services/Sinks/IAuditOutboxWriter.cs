@@ -15,4 +15,12 @@ public interface IAuditOutboxWriter
     /// <param name="envelopeVersion">Format version of the serialized envelope.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task WriteAsync(string envelopeJson, int envelopeVersion, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts multiple outbox rows in a single database round-trip. All rows are
+    /// written within the consumer's transaction.
+    /// </summary>
+    /// <param name="rows">List of (envelopeJson, envelopeVersion) tuples to insert.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task WriteBatchAsync(IReadOnlyList<(string envelopeJson, int envelopeVersion)> rows, CancellationToken cancellationToken = default);
 }

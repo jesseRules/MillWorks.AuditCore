@@ -2,7 +2,6 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
@@ -198,6 +197,9 @@ public sealed class ImmediateSinkIsolationTests
     private sealed class ThrowingSink : IAuditSink
     {
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("test-induced sink-publish failure");
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("test-induced sink-publish failure");
     }
 }

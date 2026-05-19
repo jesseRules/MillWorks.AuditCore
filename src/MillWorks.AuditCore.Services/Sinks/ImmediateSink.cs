@@ -42,6 +42,46 @@ internal sealed class ImmediateSink(
         }
     }
 
+    /// <inheritdoc />
+    public async Task PublishBatchAsync(
+        IReadOnlyList<AuditEnvelope> envelopes,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(envelopes);
+        if (envelopes.Count == 0)
+            return;
+
+        List<AuditEnvelope>? entityChanges = null;
+
+        foreach (var envelope in envelopes)
+        {
+            if (envelope is null)
+                continue;
+
+            switch (envelope.Kind)
+            {
+                case AuditEnvelopeKind.EntityChange:
+                    entityChanges ??= new List<AuditEnvelope>();
+                    entityChanges.Add(envelope);
+                    break;
+
+                case AuditEnvelopeKind.ExplicitEvent:
+                    await auditLogger.LogAsync(BuildAuditEvent(envelope), cancellationToken);
+                    break;
+
+                default:
+                    logger.LogError("Unknown AuditEnvelopeKind {Kind}", envelope.Kind);
+                    throw new InvalidOperationException(
+                        $"Unhandled AuditEnvelopeKind: {envelope.Kind}");
+            }
+        }
+
+        if (entityChanges is { Count: > 0 })
+        {
+            await auditEntityWriter.WriteBatchAsync(entityChanges, cancellationToken);
+        }
+    }
+
     private static AuditEvent BuildAuditEvent(AuditEnvelope envelope)
     {
         var auditEvent = new AuditEvent

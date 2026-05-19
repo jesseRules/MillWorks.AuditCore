@@ -11,12 +11,13 @@ public interface IAuditQueryService
     /// <summary>
     /// Gets the audit trail for a specific entity type and ID.
     /// </summary>
-    /// <param name="entityName"></param>
-    /// <param name="entityId"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="entityName">The entity type name.</param>
+    /// <param name="entityId">The entity identifier.</param>
+    /// <param name="maxResults">Maximum number of results to return. Clamped to QueryLimits.MaxPageSize.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The audit trail entries, ordered by most recent first.</returns>
     Task<IEnumerable<AuditLogDto>> GetEntityAuditTrailAsync(string entityName, Guid entityId,
-        CancellationToken cancellationToken = default);
+        int maxResults = 1000, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the audit trail for a specific entity type and ID.

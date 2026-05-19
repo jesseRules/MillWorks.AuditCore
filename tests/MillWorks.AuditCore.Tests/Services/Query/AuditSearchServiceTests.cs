@@ -6,7 +6,6 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Query;
 using MillWorks.AuditCore.Tests.Helpers;
-using static MillWorks.AuditCore.Services.Query.QueryLimits;
 
 namespace MillWorks.AuditCore.Tests.Services.Query;
 
