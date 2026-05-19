@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **`AuditDbContext` rename cleanup** — Updated remaining references from `AuditApplicationDbContext` to `AuditDbContext` in `AuditModelCacheKeyFactory` and `DesignTimeDbContextFactory`.
 
-## [Unreleased]
+## [1.8.0] - 2026-05-19
 
 ### Added
 - **Transactional outbox sink** (Redesign Phase 06) — `TransactionalOutboxSink` and `AuditOutboxDrainer` provide atomic audit+business commit for regulated/zero-loss-durability deployments via a transactional outbox pattern. New `AuditOutboxEntity` row written inside the consumer's transaction, drained to audit DbContext by background `AuditOutboxDrainer`. `SecurityOptions.AuditSinkMode` selects `Immediate` (default, decoupled) or `TransactionalOutbox` (opt-in atomic commit). Drainer uses configurable polling/backoff, distributed lock for leadership, DLQ routing on exhausted retries, and emits `audit.outbox.drainer.failed` System.Diagnostics.Metrics counter. New `IConsumerDbContextAccessor` allows outbox writer to reach consumer DbContext. Migration `AddAuditOutbox` creates `audit.AuditOutbox` table. 7-test `TransactionalOutboxSinkTests` and 4-test `OutboxDrainerIntegrationTests` (SQL Server) cover envelope serialization, consumer rollback atomicity, drainer processing, retry exhaustion with metric capture, and DLQ routing. See `docs/redesign/Phase06-OutboxSink.md`.
@@ -330,7 +330,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
-[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.6...HEAD
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.6...v1.8.0
 [1.7.6]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...v1.7.6
 [1.7.5]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.2...v1.7.5
 [1.6.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.1...v1.6.2
