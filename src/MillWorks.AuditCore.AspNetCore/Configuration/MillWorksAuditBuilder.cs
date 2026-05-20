@@ -29,6 +29,8 @@ using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Processing;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Services.TamperDetection;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
@@ -210,7 +212,11 @@ public sealed class MillWorksAuditBuilder
         Services.TryAddScoped<AuditLogger>();
         Services.TryAddScoped<IAuditLogger>(static sp => sp.GetRequiredService<AuditLogger>());
 
+        Services.TryAddSingleton(TimeProvider.System);
         Services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        Services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        Services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
+        Services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         Services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         Services.AddScoped<IAuditOutboxWriter, AuditOutboxWriter>();
 

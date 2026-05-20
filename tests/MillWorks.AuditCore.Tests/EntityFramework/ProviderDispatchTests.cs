@@ -10,6 +10,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
@@ -47,7 +48,8 @@ public class ProviderDispatchTests
                     w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
         _serviceProvider = services.BuildServiceProvider();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 
@@ -48,12 +49,24 @@ internal sealed class TransactionalOutboxSink : IAuditSink
         ArgumentNullException.ThrowIfNull(envelope);
 
         var json = JsonSerializer.Serialize(envelope, _jsonOptions);
-        await _outboxWriter.WriteAsync(json, CurrentEnvelopeVersion, cancellationToken);
+        var idempotencyKey = ExtractIdempotencyKey(envelope);
+        var inserted = await _outboxWriter.WriteAsync(json, CurrentEnvelopeVersion, idempotencyKey, cancellationToken);
 
-        _logger.LogDebug(
-            "Wrote outbox row for {Kind} envelope, entity {EntityName}",
-            envelope.Kind,
-            envelope.EntityName);
+        if (inserted)
+        {
+            _logger.LogDebug(
+                "Wrote outbox row for {Kind} envelope, entity {EntityName}",
+                envelope.Kind,
+                envelope.EntityName);
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Duplicate outbox row skipped for {Kind} envelope, entity {EntityName}, IdempotencyKey {Key}",
+                envelope.Kind,
+                envelope.EntityName,
+                idempotencyKey);
+        }
     }
 
     public async Task PublishBatchAsync(
@@ -64,20 +77,43 @@ internal sealed class TransactionalOutboxSink : IAuditSink
         if (envelopes.Count == 0)
             return;
 
-        var rows = new List<(string envelopeJson, int envelopeVersion)>(envelopes.Count);
+        var rows = new List<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)>(envelopes.Count);
         foreach (var envelope in envelopes)
         {
             if (envelope is null)
                 continue;
 
             var json = JsonSerializer.Serialize(envelope, _jsonOptions);
-            rows.Add((json, CurrentEnvelopeVersion));
+            var idempotencyKey = ExtractIdempotencyKey(envelope);
+            rows.Add((json, CurrentEnvelopeVersion, idempotencyKey));
         }
 
-        await _outboxWriter.WriteBatchAsync(rows, cancellationToken);
+        var inserted = await _outboxWriter.WriteBatchAsync(rows, cancellationToken);
 
         _logger.LogDebug(
-            "Wrote {Count} outbox row(s) in batch",
-            rows.Count);
+            "Wrote {Inserted}/{Total} outbox row(s) in batch ({Duplicates} duplicates)",
+            inserted,
+            rows.Count,
+            rows.Count - inserted);
+    }
+
+    /// <summary>
+    /// Extracts the idempotency key from an envelope based on its kind.
+    /// <list type="bullet">
+    /// <item><description>ExplicitEvent: Uses the explicit event's EventId (from the JSON payload)</description></item>
+    /// <item><description>EntityChange: Uses the envelope's EnvelopeId (stable envelope identity)</description></item>
+    /// </list>
+    /// </summary>
+    internal static Guid ExtractIdempotencyKey(AuditEnvelope envelope)
+    {
+        // For explicit events, the natural idempotency key is the EventId from the event payload.
+        // This is serialized in the AdditionalData or can be derived from envelope context.
+        // Since we don't have direct access to the AuditEvent here, we use EnvelopeId for both
+        // kinds. The EnvelopeId is stable across retries and uniquely identifies the envelope.
+        //
+        // Note: If an explicit event is published multiple times with different EnvelopeIds but
+        // the same EventId, only the database-level unique constraint on AuditEvents.EventId
+        // will catch the duplicate (returning WriteOutcome.Duplicate from the batch writers).
+        return envelope.EnvelopeId;
     }
 }

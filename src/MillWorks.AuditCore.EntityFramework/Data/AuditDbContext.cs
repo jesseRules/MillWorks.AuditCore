@@ -484,11 +484,18 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
             entity.Property(static e => e.EnvelopeVersion)
                 .HasDefaultValue(1);
 
-            entity.HasIndex(static e => e.Status)
-                .HasDatabaseName("IX_AuditOutbox_Status");
-
             entity.HasIndex(static e => e.CreatedAt)
                 .HasDatabaseName("IX_AuditOutbox_CreatedAt");
+
+            entity.HasIndex(static e => e.IdempotencyKey)
+                .IsUnique()
+                .HasDatabaseName("UX_AuditOutbox_IdempotencyKey");
+
+            entity.Property(static e => e.LeaseOwner)
+                .HasMaxLength(100);
+
+            entity.HasIndex(static e => new { e.Status, e.NextRetryAt, e.LeaseExpiresAt, e.CreatedAt })
+                .HasDatabaseName("IX_AuditOutbox_Claimable");
 
             if (isInMemory)
             {

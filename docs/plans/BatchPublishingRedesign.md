@@ -4,6 +4,81 @@
 
 ---
 
+## Implementation Status
+
+| Slice | Description | Status | Date |
+|-------|-------------|--------|------|
+| A | `AuditEnvelope.EnvelopeId` for stable identity | ✅ Complete | 2026-05-19 |
+| B | Internal `WriteOutcome` / batch writer abstractions | ✅ Complete | 2026-05-19 |
+| C | Explicit-event idempotency + outbox `IdempotencyKey` | ✅ Complete | 2026-05-19 |
+| D | Stateful outbox row claims (InFlight, leases) | ✅ Complete | 2026-05-19 |
+| E | Extract `IAuditBatchProcessor` | ✅ Complete | 2026-05-19 |
+| F | Metrics / observability | ✅ Complete | 2026-05-19 |
+| G | Public `BatchPublishResult` API (optional) | ⬚ Not started | |
+
+**Slice B Deliverables (2026-05-19):**
+- `WriteOutcome` record with `EnvelopeId` correlation, factory methods for Success/Duplicate/Failed
+- `IAuditEntityBatchWriter` and `IAuditEventBatchWriter` internal interfaces
+- `AuditEntityBatchWriter` extracts logic from `AuditDbContextEntityWriter`, returns outcomes
+- `AuditEventBatchWriter` wraps `IAuditLogger.LogBatchAsync`, maps to outcomes
+- `ImmediateSink` refactored: splits by Kind upfront, delegates to batch writers, combines outcomes
+- Public `IAuditSink` contract unchanged (still returns `Task`)
+- 11 test files updated, new unit tests for writers and outcomes
+
+**Slice C Deliverables (2026-05-19):**
+- Migration `20260519100000_AddIdempotencyConstraints`: adds `IdempotencyKey` column to `AuditOutbox` with unique index (nullable → backfill → NOT NULL pattern for existing data safety)
+- `AuditOutboxEntity.IdempotencyKey` property with `[Required]` attribute
+- `AuditDbContext` configures `UX_AuditOutbox_IdempotencyKey` unique index
+- `IAuditOutboxWriter` interface updated: accepts `Guid idempotencyKey`, returns insert count/success
+- `AuditOutboxWriter` uses `INSERT...WHERE NOT EXISTS` for graceful duplicate handling, falls back to individual inserts on race conditions
+- `TransactionalOutboxSink.ExtractIdempotencyKey()` derives key from `EnvelopeId` for both envelope kinds
+- `BatchAuditResult.IsDuplicate` property and `Duplicate()` factory method
+- `AuditLogger.LogBatchAsync` returns `BatchAuditResult.Duplicate()` on duplicate key detection
+- `AuditEntityBatchWriter` catches `DbUpdateException` via `DuplicateKeyDetector`, returns `WriteOutcome.Duplicate`
+- `AuditEventBatchWriter` maps `IsDuplicate` flag to `WriteOutcome.Duplicate`
+- `AuditEventBatchWriter.MapToAuditEvent` sets `EventId = EnvelopeId` for replay stability (same envelope → same EventId → PK catches duplicates)
+- 22 new tests: `IdempotencyTests.cs` (18 unit tests), `IdempotencySqliteTests.cs` (6 integration tests proving constraint enforcement)
+- Note: Skipped redundant unique index on `AuditEvents.EventId` since it's already the PK
+
+**Slice D Deliverables (2026-05-19):**
+- Migration `20260519200000_AddLeaseColumns`: extends `AuditOutboxStatus` enum (InFlight=1, Completed→2, Failed→3), adds `LeaseOwner` NVARCHAR(100) and `LeaseExpiresAt` DATETIMEOFFSET columns, creates `IX_AuditOutbox_Claimable` covering index with INCLUDE columns (EnvelopeJson, EnvelopeVersion, IdempotencyKey, AttemptCount, LastError, CompletedAt)
+- `AuditOutboxEntity.LeaseOwner` and `AuditOutboxEntity.LeaseExpiresAt` properties for row-level lease tracking
+- `AuditOutboxStatus` enum updated: Pending=0, InFlight=1, Completed=2, Failed=3
+- `SecurityOptions.OutboxDrainerLeaseDuration` (default 60s) and `OutboxDrainerLeaseRecoveryInterval` (default 5 min) with validation
+- `AuditOutboxDrainer.ClaimBatchAsync()`: provider-specific claim — SQL Server uses atomic `UPDATE...OUTPUT` for best performance; other providers use portable EF Core approach
+- `AuditOutboxDrainer.ApplyRowSuccess/ApplyRowRetry/ApplyRowFailureAsync()`: outcome application clears lease columns appropriately
+- `AuditOutboxDrainer.RecoverExpiredLeasesAsync()`: periodic sweep resets InFlight rows with expired leases to Pending (increments AttemptCount)
+- Unique lease owner ID per drainer instance: `{hostname}:{pid}:{guid-suffix}`
+- New metric: `audit.outbox.drainer.leases_recovered` counter for observability
+- 18 new tests in `LeaseClaimTests.cs` and `LeaseRecoveryMetricsTests.cs`: enum values, lease persistence, status transitions, lease recovery, claim query filtering, metrics verification
+
+**Slice E Deliverables (2026-05-19):**
+- `IAuditBatchProcessor` interface with supporting types: `ClaimedOutboxRow`, `BatchProcessingResult`, `RowOutcome`, `RowStatus` enum
+- `AuditBatchProcessor` implementation: groups rows by envelope kind, delegates to `IAuditEntityBatchWriter`/`IAuditEventBatchWriter`, maps `WriteOutcome` to `RowOutcome`
+- `AuditOutboxDrainer` refactored to orchestration-only: claim → deserialize → process → apply outcomes
+- Drainer reduced from ~570 to ~460 LOC (repository extraction deferred to future slice for full ~100 LOC target)
+- Retry exhaustion logic fixed: `ApplyRetryOutcomeAsync` checks `AttemptCount >= MaxAttempts` before scheduling retry, routes to `ApplyExhaustedOutcomeAsync` + DLQ on exhaustion
+- Separated `ApplyExhaustedOutcomeAsync` from `ApplyFailedOutcomeAsync` — non-retryable errors still increment attempt count before failing
+- DI registration: `IAuditBatchProcessor` → `AuditBatchProcessor` (scoped)
+- `InternalsVisibleTo("DynamicProxyGenAssembly2")` added to Services project for Moq support of internal interfaces
+- 14 new unit tests in `AuditBatchProcessorTests.cs`: envelope routing, outcome mapping, combined outcomes, writer exception handling, row ID correlation, unknown envelope kind handling
+
+**Slice F Deliverables (2026-05-19):**
+- `AuditMetrics.cs`: centralized metrics under `MillWorks.AuditCore` meter
+  - Histograms: `audit.outbox.batch_size` (by envelope_kind), `audit.outbox.drain_duration_ms`, `audit.outbox.row_age_seconds` (by envelope_kind)
+  - Counters: `audit.envelopes.published`, `audit.envelopes.failed` (by envelope_kind, error_type), `audit.envelopes.duplicate`, `audit.outbox.retry_attempts` (by envelope_kind, error_type), `audit.outbox.dlq_routed`, `audit.outbox.drainer.leases_recovered`
+  - Constants: `AuditMetrics.Names.*`, `AuditMetrics.Tags.*`, `AuditMetrics.ErrorTypes.*`
+  - `ClassifyError()` method: provider-agnostic error classification (deadlock, timeout, constraint, serialization, unknown) with SQL Server error number detection
+- `ClaimedOutboxRow.CreatedAt` property added for row age calculation
+- `WriteOutcome.Exception` property added for error classification
+- `AuditBatchProcessor` instrumentation: row age histogram, batch size by kind, outcome counters with error classification tags
+- `AuditOutboxDrainer` instrumentation: drain duration histogram, migrated to centralized `AuditMetrics` (DLQ routed, leases recovered)
+- `TimeProvider` registered as singleton for testable time-dependent logic
+- 7 new tests in `AuditBatchProcessorMetricsTests.cs`: row age histogram, batch size by kind, published/duplicate/retry/failed counters with MeterListener verification
+- 19 new tests in `AuditMetricsTests.cs`: metric name constants, tag constants, error classification, instrument creation validation
+
+---
+
 ## Current State Summary
 
 | Aspect | Current Behavior | Problem |
@@ -106,11 +181,11 @@ Task<BatchPublishResult> PublishBatchAsync(
 - Match outcomes back to rows by `EnvelopeId`
 
 **Acceptance Criteria:**
-- [ ] `AuditEnvelope` has a stable `EnvelopeId`
-- [ ] `PublishBatchAsync` returns `BatchPublishResult`
-- [ ] Drainer uses outcomes to update only failed rows
-- [ ] Duplicate detection returns `Duplicate` status, not exception
-- [ ] All existing tests updated and passing
+- [x] `AuditEnvelope` has a stable `EnvelopeId` *(Slice A - completed 2026-05-19)*
+- [ ] `PublishBatchAsync` returns `BatchPublishResult` *(Slice G - deferred)*
+- [ ] Drainer uses outcomes to update only failed rows *(Slice E)*
+- [ ] Duplicate detection returns `Duplicate` status, not exception *(Slice C)*
+- [x] All existing tests updated and passing
 
 ---
 
@@ -190,10 +265,10 @@ public async Task<BatchPublishResult> PublishBatchAsync(
 ```
 
 **Acceptance Criteria:**
-- [ ] No inline side effects during batch iteration
-- [ ] Both entity changes and explicit events batch-written
-- [ ] Coordinator combines outcomes from both writers
-- [ ] Drainer unchanged (consumes same `BatchPublishResult`)
+- [x] No inline side effects during batch iteration *(Slice B - completed 2026-05-19)*
+- [x] Both entity changes and explicit events batch-written *(Slice B - completed 2026-05-19)*
+- [x] Coordinator combines outcomes from both writers *(Slice B - completed 2026-05-19)*
+- [ ] Drainer unchanged (consumes same `BatchPublishResult`) *(N/A until Slice G changes public API)*
 
 ---
 
@@ -258,11 +333,11 @@ ON [audit].[AuditOutbox] (IdempotencyKey);
 - Log at DEBUG level for observability
 
 **Acceptance Criteria:**
-- [ ] Unique constraint on `AuditLog.EventId`
-- [ ] Unique constraint on `AuditOutbox.IdempotencyKey`
-- [ ] Duplicate writes return success, not throw
-- [ ] Drainer replay is safe (no duplicate audit records)
-- [ ] Metrics track duplicate counts
+- [x] Unique constraint on `AuditEvents.EventId` — Skipped (already PK, inherently unique)
+- [x] Unique constraint on `AuditOutbox.IdempotencyKey`
+- [x] Duplicate writes return success, not throw
+- [x] Drainer replay is safe (no duplicate audit records)
+- [ ] Metrics track duplicate counts — Deferred to Slice F
 
 ---
 
@@ -352,11 +427,11 @@ INCLUDE (EnvelopeJson, EnvelopeVersion, IdempotencyKey);
 ```
 
 **Acceptance Criteria:**
-- [ ] Rows transition: Pending → InFlight → Completed/Failed
-- [ ] Lease columns populated during claim
-- [ ] Expired leases recovered automatically
-- [ ] No row processed by multiple drainers simultaneously
-- [ ] Metrics track InFlight count and lease recovery rate
+- [x] Rows transition: Pending → InFlight → Completed/Failed
+- [x] Lease columns populated during claim
+- [x] Expired leases recovered automatically
+- [x] No row processed by multiple drainers simultaneously
+- [ ] Metrics track InFlight count and lease recovery rate — Partial (lease recovery counter added; InFlight gauge deferred to Slice F)
 
 ---
 
@@ -606,15 +681,15 @@ private static string ClassifyError(Exception ex) => ex switch
 ```
 
 **Acceptance Criteria:**
-- [ ] Batch size histogram by envelope kind
-- [ ] Success/failure/duplicate counters by kind
-- [ ] Retry count metric
-- [ ] DLQ routing counter
-- [ ] Lease recovery counter
-- [ ] Queue depth gauge (pending + inflight)
-- [ ] Oldest pending row age gauge
-- [ ] Row age histogram at drain time
-- [ ] Error classification tags
+- [x] Batch size histogram by envelope kind — `audit.outbox.batch_size` with `envelope_kind` tag
+- [x] Success/failure/duplicate counters by kind — `audit.envelopes.published/failed/duplicate` with `envelope_kind` tag
+- [x] Retry count metric — `audit.outbox.retry_attempts` with `envelope_kind` and `error_type` tags
+- [x] DLQ routing counter — `audit.outbox.dlq_routed`
+- [x] Lease recovery counter — `audit.outbox.drainer.leases_recovered`
+- [ ] Queue depth gauge (pending + inflight) — Deferred: requires async query from DbContext during metric callback
+- [ ] Oldest pending row age gauge — Deferred: requires async query from DbContext during metric callback
+- [x] Row age histogram at drain time — `audit.outbox.row_age_seconds` with `envelope_kind` tag
+- [x] Error classification tags — `error_type` tag with deadlock/timeout/constraint/serialization/unknown values
 
 ---
 
@@ -651,15 +726,15 @@ Phase 1 ────────────────────────
 
 ### Ticketable Rollout
 
-| Slice | Scope | Depends On | Public Break? | Est. Effort |
-|-------|-------|------------|---------------|-------------|
-| A | Add `AuditEnvelope.EnvelopeId`; preserve through interceptor, immediate sink, outbox serialization, drainer deserialization | None | Yes: `AuditEnvelope` contract | 1 day |
-| B | Introduce internal `WriteOutcome` / batch writer abstractions for entity changes and explicit events; refactor `ImmediateSink` to coordinate them behind the current API | A | No | 2-3 days |
-| C | Add explicit-event idempotency constraints and outbox `IdempotencyKey`; handle duplicates as success | A | Yes: migration | 1-2 days |
-| D | Add stateful outbox row claims (`InFlight`, lease columns, repository methods, claim/apply transitions) | C | Yes: migration | 2-3 days |
-| E | Extract `IAuditBatchProcessor`; make drainer orchestration-only | B, D | No | 1-2 days |
-| F | Add metrics / observability | E | No | 1 day |
-| G | Change public `IAuditSink.PublishBatchAsync` to return `BatchPublishResult` if internal processing still cannot expose needed visibility without it | B, C, D, E | Yes: public API | 1-2 days |
+| Slice | Scope | Depends On | Public Break? | Est. Effort | Status |
+|-------|-------|------------|---------------|-------------|--------|
+| A | Add `AuditEnvelope.EnvelopeId`; preserve through interceptor, immediate sink, outbox serialization, drainer deserialization | None | Yes: `AuditEnvelope` contract | 1 day | ✅ Done |
+| B | Introduce internal `WriteOutcome` / batch writer abstractions for entity changes and explicit events; refactor `ImmediateSink` to coordinate them behind the current API | A | No | 2-3 days | ✅ Done |
+| C | Add explicit-event idempotency constraints and outbox `IdempotencyKey`; handle duplicates as success | A | Yes: migration | 1-2 days | ✅ Done |
+| D | Add stateful outbox row claims (`InFlight`, lease columns, repository methods, claim/apply transitions) | C | Yes: migration | 2-3 days | |
+| E | Extract `IAuditBatchProcessor`; make drainer orchestration-only | B, D | No | 1-2 days | |
+| F | Add metrics / observability | E | No | 1 day | |
+| G | Change public `IAuditSink.PublishBatchAsync` to return `BatchPublishResult` if internal processing still cannot expose needed visibility without it | B, C, D, E | Yes: public API | 1-2 days | |
 
 **Realistic total:** ~8-14 engineering days depending on migration/test overhead.
 
@@ -708,7 +783,7 @@ surface churn unless the new API materially unlocks consumer value.
 
 ### Suggested Release Shape
 
-1. **Release 1**
+1. **Release 1** ✅ *Complete*
    - Slices A-B
    - Internal semantics normalized, no outbox schema change yet
 

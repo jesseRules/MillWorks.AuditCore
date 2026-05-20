@@ -21,6 +21,7 @@ using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -74,7 +75,8 @@ public sealed class OutboxDrainerIntegrationTests
         var accessor = new ConsumerDbContextAccessor();
         var writer = new AuditOutboxWriter(
             accessor,
-            Options.Create(new EntityFrameworkOptions { Schema = "dbo" }));
+            Options.Create(new EntityFrameworkOptions { Schema = "dbo" }),
+            NullLogger<AuditOutboxWriter>.Instance);
         var sink = new TransactionalOutboxSink(
             writer,
             NullLogger<TransactionalOutboxSink>.Instance);
@@ -416,7 +418,7 @@ public sealed class OutboxDrainerIntegrationTests
 
         var opts = CreateSecurityOptions();
         var countingLogger = new CountingAuditLogger();
-        var batchFailingWriter = new BatchFailingEntityWriter();
+        var batchFailingWriter = new BatchFailingEntityBatchWriter();
         var sp = BuildDrainerServiceProviderWithCustomServices(opts, countingLogger, batchFailingWriter);
 
         var drainer = new AuditOutboxDrainer(
@@ -437,7 +439,7 @@ public sealed class OutboxDrainerIntegrationTests
             "Explicit events should be logged exactly once each, not duplicated on batch fallback");
 
         // Verify entity changes were written (batch failed, then succeeded one-at-a-time)
-        Assert.That(batchFailingWriter.SingleWriteCount, Is.EqualTo(2),
+        Assert.That(batchFailingWriter.SingleEnvelopeCallCount, Is.EqualTo(2),
             "Entity changes should fall back to one-at-a-time after batch failure");
 
         // Verify all rows completed
@@ -445,6 +447,68 @@ public sealed class OutboxDrainerIntegrationTests
             .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox] WHERE Status = {(int)AuditOutboxStatus.Completed}")
             .SingleAsync();
         Assert.That(completedCount, Is.EqualTo(4), "All 4 rows should be marked Completed");
+    }
+
+    [Test]
+    public async Task EnvelopeId_PreservedThroughOutboxAndDrainer()
+    {
+        await using var consumerCtx = CreateConsumerContext();
+        await consumerCtx.Database.EnsureCreatedAsync();
+
+        var originalEnvelopeId = Guid.NewGuid();
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "EnvelopeIdTestEntity",
+            Action = AuditAction.Created,
+            UserId = "user-envelope-id",
+            EnvelopeId = originalEnvelopeId,
+        };
+
+        var envelopeJson = JsonSerializer.Serialize(envelope, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Verify the JSON contains the envelopeId
+        Assert.That(envelopeJson, Does.Contain("\"envelopeId\""));
+        Assert.That(envelopeJson, Does.Contain(originalEnvelopeId.ToString()));
+
+        await consumerCtx.Database.ExecuteSqlRawAsync(
+            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
+            Guid.NewGuid(), envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+
+        var opts = CreateSecurityOptions();
+        var capturedEnvelopes = new System.Collections.Concurrent.ConcurrentBag<AuditEnvelope>();
+        var sp = BuildDrainerServiceProviderWithEnvelopeCapture(opts, capturedEnvelopes);
+
+        var drainer = new AuditOutboxDrainer(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditOutboxDrainer>.Instance,
+            Options.Create(opts));
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        _ = drainer.StartAsync(cts.Token);
+
+        // Wait for processing
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline && capturedEnvelopes.IsEmpty)
+        {
+            await Task.Delay(50);
+        }
+
+        await drainer.StopAsync(CancellationToken.None);
+
+        Assert.That(capturedEnvelopes.Count, Is.EqualTo(1), "Drainer should have processed exactly one envelope");
+        var capturedEnvelope = capturedEnvelopes.First();
+        Assert.Multiple(() =>
+        {
+            Assert.That(capturedEnvelope.EnvelopeId, Is.EqualTo(originalEnvelopeId),
+                "EnvelopeId must survive outbox serialization and drainer deserialization");
+            Assert.That(capturedEnvelope.EntityName, Is.EqualTo("EnvelopeIdTestEntity"));
+            Assert.That(capturedEnvelope.UserId, Is.EqualTo("user-envelope-id"));
+        });
     }
 
     [Test]
@@ -545,13 +609,14 @@ public sealed class OutboxDrainerIntegrationTests
 
         if (throwOnPublish)
         {
-            services.AddScoped<IAuditEntityWriter, ThrowingAuditEntityWriter>();
+            services.AddScoped<IAuditEntityBatchWriter, ThrowingAuditEntityBatchWriter>();
         }
         else
         {
-            services.AddScoped<IAuditEntityWriter, NoOpAuditEntityWriter>();
+            services.AddScoped<IAuditEntityBatchWriter, NoOpAuditEntityBatchWriter>();
         }
 
+        services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
         services.AddScoped<ImmediateSink>();
 
         if (dlq is not null)
@@ -565,7 +630,7 @@ public sealed class OutboxDrainerIntegrationTests
     private IServiceProvider BuildDrainerServiceProviderWithCustomServices(
         SecurityOptions opts,
         IAuditLogger auditLogger,
-        IAuditEntityWriter entityWriter)
+        IAuditEntityBatchWriter entityBatchWriter)
     {
         var services = new ServiceCollection();
 
@@ -584,7 +649,36 @@ public sealed class OutboxDrainerIntegrationTests
 
         services.AddScoped<IAuditDistributedLockService, NoOpLockService>();
         services.AddSingleton(auditLogger);
-        services.AddSingleton(entityWriter);
+        services.AddSingleton(entityBatchWriter);
+        services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
+        services.AddScoped<ImmediateSink>();
+
+        return services.BuildServiceProvider();
+    }
+
+    private IServiceProvider BuildDrainerServiceProviderWithEnvelopeCapture(
+        SecurityOptions opts,
+        System.Collections.Concurrent.ConcurrentBag<AuditEnvelope> capturedEnvelopes)
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging();
+        services.AddSingleton(Options.Create(opts));
+        var efOptions = Options.Create(new EntityFrameworkOptions { Schema = "dbo" });
+        services.AddSingleton(efOptions);
+        services.AddScoped<AuditDbContext>(sp =>
+        {
+            var dbOptions = new DbContextOptionsBuilder<AuditDbContext>()
+                .UseSqlServer(_connectionString)
+                .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
+                .Options;
+            return new AuditDbContext(dbOptions, encryptionService: null, efOptions: efOptions);
+        });
+
+        services.AddScoped<IAuditDistributedLockService, NoOpLockService>();
+        services.AddSingleton<IAuditLogger, NoOpAuditLogger>();
+        services.AddSingleton<IAuditEntityBatchWriter>(new CapturingAuditEntityBatchWriter(capturedEnvelopes));
+        services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
         services.AddScoped<ImmediateSink>();
 
         return services.BuildServiceProvider();
@@ -676,37 +770,75 @@ public sealed class OutboxDrainerIntegrationTests
         }
     }
 
-    private sealed class NoOpAuditEntityWriter : IAuditEntityWriter
+    private sealed class NoOpAuditEntityBatchWriter : IAuditEntityBatchWriter
     {
-        public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-    }
-
-    private sealed class ThrowingAuditEntityWriter : IAuditEntityWriter
-    {
-        public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Simulated drain failure");
-
-        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Simulated drain failure");
-    }
-
-    private sealed class BatchFailingEntityWriter : IAuditEntityWriter
-    {
-        private int _singleWriteCount;
-        public int SingleWriteCount => _singleWriteCount;
-
-        public Task WriteEntityChangeAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref _singleWriteCount);
-            return Task.CompletedTask;
+            var outcomes = envelopes.Select(e => WriteOutcome.Success(e.EnvelopeId)).ToList();
+            return Task.FromResult<IReadOnlyList<WriteOutcome>>(outcomes);
+        }
+    }
+
+    private sealed class NoOpAuditEventBatchWriter : IAuditEventBatchWriter
+    {
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
+        {
+            var outcomes = envelopes.Select(e => WriteOutcome.Success(e.EnvelopeId)).ToList();
+            return Task.FromResult<IReadOnlyList<WriteOutcome>>(outcomes);
+        }
+    }
+
+    private sealed class CapturingAuditEntityBatchWriter : IAuditEntityBatchWriter
+    {
+        private readonly System.Collections.Concurrent.ConcurrentBag<AuditEnvelope> _captured;
+
+        public CapturingAuditEntityBatchWriter(System.Collections.Concurrent.ConcurrentBag<AuditEnvelope> captured)
+        {
+            _captured = captured;
         }
 
-        public Task WriteBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("Simulated batch failure");
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
+        {
+            var outcomes = new List<WriteOutcome>();
+            foreach (var envelope in envelopes)
+            {
+                _captured.Add(envelope);
+                outcomes.Add(WriteOutcome.Success(envelope.EnvelopeId));
+            }
+            return Task.FromResult<IReadOnlyList<WriteOutcome>>(outcomes);
+        }
+    }
+
+    private sealed class ThrowingAuditEntityBatchWriter : IAuditEntityBatchWriter
+    {
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Simulated drain failure");
+    }
+
+    private sealed class BatchFailingEntityBatchWriter : IAuditEntityBatchWriter
+    {
+        private int _singleEnvelopeCallCount;
+        public int SingleEnvelopeCallCount => _singleEnvelopeCallCount;
+
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
+        {
+            if (envelopes.Count > 1)
+                throw new InvalidOperationException("Simulated batch failure");
+
+            Interlocked.Increment(ref _singleEnvelopeCallCount);
+            var outcomes = envelopes.Select(e => WriteOutcome.Success(e.EnvelopeId)).ToList();
+            return Task.FromResult<IReadOnlyList<WriteOutcome>>(outcomes);
+        }
     }
 
     private sealed class CountingAuditLogger : IAuditLogger

@@ -44,7 +44,9 @@ public sealed class TransactionalOutboxSinkTests
         Assert.That(deserialized, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(deserialized!.Kind, Is.EqualTo(AuditEnvelopeKind.EntityChange));
+            Assert.That(deserialized!.EnvelopeId, Is.EqualTo(envelope.EnvelopeId),
+                "EnvelopeId must survive serialization round-trip");
+            Assert.That(deserialized.Kind, Is.EqualTo(AuditEnvelopeKind.EntityChange));
             Assert.That(deserialized.EntityName, Is.EqualTo("Patient"));
             Assert.That(deserialized.Action, Is.EqualTo(AuditAction.Created));
             Assert.That(deserialized.UserId, Is.EqualTo("user-123"));
@@ -208,27 +210,30 @@ public sealed class TransactionalOutboxSinkTests
         public int BatchCallCount { get; private set; }
         public string? LastJson { get; private set; }
         public int LastVersion { get; private set; }
-        public List<(string json, int version)> AllRows { get; } = [];
+        public Guid? LastIdempotencyKey { get; private set; }
+        public List<(string json, int version, Guid idempotencyKey)> AllRows { get; } = [];
 
-        public Task WriteAsync(string envelopeJson, int envelopeVersion, CancellationToken cancellationToken = default)
+        public Task<bool> WriteAsync(string envelopeJson, int envelopeVersion, Guid idempotencyKey, CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastJson = envelopeJson;
             LastVersion = envelopeVersion;
-            AllRows.Add((envelopeJson, envelopeVersion));
-            return Task.CompletedTask;
+            LastIdempotencyKey = idempotencyKey;
+            AllRows.Add((envelopeJson, envelopeVersion, idempotencyKey));
+            return Task.FromResult(true);
         }
 
-        public Task WriteBatchAsync(IReadOnlyList<(string envelopeJson, int envelopeVersion)> rows, CancellationToken cancellationToken = default)
+        public Task<int> WriteBatchAsync(IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows, CancellationToken cancellationToken = default)
         {
             BatchCallCount++;
             foreach (var row in rows)
             {
                 LastJson = row.envelopeJson;
                 LastVersion = row.envelopeVersion;
+                LastIdempotencyKey = row.idempotencyKey;
                 AllRows.Add(row);
             }
-            return Task.CompletedTask;
+            return Task.FromResult(rows.Count);
         }
     }
 }

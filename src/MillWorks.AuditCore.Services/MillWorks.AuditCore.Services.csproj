@@ -9,6 +9,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="MillWorks.AuditCore.Tests"/>
     <InternalsVisibleTo Include="MillWorks.AuditCore.AspNetCore"/>
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
   </ItemGroup>
 
   <ItemGroup>

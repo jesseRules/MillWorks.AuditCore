@@ -19,8 +19,7 @@ public static class QueryLimits
 
     /// <summary>
     /// Maximum rows per outbox batch insert.
-    /// SQL Server has a 2100 parameter limit; with 6 params per row, max is 350.
-    /// Use 300 to leave margin for future columns.
+    /// SQL Server has a 2100 parameter limit; with 7 params per row, max is 300.
     /// </summary>
     public const int MaxOutboxBatchSize = 300;
 

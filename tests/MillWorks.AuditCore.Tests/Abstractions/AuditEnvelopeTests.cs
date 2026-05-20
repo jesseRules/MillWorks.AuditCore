@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Models;
 
@@ -134,9 +135,11 @@ public sealed class AuditEnvelopeTests
     public void Equality_TwoEnvelopesWithIdenticalValues_AreEqual()
     {
         var occurredAt = DateTimeOffset.UtcNow;
+        var envelopeId = Guid.NewGuid();
 
         var a = new AuditEnvelope
         {
+            EnvelopeId = envelopeId,
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = "Patient",
             Action = AuditAction.Updated,
@@ -145,6 +148,7 @@ public sealed class AuditEnvelopeTests
 
         var b = new AuditEnvelope
         {
+            EnvelopeId = envelopeId,
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = "Patient",
             Action = AuditAction.Updated,
@@ -175,5 +179,88 @@ public sealed class AuditEnvelopeTests
         Assert.That(added.NewValue, Is.EqualTo("Alice"));
         Assert.That(deleted.OldValue, Is.EqualTo("Alice"));
         Assert.That(deleted.NewValue, Is.Null);
+    }
+
+    [Test]
+    public void EnvelopeId_AutoGeneratesUniqueGuid()
+    {
+        var envelope1 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+        };
+
+        var envelope2 = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+        };
+
+        Assert.That(envelope1.EnvelopeId, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(envelope2.EnvelopeId, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(envelope1.EnvelopeId, Is.Not.EqualTo(envelope2.EnvelopeId));
+    }
+
+    [Test]
+    public void EnvelopeId_CanBeExplicitlySet()
+    {
+        var specificId = Guid.NewGuid();
+
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+            EnvelopeId = specificId,
+        };
+
+        Assert.That(envelope.EnvelopeId, Is.EqualTo(specificId));
+    }
+
+    [Test]
+    public void EnvelopeId_SurvivesJsonRoundTrip()
+    {
+        var original = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Updated,
+            UserId = "user-123",
+            CorrelationId = "corr-abc",
+        };
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+
+        var json = JsonSerializer.Serialize(original, options);
+        var deserialized = JsonSerializer.Deserialize<AuditEnvelope>(json, options);
+
+        Assert.That(deserialized, Is.Not.Null);
+        Assert.That(deserialized!.EnvelopeId, Is.EqualTo(original.EnvelopeId));
+    }
+
+    [Test]
+    public void EnvelopeId_JsonContainsCamelCaseProperty()
+    {
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+        };
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+
+        var json = JsonSerializer.Serialize(envelope, options);
+
+        Assert.That(json, Does.Contain("\"envelopeId\""));
+        Assert.That(json, Does.Contain(envelope.EnvelopeId.ToString()));
     }
 }

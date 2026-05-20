@@ -13,6 +13,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.Sinks;
@@ -147,7 +148,8 @@ public sealed class ImmediateSinkIsolationTests
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
         services.AddDbContext<AuditDbContext>(o => o.UseSqlite(_auditConnection));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
         return services.BuildServiceProvider();

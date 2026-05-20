@@ -2,20 +2,18 @@ using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
-using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 
 namespace MillWorks.AuditCore.Services.Sinks;
 
 /// <summary>
 /// Default <see cref="IAuditSink"/>: persists each envelope synchronously on
-/// publish. <see cref="AuditEnvelopeKind.EntityChange"/> envelopes are written
-/// via <see cref="IAuditEntityWriter"/>;
-/// <see cref="AuditEnvelopeKind.ExplicitEvent"/> envelopes are forwarded to
-/// <see cref="IAuditLogger.LogAsync(AuditEvent, CancellationToken)"/>.
+/// publish. Routes envelopes by <see cref="AuditEnvelopeKind"/> to the appropriate
+/// batch writer, then combines outcomes internally.
 /// </summary>
 internal sealed class ImmediateSink(
-    IAuditLogger auditLogger,
-    IAuditEntityWriter auditEntityWriter,
+    IAuditEntityBatchWriter entityBatchWriter,
+    IAuditEventBatchWriter eventBatchWriter,
     ILogger<ImmediateSink> logger) : IAuditSink
 {
     /// <inheritdoc />
@@ -24,22 +22,7 @@ internal sealed class ImmediateSink(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(envelope);
-
-        switch (envelope.Kind)
-        {
-            case AuditEnvelopeKind.EntityChange:
-                await auditEntityWriter.WriteEntityChangeAsync(envelope, cancellationToken);
-                break;
-
-            case AuditEnvelopeKind.ExplicitEvent:
-                await auditLogger.LogAsync(BuildAuditEvent(envelope), cancellationToken);
-                break;
-
-            default:
-                logger.LogError("Unknown AuditEnvelopeKind {Kind}", envelope.Kind);
-                throw new InvalidOperationException(
-                    $"Unhandled AuditEnvelopeKind: {envelope.Kind}");
-        }
+        await PublishBatchAsync([envelope], cancellationToken);
     }
 
     /// <inheritdoc />
@@ -51,7 +34,8 @@ internal sealed class ImmediateSink(
         if (envelopes.Count == 0)
             return;
 
-        List<AuditEnvelope>? entityChanges = null;
+        var entityChanges = new List<AuditEnvelope>();
+        var explicitEvents = new List<AuditEnvelope>();
 
         foreach (var envelope in envelopes)
         {
@@ -61,12 +45,11 @@ internal sealed class ImmediateSink(
             switch (envelope.Kind)
             {
                 case AuditEnvelopeKind.EntityChange:
-                    entityChanges ??= new List<AuditEnvelope>();
                     entityChanges.Add(envelope);
                     break;
 
                 case AuditEnvelopeKind.ExplicitEvent:
-                    await auditLogger.LogAsync(BuildAuditEvent(envelope), cancellationToken);
+                    explicitEvents.Add(envelope);
                     break;
 
                 default:
@@ -76,41 +59,38 @@ internal sealed class ImmediateSink(
             }
         }
 
-        if (entityChanges is { Count: > 0 })
+        var entityOutcomes = entityChanges.Count > 0
+            ? await entityBatchWriter.WriteBatchAsync(entityChanges, cancellationToken)
+            : [];
+
+        var eventOutcomes = explicitEvents.Count > 0
+            ? await eventBatchWriter.WriteBatchAsync(explicitEvents, cancellationToken)
+            : [];
+
+        var allOutcomes = CombineOutcomes(entityOutcomes, eventOutcomes);
+
+        var failedCount = allOutcomes.Count(static o => !o.Succeeded);
+        if (failedCount > 0)
         {
-            await auditEntityWriter.WriteBatchAsync(entityChanges, cancellationToken);
+            var firstError = allOutcomes.FirstOrDefault(static o => !o.Succeeded);
+            logger.LogWarning(
+                "Batch publish had {FailedCount} failure(s) of {TotalCount}: {FirstError}",
+                failedCount, allOutcomes.Count, firstError?.ErrorMessage);
         }
     }
 
-    private static AuditEvent BuildAuditEvent(AuditEnvelope envelope)
+    private static IReadOnlyList<WriteOutcome> CombineOutcomes(
+        IReadOnlyList<WriteOutcome> entityOutcomes,
+        IReadOnlyList<WriteOutcome> eventOutcomes)
     {
-        var auditEvent = new AuditEvent
-        {
-            EventType = envelope.EventType ?? string.Empty,
-            EntityName = envelope.EntityName,
-            Action = envelope.Action,
-            StartDate = envelope.OccurredAt,
-            CorrelationId = envelope.CorrelationId,
-            IpAddress = envelope.IpAddress,
-            UserAgent = envelope.UserAgent,
-            AspNetUserId = envelope.UserId
-        };
+        if (entityOutcomes.Count == 0)
+            return eventOutcomes;
+        if (eventOutcomes.Count == 0)
+            return entityOutcomes;
 
-        if (envelope.EntityId is { } entityId)
-        {
-            auditEvent.KeyValues["Id"] = entityId;
-        }
-
-        if (envelope.Description is { } description)
-        {
-            auditEvent.CustomFields["Description"] = description;
-        }
-
-        if (envelope.AdditionalData is { } additionalData)
-        {
-            auditEvent.CustomFields["AdditionalData"] = additionalData;
-        }
-
-        return auditEvent;
+        var combined = new List<WriteOutcome>(entityOutcomes.Count + eventOutcomes.Count);
+        combined.AddRange(entityOutcomes);
+        combined.AddRange(eventOutcomes);
+        return combined;
     }
 }

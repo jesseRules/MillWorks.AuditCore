@@ -212,8 +212,8 @@ public class AuditLogger(
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            logger.LogDebug("Duplicate key in batch. Treating as success.");
-            return BatchAuditResult.Succeeded(auditEvents.Count);
+            logger.LogDebug("Duplicate key in batch. Treating as success (idempotent replay).");
+            return BatchAuditResult.Duplicate(auditEvents.Count);
         }
         catch (OperationCanceledException)
         {

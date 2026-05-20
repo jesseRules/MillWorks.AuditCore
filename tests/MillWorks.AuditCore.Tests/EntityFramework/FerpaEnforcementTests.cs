@@ -13,6 +13,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Compliance;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -67,7 +68,8 @@ public class FerpaEnforcementTests
                     w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
@@ -366,7 +368,8 @@ public class FerpaEnforcementTests
                     w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
                     w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
