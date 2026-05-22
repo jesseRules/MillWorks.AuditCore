@@ -38,6 +38,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     private readonly IOptions<SecurityOptions> _options;
     private readonly int _batchSize;
     private readonly TimeSpan _flushInterval;
+    private volatile bool _stopping;
 
     /// <summary>
     /// Represents a pending integrity write with its completion signal.
@@ -74,10 +75,20 @@ public sealed class IntegrityWriteBatcher : BackgroundService
     /// Enqueues an integrity record for batched writing. Returns when the record
     /// has been successfully persisted (not just enqueued).
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if the batcher is stopping and cannot accept new work.
+    /// </exception>
     public async Task<AuditIntegrityDto> EnqueueAsync(
         AuditIntegrityDto auditEvent,
         CancellationToken cancellationToken)
     {
+        if (_stopping)
+        {
+            throw new InvalidOperationException(
+                "IntegrityWriteBatcher is stopping and cannot accept new work. " +
+                "The audit event will be picked up by IntegrityReconciliationService.");
+        }
+
         using var activity = AuditActivitySource.Source.StartActivity(
             AuditActivitySource.Operations.IntegrityWrite,
             ActivityKind.Internal);
@@ -87,7 +98,16 @@ public sealed class IntegrityWriteBatcher : BackgroundService
         var tcs = new TaskCompletionSource<AuditIntegrityDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pending = new PendingIntegrityWrite(auditEvent, tcs);
 
-        await _channel.Writer.WriteAsync(pending, cancellationToken);
+        try
+        {
+            await _channel.Writer.WriteAsync(pending, cancellationToken);
+        }
+        catch (ChannelClosedException)
+        {
+            throw new InvalidOperationException(
+                "IntegrityWriteBatcher is stopping and cannot accept new work. " +
+                "The audit event will be picked up by IntegrityReconciliationService.");
+        }
 
         // Wait for the batch flush to complete this specific write
         var result = await tcs.Task;
@@ -163,7 +183,13 @@ public sealed class IntegrityWriteBatcher : BackgroundService
         }
         finally
         {
-            // Graceful shutdown: drain remaining items
+            // Set stopping flag first to reject new enqueues immediately
+            _stopping = true;
+
+            // Complete the channel writer so any WriteAsync in flight throws ChannelClosedException
+            _channel.Writer.TryComplete();
+
+            // Graceful shutdown: drain remaining items and attempt to flush
             while (_channel.Reader.TryRead(out var remaining))
             {
                 batch.Add(remaining);
@@ -172,7 +198,23 @@ public sealed class IntegrityWriteBatcher : BackgroundService
             if (batch.Count > 0)
             {
                 _logger.LogInformation("IntegrityWriteBatcher: flushing {Count} remaining records on shutdown", batch.Count);
-                await FlushBatchAsync(batch, CancellationToken.None);
+
+                try
+                {
+                    await FlushBatchAsync(batch, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    // Flush failed during shutdown — fail all pending TCS so callers don't hang
+                    _logger.LogError(ex, "IntegrityWriteBatcher: shutdown flush failed for {Count} records; failing callers", batch.Count);
+                    var shutdownException = new InvalidOperationException(
+                        "IntegrityWriteBatcher shutdown flush failed. " +
+                        "The audit event will be picked up by IntegrityReconciliationService.", ex);
+                    foreach (var item in batch)
+                    {
+                        item.Completion.TrySetException(shutdownException);
+                    }
+                }
             }
 
             _logger.LogInformation("IntegrityWriteBatcher stopped");
@@ -205,19 +247,41 @@ public sealed class IntegrityWriteBatcher : BackgroundService
                     $"results but {batch.Count} were expected. Failing the entire batch.");
             }
 
-            // Mark work items Completed and update event IntegrityStatus
+            // Mark work items and events as Completed atomically.
+            // Both updates must succeed together to avoid orphaned Pending events
+            // that the reconciliation service won't pick up.
             var eventIds = batch.Select(static b => b.Event.EventId).ToList();
 
-            await dbContext.IntegrityWorkItems
-                .Where(w => eventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
-                .ExecuteUpdateAsync(static s => s
-                    .SetProperty(static w => w.Status, IntegrityStatus.Completed)
-                    .SetProperty(static w => w.CompletedAt, DateTimeOffset.UtcNow), cancellationToken);
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                await dbContext.IntegrityWorkItems
+                    .Where(w => eventIds.Contains(w.EventId) && w.Status == IntegrityStatus.Pending)
+                    .ExecuteUpdateAsync(static s => s
+                        .SetProperty(static w => w.Status, IntegrityStatus.Completed)
+                        .SetProperty(static w => w.CompletedAt, DateTimeOffset.UtcNow), cancellationToken);
 
-            await dbContext.AuditEvents
-                .Where(e => eventIds.Contains(e.EventId) && e.IntegrityStatus == IntegrityStatus.Pending)
-                .ExecuteUpdateAsync(static s => s
-                    .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Completed), cancellationToken);
+                await dbContext.AuditEvents
+                    .Where(e => eventIds.Contains(e.EventId) && e.IntegrityStatus == IntegrityStatus.Pending)
+                    .ExecuteUpdateAsync(static s => s
+                        .SetProperty(static e => e.IntegrityStatus, IntegrityStatus.Completed), cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogError(rollbackEx,
+                        "IntegrityWriteBatcher: transaction rollback failed after status update error. " +
+                        "Original error: {OriginalError}", ex.Message);
+                }
+                throw;
+            }
 
             // Signal success to all callers
             for (int i = 0; i < batch.Count; i++)

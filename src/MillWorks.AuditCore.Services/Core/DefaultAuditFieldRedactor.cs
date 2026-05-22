@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.Services.Core;
 
@@ -19,10 +21,10 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     public const string RedactionMask = "[REDACTED]";
 
     /// <summary>
-    /// Fields that are safe to pass through without redaction.
+    /// Base fields that are always safe to pass through without redaction.
     /// These are structural/operational fields that never contain PHI/PII.
     /// </summary>
-    private static readonly HashSet<string> SafeFields = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> BaseSafeFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "EventType",
         "OperationType",
@@ -32,11 +34,13 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         "MachineName",
         "AssemblyName",
         "CallingMethodName",
-        "CorrelationId",
+        // CorrelationId intentionally excluded — many systems embed user IDs, emails, or
+        // other PII into correlation IDs. Can be added via RedactionOptions.AdditionalSafeFields.
+        // SessionId intentionally excluded — same rationale as CorrelationId.
         "Duration",
         "Success",
-        // ErrorMessage intentionally excluded from SafeFields — it carries arbitrary runtime
-        // content (SQL errors, API responses) that can embed connection strings, tokens, or PHI.
+        // ErrorMessage intentionally excluded — it carries arbitrary runtime content
+        // (SQL errors, API responses) that can embed connection strings, tokens, or PHI.
         // Routed through SensitiveContentSanitizer instead.
         "RequestMethod",
         "_FerpaEventType",
@@ -48,6 +52,31 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         // "_propertyNames" intentionally excluded — property names can reveal
         // sensitive metadata (e.g., column names like "Diagnosis" or "SSN")
     };
+
+    private readonly HashSet<string> _safeFields;
+
+    /// <summary>
+    /// Creates a new instance with default safe fields only.
+    /// </summary>
+    public DefaultAuditFieldRedactor() : this(null) { }
+
+    /// <summary>
+    /// Creates a new instance with configurable additional safe fields.
+    /// </summary>
+    /// <param name="options">Optional configuration for additional safe fields.</param>
+    public DefaultAuditFieldRedactor(IOptions<RedactionOptions>? options)
+    {
+        _safeFields = new HashSet<string>(BaseSafeFields, StringComparer.OrdinalIgnoreCase);
+
+        var additionalFields = options?.Value.AdditionalSafeFields;
+        if (additionalFields is { Length: > 0 })
+        {
+            foreach (var field in additionalFields)
+            {
+                _safeFields.Add(field);
+            }
+        }
+    }
 
     /// <inheritdoc />
     public Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields)
@@ -61,7 +90,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
                 continue;
             }
 
-            redacted[key] = SafeFields.Contains(key) ? value : RedactionMask;
+            redacted[key] = _safeFields.Contains(key) ? value : RedactionMask;
         }
         return redacted;
     }
@@ -72,7 +101,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         if (value is null) return null;
         if (string.Equals(fieldName, "ErrorMessage", StringComparison.OrdinalIgnoreCase))
             return SensitiveContentSanitizer.Sanitize(value);
-        return SafeFields.Contains(fieldName) ? value : RedactionMask;
+        return _safeFields.Contains(fieldName) ? value : RedactionMask;
     }
 
     /// <summary>

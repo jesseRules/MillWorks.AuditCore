@@ -273,6 +273,83 @@ public sealed class IntegrityWriteBatcherTests
         await Task.Delay(50);
     }
 
+    [Test]
+    [CancelAfter(10000)]
+    public async Task EnqueueAsync_AfterShutdown_ThrowsInvalidOperationException()
+    {
+        _mockTamperDetection
+            .Setup(t => t.CreateIntegrityRecordBatchAsync(
+                It.IsAny<IReadOnlyList<AuditIntegrityDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditIntegrityDto> events, CancellationToken _) =>
+                events.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList());
+
+        var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = StartBatcher(batcher, cts.Token);
+
+        cts.Cancel();
+        await executeTask;
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
+        });
+    }
+
+    [Test]
+    [CancelAfter(10000)]
+    public async Task Shutdown_CompletesChannelWriter_RejectsConcurrentEnqueues()
+    {
+        _mockTamperDetection
+            .Setup(t => t.CreateIntegrityRecordBatchAsync(
+                It.IsAny<IReadOnlyList<AuditIntegrityDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditIntegrityDto> events, CancellationToken ct) =>
+                events.Select(e => new AuditIntegrityDto { EventId = e.EventId }).ToList());
+
+        var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = StartBatcher(batcher, cts.Token);
+
+        cts.Cancel();
+        await executeTask;
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
+        });
+    }
+
+    [Test]
+    [CancelAfter(10000)]
+    public async Task Shutdown_FlushFailure_FailsPendingCallers()
+    {
+        _mockTamperDetection
+            .Setup(t => t.CreateIntegrityRecordBatchAsync(
+                It.IsAny<IReadOnlyList<AuditIntegrityDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB unavailable during shutdown"));
+
+        var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
+        using var cts = new CancellationTokenSource();
+
+        var executeTask = StartBatcher(batcher, cts.Token);
+
+        var enqueueTask = batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
+
+        await Task.Delay(50);
+        cts.Cancel();
+        await executeTask;
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await enqueueTask;
+        });
+    }
+
     private static AuditIntegrityDto CreateTestDto()
     {
         return new AuditIntegrityDto

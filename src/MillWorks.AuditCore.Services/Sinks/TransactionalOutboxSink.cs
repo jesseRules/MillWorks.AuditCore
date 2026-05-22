@@ -100,20 +100,17 @@ internal sealed class TransactionalOutboxSink : IAuditSink
     /// <summary>
     /// Extracts the idempotency key from an envelope based on its kind.
     /// <list type="bullet">
-    /// <item><description>ExplicitEvent: Uses the explicit event's EventId (from the JSON payload)</description></item>
-    /// <item><description>EntityChange: Uses the envelope's EnvelopeId (stable envelope identity)</description></item>
+    /// <item><description>ExplicitEvent: Uses <see cref="AuditEnvelope.ExplicitEventId"/> (the original
+    /// AuditEvent.EventId) to prevent duplicate logical events from producing duplicate outbox rows.
+    /// Falls back to EnvelopeId if ExplicitEventId is not set (backwards compatibility).</description></item>
+    /// <item><description>EntityChange: Uses the envelope's EnvelopeId (stable envelope identity).</description></item>
     /// </list>
     /// </summary>
     internal static Guid ExtractIdempotencyKey(AuditEnvelope envelope)
     {
-        // For explicit events, the natural idempotency key is the EventId from the event payload.
-        // This is serialized in the AdditionalData or can be derived from envelope context.
-        // Since we don't have direct access to the AuditEvent here, we use EnvelopeId for both
-        // kinds. The EnvelopeId is stable across retries and uniquely identifies the envelope.
-        //
-        // Note: If an explicit event is published multiple times with different EnvelopeIds but
-        // the same EventId, only the database-level unique constraint on AuditEvents.EventId
-        // will catch the duplicate (returning WriteOutcome.Duplicate from the batch writers).
+        if (envelope.Kind == AuditEnvelopeKind.ExplicitEvent && envelope.ExplicitEventId.HasValue)
+            return envelope.ExplicitEventId.Value;
+
         return envelope.EnvelopeId;
     }
 }

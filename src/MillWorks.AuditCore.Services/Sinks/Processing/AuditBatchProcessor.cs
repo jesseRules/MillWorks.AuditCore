@@ -182,7 +182,8 @@ internal sealed class AuditBatchProcessor(
         IReadOnlyList<WriteOutcome> writeOutcomes,
         Dictionary<Guid, ClaimedOutboxRow> envelopeIdToRow)
     {
-        var rowOutcomes = new List<RowOutcome>(writeOutcomes.Count);
+        var rowOutcomes = new List<RowOutcome>(envelopeIdToRow.Count);
+        var coveredEnvelopeIds = new HashSet<Guid>();
 
         foreach (var wo in writeOutcomes)
         {
@@ -194,8 +195,28 @@ internal sealed class AuditBatchProcessor(
                 continue;
             }
 
+            coveredEnvelopeIds.Add(wo.EnvelopeId);
             var rowOutcome = MapSingleOutcome(wo, row.RowId);
             rowOutcomes.Add(rowOutcome);
+        }
+
+        if (coveredEnvelopeIds.Count < envelopeIdToRow.Count)
+        {
+            var missingCount = envelopeIdToRow.Count - coveredEnvelopeIds.Count;
+            logger.LogError(
+                "Writer returned {ReturnedCount}/{ExpectedCount} outcomes; {MissingCount} row(s) missing. " +
+                "Failing missing rows to avoid InFlight limbo.",
+                writeOutcomes.Count, envelopeIdToRow.Count, missingCount);
+
+            foreach (var (envelopeId, row) in envelopeIdToRow)
+            {
+                if (!coveredEnvelopeIds.Contains(envelopeId))
+                {
+                    rowOutcomes.Add(RowOutcome.Failed(
+                        row.RowId,
+                        $"Writer did not return outcome for EnvelopeId {envelopeId}"));
+                }
+            }
         }
 
         return rowOutcomes;

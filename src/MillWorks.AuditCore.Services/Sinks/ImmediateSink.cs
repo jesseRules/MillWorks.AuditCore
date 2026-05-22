@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Exceptions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Services.Sinks.Writers;
@@ -69,13 +70,29 @@ internal sealed class ImmediateSink(
 
         var allOutcomes = CombineOutcomes(entityOutcomes, eventOutcomes);
 
-        var failedCount = allOutcomes.Count(static o => !o.Succeeded);
-        if (failedCount > 0)
+        var failedOutcomes = allOutcomes.Where(static o => !o.Succeeded).ToList();
+        if (failedOutcomes.Count > 0)
         {
-            var firstError = allOutcomes.FirstOrDefault(static o => !o.Succeeded);
-            logger.LogWarning(
-                "Batch publish had {FailedCount} failure(s) of {TotalCount}: {FirstError}",
-                failedCount, allOutcomes.Count, firstError?.ErrorMessage);
+            var firstFailed = failedOutcomes[0];
+            var failedIds = failedOutcomes.Select(static o => o.EnvelopeId).ToList();
+
+            logger.LogError(
+                "ImmediateSink write failed: {FailedCount}/{TotalCount} envelope(s) failed. First error: {FirstError}",
+                failedOutcomes.Count, allOutcomes.Count, firstFailed.ErrorMessage);
+
+            AuditEnvelopeKind? kind = null;
+            if (entityChanges.Count > 0 && explicitEvents.Count == 0)
+                kind = AuditEnvelopeKind.EntityChange;
+            else if (explicitEvents.Count > 0 && entityChanges.Count == 0)
+                kind = AuditEnvelopeKind.ExplicitEvent;
+
+            throw new AuditWriteException(
+                allOutcomes.Count,
+                failedOutcomes.Count,
+                failedIds,
+                kind,
+                firstFailed.ErrorMessage ?? "Unknown error",
+                firstFailed.Exception);
         }
     }
 

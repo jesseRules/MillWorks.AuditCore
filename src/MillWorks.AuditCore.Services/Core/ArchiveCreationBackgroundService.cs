@@ -10,13 +10,18 @@ namespace MillWorks.AuditCore.Services.Core;
 
 /// <summary>
 /// Background service for scheduled archive creation based on retention policy.
+/// Injects <see cref="TimeProvider"/> for deterministic testing and configures
+/// startup delay via <see cref="ArchivalOptions.StartupDelaySeconds"/>.
 /// </summary>
 public sealed class ArchiveCreationBackgroundService(
     IServiceProvider serviceProvider,
     ILogger<ArchiveCreationBackgroundService> logger,
-    IOptions<ArchivalOptions> archivalOptions)
+    IOptions<ArchivalOptions> archivalOptions,
+    TimeProvider? timeProvider = null)
     : BackgroundService
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -29,9 +34,9 @@ public sealed class ArchiveCreationBackgroundService(
         }
 
         TimeSpan archivalInterval = TimeSpan.FromHours(options.ArchivalIntervalHours);
+        TimeSpan startupDelay = TimeSpan.FromSeconds(options.StartupDelaySeconds);
 
-        // Wait for application to fully start
-        await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+        await Task.Delay(startupDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -43,7 +48,7 @@ public sealed class ArchiveCreationBackgroundService(
                 IAuditArchivalService archivalService =
                     scope.ServiceProvider.GetRequiredService<IAuditArchivalService>();
 
-                DateTimeOffset archiveBefore = DateTimeOffset.UtcNow.AddDays(-options.RetentionDays);
+                DateTimeOffset archiveBefore = _timeProvider.GetUtcNow().AddDays(-options.RetentionDays);
 
                 AuditArchivalResult result =
                     await archivalService.ArchiveAuditEventsAsync(archiveBefore, null, stoppingToken);

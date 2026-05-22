@@ -37,29 +37,29 @@ internal sealed class CountingHashingStream(
 
     public override void Write(byte[] buffer, int offset, int count)
     {
-        hash.AppendData(buffer, offset, count);
         inner.Write(buffer, offset, count);
+        hash.AppendData(buffer, offset, count);
         _bytesWritten += count;
     }
 
     public override void Write(ReadOnlySpan<byte> buffer)
     {
-        hash.AppendData(buffer);
         inner.Write(buffer);
+        hash.AppendData(buffer);
         _bytesWritten += buffer.Length;
     }
 
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        hash.AppendData(buffer, offset, count);
         await inner.WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
+        hash.AppendData(buffer, offset, count);
         _bytesWritten += count;
     }
 
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        hash.AppendData(buffer.Span);
         await inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+        hash.AppendData(buffer.Span);
         _bytesWritten += buffer.Length;
     }
 

@@ -85,14 +85,22 @@ public interface IAuditDiagnostics
     long InterceptorAuditFailureCount { get; }
 
     /// <summary>
-    /// Number of request-audit dispatch overflow events raised by
-    /// <c>InProcessRequestAuditDispatcher</c> (bounded channel full or closed).
-    /// Incremented once per overflow regardless of the configured
-    /// <c>RequestAuditOverflowPolicy</c>, so the counter reflects raw saturation
-    /// rate independent of policy outcome. Maps to OTel metric
+    /// Number of request-audit dispatch enqueue timeout events raised by
+    /// <c>InProcessRequestAuditDispatcher</c> when the bounded channel is full and
+    /// the enqueue timeout expires. Incremented once per timeout regardless of the
+    /// configured <c>RequestAuditOverflowPolicy</c>, so the counter reflects raw
+    /// backpressure rate independent of policy outcome. Maps to OTel metric
     /// <c>auditcore.request_dispatcher.enqueue_timeout_total</c>.
     /// </summary>
     long RequestDispatcherEnqueueTimeoutCount { get; }
+
+    /// <summary>
+    /// Number of request-audit dispatch attempts rejected because the channel was
+    /// closed (during or after shutdown). Distinct from timeout: timeouts indicate
+    /// backpressure; channel-closed indicates a dispatch racing with service shutdown.
+    /// Maps to OTel metric <c>auditcore.request_dispatcher.channel_closed_total</c>.
+    /// </summary>
+    long RequestDispatcherChannelClosedCount { get; }
 
     /// <summary>
     /// Number of request-audit overflow events successfully stored in the
@@ -111,6 +119,16 @@ public interface IAuditDiagnostics
     /// to OTel metric <c>auditcore.request_dispatcher.shutdown_drain_total</c>.
     /// </summary>
     long RequestDispatcherShutdownDrainCount { get; }
+
+    /// <summary>
+    /// Number of request-audit events that failed processing in the background
+    /// worker loop. Incremented when the processor throws a non-cancellation
+    /// exception — the event is routed to DLQ (if available) or dropped. The
+    /// worker loop continues after incrementing; a sustained non-zero rate
+    /// signals a persistent sink or DLQ outage. Maps to OTel metric
+    /// <c>auditcore.request_dispatcher.processing_failure_total</c>.
+    /// </summary>
+    long RequestDispatcherProcessingFailureCount { get; }
 
     /// <summary>
     /// Increments the specified counter by one.
@@ -143,6 +161,8 @@ public enum AuditDiagnosticCounter
     IntegrityPermanentFailure,
     InterceptorAuditFailure,
     RequestDispatcherEnqueueTimeout,
+    RequestDispatcherChannelClosed,
     RequestDispatcherDlqRouted,
-    RequestDispatcherShutdownDrain
+    RequestDispatcherShutdownDrain,
+    RequestDispatcherProcessingFailure
 }

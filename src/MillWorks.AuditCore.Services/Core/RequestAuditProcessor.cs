@@ -32,10 +32,22 @@ public sealed class RequestAuditProcessor(
                 "Deferred request audit persistence failed for event {EventId}. Storing in DLQ.",
                 auditEvent.EventId);
 
-            await deadLetterQueue.StoreFailedEventAsync(
-                auditEvent,
-                ex,
-                "Deferred request audit persistence failed");
+            try
+            {
+                await deadLetterQueue.StoreFailedEventAsync(
+                    auditEvent,
+                    ex,
+                    "Deferred request audit persistence failed");
+            }
+            catch (Exception dlqEx)
+            {
+                logger.LogCritical(dlqEx,
+                    "Failed to store event {EventId} in DLQ after audit persistence failure. Event may be lost.",
+                    auditEvent.EventId);
+                throw new AggregateException(
+                    $"Audit persistence and DLQ storage both failed for event {auditEvent.EventId}",
+                    ex, dlqEx);
+            }
         }
     }
 }

@@ -14,20 +14,30 @@ namespace MillWorks.AuditCore.Services.Sinks;
 /// The row is inserted into the consumer's transaction so it commits atomically
 /// with the business write. Duplicate idempotency keys are handled as success.
 /// </summary>
-internal sealed class AuditOutboxWriter : IAuditOutboxWriter
+internal sealed class AuditOutboxWriter(
+    IConsumerDbContextAccessor accessor,
+    IOptions<EntityFrameworkOptions> options,
+    ILogger<AuditOutboxWriter> logger)
+    : IAuditOutboxWriter
 {
-    private readonly IConsumerDbContextAccessor _accessor;
-    private readonly ILogger<AuditOutboxWriter> _logger;
-    private readonly string _schema;
+    private readonly string _schema = ValidateSchemaName(options.Value.Schema);
 
-    public AuditOutboxWriter(
-        IConsumerDbContextAccessor accessor,
-        IOptions<EntityFrameworkOptions> options,
-        ILogger<AuditOutboxWriter> logger)
+    private static string ValidateSchemaName(string schema)
     {
-        _accessor = accessor;
-        _logger = logger;
-        _schema = options.Value.Schema;
+        if (string.IsNullOrWhiteSpace(schema))
+            throw new ArgumentException("Schema name cannot be null or whitespace.", nameof(schema));
+
+        if (schema.Length > 128)
+            throw new ArgumentException($"Schema name exceeds maximum length of 128 characters: '{schema}'.", nameof(schema));
+
+        foreach (var c in schema)
+        {
+            var isValid = char.IsLetterOrDigit(c) || c == '_';
+            if (!isValid)
+                throw new ArgumentException($"Schema name contains invalid character '{c}': '{schema}'. Only letters, digits, and underscores are allowed.", nameof(schema));
+        }
+
+        return schema;
     }
 
     public async Task<bool> WriteAsync(
@@ -75,7 +85,7 @@ internal sealed class AuditOutboxWriter : IAuditOutboxWriter
         IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows,
         CancellationToken cancellationToken)
     {
-        var consumerCtx = _accessor.Current;
+        var consumerCtx = accessor.Current;
         var createdAt = DateTimeOffset.UtcNow;
 
         var parameters = new List<object>();
@@ -115,7 +125,7 @@ WHERE NOT EXISTS (
 
             if (inserted < rows.Count)
             {
-                _logger.LogDebug(
+                logger.LogDebug(
                     "Outbox write: {Inserted}/{Total} rows inserted, {Duplicates} duplicates skipped",
                     inserted, rows.Count, rows.Count - inserted);
             }
@@ -126,7 +136,7 @@ WHERE NOT EXISTS (
         {
             // Race condition: another transaction inserted between our check and insert.
             // Fall back to one-at-a-time to determine which rows are duplicates.
-            _logger.LogDebug(ex, "Duplicate key conflict in batch insert, falling back to individual inserts");
+            logger.LogDebug(ex, "Duplicate key conflict in batch insert, falling back to individual inserts");
             return await WriteIndividuallyAsync(rows, createdAt, cancellationToken);
         }
     }
@@ -136,7 +146,7 @@ WHERE NOT EXISTS (
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
-        var consumerCtx = _accessor.Current;
+        var consumerCtx = accessor.Current;
         var inserted = 0;
 
         foreach (var (envelopeJson, envelopeVersion, idempotencyKey) in rows)
@@ -162,7 +172,7 @@ WHERE NOT EXISTS (
             }
             catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
-                _logger.LogDebug("Duplicate outbox row skipped for IdempotencyKey {Key}", idempotencyKey);
+                logger.LogDebug("Duplicate outbox row skipped for IdempotencyKey {Key}", idempotencyKey);
             }
         }
 

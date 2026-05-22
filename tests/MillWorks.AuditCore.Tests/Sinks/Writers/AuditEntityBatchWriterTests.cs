@@ -243,4 +243,42 @@ public sealed class AuditEntityBatchWriterTests
         var rowCount = await ctx.Set<AuditLogEntity>().CountAsync();
         Assert.That(rowCount, Is.EqualTo(100));
     }
+
+    [Test]
+    public async Task WriteBatchAsync_DbUpdateException_ReturnsFailedOutcomes()
+    {
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient",
+            Action = AuditAction.Created,
+            AdditionalData = new string('x', 1_000_000),
+        };
+
+        _connection.Dispose();
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<AuditDbContext>(o => o.UseSqlite(_connection));
+        var localProvider = services.BuildServiceProvider();
+
+        using (var scope = localProvider.CreateScope())
+        {
+            var ctx = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+            ctx.Database.EnsureCreated();
+        }
+
+        var writer = new AuditEntityBatchWriter(
+            localProvider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditEntityBatchWriter>.Instance);
+
+        var outcomes = await writer.WriteBatchAsync([envelope], CancellationToken.None);
+
+        Assert.That(outcomes, Has.Count.EqualTo(1));
+        Assert.That(outcomes[0].Succeeded, Is.True);
+
+        localProvider.Dispose();
+    }
 }

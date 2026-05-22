@@ -90,18 +90,20 @@ internal sealed class AuditEntityBatchWriter(
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            // Duplicate key violation - this is an idempotent replay, not an error.
-            // Since entity-change envelopes don't have unique constraints on their own,
-            // this typically indicates a retried outbox row where the envelope was
-            // already processed. Mark all as duplicates (batch is atomic).
-            logger.LogDebug(
-                "Duplicate key detected for {EnvelopeCount} entity-change envelope(s), treating as success",
-                envelopes.Count);
+            // Duplicate key violation for entity-change envelopes is unexpected.
+            // AuditLogEntity uses auto-generated GUIDs for PKs and has no unique
+            // constraints on business keys. A duplicate key error here indicates
+            // either a data bug or an unrelated constraint violation - not an
+            // idempotent replay. Mark as failed rather than silently succeeding.
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+            logger.LogError(ex,
+                "Unexpected duplicate key in AuditLogEntity batch ({EnvelopeCount} envelopes): {Error}",
+                envelopes.Count, errorMessage);
 
             foreach (var envelope in envelopes)
             {
                 if (envelope is not null)
-                    outcomes.Add(WriteOutcome.Duplicate(envelope.EnvelopeId));
+                    outcomes.Add(WriteOutcome.Failed(envelope.EnvelopeId, $"Unexpected duplicate key: {errorMessage}", isRetryable: false, ex));
             }
         }
         catch (DbUpdateException ex)

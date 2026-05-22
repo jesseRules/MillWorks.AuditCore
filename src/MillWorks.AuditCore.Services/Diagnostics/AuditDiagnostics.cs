@@ -23,8 +23,10 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     private long _integrityPermanentFailureCount;
     private long _interceptorAuditFailureCount;
     private long _requestDispatcherEnqueueTimeoutCount;
+    private long _requestDispatcherChannelClosedCount;
     private long _requestDispatcherDlqRoutedCount;
     private long _requestDispatcherShutdownDrainCount;
+    private long _requestDispatcherProcessingFailureCount;
 
     /// <inheritdoc />
     public long SnapshotSerializationFallbackCount =>
@@ -87,12 +89,20 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Read(ref _requestDispatcherEnqueueTimeoutCount);
 
     /// <inheritdoc />
+    public long RequestDispatcherChannelClosedCount =>
+        Interlocked.Read(ref _requestDispatcherChannelClosedCount);
+
+    /// <inheritdoc />
     public long RequestDispatcherDlqRoutedCount =>
         Interlocked.Read(ref _requestDispatcherDlqRoutedCount);
 
     /// <inheritdoc />
     public long RequestDispatcherShutdownDrainCount =>
         Interlocked.Read(ref _requestDispatcherShutdownDrainCount);
+
+    /// <inheritdoc />
+    public long RequestDispatcherProcessingFailureCount =>
+        Interlocked.Read(ref _requestDispatcherProcessingFailureCount);
 
     /// <inheritdoc />
     public void Increment(AuditDiagnosticCounter counter)
@@ -144,11 +154,17 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
             case AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout:
                 Interlocked.Increment(ref _requestDispatcherEnqueueTimeoutCount);
                 break;
+            case AuditDiagnosticCounter.RequestDispatcherChannelClosed:
+                Interlocked.Increment(ref _requestDispatcherChannelClosedCount);
+                break;
             case AuditDiagnosticCounter.RequestDispatcherDlqRouted:
                 Interlocked.Increment(ref _requestDispatcherDlqRoutedCount);
                 break;
             case AuditDiagnosticCounter.RequestDispatcherShutdownDrain:
                 Interlocked.Increment(ref _requestDispatcherShutdownDrainCount);
+                break;
+            case AuditDiagnosticCounter.RequestDispatcherProcessingFailure:
+                Interlocked.Increment(ref _requestDispatcherProcessingFailureCount);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(counter), counter,
@@ -174,7 +190,9 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Exchange(ref _integrityPermanentFailureCount, 0);
         Interlocked.Exchange(ref _interceptorAuditFailureCount, 0);
         Interlocked.Exchange(ref _requestDispatcherEnqueueTimeoutCount, 0);
+        Interlocked.Exchange(ref _requestDispatcherChannelClosedCount, 0);
         Interlocked.Exchange(ref _requestDispatcherDlqRoutedCount, 0);
         Interlocked.Exchange(ref _requestDispatcherShutdownDrainCount, 0);
+        Interlocked.Exchange(ref _requestDispatcherProcessingFailureCount, 0);
     }
 }

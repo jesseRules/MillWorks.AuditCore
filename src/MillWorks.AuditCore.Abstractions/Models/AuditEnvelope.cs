@@ -103,4 +103,12 @@ public sealed record AuditEnvelope
     /// Optional human-readable description.
     /// </summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// For <see cref="AuditEnvelopeKind.ExplicitEvent"/> envelopes, the original
+    /// <c>AuditEvent.EventId</c> from the caller. Used as the outbox idempotency key
+    /// to prevent duplicate logical events from producing duplicate outbox rows.
+    /// Null for <see cref="AuditEnvelopeKind.EntityChange"/> envelopes.
+    /// </summary>
+    public Guid? ExplicitEventId { get; init; }
 }
