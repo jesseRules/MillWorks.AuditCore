@@ -10,6 +10,7 @@ using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
@@ -331,7 +332,7 @@ public sealed class AuditOutboxDrainer(
     }
 
     private static string? TruncateError(string? error) =>
-        error?.Length > 2000 ? error[..2000] : error;
+        error?.Length > 2000 ? SensitiveContentSanitizer.TruncateSafe(error, 2000) : error;
 
     private async Task<List<AuditOutboxEntity>> ClaimBatchAsync(
         AuditDbContext auditCtx, SecurityOptions opts, CancellationToken ct)

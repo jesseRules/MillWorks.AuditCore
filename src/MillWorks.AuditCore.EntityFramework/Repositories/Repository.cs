@@ -392,6 +392,10 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         {
             query = orderBy(query);
         }
+        else
+        {
+            Logger?.LogDebug("GetByOffsetAsync called without orderBy; results may be non-deterministic");
+        }
 
         List<T> items = await query
             .Skip(offset)

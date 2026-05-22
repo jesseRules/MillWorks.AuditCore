@@ -68,11 +68,29 @@ internal static class SensitiveContentSanitizer
         if (result.Length > maxLength)
         {
             if (maxLength > _truncationSuffix.Length)
-                result = result[..(maxLength - _truncationSuffix.Length)] + _truncationSuffix;
+                result = TruncateSafe(result, maxLength - _truncationSuffix.Length) + _truncationSuffix;
             else
-                result = result[..maxLength];
+                result = TruncateSafe(result, maxLength);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Truncates a string to the specified length without splitting surrogate pairs.
+    /// </summary>
+    internal static string TruncateSafe(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+            return value ?? string.Empty;
+
+        if (maxLength <= 0)
+            return string.Empty;
+
+        var truncated = value[..maxLength];
+        if (char.IsHighSurrogate(truncated[^1]))
+            truncated = truncated[..^1];
+
+        return truncated;
     }
 }

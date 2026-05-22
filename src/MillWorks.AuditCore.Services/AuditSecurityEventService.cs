@@ -26,15 +26,15 @@ public sealed class AuditSecurityEventService(
     IConfiguration configuration)
     : IAuditSecurityEventService
 {
+    private const int MaxMessageLength = 500;
+    private const int MaxDetailsJsonLength = 4000;
+
     /// <summary>
     /// Records a new security event.
     /// </summary>
     /// <param name="securityEvent"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    private const int MaxMessageLength = 500;
-    private const int MaxDetailsJsonLength = 4000;
-
     public async Task<SecurityEventDto> RecordEventAsync(
         SecurityEventDto securityEvent,
         CancellationToken cancellationToken = default)
@@ -56,16 +56,24 @@ public sealed class AuditSecurityEventService(
             entity.Message = entity.Message[..MaxMessageLength];
         }
 
-        // Serialize details with size guard
+        // Serialize details with size guard - must produce valid JSON
         if (securityEvent.Details.Any())
         {
             var serialized = JsonSerializer.Serialize(securityEvent.Details);
             if (serialized.Length > MaxDetailsJsonLength)
             {
                 logger.LogWarning(
-                    "Security event details truncated from {Original} to {Max} chars for event type {EventType}",
-                    serialized.Length, MaxDetailsJsonLength, entity.EventType);
-                entity.DetailsJson = serialized[..MaxDetailsJsonLength];
+                    "Security event details exceeded {Max} chars ({Actual}), storing summary for event type {EventType}",
+                    MaxDetailsJsonLength, serialized.Length, entity.EventType);
+
+                // Store a valid JSON summary instead of truncated invalid JSON
+                entity.DetailsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["_truncated"] = true,
+                    ["_originalLength"] = serialized.Length,
+                    ["_keyCount"] = securityEvent.Details.Count,
+                    ["_keys"] = securityEvent.Details.Keys.Take(20).ToList()
+                });
             }
             else
             {
