@@ -22,31 +22,21 @@ namespace MillWorks.AuditCore.Services.Sinks;
 /// Background service that drains pending outbox rows through <see cref="IAuditBatchProcessor"/>.
 /// Handles orchestration only: claim, process, apply outcomes, lease recovery.
 /// </summary>
-public sealed class AuditOutboxDrainer : BackgroundService
+public sealed class AuditOutboxDrainer(
+    IServiceScopeFactory scopeFactory,
+    ILogger<AuditOutboxDrainer> logger,
+    IOptions<SecurityOptions> options)
+    : BackgroundService
 {
-    private const string LeaderLockName = "AuditOutboxDrainer:Leader";
+    private const string _leaderLockName = "AuditOutboxDrainer:Leader";
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<AuditOutboxDrainer> _logger;
-    private readonly IOptions<SecurityOptions> _options;
-    private readonly string _leaseOwnerId;
+    private readonly string _leaseOwnerId = GenerateLeaseOwnerId();
     private DateTimeOffset _lastLeaseRecoveryTime = DateTimeOffset.MinValue;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
-
-    public AuditOutboxDrainer(
-        IServiceScopeFactory scopeFactory,
-        ILogger<AuditOutboxDrainer> logger,
-        IOptions<SecurityOptions> options)
-    {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-        _options = options;
-        _leaseOwnerId = GenerateLeaseOwnerId();
-    }
 
     private static string GenerateLeaseOwnerId()
     {
@@ -67,15 +57,15 @@ public sealed class AuditOutboxDrainer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var opts = _options.Value;
+        var opts = options.Value;
 
         if (opts.AuditSinkMode != AuditSinkMode.TransactionalOutbox)
         {
-            _logger.LogInformation("AuditOutboxDrainer disabled — AuditSinkMode is not TransactionalOutbox");
+            logger.LogInformation("AuditOutboxDrainer disabled — AuditSinkMode is not TransactionalOutbox");
             return;
         }
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "AuditOutboxDrainer starting (poll={Poll}ms, batch={Batch}, maxAttempts={MaxAttempts}, leaseOwner={LeaseOwner})",
             opts.OutboxDrainerPollInterval.TotalMilliseconds, opts.OutboxDrainerBatchSize,
             opts.OutboxDrainerMaxAttempts, _leaseOwnerId);
@@ -86,11 +76,11 @@ public sealed class AuditOutboxDrainer : BackgroundService
         {
             try
             {
-                await using var scope = _scopeFactory.CreateAsyncScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 var lockService = scope.ServiceProvider.GetRequiredService<IAuditDistributedLockService>();
                 var lockTtl = TimeSpan.FromSeconds(Math.Max(60, opts.OutboxDrainerPollInterval.TotalSeconds * 3));
 
-                using var lockHandle = await lockService.AcquireLockAsync(LeaderLockName, lockTtl, stoppingToken);
+                using var lockHandle = await lockService.AcquireLockAsync(_leaderLockName, lockTtl, stoppingToken);
 
                 var now = DateTimeOffset.UtcNow;
                 if (now - _lastLeaseRecoveryTime >= opts.OutboxDrainerLeaseRecoveryInterval)
@@ -110,11 +100,11 @@ public sealed class AuditOutboxDrainer : BackgroundService
             catch (Exception ex)
             {
                 consecutiveFailures++;
-                _logger.LogError(ex, "Outbox drainer cycle failed ({Consecutive} consecutive failures)", consecutiveFailures);
+                logger.LogError(ex, "Outbox drainer cycle failed ({Consecutive} consecutive failures)", consecutiveFailures);
 
                 if (consecutiveFailures >= opts.OutboxDrainerCircuitBreakerThreshold)
                 {
-                    _logger.LogWarning(
+                    logger.LogWarning(
                         "Circuit breaker open — sleeping {Sleep}s after {Threshold} consecutive failures",
                         opts.OutboxDrainerCircuitBreakerSleep.TotalSeconds, opts.OutboxDrainerCircuitBreakerThreshold);
 
@@ -129,7 +119,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
 
-        _logger.LogInformation("AuditOutboxDrainer stopped");
+        logger.LogInformation("AuditOutboxDrainer stopped");
     }
 
     private async Task<int> DrainBatchAsync(IServiceProvider sp, CancellationToken ct)
@@ -138,7 +128,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
         using var activity = AuditActivitySource.Source.StartActivity(
             AuditActivitySource.Operations.OutboxDrain, ActivityKind.Internal);
 
-        var opts = _options.Value;
+        var opts = options.Value;
         var auditCtx = sp.GetRequiredService<AuditDbContext>();
         var processor = sp.GetRequiredService<IAuditBatchProcessor>();
         var dlq = sp.GetService<IAuditDeadLetterQueue>();
@@ -171,7 +161,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
         var processed = validRows.Count - invalidRows.Count;
         activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, processed);
         activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
-        _logger.LogDebug("Drained {Processed}/{Total} outbox rows", processed, claimedRows.Count);
+        logger.LogDebug("Drained {Processed}/{Total} outbox rows", processed, claimedRows.Count);
 
         return processed;
     }
@@ -223,7 +213,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
         {
             if (!rowLookup.TryGetValue(outcome.RowId, out var row))
             {
-                _logger.LogError("RowOutcome for unknown RowId {RowId}", outcome.RowId);
+                logger.LogError("RowOutcome for unknown RowId {RowId}", outcome.RowId);
                 continue;
             }
 
@@ -253,7 +243,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
         row.LeaseExpiresAt = null;
 
         if (isDuplicate)
-            _logger.LogDebug("Row {RowId} completed as duplicate", row.Id);
+            logger.LogDebug("Row {RowId} completed as duplicate", row.Id);
     }
 
     private async Task ApplyRetryOutcomeAsync(
@@ -279,7 +269,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
         var backoff = outcome.RetryAfter ?? GetBackoffWithJitter(row.AttemptCount - 1, opts);
         row.NextRetryAt = DateTimeOffset.UtcNow.Add(backoff);
 
-        _logger.LogWarning(
+        logger.LogWarning(
             "Outbox row {RowId} attempt {Attempt}/{MaxAttempts} failed, will retry after {Backoff}s: {Error}",
             row.Id, row.AttemptCount, opts.OutboxDrainerMaxAttempts, backoff.TotalSeconds, outcome.ErrorMessage);
     }
@@ -332,11 +322,11 @@ public sealed class AuditOutboxDrainer : BackgroundService
             }
             catch (Exception dlqEx)
             {
-                _logger.LogError(dlqEx, "Failed to enqueue row {RowId} to DLQ", row.Id);
+                logger.LogError(dlqEx, "Failed to enqueue row {RowId} to DLQ", row.Id);
             }
         }
 
-        _logger.LogWarning("Outbox row {RowId} marked Failed after {Attempts} attempts: {Error}",
+        logger.LogWarning("Outbox row {RowId} marked Failed after {Attempts} attempts: {Error}",
             row.Id, row.AttemptCount, errorMessage);
     }
 
@@ -355,7 +345,7 @@ public sealed class AuditOutboxDrainer : BackgroundService
             : await ClaimBatchPortableAsync(auditCtx, opts.OutboxDrainerBatchSize, now, leaseExpiry, ct);
 
         if (claimed.Count > 0)
-            _logger.LogDebug("Claimed {Count} outbox rows with lease until {LeaseExpiry:O}", claimed.Count, leaseExpiry);
+            logger.LogDebug("Claimed {Count} outbox rows with lease until {LeaseExpiry:O}", claimed.Count, leaseExpiry);
 
         return claimed;
     }
@@ -437,14 +427,14 @@ public sealed class AuditOutboxDrainer : BackgroundService
             row.LeaseOwner = null;
             row.LeaseExpiresAt = null;
 
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Recovered outbox row {RowId} from expired lease (owner={LeaseOwner}, expired={LeaseExpiry:O}). AttemptCount unchanged at {AttemptCount}.",
                 row.Id, previousOwner, previousExpiry, row.AttemptCount);
         }
 
         await auditCtx.SaveChangesAsync(ct);
         AuditMetrics.LeasesRecovered.Add(expiredRows.Count);
-        _logger.LogInformation("Recovered {Count} outbox rows from expired leases", expiredRows.Count);
+        logger.LogInformation("Recovered {Count} outbox rows from expired leases", expiredRows.Count);
     }
 
     private static TimeSpan GetBackoffWithJitter(int attemptIndex, SecurityOptions opts)

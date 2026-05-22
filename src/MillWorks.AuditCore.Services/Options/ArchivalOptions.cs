@@ -69,7 +69,7 @@ internal sealed class ArchivalOptionsValidator : IValidateOptions<ArchivalOption
                 $"{nameof(ArchivalOptions.Provider)} is {nameof(ArchivalProvider.AzureBlob)}.");
         }
 
-        if (options.Provider == ArchivalProvider.AWSs3)
+        if (options.Provider == ArchivalProvider.AwSs3)
         {
             failures.Add("AWS S3 archival provider is not yet implemented.");
         }

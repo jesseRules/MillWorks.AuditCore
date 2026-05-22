@@ -34,17 +34,17 @@ public sealed class RedisJobQueue : IDisposable
     /// <summary>
     /// Queue prefix
     /// </summary>
-    private const string QueuePrefix = "jobs:queue:";
+    private const string _queuePrefix = "jobs:queue:";
 
     /// <summary>
     /// Processing queue prefix
     /// </summary>
-    private const string ProcessingPrefix = "jobs:processing:";
+    private const string _processingPrefix = "jobs:processing:";
 
     /// <summary>
     /// Dead letter queue prefix
     /// </summary>
-    private const string DeadLetterPrefix = "jobs:deadletter:";
+    private const string _deadLetterPrefix = "jobs:deadletter:";
 
     /// <summary>
     /// RedisJobQueue constructor
@@ -81,7 +81,7 @@ public sealed class RedisJobQueue : IDisposable
             RetryCount = 0
         };
 
-        var queueKey = $"{QueuePrefix}{queueName}";
+        var queueKey = $"{_queuePrefix}{queueName}";
         var score = GetPriorityScore(priority);
 
         await _db.SortedSetAddAsync(queueKey, JsonSerializer.Serialize(job), score);
@@ -96,8 +96,8 @@ public sealed class RedisJobQueue : IDisposable
     /// </summary>
     public async Task<RedisJob?> DequeueAsync(string queueName, string workerId)
     {
-        var queueKey = $"{QueuePrefix}{queueName}";
-        var processingKey = $"{ProcessingPrefix}{workerId}";
+        var queueKey = $"{_queuePrefix}{queueName}";
+        var processingKey = $"{_processingPrefix}{workerId}";
 
         // Use Lua script to atomically move job from queue to processing
         var script = @"
@@ -137,7 +137,7 @@ public sealed class RedisJobQueue : IDisposable
     /// </summary>
     public async Task CompleteAsync(string jobId, string workerId, bool success, string? error = null)
     {
-        var processingKey = $"{ProcessingPrefix}{workerId}";
+        var processingKey = $"{_processingPrefix}{workerId}";
 
         // Remove from processing
         await _db.HashDeleteAsync(processingKey, jobId);
@@ -158,7 +158,7 @@ public sealed class RedisJobQueue : IDisposable
     /// </summary>
     public async Task RecoverStuckJobsAsync()
     {
-        var pattern = $"{ProcessingPrefix}*";
+        var pattern = $"{_processingPrefix}*";
 
         await foreach (var key in GetKeysAsync(pattern))
         {
@@ -177,7 +177,7 @@ public sealed class RedisJobQueue : IDisposable
                         if (jobData.RetryCount < jobData.MaxRetries)
                         {
                             jobData.RetryCount++;
-                            var queueKey = $"{QueuePrefix}{jobData.QueueName}";
+                            var queueKey = $"{_queuePrefix}{jobData.QueueName}";
                             await _db.SortedSetAddAsync(queueKey,
                                 JsonSerializer.Serialize(jobData),
                                 GetPriorityScore(jobData.Priority));
@@ -187,7 +187,7 @@ public sealed class RedisJobQueue : IDisposable
                         else
                         {
                             // Move to dead letter
-                            var deadLetterKey = $"{DeadLetterPrefix}{jobData.QueueName}";
+                            var deadLetterKey = $"{_deadLetterPrefix}{jobData.QueueName}";
                             await _db.ListRightPushAsync(deadLetterKey, JsonSerializer.Serialize(jobData));
 
                             _logger.LogWarning("Moved job {JobId} to dead letter queue", jobData.Id);

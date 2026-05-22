@@ -66,12 +66,12 @@ public sealed class AzureKeyVaultProvider(
     /// <summary>
     /// Current key version secret name
     /// </summary>
-    private const string CurrentVersionKey = "audit-encryption-current-version";
+    private const string _currentVersionKey = "audit-encryption-current-version";
 
     /// <summary>
     /// Key prefix in Key Vault
     /// </summary>
-    private const string KeyPrefix = "audit-encryption-key";
+    private const string _keyPrefix = "audit-encryption-key";
 
     internal AzureKeyVaultProvider(
         SecretClient secretClient,
@@ -178,7 +178,7 @@ public sealed class AzureKeyVaultProvider(
 
         try
         {
-            var secretName = $"{KeyPrefix}-{keyVersion}";
+            var secretName = $"{_keyPrefix}-{keyVersion}";
             var secret = _secretClient.GetSecret(secretName);
             return CacheKeyFromSecret(GetRequiredSecretValue(secret.Value, fieldName, keyVersion), cacheKey, fieldName, keyVersion);
         }
@@ -206,7 +206,7 @@ public sealed class AzureKeyVaultProvider(
 
         try
         {
-            var versionSecret = _secretClient.GetSecret(CurrentVersionKey);
+            var versionSecret = _secretClient.GetSecret(_currentVersionKey);
             var version = GetRequiredCurrentVersion(versionSecret.Value);
             _currentVersionCache = new CacheEntry<string>(version, _timeProvider.GetUtcNow());
             return version;
@@ -236,13 +236,13 @@ public sealed class AzureKeyVaultProvider(
             var newVersion = $"v{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
 
             // Store new master key in Key Vault
-            var secretName = $"{KeyPrefix}-{newVersion}";
+            var secretName = $"{_keyPrefix}-{newVersion}";
             await _secretClient.SetSecretAsync(
                 secretName,
                 Convert.ToBase64String(newMasterKey), cancellationToken);
 
             // Update current version pointer
-            await _secretClient.SetSecretAsync(CurrentVersionKey, newVersion, cancellationToken);
+            await _secretClient.SetSecretAsync(_currentVersionKey, newVersion, cancellationToken);
 
             // Clear cache to force reload
             _keyCache.Clear();
@@ -303,7 +303,7 @@ public sealed class AzureKeyVaultProvider(
     {
         try
         {
-            var secretName = $"{KeyPrefix}-{keyVersion}";
+            var secretName = $"{_keyPrefix}-{keyVersion}";
             var secret = await _secretClient.GetSecretAsync(secretName, null, null, cancellationToken);
             return CacheKeyFromSecret(
                 GetRequiredSecretValue(secret.Value, fieldName, keyVersion),
@@ -330,7 +330,7 @@ public sealed class AzureKeyVaultProvider(
         try
         {
             var versionSecret =
-                await _secretClient.GetSecretAsync(CurrentVersionKey, null, null, cancellationToken);
+                await _secretClient.GetSecretAsync(_currentVersionKey, null, null, cancellationToken);
             var version = GetRequiredCurrentVersion(versionSecret.Value);
             _currentVersionCache = new CacheEntry<string>(version, _timeProvider.GetUtcNow());
             return version;
@@ -363,7 +363,7 @@ public sealed class AzureKeyVaultProvider(
     /// Fixed application-specific salt to avoid the degenerate all-zero HKDF salt case.
     /// Deterministic across all instances — maintains the deterministic derivation property.
     /// </summary>
-    private static readonly byte[] ApplicationSalt =
+    private static readonly byte[] _applicationSalt =
         SHA256.HashData("MillWorks.AuditCore.FieldKeyDerivation"u8);
 
     /// <summary>
@@ -374,7 +374,7 @@ public sealed class AzureKeyVaultProvider(
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}");
         var derivedKey = new byte[32]; // 256 bits
 
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, _applicationSalt, info);
 
         return derivedKey;
     }

@@ -125,18 +125,18 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
         var service = new AuditReportService(context, NullLogger<AuditReportService>.Instance);
 
         // Act
-        var chartData = await service.GetAuditChartDataAsync(
+        var response = await service.GetAuditChartDataAsync(
             now.AddDays(-3), now.AddDays(1), groupBy: "day");
 
         // Assert
-        Assert.That(chartData, Is.Not.Empty);
-        Assert.That(chartData, Has.Count.EqualTo(3)); // 3 distinct days
-        Assert.That(chartData.Sum(static d => d.Count), Is.EqualTo(6));
+        Assert.That(response.Items, Is.Not.Empty);
+        Assert.That(response.Items, Has.Count.EqualTo(3)); // 3 distinct days
+        Assert.That(response.Items.Sum(static d => d.Count), Is.EqualTo(6));
 
         // Verify ordering is chronological
-        for (int i = 1; i < chartData.Count; i++)
+        for (int i = 1; i < response.Items.Count; i++)
         {
-            Assert.That(chartData[i].Date, Is.GreaterThanOrEqualTo(chartData[i - 1].Date));
+            Assert.That(response.Items[i].Date, Is.GreaterThanOrEqualTo(response.Items[i - 1].Date));
         }
     }
 

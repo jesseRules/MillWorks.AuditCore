@@ -25,10 +25,10 @@ public sealed class AuditContextMiddleware(
     ILogger<AuditContextMiddleware> logger)
     : IMiddleware
 {
-    private const string CorrelationIdHeader = "X-Correlation-Id";
-    private const int MaxCorrelationIdLength = 128;
+    private const string _correlationIdHeader = "X-Correlation-Id";
+    private const int _maxCorrelationIdLength = 128;
 
-    private static readonly string[] ExcludedPaths =
+    private static readonly string[] _excludedPaths =
     [
         "/health",
         "/metrics",
@@ -72,12 +72,13 @@ public sealed class AuditContextMiddleware(
         {
             try
             {
-                requestAuditEvent = auditEventFactory.CreateEvent($"Http.{context.Request.Method}", new RequestAuditTarget
-                {
-                    Path = context.Request.Path.ToString(),
-                    HasQueryString = context.Request.QueryString.HasValue,
-                    UserAgent = context.Request.Headers["User-Agent"].ToString()
-                });
+                requestAuditEvent = auditEventFactory.CreateEvent($"Http.{context.Request.Method}",
+                    new RequestAuditTarget
+                    {
+                        Path = context.Request.Path.ToString(),
+                        HasQueryString = context.Request.QueryString.HasValue,
+                        UserAgent = context.Request.Headers["User-Agent"].ToString()
+                    });
             }
             catch (Exception ex)
             {
@@ -99,7 +100,8 @@ public sealed class AuditContextMiddleware(
                     requestAuditEvent.EndDate = DateTimeOffset.UtcNow;
                     requestAuditEvent.CalculateDuration();
                     requestAuditEvent.CustomFields["StatusCode"] = context.Response.StatusCode;
-                    requestAuditEvent.CustomFields["ElapsedMs"] = Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+                    requestAuditEvent.CustomFields["ElapsedMs"] =
+                        Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
 
                     await requestAuditDispatcher.DispatchAsync(requestAuditEvent, CancellationToken.None);
                 }
@@ -181,7 +183,7 @@ public sealed class AuditContextMiddleware(
 
     private string ResolveCorrelationId(HttpContext context)
     {
-        if (context.Request.Headers.TryGetValue(CorrelationIdHeader, out var headerValues))
+        if (context.Request.Headers.TryGetValue(_correlationIdHeader, out var headerValues))
         {
             foreach (var rawValue in headerValues)
             {
@@ -194,7 +196,7 @@ public sealed class AuditContextMiddleware(
 
                 logger.LogWarning(
                     "Malformed {HeaderName} header on request {Path}. Falling back to trace identifier.",
-                    CorrelationIdHeader,
+                    _correlationIdHeader,
                     context.Request.Path);
 
                 break;
@@ -209,7 +211,7 @@ public sealed class AuditContextMiddleware(
 
     private static bool IsSafeCorrelationId(string value)
     {
-        return value.Length <= MaxCorrelationIdLength &&
+        return value.Length <= _maxCorrelationIdLength &&
                value.All(static c => !char.IsControl(c));
     }
 
@@ -231,21 +233,14 @@ public sealed class AuditContextMiddleware(
             return false;
         }
 
-        if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
+        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+            return _excludedPaths.All(excluded => !path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase));
+        if (options.Value.ExcludedReadPaths.Any(excludedReadPath =>
+                path.StartsWith(excludedReadPath, StringComparison.OrdinalIgnoreCase)))
         {
-            foreach (var excludedReadPath in options.Value.ExcludedReadPaths)
-            {
-                if (path.StartsWith(excludedReadPath, StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
+            return false;
         }
 
-        foreach (string excluded in ExcludedPaths)
-        {
-            if (path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        return true;
+        return _excludedPaths.All(excluded => !path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase));
     }
 }

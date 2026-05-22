@@ -366,6 +366,42 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     }
 
     /// <summary>
+    /// Gets a paginated list of entities using offset-based pagination.
+    /// Unlike <see cref="GetPagedAsync"/> which uses page numbers, this method
+    /// correctly handles non-page-aligned offsets (e.g., offset=75, limit=50 returns rows 75-124).
+    /// </summary>
+    public virtual async Task<(IEnumerable<T> Items, int TotalCount)> GetByOffsetAsync(
+        int offset,
+        int limit,
+        Expression<Func<T, bool>>? predicate = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null)
+    {
+        if (offset < 0) throw new ArgumentException("Offset cannot be negative", nameof(offset));
+        if (limit < 1) throw new ArgumentException("Limit must be greater than 0", nameof(limit));
+
+        IQueryable<T> query = DbSet.AsNoTracking();
+
+        if (predicate != null)
+        {
+            query = query.Where(predicate);
+        }
+
+        int totalCount = await query.CountAsync();
+
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+
+        List<T> items = await query
+            .Skip(offset)
+            .Take(limit)
+            .ToListAsync();
+
+        return (items, totalCount);
+    }
+
+    /// <summary>
     /// Gets a queryable for building complex queries
     /// </summary>
     /// <returns>IQueryable of T</returns>

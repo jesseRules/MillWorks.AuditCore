@@ -357,7 +357,8 @@ public sealed class InProcessRequestAuditDispatcherTests
 
         await stopTask;
 
-        var afterShutdownEvent = capturingDlq.StoredEvents.FirstOrDefault(e => e.CorrelationId == "after-shutdown-started");
+        var afterShutdownEvent =
+            capturingDlq.StoredEvents.FirstOrDefault(static e => e.CorrelationId == "after-shutdown-started");
         Assert.Multiple(() =>
         {
             Assert.That(afterShutdownEvent, Is.Not.Null, "Event dispatched after shutdown should route to DLQ");
@@ -429,18 +430,26 @@ public sealed class InProcessRequestAuditDispatcherTests
     {
         public Task StoreFailedEventAsync(AuditEvent auditEvent, Exception? exception = null, string? reason = null)
             => throw new IOException("Simulated DLQ failure");
+
         public Task StoreFailedEntityAsync(AuditEventEntity entity, Exception? exception = null, string? reason = null)
             => throw new NotImplementedException();
+
         public Task<List<DeadLetterAuditEvent>> GetFailedEventsAsync(int maxCount = 100)
             => throw new NotImplementedException();
-        public Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate, DateTimeOffset endDate)
+
+        public Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate,
+            DateTimeOffset endDate)
             => throw new NotImplementedException();
+
         public Task<bool> ReprocessEventAsync(string deadLetterId)
             => throw new NotImplementedException();
+
         public Task<ReprocessingResult> ReprocessAllAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
         public Task<int> PurgeProcessedEventsAsync()
             => throw new NotImplementedException();
+
         public Task<DeadLetterStatistics> GetStatisticsAsync()
             => throw new NotImplementedException();
     }
@@ -457,16 +466,23 @@ public sealed class InProcessRequestAuditDispatcherTests
 
         public Task StoreFailedEntityAsync(AuditEventEntity entity, Exception? exception = null, string? reason = null)
             => throw new NotImplementedException();
+
         public Task<List<DeadLetterAuditEvent>> GetFailedEventsAsync(int maxCount = 100)
             => throw new NotImplementedException();
-        public Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate, DateTimeOffset endDate)
+
+        public Task<List<DeadLetterAuditEvent>> GetFailedEventsByDateAsync(DateTimeOffset startDate,
+            DateTimeOffset endDate)
             => throw new NotImplementedException();
+
         public Task<bool> ReprocessEventAsync(string deadLetterId)
             => throw new NotImplementedException();
+
         public Task<ReprocessingResult> ReprocessAllAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
         public Task<int> PurgeProcessedEventsAsync()
             => throw new NotImplementedException();
+
         public Task<DeadLetterStatistics> GetStatisticsAsync()
             => throw new NotImplementedException();
     }

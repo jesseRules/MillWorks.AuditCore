@@ -16,7 +16,7 @@ public sealed class ConsentVerificationService : IConsentVerificationService
     /// Cache key prefix for FERPA consent entries.
     /// Format: "ferpa:consent:{userId}:{entityType}:{scope}"
     /// </summary>
-    private const string CacheKeyPrefix = "ferpa:consent:";
+    private const string _cacheKeyPrefix = "ferpa:consent:";
 
     public ConsentVerificationService(IMemoryCache cache)
     {
@@ -69,6 +69,6 @@ public sealed class ConsentVerificationService : IConsentVerificationService
     /// </summary>
     private static string BuildCacheKey(string userId, string entityType, string? scope)
     {
-        return $"{CacheKeyPrefix}{userId}:{entityType}:{scope ?? "*"}";
+        return $"{_cacheKeyPrefix}{userId}:{entityType}:{scope ?? "*"}";
     }
 }

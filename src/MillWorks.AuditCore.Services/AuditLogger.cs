@@ -43,6 +43,9 @@ public class AuditLogger(
     // EnableTamperDetection and EnableBatchedIntegrityWrites drive routing. The injected-service
     // nullness check is a defensive fallback only — if the service isn't registered, the branch
     // is skipped even when the option is true.
+    /// <summary>
+    /// Security options for audit logging, including tamper detection settings.
+    /// </summary>
     private readonly SecurityOptions _securityOptions = securityOptions?.Value ?? new SecurityOptions();
 
     /// <summary>
@@ -183,7 +186,7 @@ public class AuditLogger(
                     await auditEventRepository.AddRangeAsync(entities, cancellationToken);
                     await auditEventRepository.SaveChangesAsync(cancellationToken);
 
-                    var dtos = entities.Select(e => new AuditIntegrityDto
+                    var dtos = entities.Select(static e => new AuditIntegrityDto
                     {
                         EventId = e.EventId,
                         InsertedDate = e.InsertedDate,

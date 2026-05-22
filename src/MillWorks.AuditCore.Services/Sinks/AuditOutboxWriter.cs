@@ -20,6 +20,9 @@ internal sealed class AuditOutboxWriter(
     ILogger<AuditOutboxWriter> logger)
     : IAuditOutboxWriter
 {
+    /// <summary>
+    /// Schema name for the outbox table, validated on startup to prevent SQL injection.
+    /// </summary>
     private readonly string _schema = ValidateSchemaName(options.Value.Schema);
 
     private static string ValidateSchemaName(string schema)

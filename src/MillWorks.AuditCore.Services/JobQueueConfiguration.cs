@@ -9,17 +9,17 @@ public sealed class JobQueueConfiguration
     /// MaxConcurrentJobs defines the maximum number of jobs that can run concurrently across the entire job queue.
     /// </summary>
     public int MaxConcurrentJobs { get; set; } = 10;
-    
+
     /// <summary>
     /// JobTimeout defines the maximum time a job can run before it is considered dead.
     /// </summary>
     public TimeSpan JobTimeout { get; set; } = TimeSpan.FromMinutes(30);
-    
+
     /// <summary>
     /// DeadJobCheckInterval defines how often the system checks for dead jobs.
     /// </summary>
     public TimeSpan DeadJobCheckInterval { get; set; } = TimeSpan.FromMinutes(5);
-    
+
     /// <summary>
     /// QueueConcurrencyLimits defines the maximum number of concurrent jobs allowed for each queue.
     /// </summary>

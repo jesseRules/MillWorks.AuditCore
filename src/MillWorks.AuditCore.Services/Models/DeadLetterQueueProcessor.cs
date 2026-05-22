@@ -13,8 +13,8 @@ namespace MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 /// </summary>
 public sealed class DeadLetterQueueProcessor : BackgroundService
 {
-    private static readonly TimeSpan DefaultInterEventDelay = TimeSpan.FromSeconds(1);
-    private const string ReprocessLockName = "audit:dead-letter-queue:reprocess";
+    private static readonly TimeSpan _defaultInterEventDelay = TimeSpan.FromSeconds(1);
+    private const string _reprocessLockName = "audit:dead-letter-queue:reprocess";
 
     /// <summary>
     /// Service provider for creating scopes
@@ -56,7 +56,7 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
         _logger = logger;
         _options = options;
         _intervalOverride = intervalOverride;
-        _interEventDelay = interEventDelay ?? DefaultInterEventDelay;
+        _interEventDelay = interEventDelay ?? _defaultInterEventDelay;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -121,7 +121,7 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
         var maxCount = options.DeadLetterQueueMaxBatchSize;
         var lockExpiry = TimeSpan.FromMinutes(Math.Max(options.ReprocessIntervalMinutes, 1.0));
 
-        using var reprocessLock = await lockService.AcquireLockAsync(ReprocessLockName, lockExpiry, cancellationToken);
+        using var reprocessLock = await lockService.AcquireLockAsync(_reprocessLockName, lockExpiry, cancellationToken);
 
         var events = await dlq.GetFailedEventsAsync(maxCount);
         var eventsToRetry = events

@@ -522,18 +522,28 @@ public sealed class AuditSearchService(
     }
 
     /// <summary>
-    /// Parses custom fields from the JSON element
+    /// Parses custom fields from the JSON root element by looking for a nested CustomFields object.
+    /// Does NOT enumerate all top-level properties (which would incorrectly include EventId, EventType, etc.).
     /// </summary>
-    /// <param name="element"></param>
-    /// <returns></returns>
-    private Dictionary<string, object?>? ParseCustomFields(JsonElement element)
+    /// <param name="root">The root JSON element</param>
+    /// <returns>The parsed CustomFields dictionary, or null if not present</returns>
+    private Dictionary<string, object?>? ParseCustomFields(JsonElement root)
     {
-        if (element.ValueKind != JsonValueKind.Object)
+        if (root.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (!root.TryGetProperty("CustomFields", out JsonElement customFieldsElement) &&
+            !root.TryGetProperty("custom_fields", out customFieldsElement))
+        {
+            return null;
+        }
+
+        if (customFieldsElement.ValueKind != JsonValueKind.Object)
             return null;
 
         Dictionary<string, object?> customFields = new Dictionary<string, object?>();
 
-        foreach (JsonProperty property in element.EnumerateObject())
+        foreach (JsonProperty property in customFieldsElement.EnumerateObject())
         {
             customFields[property.Name] = property.Value.ValueKind switch
             {
@@ -548,7 +558,7 @@ public sealed class AuditSearchService(
             };
         }
 
-        return customFields;
+        return customFields.Count > 0 ? customFields : null;
     }
 
     /// <summary>

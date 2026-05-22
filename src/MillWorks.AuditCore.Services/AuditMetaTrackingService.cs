@@ -12,13 +12,13 @@ public sealed class AuditMetaTrackingService(
     IAuditLogger auditLogger)
     : IAuditMetaTrackingService
 {
-    private static readonly string[] ComplianceKeywords =
+    private static readonly string[] _complianceKeywords =
         ["compliance", "audit", "regulatory", "gdpr", "hipaa", "sox", "iso"];
 
-    private static readonly HashSet<string> SensitiveQueryTypes =
+    private static readonly HashSet<string> _sensitiveQueryTypes =
         new(StringComparer.OrdinalIgnoreCase) { "UserActivity", "PHIAccess", "SensitiveData", "SecurityIncident" };
 
-    private static readonly string[] SensitiveTerms =
+    private static readonly string[] _sensitiveTerms =
         ["executive", "security", "breach", "incident", "violation"];
     /// <summary>
     /// Log when someone queries audit logs (required for HIPAA, SOC2)
@@ -154,7 +154,7 @@ public sealed class AuditMetaTrackingService(
     {
         if (string.IsNullOrEmpty(purpose)) return false;
 
-        foreach (string keyword in ComplianceKeywords)
+        foreach (string keyword in _complianceKeywords)
         {
             if (purpose.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -170,7 +170,7 @@ public sealed class AuditMetaTrackingService(
     /// <returns></returns>
     private static bool RequiresJustification(string queryType)
     {
-        return SensitiveQueryTypes.Contains(queryType);
+        return _sensitiveQueryTypes.Contains(queryType);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ public sealed class AuditMetaTrackingService(
     {
         if (string.IsNullOrEmpty(parameters)) return false;
 
-        foreach (string term in SensitiveTerms)
+        foreach (string term in _sensitiveTerms)
         {
             if (parameters.Contains(term, StringComparison.OrdinalIgnoreCase))
                 return true;

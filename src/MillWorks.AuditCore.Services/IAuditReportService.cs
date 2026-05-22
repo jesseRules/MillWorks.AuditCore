@@ -19,13 +19,14 @@ public interface IAuditReportService
 
     /// <summary>
     /// Gets the audit chart data for the specified date range and grouping.
+    /// Response includes truncation metadata when results exceed query limits.
     /// </summary>
     /// <param name="startDate"></param>
     /// <param name="endDate"></param>
     /// <param name="groupBy"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<List<AuditChartData>> GetAuditChartDataAsync(DateTimeOffset startDate, DateTimeOffset endDate,
+    Task<AuditChartDataResponse> GetAuditChartDataAsync(DateTimeOffset startDate, DateTimeOffset endDate,
         string groupBy = "day",
         CancellationToken cancellationToken = default);
 
@@ -64,12 +65,13 @@ public interface IAuditReportService
 
     /// <summary>
     /// Generates an audit report for the specified date range and format.
+    /// Response includes truncation metadata when results exceed export limits.
     /// </summary>
     /// <param name="startDate"></param>
     /// <param name="endDate"></param>
     /// <param name="format"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<byte[]> GenerateAuditReportAsync(DateTimeOffset startDate, DateTimeOffset endDate, string format = "json",
+    Task<AuditReportResponse> GenerateAuditReportAsync(DateTimeOffset startDate, DateTimeOffset endDate, string format = "json",
         CancellationToken cancellationToken = default);
 }

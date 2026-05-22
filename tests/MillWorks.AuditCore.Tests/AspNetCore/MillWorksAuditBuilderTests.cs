@@ -633,7 +633,7 @@ public class MillWorksAuditBuilderTests
     {
         _builder.UseArchival(static archival =>
         {
-            archival.Provider = ArchivalProvider.AWSs3;
+            archival.Provider = ArchivalProvider.AwSs3;
         });
 
         // AWS S3 not-implemented is reported by ArchivalOptionsValidator at options access,

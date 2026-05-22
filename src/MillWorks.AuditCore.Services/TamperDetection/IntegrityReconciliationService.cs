@@ -29,28 +29,28 @@ public sealed class IntegrityReconciliationService(
     /// <summary>
     /// Maximum number of attempts before marking a work item as Failed
     /// </summary>
-    private const int MaxAttempts = 5;
+    private const int _maxAttempts = 5;
 
     /// <summary>
     /// How long a work item must be Pending before reconciliation considers it stale
     /// </summary>
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan _staleThreshold = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Batch size for reconciliation processing
     /// </summary>
-    private const int ReconciliationBatchSize = 100;
+    private const int _reconciliationBatchSize = 100;
 
     /// <summary>
     /// Duration of a reconciliation lease. Prevents multiple instances from processing
     /// the same pending work item at the same time.
     /// </summary>
-    private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan _leaseDuration = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Interval between scheduled reconciliation runs (after the initial startup run)
     /// </summary>
-    private static readonly TimeSpan ReconciliationInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan _reconciliationInterval = TimeSpan.FromMinutes(15);
 
     /// <summary>
     /// Stable identifier for this reconciler instance when claiming work items.
@@ -81,7 +81,7 @@ public sealed class IntegrityReconciliationService(
         {
             try
             {
-                await Task.Delay(ReconciliationInterval, stoppingToken);
+                await Task.Delay(_reconciliationInterval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -124,7 +124,7 @@ public sealed class IntegrityReconciliationService(
                 try
                 {
                     // Check if this work item has exceeded max attempts
-                    if (workItem.AttemptCount >= MaxAttempts)
+                    if (workItem.AttemptCount >= _maxAttempts)
                     {
                         workItem.Status = IntegrityStatus.Failed;
                         workItem.LastAttemptAt = DateTimeOffset.UtcNow;
@@ -253,7 +253,7 @@ public sealed class IntegrityReconciliationService(
 
                     logger.LogWarning(ex,
                         "IntegrityReconciliationService: failed to reconcile work item {WorkItemId} for event {EventId} (attempt {Attempt}/{Max})",
-                        workItem.Id, workItem.EventId, workItem.AttemptCount, MaxAttempts);
+                        workItem.Id, workItem.EventId, workItem.AttemptCount, _maxAttempts);
                 }
             }
 
@@ -276,8 +276,8 @@ public sealed class IntegrityReconciliationService(
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        var staleCutoff = now - StaleThreshold;
-        var leaseExpiresAt = now.Add(LeaseDuration);
+        var staleCutoff = now - _staleThreshold;
+        var leaseExpiresAt = now.Add(_leaseDuration);
 
         var candidateIds = await dbContext.IntegrityWorkItems
             .Where(w => w.Status == IntegrityStatus.Pending
@@ -285,7 +285,7 @@ public sealed class IntegrityReconciliationService(
                         && (w.LeaseExpiresAt == null || w.LeaseExpiresAt < now))
             .OrderBy(static w => w.CreatedAt)
             .Select(static w => w.Id)
-            .Take(ReconciliationBatchSize)
+            .Take(_reconciliationBatchSize)
             .ToListAsync(cancellationToken);
 
         var claimedItems = new List<AuditIntegrityWorkItemEntity>(candidateIds.Count);

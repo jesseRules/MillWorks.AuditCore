@@ -13,8 +13,19 @@ namespace MillWorks.AuditCore.Services.Validators;
 /// </summary>
 public sealed class ComplianceAttributeScanner : IComplianceAttributeScanner
 {
+    /// <summary>
+    /// List of all types marked with [FERPA]
+    /// </summary>
     private readonly IReadOnlyList<Type> _ferpaEntities;
+
+    /// <summary>
+    /// Cache of sensitive properties indexed by compliance standard for efficient retrieval in audits and reports.
+    /// </summary>
     private readonly ConcurrentDictionary<ComplianceStandard, IReadOnlyList<SensitivePropertyInfo>> _byStandard;
+
+    /// <summary>
+    /// Cache of sensitive properties indexed by declaring type for efficient retrieval during encryption and masking operations.zxl
+    /// </summary>
     private readonly ConcurrentDictionary<Type, IReadOnlyList<SensitivePropertyInfo>> _byType;
 
     /// <summary>
@@ -45,7 +56,10 @@ public sealed class ComplianceAttributeScanner : IComplianceAttributeScanner
         var allTypes = assemblyList
             .SelectMany(static a =>
             {
-                try { return a.GetTypes(); }
+                try
+                {
+                    return a.GetTypes();
+                }
                 catch (ReflectionTypeLoadException ex)
                 {
                     return ex.Types.Where(static t => t != null).Cast<Type>();
@@ -61,7 +75,7 @@ public sealed class ComplianceAttributeScanner : IComplianceAttributeScanner
 
         // Scan for [SensitiveData] properties
         var allSensitiveProperties = new List<SensitivePropertyInfo>();
-        foreach (var type in allTypes!)
+        foreach (var type in allTypes)
         {
             foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {

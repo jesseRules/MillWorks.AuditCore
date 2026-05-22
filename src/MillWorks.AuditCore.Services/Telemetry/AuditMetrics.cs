@@ -12,7 +12,7 @@ public static class AuditMetrics
     public const string MeterName = "MillWorks.AuditCore";
     public const string MeterVersion = "1.0.0";
 
-    private static readonly Meter Meter = new(MeterName, MeterVersion);
+    private static readonly Meter _meter = new(MeterName, MeterVersion);
 
     #region Metric Names
 
@@ -56,17 +56,17 @@ public static class AuditMetrics
 
     #region Histograms
 
-    public static readonly Histogram<int> OutboxBatchSize = Meter.CreateHistogram<int>(
+    public static readonly Histogram<int> OutboxBatchSize = _meter.CreateHistogram<int>(
         Names.OutboxBatchSize,
         unit: "rows",
         description: "Number of rows claimed per outbox drain batch");
 
-    public static readonly Histogram<double> OutboxDrainDuration = Meter.CreateHistogram<double>(
+    public static readonly Histogram<double> OutboxDrainDuration = _meter.CreateHistogram<double>(
         Names.OutboxDrainDuration,
         unit: "ms",
         description: "Time to process a single outbox drain cycle");
 
-    public static readonly Histogram<double> OutboxRowAge = Meter.CreateHistogram<double>(
+    public static readonly Histogram<double> OutboxRowAge = _meter.CreateHistogram<double>(
         Names.OutboxRowAge,
         unit: "s",
         description: "Age of outbox rows from creation to drain");
@@ -75,32 +75,32 @@ public static class AuditMetrics
 
     #region Counters
 
-    public static readonly Counter<long> EnvelopesPublished = Meter.CreateCounter<long>(
+    public static readonly Counter<long> EnvelopesPublished = _meter.CreateCounter<long>(
         Names.EnvelopesPublished,
         unit: "envelopes",
         description: "Number of envelopes successfully published");
 
-    public static readonly Counter<long> EnvelopesFailed = Meter.CreateCounter<long>(
+    public static readonly Counter<long> EnvelopesFailed = _meter.CreateCounter<long>(
         Names.EnvelopesFailed,
         unit: "envelopes",
         description: "Number of envelopes that failed with non-retryable errors");
 
-    public static readonly Counter<long> EnvelopesDuplicate = Meter.CreateCounter<long>(
+    public static readonly Counter<long> EnvelopesDuplicate = _meter.CreateCounter<long>(
         Names.EnvelopesDuplicate,
         unit: "envelopes",
         description: "Number of duplicate envelopes detected (idempotent replays)");
 
-    public static readonly Counter<long> RetryAttempts = Meter.CreateCounter<long>(
+    public static readonly Counter<long> RetryAttempts = _meter.CreateCounter<long>(
         Names.RetryAttempts,
         unit: "retries",
         description: "Number of envelope processing retries scheduled");
 
-    public static readonly Counter<long> DlqRouted = Meter.CreateCounter<long>(
+    public static readonly Counter<long> DlqRouted = _meter.CreateCounter<long>(
         Names.DlqRouted,
         unit: "rows",
         description: "Number of outbox rows that exhausted retries and were routed to DLQ");
 
-    public static readonly Counter<long> LeasesRecovered = Meter.CreateCounter<long>(
+    public static readonly Counter<long> LeasesRecovered = _meter.CreateCounter<long>(
         Names.LeasesRecovered,
         unit: "rows",
         description: "Number of outbox rows recovered from expired leases");

@@ -176,13 +176,13 @@ public class AuditReportServiceEdgeCaseTests
         await _context.SaveChangesAsync();
 
         // Act
-        var bytes = await _reportService.GenerateAuditReportAsync(startDate, endDate);
+        var result = await _reportService.GenerateAuditReportAsync(startDate, endDate);
 
         // Assert
-        Assert.That(bytes, Is.Not.Null);
-        Assert.That(bytes.Length, Is.GreaterThan(0));
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Content.Length, Is.GreaterThan(0));
 
-        var reportText = System.Text.Encoding.UTF8.GetString(bytes);
+        var reportText = System.Text.Encoding.UTF8.GetString(result.Content);
 
         Assert.That(reportText, Does.Contain("\"totalEvents\": 3"));
         Assert.That(reportText, Does.Contain("\"uniqueUsers\": 2"));
@@ -208,7 +208,7 @@ public class AuditReportServiceEdgeCaseTests
 
         // Assert
         Assert.That(result, Is.Not.Null);
-        Assert.That(result, Is.Empty);
+        Assert.That(result.Items, Is.Empty);
     }
 
     #endregion

@@ -13,7 +13,7 @@ public enum ArchivalProvider
     /// <summary>
     /// AWS S3
     /// </summary>
-    AWSs3,
+    AwSs3,
 
     /// <summary>
     /// File System

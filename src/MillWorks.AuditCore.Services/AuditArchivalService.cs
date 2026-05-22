@@ -51,45 +51,45 @@ public sealed class AuditArchivalService(
     /// producer → consumer pipe, the producer pauses until the uploader drains the buffer.
     /// Bounds peak memory of the streaming pipeline independent of archive size.
     /// </summary>
-    private const int PipePauseBytes = 4 * 1024 * 1024;
+    private const int _pipePauseBytes = 4 * 1024 * 1024;
 
     /// <summary>
     /// How often the JSON writer's internal buffer is flushed to the gzip stream during
     /// event streaming. Keeps the writer's own buffer bounded independent of event count.
     /// </summary>
-    private const int JsonFlushEveryNEvents = 500;
+    private const int _jsonFlushEveryNEvents = 500;
 
     /// <summary>
     /// Blob download buffer for the restore pipeline. 4 MiB matches the upload block size
     /// and is the unit of I/O for streaming decompression.
     /// </summary>
-    private const int DownloadBufferBytes = 4 * 1024 * 1024;
+    private const int _downloadBufferBytes = 4 * 1024 * 1024;
 
     /// <summary>
     /// Initial JSON parse buffer on the restore path. Grows on demand if a single event
     /// serializes larger than this; 64 KiB comfortably covers typical audit events.
     /// </summary>
-    private const int RestoreParseBufferBytes = 64 * 1024;
+    private const int _restoreParseBufferBytes = 64 * 1024;
 
     /// <summary>
     /// Hard cap on the JSON parse buffer. Any single element larger than this aborts the
     /// restore — 32 MiB is already well beyond any realistic single audit event.
     /// </summary>
-    private const int RestoreParseBufferMaxBytes = 32 * 1024 * 1024;
+    private const int _restoreParseBufferMaxBytes = 32 * 1024 * 1024;
 
     /// <summary>
     /// Number of events / integrity records inserted per DB round-trip during restore.
     /// Clears the EF change tracker between batches so tracked-entity memory is bounded.
     /// </summary>
-    private const int RestoreBatchSize = 500;
+    private const int _restoreBatchSize = 500;
 
-    private static readonly JsonSerializerOptions StreamJsonOptions = new()
+    private static readonly JsonSerializerOptions _streamJsonOptions = new()
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private static readonly byte[] EventsHashSeparator = "|"u8.ToArray();
+    private static readonly byte[] _eventsHashSeparator = "|"u8.ToArray();
 
     /// <summary>
     /// Container name for storing audit archives
@@ -200,8 +200,8 @@ public sealed class AuditArchivalService(
             // Pipe connects the producing compressor to the blob uploader. Back-pressure
             // keeps the in-flight buffer small regardless of total archive size.
             var pipe = new Pipe(new PipeOptions(
-                pauseWriterThreshold: PipePauseBytes,
-                resumeWriterThreshold: PipePauseBytes / 2));
+                pauseWriterThreshold: _pipePauseBytes,
+                resumeWriterThreshold: _pipePauseBytes / 2));
 
             blobWriteStarted = true;
             long uploadSize = 0;
@@ -262,15 +262,15 @@ public sealed class AuditArchivalService(
                             var insertedRepr = entity.InsertedDate?.ToString("O", CultureInfo.InvariantCulture) ?? "";
                             var repr = string.Create(CultureInfo.InvariantCulture,
                                 $"{entity.EventId}:{entity.EventType}:{insertedRepr}");
-                            if (!isFirstForHash) eventsHasher.AppendData(EventsHashSeparator);
+                            if (!isFirstForHash) eventsHasher.AppendData(_eventsHashSeparator);
                             eventsHasher.AppendData(Encoding.UTF8.GetBytes(repr));
                             isFirstForHash = false;
 
                             var dto = mapper.Map<AuditEventDto>(entity);
-                            JsonSerializer.Serialize(jsonWriter, dto, StreamJsonOptions);
+                            JsonSerializer.Serialize(jsonWriter, dto, _streamJsonOptions);
 
                             eventsWritten++;
-                            if (eventsWritten % JsonFlushEveryNEvents == 0)
+                            if (eventsWritten % _jsonFlushEveryNEvents == 0)
                             {
                                 await jsonWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
                             }
@@ -287,10 +287,10 @@ public sealed class AuditArchivalService(
                                            .ConfigureAwait(false))
                         {
                             var integrityDto = mapper.Map<AuditIntegrityDto>(integrity);
-                            JsonSerializer.Serialize(jsonWriter, integrityDto, StreamJsonOptions);
+                            JsonSerializer.Serialize(jsonWriter, integrityDto, _streamJsonOptions);
 
                             integrityWritten++;
-                            if (integrityWritten % JsonFlushEveryNEvents == 0)
+                            if (integrityWritten % _jsonFlushEveryNEvents == 0)
                             {
                                 await jsonWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
                             }
@@ -506,7 +506,7 @@ public sealed class AuditArchivalService(
                 using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
                 await using var blobStream = await blobClient.OpenReadAsync(
-                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = DownloadBufferBytes },
+                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = _downloadBufferBytes },
                     cancellationToken).ConfigureAwait(false);
 
                 await using var hashingStream = new HashingReadStream(blobStream, hasher, leaveOpen: true);
@@ -578,14 +578,14 @@ public sealed class AuditArchivalService(
     /// Streams the decompressed archive JSON through a <see cref="Utf8JsonReader"/> state
     /// machine, materializing one event / integrity record at a time and persisting them
     /// in batches via the repository. The EF change tracker is cleared between batches so
-    /// tracked-entity memory stays bounded by <see cref="RestoreBatchSize"/>.
+    /// tracked-entity memory stays bounded by <see cref="_restoreBatchSize"/>.
     /// </summary>
     private async Task<int> StreamRestoreAsync(Stream jsonStream, CancellationToken cancellationToken)
     {
         var pool = ArrayPool<byte>.Shared;
-        var buffer = pool.Rent(RestoreParseBufferBytes);
-        var eventBatch = new List<AuditEventEntity>(RestoreBatchSize);
-        var integrityBatch = new List<AuditIntegrityEntity>(RestoreBatchSize);
+        var buffer = pool.Rent(_restoreParseBufferBytes);
+        var eventBatch = new List<AuditEventEntity>(_restoreBatchSize);
+        var integrityBatch = new List<AuditIntegrityEntity>(_restoreBatchSize);
         var pendingEvents = new Queue<AuditEventDto>();
         var pendingIntegrity = new Queue<AuditIntegrityDto>();
 
@@ -630,7 +630,7 @@ public sealed class AuditArchivalService(
                     eventBatch.Add(entity);
                     totalEvents++;
 
-                    if (eventBatch.Count >= RestoreBatchSize)
+                    if (eventBatch.Count >= _restoreBatchSize)
                     {
                         await FlushEventBatchAsync(eventBatch, cancellationToken).ConfigureAwait(false);
                     }
@@ -644,7 +644,7 @@ public sealed class AuditArchivalService(
                     entity.AuditEvent = null;
                     integrityBatch.Add(entity);
 
-                    if (integrityBatch.Count >= RestoreBatchSize)
+                    if (integrityBatch.Count >= _restoreBatchSize)
                     {
                         await FlushIntegrityBatchAsync(integrityBatch, cancellationToken).ConfigureAwait(false);
                     }
@@ -665,13 +665,13 @@ public sealed class AuditArchivalService(
                 {
                     // No progress possible on this buffer; the current element is larger
                     // than our parse window. Grow up to the cap.
-                    if (buffer.Length >= RestoreParseBufferMaxBytes)
+                    if (buffer.Length >= _restoreParseBufferMaxBytes)
                     {
                         throw new JsonException(
-                            $"A single archived element exceeds the {RestoreParseBufferMaxBytes:N0}-byte restore parse buffer cap.");
+                            $"A single archived element exceeds the {_restoreParseBufferMaxBytes:N0}-byte restore parse buffer cap.");
                     }
 
-                    var newSize = Math.Min(buffer.Length * 2, RestoreParseBufferMaxBytes);
+                    var newSize = Math.Min(buffer.Length * 2, _restoreParseBufferMaxBytes);
                     var bigger = pool.Rent(newSize);
                     Buffer.BlockCopy(buffer, 0, bigger, 0, bytesInBuffer);
                     pool.Return(buffer);
@@ -974,11 +974,11 @@ public sealed class AuditArchivalService(
             using (var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
             {
                 await using var blobStream = await blobClient.OpenReadAsync(
-                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = DownloadBufferBytes },
+                    new BlobOpenReadOptions(allowModifications: false) { BufferSize = _downloadBufferBytes },
                     cancellationToken).ConfigureAwait(false);
                 await using var hashingStream = new HashingReadStream(blobStream, hasher, leaveOpen: true);
 
-                var buffer = new byte[DownloadBufferBytes];
+                var buffer = new byte[_downloadBufferBytes];
                 while (await hashingStream.ReadAsync(buffer.AsMemory(), cancellationToken)
                            .ConfigureAwait(false) > 0)
                 {

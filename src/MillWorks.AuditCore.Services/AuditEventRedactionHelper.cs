@@ -26,9 +26,7 @@ internal static class AuditEventRedactionHelper
             CustomFields = redactor.RedactFields(original.CustomFields),
             Success = original.Success,
             ErrorMessage = redactor.RedactValue("ErrorMessage", original.ErrorMessage),
-            SystemFields = original.SystemFields is not null
-                ? redactor.RedactFields(new Dictionary<string, object?>(original.SystemFields))
-                : null!,
+            SystemFields = redactor.RedactFields(new Dictionary<string, object?>(original.SystemFields)),
             CorrelationId = redactor.RedactValue("CorrelationId", original.CorrelationId),
             ParentId = original.ParentId,
             SessionId = redactor.RedactValue("SessionId", original.SessionId),

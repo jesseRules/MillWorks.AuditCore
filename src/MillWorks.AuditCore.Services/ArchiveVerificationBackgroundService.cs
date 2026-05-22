@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -14,7 +13,7 @@ namespace MillWorks.AuditCore.Services.Core;
 /// </summary>
 public sealed class ArchiveVerificationBackgroundService : BackgroundService
 {
-    private static readonly TimeSpan DefaultStartupDelay = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan _defaultStartupDelay = TimeSpan.FromMinutes(5);
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<ArchiveVerificationBackgroundService> _logger;
@@ -43,7 +42,7 @@ public sealed class ArchiveVerificationBackgroundService : BackgroundService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _archivalOptions = archivalOptions ?? throw new ArgumentNullException(nameof(archivalOptions));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-        _startupDelay = startupDelay ?? DefaultStartupDelay;
+        _startupDelay = startupDelay ?? _defaultStartupDelay;
         _intervalOverride = intervalOverride;
     }
 

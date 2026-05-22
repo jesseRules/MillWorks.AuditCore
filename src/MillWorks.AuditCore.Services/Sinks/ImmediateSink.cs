@@ -96,6 +96,14 @@ internal sealed class ImmediateSink(
         }
     }
 
+    /// <summary>
+    /// Combines write outcomes from entity and event batch writers into a single list for unified error handling.
+    /// Since the two writers are independent, we simply concatenate their results.
+    /// In cases where one writer is not used (e.g., no entity changes), we return the outcomes from the other writer directly to avoid unnecessary list allocation.
+    /// </summary>
+    /// <param name="entityOutcomes"></param>
+    /// <param name="eventOutcomes"></param>
+    /// <returns></returns>
     private static IReadOnlyList<WriteOutcome> CombineOutcomes(
         IReadOnlyList<WriteOutcome> entityOutcomes,
         IReadOnlyList<WriteOutcome> eventOutcomes)

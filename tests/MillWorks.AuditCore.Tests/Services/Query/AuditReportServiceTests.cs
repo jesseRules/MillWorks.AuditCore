@@ -234,9 +234,9 @@ public class AuditReportServiceTests
             startDate, endDate);
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
-        Assert.That(result.Count, Is.LessThanOrEqualTo(8)); // 7 days + possible edge
-        Assert.That(result.All(static x => x.Count >= 0), Is.True);
+        Assert.That(result.Items, Is.Not.Empty);
+        Assert.That(result.Items.Count, Is.LessThanOrEqualTo(8)); // 7 days + possible edge
+        Assert.That(result.Items.All(static x => x.Count >= 0), Is.True);
     }
 
     /// <summary>
@@ -265,8 +265,8 @@ public class AuditReportServiceTests
             startDate, endDate, "hour");
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
-        Assert.That(result.All(static x => x.Label.Contains(":")), Is.True); // Hour format includes :
+        Assert.That(result.Items, Is.Not.Empty);
+        Assert.That(result.Items.All(static x => x.Label.Contains(":")), Is.True); // Hour format includes :
     }
 
     /// <summary>
@@ -295,8 +295,8 @@ public class AuditReportServiceTests
             startDate, endDate, "week");
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
-        Assert.That(result.All(static x => x.Label.Contains("Week")), Is.True);
+        Assert.That(result.Items, Is.Not.Empty);
+        Assert.That(result.Items.All(static x => x.Label.Contains("Week")), Is.True);
     }
 
     /// <summary>
@@ -325,8 +325,8 @@ public class AuditReportServiceTests
             startDate, endDate, "month");
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
-        Assert.That(result.Count, Is.LessThanOrEqualTo(7)); // 6 months + possible edge
+        Assert.That(result.Items, Is.Not.Empty);
+        Assert.That(result.Items.Count, Is.LessThanOrEqualTo(7)); // 6 months + possible edge
     }
 
     /// <summary>
@@ -356,9 +356,9 @@ public class AuditReportServiceTests
             startDate, endDate, "user");
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
-        Assert.That(result.Count, Is.LessThanOrEqualTo(20)); // Top 20 users
-        Assert.That(result.All(static x => !string.IsNullOrEmpty(x.User)), Is.True);
+        Assert.That(result.Items, Is.Not.Empty);
+        Assert.That(result.Items.Count, Is.LessThanOrEqualTo(20)); // Top 20 users
+        Assert.That(result.Items.All(static x => !string.IsNullOrEmpty(x.User)), Is.True);
     }
 
     /// <summary>
@@ -401,9 +401,9 @@ public class AuditReportServiceTests
             startDate, endDate, "eventtype");
 
         // Assert
-        Assert.That(result, Has.Count.EqualTo(2));
-        Assert.That(result.Any(static x => x is { EventType: "User.Login", Count: 2 }), Is.True);
-        Assert.That(result.Any(static x => x is { EventType: "Data.Update", Count: 1 }), Is.True);
+        Assert.That(result.Items, Has.Count.EqualTo(2));
+        Assert.That(result.Items.Any(static x => x is { EventType: "User.Login", Count: 2 }), Is.True);
+        Assert.That(result.Items.Any(static x => x is { EventType: "Data.Update", Count: 1 }), Is.True);
     }
 
     /// <summary>
@@ -433,7 +433,7 @@ public class AuditReportServiceTests
             startDate, endDate, "invalid");
 
         // Assert
-        Assert.That(result, Is.Not.Empty);
+        Assert.That(result.Items, Is.Not.Empty);
     }
 
     #endregion
@@ -789,9 +789,9 @@ public class AuditReportServiceTests
 
         // Assert
         Assert.That(result, Is.Not.Null);
-        Assert.That(result.Length, Is.GreaterThan(0));
+        Assert.That(result.Content.Length, Is.GreaterThan(0));
 
-        var reportText = System.Text.Encoding.UTF8.GetString(result);
+        var reportText = System.Text.Encoding.UTF8.GetString(result.Content);
         Assert.That(reportText, Does.Contain("totalEvents"));
         Assert.That(reportText, Does.Contain("uniqueUsers"));
     }
@@ -816,7 +816,7 @@ public class AuditReportServiceTests
         await _context.SaveChangesAsync();
 
         var result = await _reportService.GenerateAuditReportAsync(startDate, endDate, "csv");
-        var csv = System.Text.Encoding.UTF8.GetString(result);
+        var csv = System.Text.Encoding.UTF8.GetString(result.Content);
 
         Assert.That(csv, Does.StartWith("EventId,InsertedDate,EventType"));
         Assert.That(csv, Does.Contain("Test.Event"));
@@ -840,7 +840,7 @@ public class AuditReportServiceTests
         await _context.SaveChangesAsync();
 
         var result = await _reportService.GenerateAuditReportAsync(startDate, endDate, "csv");
-        var csv = System.Text.Encoding.UTF8.GetString(result);
+        var csv = System.Text.Encoding.UTF8.GetString(result.Content);
 
         // All formula-triggering characters should be prefixed with single-quote
         Assert.That(csv, Does.Contain("'=CMD"));

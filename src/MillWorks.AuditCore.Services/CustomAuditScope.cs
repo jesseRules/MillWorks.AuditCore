@@ -18,7 +18,7 @@ public sealed class CustomAuditScope(AuditEvent auditEvent, IAuditLogger auditLo
     /// <summary>
     /// Dispose timeout duration
     /// </summary>
-    private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan _disposeTimeout = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// Event being audited
@@ -86,7 +86,7 @@ public sealed class CustomAuditScope(AuditEvent auditEvent, IAuditLogger auditLo
         try
         {
             // Use a CancellationTokenSource with timeout for async disposal too
-            using var cts = new CancellationTokenSource(DisposeTimeout);
+            using var cts = new CancellationTokenSource(_disposeTimeout);
             await SaveAsync(cts.Token);
         }
         catch (OperationCanceledException)

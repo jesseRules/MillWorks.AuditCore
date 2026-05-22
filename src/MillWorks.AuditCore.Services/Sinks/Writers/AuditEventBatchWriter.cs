@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Services.Interfaces;
 

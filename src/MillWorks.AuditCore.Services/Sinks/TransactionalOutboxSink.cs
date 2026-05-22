@@ -17,7 +17,10 @@ namespace MillWorks.AuditCore.Services.Sinks;
 /// <c>TransactionalOutbox</c>. It provides atomic commit of business + audit
 /// data for regulated/zero-loss-durability deployments.
 /// </remarks>
-internal sealed class TransactionalOutboxSink : IAuditSink
+internal sealed class TransactionalOutboxSink(
+    IAuditOutboxWriter outboxWriter,
+    ILogger<TransactionalOutboxSink> logger)
+    : IAuditSink
 {
     /// <summary>
     /// Current envelope serialization format version. Increment when the
@@ -26,22 +29,20 @@ internal sealed class TransactionalOutboxSink : IAuditSink
     /// </summary>
     internal const int CurrentEnvelopeVersion = 1;
 
-    private readonly IAuditOutboxWriter _outboxWriter;
-    private readonly ILogger<TransactionalOutboxSink> _logger;
-
+    /// <summary>
+    /// JSON serialization options for envelopes. Uses camelCase naming to minimize storage size.
+    /// </summary>
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public TransactionalOutboxSink(
-        IAuditOutboxWriter outboxWriter,
-        ILogger<TransactionalOutboxSink> logger)
-    {
-        _outboxWriter = outboxWriter;
-        _logger = logger;
-    }
-
+    /// <summary>
+    /// Publishes an audit envelope by writing it to the outbox table with an idempotency key.
+    /// </summary>
+    /// <param name="envelope"></param>
+    /// <param name="cancellationToken"></param>
+    /// <exception cref="ArgumentNullException"></exception>
     public async Task PublishAsync(
         AuditEnvelope envelope,
         CancellationToken cancellationToken = default)
@@ -50,18 +51,18 @@ internal sealed class TransactionalOutboxSink : IAuditSink
 
         var json = JsonSerializer.Serialize(envelope, _jsonOptions);
         var idempotencyKey = ExtractIdempotencyKey(envelope);
-        var inserted = await _outboxWriter.WriteAsync(json, CurrentEnvelopeVersion, idempotencyKey, cancellationToken);
+        var inserted = await outboxWriter.WriteAsync(json, CurrentEnvelopeVersion, idempotencyKey, cancellationToken);
 
         if (inserted)
         {
-            _logger.LogDebug(
+            logger.LogDebug(
                 "Wrote outbox row for {Kind} envelope, entity {EntityName}",
                 envelope.Kind,
                 envelope.EntityName);
         }
         else
         {
-            _logger.LogDebug(
+            logger.LogDebug(
                 "Duplicate outbox row skipped for {Kind} envelope, entity {EntityName}, IdempotencyKey {Key}",
                 envelope.Kind,
                 envelope.EntityName,
@@ -69,6 +70,12 @@ internal sealed class TransactionalOutboxSink : IAuditSink
         }
     }
 
+    /// <summary>
+    /// Publishes a batch of audit envelopes by writing them to the outbox table with their respective idempotency keys.
+    /// </summary>
+    /// <param name="envelopes"></param>
+    /// <param name="cancellationToken"></param>
+    /// <exception cref="ArgumentNullException"></exception>
     public async Task PublishBatchAsync(
         IReadOnlyList<AuditEnvelope> envelopes,
         CancellationToken cancellationToken = default)
@@ -78,19 +85,14 @@ internal sealed class TransactionalOutboxSink : IAuditSink
             return;
 
         var rows = new List<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)>(envelopes.Count);
-        foreach (var envelope in envelopes)
-        {
-            if (envelope is null)
-                continue;
+        rows.AddRange(from envelope in envelopes
+            let json = JsonSerializer.Serialize(envelope, _jsonOptions)
+            let idempotencyKey = ExtractIdempotencyKey(envelope)
+            select (json, CurrentEnvelopeVersion, idempotencyKey));
 
-            var json = JsonSerializer.Serialize(envelope, _jsonOptions);
-            var idempotencyKey = ExtractIdempotencyKey(envelope);
-            rows.Add((json, CurrentEnvelopeVersion, idempotencyKey));
-        }
+        var inserted = await outboxWriter.WriteBatchAsync(rows, cancellationToken);
 
-        var inserted = await _outboxWriter.WriteBatchAsync(rows, cancellationToken);
-
-        _logger.LogDebug(
+        logger.LogDebug(
             "Wrote {Inserted}/{Total} outbox row(s) in batch ({Duplicates} duplicates)",
             inserted,
             rows.Count,
@@ -108,7 +110,7 @@ internal sealed class TransactionalOutboxSink : IAuditSink
     /// </summary>
     internal static Guid ExtractIdempotencyKey(AuditEnvelope envelope)
     {
-        if (envelope.Kind == AuditEnvelopeKind.ExplicitEvent && envelope.ExplicitEventId.HasValue)
+        if (envelope is { Kind: AuditEnvelopeKind.ExplicitEvent, ExplicitEventId: not null })
             return envelope.ExplicitEventId.Value;
 
         return envelope.EnvelopeId;

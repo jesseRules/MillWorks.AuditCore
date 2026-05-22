@@ -41,9 +41,10 @@ public sealed class SecurityEventDto
 
     /// <summary>
     /// Descriptive message providing details about the security event.
+    /// Limit matches entity storage constraint.
     /// </summary>
     [Required]
-    [MaxLength(1000)]
+    [MaxLength(500)]
     [Display(Name = "Message")]
     [JsonPropertyName("message")]
     public string Message { get; set; } = string.Empty;

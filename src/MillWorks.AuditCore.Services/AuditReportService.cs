@@ -65,13 +65,14 @@ public sealed class AuditReportService(
 
     /// <summary>
     /// Gets the audit chart data for the specified date range and grouping.
+    /// Response includes truncation metadata when results exceed query limits.
     /// </summary>
     /// <param name="startDate"></param>
     /// <param name="endDate"></param>
     /// <param name="groupBy"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<List<AuditChartData>> GetAuditChartDataAsync(
+    public async Task<AuditChartDataResponse> GetAuditChartDataAsync(
         DateTimeOffset startDate,
         DateTimeOffset endDate,
         string groupBy = "day",
@@ -83,19 +84,31 @@ public sealed class AuditReportService(
         var baseQuery = context.AuditEvents.AsNoTracking()
             .Where(e => e.InsertedDate >= startDate && e.InsertedDate <= endDate);
 
-        // User and event type groupings can be done entirely server-side
+        List<AuditChartData> items;
+        bool isTruncated = false;
+
         switch (groupBy.ToLowerInvariant())
         {
             case "user":
-                return await GroupByUserServerSideAsync(baseQuery, cancellationToken);
+                items = await GroupByUserServerSideAsync(baseQuery, cancellationToken);
+                break;
             case "eventtype":
-                return await GroupByEventTypeServerSideAsync(baseQuery, cancellationToken);
+                items = await GroupByEventTypeServerSideAsync(baseQuery, cancellationToken);
+                break;
             default:
             {
-                // Date-based groupings use client-side evaluation because EF cannot translate
-                // DateTimeOffset grouping expressions across all providers (e.g. SQLite).
-                // Only the InsertedDate column is projected to minimize data transfer.
-                // Capped at MaxChartDataRows to prevent unbounded memory growth.
+                int totalCount = await baseQuery
+                    .Where(static e => e.InsertedDate.HasValue)
+                    .CountAsync(cancellationToken);
+
+                isTruncated = totalCount > QueryLimits.MaxChartDataRows;
+                if (isTruncated)
+                {
+                    logger.LogWarning(
+                        "Chart data truncated: {Total} records exceed limit of {Max}",
+                        totalCount, QueryLimits.MaxChartDataRows);
+                }
+
                 var dates = await baseQuery
                     .Where(static e => e.InsertedDate.HasValue)
                     .OrderByDescending(static e => e.InsertedDate)
@@ -103,15 +116,23 @@ public sealed class AuditReportService(
                     .Select(static e => e.InsertedDate!.Value)
                     .ToListAsync(cancellationToken);
 
-                return groupBy.ToLowerInvariant() switch
+                items = groupBy.ToLowerInvariant() switch
                 {
                     "hour" => GroupByHour(dates),
                     "week" => GroupByWeek(dates),
                     "month" => GroupByMonth(dates),
                     _ => GroupByDay(dates)
                 };
+                break;
             }
         }
+
+        return new AuditChartDataResponse
+        {
+            Items = items,
+            IsTruncated = isTruncated,
+            TruncatedAt = isTruncated ? QueryLimits.MaxChartDataRows : null
+        };
     }
 
     /// <summary>
@@ -212,13 +233,14 @@ public sealed class AuditReportService(
 
     /// <summary>
     /// Generates an audit report for the specified date range and format.
+    /// Response includes truncation metadata when results exceed export limits.
     /// </summary>
     /// <param name="startDate"></param>
     /// <param name="endDate"></param>
     /// <param name="format"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<byte[]> GenerateAuditReportAsync(
+    public async Task<AuditReportResponse> GenerateAuditReportAsync(
         DateTimeOffset startDate,
         DateTimeOffset endDate,
         string format = "json",
@@ -228,8 +250,14 @@ public sealed class AuditReportService(
 
         return format.ToLowerInvariant() switch
         {
-            "json" => GenerateJsonReport(summary, startDate, endDate),
-            "csv" => await GenerateCsvReportAsync(startDate, endDate, cancellationToken),
+            "json" => new AuditReportResponse
+            {
+                Content = GenerateJsonReport(summary, startDate, endDate),
+                Format = "json",
+                IsTruncated = false,
+                TotalRecords = summary.TotalEvents
+            },
+            "csv" => await GenerateCsvReportWithMetadataAsync(startDate, endDate, cancellationToken),
             _ => throw new NotSupportedException(
                 $"Report format '{format}' is not supported. Supported formats: json, csv.")
         };
@@ -258,15 +286,26 @@ public sealed class AuditReportService(
         return System.Text.Encoding.UTF8.GetBytes(json);
     }
 
-    private async Task<byte[]> GenerateCsvReportAsync(
+    private async Task<AuditReportResponse> GenerateCsvReportWithMetadataAsync(
         DateTimeOffset startDate,
         DateTimeOffset endDate,
         CancellationToken cancellationToken)
     {
-        // Capped at MaxExportRows to prevent unbounded StringBuilder growth
-        var query = context.AuditEvents
+        var baseQuery = context.AuditEvents
             .AsNoTracking()
-            .Where(e => e.InsertedDate >= startDate && e.InsertedDate <= endDate)
+            .Where(e => e.InsertedDate >= startDate && e.InsertedDate <= endDate);
+
+        int totalCount = await baseQuery.CountAsync(cancellationToken);
+        bool isTruncated = totalCount > QueryLimits.MaxExportRows;
+
+        if (isTruncated)
+        {
+            logger.LogWarning(
+                "CSV export truncated: {Total} records exceed limit of {Max}",
+                totalCount, QueryLimits.MaxExportRows);
+        }
+
+        var query = baseQuery
             .OrderBy(static e => e.InsertedDate)
             .Take(QueryLimits.MaxExportRows);
 
@@ -287,7 +326,14 @@ public sealed class AuditReportService(
                 CsvEscape(e.Environment)));
         }
 
-        return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        return new AuditReportResponse
+        {
+            Content = System.Text.Encoding.UTF8.GetBytes(sb.ToString()),
+            Format = "csv",
+            IsTruncated = isTruncated,
+            TruncatedAt = isTruncated ? QueryLimits.MaxExportRows : null,
+            TotalRecords = totalCount
+        };
     }
 
     private static string CsvEscape(string? value)
