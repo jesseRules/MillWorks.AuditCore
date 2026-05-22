@@ -24,7 +24,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     /// Base fields that are always safe to pass through without redaction.
     /// These are structural/operational fields that never contain PHI/PII.
     /// </summary>
-    private static readonly HashSet<string> BaseSafeFields = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> _baseSafeFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "EventType",
         "OperationType",
@@ -66,7 +66,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     /// <param name="options">Optional configuration for additional safe fields.</param>
     public DefaultAuditFieldRedactor(IOptions<RedactionOptions>? options)
     {
-        _safeFields = new HashSet<string>(BaseSafeFields, StringComparer.OrdinalIgnoreCase);
+        _safeFields = new HashSet<string>(_baseSafeFields, StringComparer.OrdinalIgnoreCase);
 
         var additionalFields = options?.Value.AdditionalSafeFields;
         if (additionalFields is { Length: > 0 })
@@ -107,7 +107,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     /// <summary>
     /// Property names that reveal sensitive schema metadata in healthcare, FERPA, and auth contexts.
     /// </summary>
-    private static readonly HashSet<string> SensitivePropertyNames = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> _sensitivePropertyNames = new(StringComparer.OrdinalIgnoreCase)
     {
         // Healthcare / PHI
         "SSN", "SocialSecurityNumber", "DateOfBirth", "DOB", "Diagnosis", "DiagnosisCode",
@@ -128,7 +128,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
             return propertyNames;
 
         return propertyNames
-            .Select(name => SensitivePropertyNames.Contains(name)
+            .Select(name => _sensitivePropertyNames.Contains(name)
                 ? "[REDACTED_PROP]"
                 : name)
             .ToList();

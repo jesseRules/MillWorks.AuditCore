@@ -12,6 +12,9 @@ namespace MillWorks.AuditCore.EntityFramework.Sinks;
 /// </remarks>
 internal sealed class ConsumerDbContextAccessor : IConsumerDbContextAccessor
 {
+    /// <summary>
+    /// The current consumer DbContext. Set by the interceptor before sink invocation.
+    /// </summary>
     private DbContext? _current;
 
     /// <inheritdoc />
@@ -41,12 +44,26 @@ internal sealed class ConsumerDbContextAccessor : IConsumerDbContextAccessor
         return new ContextScope(this);
     }
 
+    /// <summary>
+    /// Clears the current DbContext. Called by the ContextScope on dispose to ensure proper cleanup.
+    /// </summary>
     private void Clear() => _current = null;
 
+    /// <summary>
+    /// Private scope class that clears the current DbContext on dispose.
+    /// This is returned by SetCurrent to ensure proper cleanup after the sink operation completes.
+    /// </summary>
+    /// <param name="accessor"></param>
     private sealed class ContextScope(ConsumerDbContextAccessor accessor) : IDisposable
     {
+        /// <summary>
+        /// Flag to ensure Dispose is idempotent. The interceptor should only dispose once, but this guards against misuse or multiple disposals.
+        /// </summary>
         private bool _disposed;
 
+        /// <summary>
+        /// Disposes the scope, clearing the current DbContext from the accessor.
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;

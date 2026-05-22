@@ -126,4 +126,27 @@ public class InMemoryDistributedLockServiceTests
         results[0].Dispose();
         results[1].Dispose();
     }
+
+    /// <summary>
+    /// Constructing the service logs a warning about process-local semantics
+    /// </summary>
+    [Test]
+    public void Constructor_LogsMultiNodeWarning()
+    {
+        // Arrange
+        var mockLogger = new Mock<ILogger<InMemoryDistributedLockService>>();
+
+        // Act
+        _ = new InMemoryDistributedLockService(mockLogger.Object);
+
+        // Assert — verify a warning was logged about process-local semantics
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("PROCESS-LOCAL ONLY")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
 }

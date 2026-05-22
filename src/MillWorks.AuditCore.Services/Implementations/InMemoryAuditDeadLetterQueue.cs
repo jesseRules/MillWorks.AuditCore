@@ -21,7 +21,11 @@ public sealed class InMemoryAuditDeadLetterQueue(
     ResilienceOptions? resilienceOptions = null)
     : IAuditDeadLetterQueue
 {
+    /// <summary>
+    /// Whether to include stack traces in the dead letter queue, based on resilience options.
+    /// </summary>
     private readonly bool _includeStackTraces = resilienceOptions?.IncludeStackTraces ?? false;
+
     /// <summary>
     /// Events stored in the dead letter queue
     /// </summary>

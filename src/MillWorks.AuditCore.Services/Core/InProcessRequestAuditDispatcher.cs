@@ -173,6 +173,7 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
                         "Failed to route audit event {EventId} with correlation id {CorrelationId} to dead letter queue under overflow policy {OverflowPolicy}",
                         auditEvent.EventId, auditEvent.CorrelationId, _overflowPolicy);
                 }
+
                 return;
         }
     }

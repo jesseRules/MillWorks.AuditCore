@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 
 namespace MillWorks.AuditCore.Tests.Services.Locking;
@@ -47,5 +48,70 @@ public class NullDistributedLockServiceTests
 
         // Disposing a second time should also not throw
         Assert.DoesNotThrow(() => lockHandle.Dispose());
+    }
+
+    /// <summary>
+    /// AcquireLockAsync logs a warning on first use
+    /// </summary>
+    [Test]
+    public async Task AcquireLockAsync_LogsWarningOnFirstUse()
+    {
+        // Arrange
+        var mockLogger = new Mock<ILogger<NullDistributedLockService>>();
+        var serviceWithLogger = new NullDistributedLockService(mockLogger.Object);
+
+        // Act
+        using var _ = await serviceWithLogger.AcquireLockAsync("test", TimeSpan.FromSeconds(1));
+
+        // Assert
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("NO mutual exclusion")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// Warning is logged only once, not on every lock acquisition
+    /// </summary>
+    [Test]
+    public async Task AcquireLockAsync_LogsWarningOnlyOnce()
+    {
+        // Arrange
+        var mockLogger = new Mock<ILogger<NullDistributedLockService>>();
+        var serviceWithLogger = new NullDistributedLockService(mockLogger.Object);
+
+        // Act
+        using var _ = await serviceWithLogger.AcquireLockAsync("test1", TimeSpan.FromSeconds(1));
+        using var __ = await serviceWithLogger.AcquireLockAsync("test2", TimeSpan.FromSeconds(1));
+        using var ___ = await serviceWithLogger.AcquireLockAsync("test3", TimeSpan.FromSeconds(1));
+
+        // Assert — warning should be logged exactly once
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// Service works without a logger (null logger)
+    /// </summary>
+    [Test]
+    public async Task AcquireLockAsync_WorksWithoutLogger()
+    {
+        // Arrange
+        var serviceWithoutLogger = new NullDistributedLockService(null);
+
+        // Act & Assert — should not throw
+        using var lockHandle = await serviceWithoutLogger.AcquireLockAsync(
+            "test", TimeSpan.FromSeconds(1));
+        Assert.That(lockHandle, Is.Not.Null);
     }
 }

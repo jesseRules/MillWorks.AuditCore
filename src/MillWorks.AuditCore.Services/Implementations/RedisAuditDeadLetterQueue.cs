@@ -386,6 +386,10 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
 
     /// <summary>
     /// Stores a dead letter event in Redis using the hash+index model.
+    /// Uses a Redis transaction (MULTI/EXEC) to ensure atomicity: either
+    /// both the data hash and sorted set index are written, or neither is.
+    /// This prevents orphaned events that exist in the hash but are not
+    /// discoverable via the index.
     /// </summary>
     private async Task StoreDeadLetterEventAsync(DeadLetterAuditEvent deadLetterEvent)
     {
@@ -393,15 +397,25 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
         var score = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var eventId = deadLetterEvent.Id;
 
+        var transaction = _db.CreateTransaction();
+
         // Store full payload in the data hash — O(1)
-        await _db.HashSetAsync(_dataKey, eventId, json);
+        _ = transaction.HashSetAsync(_dataKey, eventId, json);
 
         // Add event ID to the time-ordered index — O(log n)
-        await _db.SortedSetAddAsync(_indexKey, eventId, score);
+        _ = transaction.SortedSetAddAsync(_indexKey, eventId, score);
 
         // Apply expiry to both keys
-        await _db.KeyExpireAsync(_indexKey, _messageExpiry);
-        await _db.KeyExpireAsync(_dataKey, _messageExpiry);
+        _ = transaction.KeyExpireAsync(_indexKey, _messageExpiry);
+        _ = transaction.KeyExpireAsync(_dataKey, _messageExpiry);
+
+        var committed = await transaction.ExecuteAsync();
+        if (!committed)
+        {
+            throw new InvalidOperationException(
+                $"Redis transaction failed while storing dead letter event {eventId}. " +
+                "The event was not persisted to the DLQ.");
+        }
     }
 
     /// <summary>
@@ -434,17 +448,27 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
     }
 
     /// <summary>
-    /// Removes an event by ID — O(1) for hash, O(log n) for sorted set.
+    /// Removes an event by ID atomically — O(1) for hash, O(log n) for sorted set.
+    /// Uses a Redis transaction to ensure both the hash entry and sorted set
+    /// index are removed together, preventing orphaned index entries.
     /// </summary>
     private async Task<bool> RemoveEventByIdAsync(string eventId)
     {
-        var removed = await _db.HashDeleteAsync(_dataKey, eventId);
-        if (removed)
+        var transaction = _db.CreateTransaction();
+
+        var hashDeleteTask = transaction.HashDeleteAsync(_dataKey, eventId);
+        _ = transaction.SortedSetRemoveAsync(_indexKey, eventId);
+
+        var committed = await transaction.ExecuteAsync();
+        if (!committed)
         {
-            await _db.SortedSetRemoveAsync(_indexKey, eventId);
+            _logger?.LogWarning(
+                "Redis transaction failed while removing dead letter event {EventId}. " +
+                "Event may still exist in the queue.", eventId);
+            return false;
         }
 
-        return removed;
+        return await hashDeleteTask;
     }
 
     /// <summary>

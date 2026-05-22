@@ -15,6 +15,9 @@ namespace MillWorks.AuditCore.EntityFramework.Interceptors;
 /// </summary>
 public sealed class RegulatedEntityFailurePolicy : IAuditFailurePolicy
 {
+    /// <summary>
+    /// Set of compliance standards that trigger regulated status when found in <c>[SensitiveData]</c> attributes.
+    /// </summary>
     private static readonly HashSet<ComplianceStandard> _regulatedStandards =
     [
         ComplianceStandard.HIPAA,
@@ -23,6 +26,9 @@ public sealed class RegulatedEntityFailurePolicy : IAuditFailurePolicy
         ComplianceStandard.PCI_DSS
     ];
 
+    /// <summary>
+    /// Cache to store whether a given entity type is regulated, to avoid expensive reflection on every audit failure.
+    /// </summary>
     private static readonly ConcurrentDictionary<Type, bool> _regulatedCache = new();
 
     /// <inheritdoc />
@@ -39,6 +45,11 @@ public sealed class RegulatedEntityFailurePolicy : IAuditFailurePolicy
         };
     }
 
+    /// <summary>
+    /// Determines if the given entity type is regulated based on its attributes and properties.
+    /// </summary>
+    /// <param name="entityType"></param>
+    /// <returns></returns>
     private static bool IsRegulated(Type entityType) =>
         _regulatedCache.GetOrAdd(entityType, static t =>
         {

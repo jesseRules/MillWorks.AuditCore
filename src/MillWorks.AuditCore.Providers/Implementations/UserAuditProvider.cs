@@ -144,7 +144,7 @@ public sealed class UserAuditProvider(
                     oldValue = property.GetValue(oldValues);
                 }
 
-                object? newValue = property.GetValue(newValues);
+                var newValue = property.GetValue(newValues);
 
                 if (Equals(oldValue, newValue))
                     continue;

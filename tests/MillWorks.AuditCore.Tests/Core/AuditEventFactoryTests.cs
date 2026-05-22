@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Services;
+using MillWorks.AuditCore.Services.Options;
+using System.Globalization;
 using System.Security.Claims;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 
@@ -22,6 +25,11 @@ public class AuditEventFactoryTests
     /// Audit context
     /// </summary>
     private IAuditContext _auditContext; // Use real instance, not mock
+
+    /// <summary>
+    /// Audit options
+    /// </summary>
+    private AuditOptions _auditOptions;
 
     /// <summary>
     /// Mocked logger
@@ -46,6 +54,7 @@ public class AuditEventFactoryTests
     {
         _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
         _auditContext = new AuditContext(); // Real instance
+        _auditOptions = new AuditOptions { ApplicationName = "TestApp" };
         _mockLogger = new Mock<ILogger<AuditEventFactory>>();
 
         _httpContext = new DefaultHttpContext();
@@ -54,6 +63,7 @@ public class AuditEventFactoryTests
         _factory = new AuditEventFactory(
             _mockHttpContextAccessor.Object,
             _auditContext,
+            Options.Create(_auditOptions),
             _mockLogger.Object);
     }
 
@@ -314,7 +324,7 @@ public class AuditEventFactoryTests
         Assert.That(result.Environment, Is.Not.Null);
         Assert.That(result.Environment.MachineName, Is.EqualTo(Environment.MachineName));
         Assert.That(result.Environment.DomainName, Is.EqualTo(Environment.UserDomainName));
-        Assert.That(result.Environment.AssemblyName, Is.EqualTo("MillWorks.Audit"));
+        Assert.That(result.Environment.AssemblyName, Is.EqualTo("TestApp"));
         Assert.That(result.Environment.Culture, Is.Not.Null);
         Assert.That(result.Environment.CallingMethodName, Is.Not.Null);
         Assert.That(result.Environment.UserName, Is.EqualTo("user@example.com"));
@@ -501,5 +511,219 @@ public class AuditEventFactoryTests
         Assert.That(result.Target, Is.Not.Null);
         Assert.That(result.Target.New, Is.EqualTo(entity));
         Assert.That(result.Target.Old, Is.Null);
+    }
+
+    /// <summary>
+    /// Verifies that the fallback user enrichment does NOT set CustomFields["UserId"]
+    /// because the ASP.NET Identity string ID cannot be mapped to Guid in persistence.
+    /// </summary>
+    [Test]
+    public void CreateEvent_FallbackUserEnrichment_DoesNotSetUserIdAsString()
+    {
+        // Arrange - only HTTP context, no audit context user info
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "aspnet-string-id-123"),
+            new Claim(ClaimTypes.Email, "user@example.com")
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        _httpContext.User = new ClaimsPrincipal(identity);
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert
+        Assert.That(result.CustomFields.ContainsKey("AspNetUserId"), Is.True,
+            "AspNetUserId should be set from claims");
+        Assert.That(result.CustomFields["AspNetUserId"], Is.EqualTo("aspnet-string-id-123"));
+
+        Assert.That(result.CustomFields.ContainsKey("UserId"), Is.False,
+            "UserId should NOT be set in fallback path - it requires a Guid, not string");
+    }
+
+    /// <summary>
+    /// Verifies that when AuditContext has UserId (Guid), it IS set in CustomFields.
+    /// </summary>
+    [Test]
+    public void CreateEvent_WithGuidUserId_SetsUserIdInCustomFields()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        _auditContext.UserId = userId;
+        _auditContext.AspNetUserId = "aspnet-123";
+        _auditContext.UserEmail = "user@example.com";
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert
+        Assert.That(result.CustomFields.ContainsKey("UserId"), Is.True);
+        Assert.That(result.CustomFields["UserId"], Is.EqualTo(userId));
+        Assert.That(result.CustomFields["UserId"], Is.TypeOf<Guid>());
+    }
+
+    /// <summary>
+    /// Verifies that partial AuditContext population still gets full data from HttpContext for missing fields.
+    /// </summary>
+    [Test]
+    public void CreateEvent_PartialAuditContext_FallsBackToHttpContextForMissingFields()
+    {
+        // Arrange - AuditContext only has CorrelationId set
+        _auditContext.CorrelationId = "context-correlation-id";
+        _auditContext.UserEmail = "user@example.com";
+        // Intentionally NOT setting IpAddress, UserAgent, etc.
+
+        // Set up HTTP context with values for the missing fields
+        _httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("10.0.0.1");
+        _httpContext.Request.Headers["User-Agent"] = "Mozilla/5.0 Test Browser";
+        _httpContext.Request.Path = "/api/test";
+        _httpContext.Request.Method = "PUT";
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert - CorrelationId from context, other fields from HTTP
+        Assert.That(result.CustomFields["CorrelationId"], Is.EqualTo("context-correlation-id"),
+            "Should use AuditContext value when present");
+        Assert.That(result.CustomFields["IpAddress"], Is.EqualTo("10.0.0.1"),
+            "Should fallback to HttpContext when AuditContext field is null");
+        Assert.That(result.CustomFields["UserAgent"], Is.EqualTo("Mozilla/5.0 Test Browser"),
+            "Should fallback to HttpContext when AuditContext field is null");
+        Assert.That(result.CustomFields["RequestPath"], Is.EqualTo("/api/test"),
+            "Should fallback to HttpContext when AuditContext field is null");
+        Assert.That(result.CustomFields["RequestMethod"], Is.EqualTo("PUT"),
+            "Should fallback to HttpContext when AuditContext field is null");
+    }
+
+    /// <summary>
+    /// Verifies that AssemblyName uses the configured ApplicationName from options.
+    /// </summary>
+    [Test]
+    public void CreateEvent_UsesConfiguredApplicationNameAsAssemblyName()
+    {
+        // Arrange - Create factory with custom app name
+        var customOptions = new AuditOptions { ApplicationName = "MyCustomApplication" };
+        var factory = new AuditEventFactory(
+            _mockHttpContextAccessor.Object,
+            _auditContext,
+            Options.Create(customOptions),
+            _mockLogger.Object);
+
+        _auditContext.UserEmail = "user@example.com";
+
+        // Act
+        var result = factory.CreateEvent("Test.Event");
+
+        // Assert
+        Assert.That(result.Environment.AssemblyName, Is.EqualTo("MyCustomApplication"));
+    }
+
+    /// <summary>
+    /// Verifies that Culture is captured at event creation time, not at static init time.
+    /// </summary>
+    [Test]
+    public void CreateEvent_CapturesCurrentThreadCulture()
+    {
+        // Arrange
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        _auditContext.UserEmail = "user@example.com";
+
+        try
+        {
+            // Set a specific culture for this thread
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("fr-FR");
+
+            // Act
+            var result = _factory.CreateEvent("Test.Event");
+
+            // Assert
+            Assert.That(result.Environment.Culture, Is.EqualTo("fr-FR"));
+
+            // Change culture and create another event
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+            var result2 = _factory.CreateEvent("Test.Event2");
+
+            // Should reflect the new culture
+            Assert.That(result2.Environment.Culture, Is.EqualTo("de-DE"));
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
+    }
+
+    /// <summary>
+    /// Verifies that request context handles empty HttpContext gracefully when AuditContext is also empty.
+    /// </summary>
+    [Test]
+    public void CreateEvent_NoHttpContextOrAuditContext_HandlesGracefully()
+    {
+        // Arrange
+        _mockHttpContextAccessor.Setup(static x => x.HttpContext).Returns((HttpContext?)null);
+        // Leave audit context empty
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert - should not have request context fields
+        Assert.That(result.CustomFields.ContainsKey("CorrelationId"), Is.False);
+        Assert.That(result.CustomFields.ContainsKey("IpAddress"), Is.False);
+        Assert.That(result.CustomFields.ContainsKey("UserAgent"), Is.False);
+    }
+
+    /// <summary>
+    /// Verifies that AuditContext values take precedence over HttpContext when both are populated.
+    /// </summary>
+    [Test]
+    public void CreateEvent_AuditContextRequestFieldsTakePrecedenceOverHttpContext()
+    {
+        // Arrange
+        _auditContext.UserId = Guid.NewGuid();
+        _auditContext.UserEmail = "context@example.com";
+        _auditContext.CorrelationId = "context-corr";
+        _auditContext.IpAddress = "192.168.1.100";
+        _auditContext.UserAgent = "AuditContext Agent";
+        _auditContext.RequestPath = "/context/path";
+        _auditContext.RequestMethod = "DELETE";
+
+        // Set up HTTP context with different values
+        _httpContext.TraceIdentifier = "http-trace";
+        _httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("10.0.0.1");
+        _httpContext.Request.Headers["User-Agent"] = "HttpContext Agent";
+        _httpContext.Request.Path = "/http/path";
+        _httpContext.Request.Method = "GET";
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert - AuditContext values should win
+        Assert.That(result.CustomFields["CorrelationId"], Is.EqualTo("context-corr"));
+        Assert.That(result.CustomFields["IpAddress"], Is.EqualTo("192.168.1.100"));
+        Assert.That(result.CustomFields["UserAgent"], Is.EqualTo("AuditContext Agent"));
+        Assert.That(result.CustomFields["RequestPath"], Is.EqualTo("/context/path"));
+        Assert.That(result.CustomFields["RequestMethod"], Is.EqualTo("DELETE"));
+    }
+
+    /// <summary>
+    /// Verifies that UserEmail fallback doesn't set the field when claim is missing.
+    /// </summary>
+    [Test]
+    public void CreateEvent_FallbackUserEnrichment_DoesNotSetEmptyUserEmail()
+    {
+        // Arrange - authenticated user but no email claim
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "user-123")
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuthType");
+        _httpContext.User = new ClaimsPrincipal(identity);
+
+        // Act
+        var result = _factory.CreateEvent("Test.Event");
+
+        // Assert
+        Assert.That(result.CustomFields["AspNetUserId"], Is.EqualTo("user-123"));
+        Assert.That(result.CustomFields.ContainsKey("UserEmail"), Is.False,
+            "UserEmail should not be set when email claim is missing");
     }
 }

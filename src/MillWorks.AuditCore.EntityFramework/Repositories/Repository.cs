@@ -8,7 +8,6 @@ using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 
 namespace MillWorks.AuditCore.EntityFramework.Repositories;
 
-
 /// <summary>
 /// Repository class implementing basic CRUD operations for entities of type T.
 /// Enhanced with concurrency handling support while maintaining backward compatibility.
@@ -62,20 +61,16 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// <param name="id"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await DbSet.FindAsync([id], cancellationToken);
-    }
+    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        await DbSet.FindAsync([id], cancellationToken);
 
     /// <summary>
     /// Gets all entities of type T with optional no-tracking for read-only scenarios.
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AsNoTracking().ToListAsync(cancellationToken);
-    }
+    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await DbSet.AsNoTracking().ToListAsync(cancellationToken);
 
     /// <summary>
     /// Finds entities based on a predicate expression asynchronously.
@@ -84,10 +79,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate,
-        CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        await DbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
 
     /// <summary>
     /// Finds the first entity that matches the predicate expression asynchronously.
@@ -96,10 +89,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     public virtual async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate,
-        CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AsNoTracking().FirstOrDefaultAsync(predicate, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        await DbSet.AsNoTracking().FirstOrDefaultAsync(predicate, cancellationToken);
 
     /// <summary>
     /// Checks if any entity matches the given predicate expression asynchronously.
@@ -108,10 +99,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     public virtual async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate,
-        CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AnyAsync(predicate, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        await DbSet.AnyAsync(predicate, cancellationToken);
 
     /// <summary>
     /// Counts the number of entities that match the given predicate expression asynchronously.
@@ -295,6 +284,7 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         {
             _context.Entry(entity).State = EntityState.Detached;
         }
+
         return Task.CompletedTask;
     }
 
@@ -316,20 +306,16 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
 
     /// <inheritdoc />
     public virtual async Task<int> ExecuteDeleteWhereAsync(Expression<Func<T, bool>> predicate,
-        CancellationToken cancellationToken = default)
-    {
-        return await DbSet.Where(predicate).ExecuteDeleteAsync(cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        await DbSet.Where(predicate).ExecuteDeleteAsync(cancellationToken);
 
     /// <summary>
     /// Saves all changes made in this context to the database asynchronously.
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public virtual async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.SaveChangesAsync(cancellationToken);
-    }
+    public virtual async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        await _context.SaveChangesAsync(cancellationToken);
 
     /// <summary>
     /// Gets a paged result of entities with optional filtering, ordering, and includes.
@@ -383,10 +369,7 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// Gets a queryable for building complex queries
     /// </summary>
     /// <returns>IQueryable of T</returns>
-    public virtual IQueryable<T> GetQueryable()
-    {
-        return DbSet.AsQueryable();
-    }
+    public virtual IQueryable<T> GetQueryable() => DbSet.AsQueryable();
 
     #endregion
 
@@ -615,10 +598,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// </summary>
     /// <param name="entity">Entity to reload</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public virtual async Task ReloadEntityAsync(T entity, CancellationToken cancellationToken = default)
-    {
+    public virtual async Task ReloadEntityAsync(T entity, CancellationToken cancellationToken = default) =>
         await _context.Entry(entity).ReloadAsync(cancellationToken);
-    }
 
     #endregion
 
@@ -628,10 +609,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
     /// Begins a new database transaction
     /// </summary>
     /// <returns>The database transaction</returns>
-    public virtual async Task<IDbContextTransaction> BeginTransactionAsync()
-    {
-        return await BeginTransactionAsync(CancellationToken.None);
-    }
+    public virtual async Task<IDbContextTransaction> BeginTransactionAsync() =>
+        await BeginTransactionAsync(CancellationToken.None);
 
     /// <summary>
     /// Begins a new database transaction with cancellation support

@@ -99,16 +99,16 @@ public sealed class AuditMaintenanceService(
 
             var result = await context.Database
                 .SqlQuery<DatabaseSizeResult>($@"
-                SELECT 
+                SELECT
                     SUM(a.total_pages) * 8 AS TotalSpaceKB
-                FROM 
+                FROM
                     sys.tables t
                 INNER JOIN sys.indexes i ON t.OBJECT_ID = i.object_id
                 INNER JOIN sys.partitions p ON i.object_id = p.OBJECT_ID AND i.index_id = p.index_id
                 INNER JOIN sys.allocation_units a ON p.partition_id = a.container_id
-                WHERE 
+                WHERE
                     t.Name = {tableName} AND t.schema_id = SCHEMA_ID({schemaName})
-                GROUP BY 
+                GROUP BY
                     t.Name")
                 .FirstOrDefaultAsync(cancellationToken);
 

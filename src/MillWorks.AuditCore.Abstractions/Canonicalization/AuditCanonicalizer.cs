@@ -219,5 +219,7 @@ public static class AuditCanonicalizer
     /// <summary>
     /// Normalizes a <see cref="DateTimeOffset"/> to canonical UTC ISO 8601 string.
     /// </summary>
-    public static string NormalizeDate(DateTimeOffset? value) => !value.HasValue ? string.Empty : value.Value.UtcDateTime.ToString(_iso8601Format, CultureInfo.InvariantCulture);
+    public static string NormalizeDate(DateTimeOffset? value) => !value.HasValue
+        ? string.Empty
+        : value.Value.UtcDateTime.ToString(_iso8601Format, CultureInfo.InvariantCulture);
 }

@@ -52,7 +52,7 @@ public sealed class DatabaseInitializationService : IHostedService
     {
         var options = _options.Value;
 
-        if (!options.MigrateOnStartup && !options.EnsureDatabaseCreated)
+        if (options is { MigrateOnStartup: false, EnsureDatabaseCreated: false })
         {
             _logger.LogInformation("Database migration on startup is disabled");
             return;

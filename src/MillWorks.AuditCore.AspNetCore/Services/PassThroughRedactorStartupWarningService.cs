@@ -7,10 +7,20 @@ using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.AspNetCore.Services;
 
+/// <summary>
+/// On application startup, checks if PassThroughAuditFieldRedactor is being used and logs a warning if so.
+/// </summary>
+/// <param name="serviceProvider"></param>
+/// <param name="auditOptions"></param>
 internal sealed class PassThroughRedactorStartupWarningService(
     IServiceProvider serviceProvider,
     IOptions<AuditOptions> auditOptions) : IHostedService
 {
+    /// <summary>
+    /// On application startup, checks if PassThroughAuditFieldRedactor is being used and logs a warning if so.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         var redactor = serviceProvider.GetService(typeof(IAuditFieldRedactor));
@@ -26,5 +36,10 @@ internal sealed class PassThroughRedactorStartupWarningService(
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// No cleanup needed on shutdown, so this is a no-op.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

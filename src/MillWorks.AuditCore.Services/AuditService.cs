@@ -35,7 +35,8 @@ public sealed class AuditService(
         CancellationToken cancellationToken = default)
     {
         IEnumerable<AuditLogEntity> auditLogs =
-            await auditLogRepository.GetEntityAuditTrailAsync(entityName, entityId, cancellationToken: cancellationToken);
+            await auditLogRepository.GetEntityAuditTrailAsync(entityName, entityId,
+                cancellationToken: cancellationToken);
         return mapper.Map<IEnumerable<AuditLogDto>>(auditLogs);
     }
 
@@ -328,7 +329,8 @@ public sealed class AuditService(
                 .Select(static kvp => new AuditEventTypeCount { EventType = kvp.Key, Count = kvp.Value })
                 .ToList();
 
-            var topUserKvps = await auditEventRepository.GetTopUsersByActivityAsync(10, datePredicate, cancellationToken);
+            var topUserKvps =
+                await auditEventRepository.GetTopUsersByActivityAsync(10, datePredicate, cancellationToken);
             List<AuditUserCount> topUsers = topUserKvps
                 .Select(static kvp => new AuditUserCount { User = kvp.Key, Count = kvp.Value })
                 .ToList();
@@ -591,10 +593,8 @@ public static class ExpressionExtensions
     /// <param name="replaceEx"></param>
     /// <returns></returns>
     public static System.Linq.Expressions.Expression Replace(this System.Linq.Expressions.Expression expression,
-        System.Linq.Expressions.Expression searchEx, System.Linq.Expressions.Expression replaceEx)
-    {
-        return new ReplaceVisitor(searchEx, replaceEx).Visit(expression) ?? expression;
-    }
+        System.Linq.Expressions.Expression searchEx, System.Linq.Expressions.Expression replaceEx) =>
+        new ReplaceVisitor(searchEx, replaceEx).Visit(expression) ?? expression;
 }
 
 /// <summary>
@@ -608,8 +608,6 @@ internal sealed class ReplaceVisitor(System.Linq.Expressions.Expression from, Sy
     /// </summary>
     /// <param name="node"></param>
     /// <returns></returns>
-    public override System.Linq.Expressions.Expression? Visit(System.Linq.Expressions.Expression? node)
-    {
-        return node == from ? to : base.Visit(node);
-    }
+    public override System.Linq.Expressions.Expression? Visit(System.Linq.Expressions.Expression? node) =>
+        node == from ? to : base.Visit(node);
 }

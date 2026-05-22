@@ -82,27 +82,18 @@ public abstract class AuditAggregateRoot : AuditEntity, IAuditableEntity, ISoftD
     /// Add a domain event to the aggregate
     /// </summary>
     /// <param name="domainEvent"></param>
-    private void AddDomainEvent(IAuditDomainEvent domainEvent)
-    {
-        _domainEvents.Add(domainEvent);
-    }
+    private void AddDomainEvent(IAuditDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
 
     /// <summary>
     /// Remove a domain event from the aggregate
     /// </summary>
     /// <param name="domainEvent"></param>
-    protected void RemoveDomainEvent(IAuditDomainEvent domainEvent)
-    {
-        _domainEvents.Remove(domainEvent);
-    }
+    protected void RemoveDomainEvent(IAuditDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
 
     /// <summary>
     /// Clear all domain events from the aggregate
     /// </summary>
-    public void ClearDomainEvents()
-    {
-        _domainEvents.Clear();
-    }
+    public void ClearDomainEvents() => _domainEvents.Clear();
 
     /// <summary>
     /// Delete the entity (soft delete)
@@ -120,10 +111,7 @@ public abstract class AuditAggregateRoot : AuditEntity, IAuditableEntity, ISoftD
     /// Set the creator user ID
     /// </summary>
     /// <param name="userId"></param>
-    public virtual void SetCreatedBy(Guid userId)
-    {
-        CreatedById = userId;
-    }
+    public virtual void SetCreatedBy(Guid userId) => CreatedById = userId;
 
     /// <summary>
     /// Set the updater user ID and update timestamp

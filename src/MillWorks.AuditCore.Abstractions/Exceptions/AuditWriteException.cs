@@ -7,43 +7,43 @@ namespace MillWorks.AuditCore.Abstractions.Exceptions;
 /// has no outbox durability fallback, write failures must propagate to callers so they
 /// can decide whether to abort or continue.
 /// </summary>
-public sealed class AuditWriteException : Exception
+public sealed class AuditWriteException(
+    int totalCount,
+    int failedCount,
+    IReadOnlyList<Guid> failedEnvelopeIds,
+    AuditEnvelopeKind? kind,
+    string firstError,
+    Exception? innerException = null)
+    : Exception(FormatMessage(totalCount, failedCount, kind, firstError), innerException)
 {
     /// <summary>
     /// Total envelopes in the batch that was attempted.
     /// </summary>
-    public int TotalCount { get; }
+    public int TotalCount { get; } = totalCount;
 
     /// <summary>
     /// Number of envelopes that failed to write.
     /// </summary>
-    public int FailedCount { get; }
+    public int FailedCount { get; } = failedCount;
 
     /// <summary>
     /// Envelope IDs that failed, for correlation with retry logic.
     /// </summary>
-    public IReadOnlyList<Guid> FailedEnvelopeIds { get; }
+    public IReadOnlyList<Guid> FailedEnvelopeIds { get; } = failedEnvelopeIds;
 
     /// <summary>
     /// The envelope kind being written when the failure occurred.
     /// </summary>
-    public AuditEnvelopeKind? Kind { get; }
+    public AuditEnvelopeKind? Kind { get; } = kind;
 
-    public AuditWriteException(
-        int totalCount,
-        int failedCount,
-        IReadOnlyList<Guid> failedEnvelopeIds,
-        AuditEnvelopeKind? kind,
-        string firstError,
-        Exception? innerException = null)
-        : base(FormatMessage(totalCount, failedCount, kind, firstError), innerException)
-    {
-        TotalCount = totalCount;
-        FailedCount = failedCount;
-        FailedEnvelopeIds = failedEnvelopeIds;
-        Kind = kind;
-    }
-
+    /// <summary>
+    /// Short human-readable description of the first error encountered (e.g., exception message from the sink).
+    /// </summary>
+    /// <param name="totalCount"></param>
+    /// <param name="failedCount"></param>
+    /// <param name="kind"></param>
+    /// <param name="firstError"></param>
+    /// <returns></returns>
     private static string FormatMessage(int totalCount, int failedCount, AuditEnvelopeKind? kind, string firstError)
     {
         var kindStr = kind?.ToString() ?? "mixed";

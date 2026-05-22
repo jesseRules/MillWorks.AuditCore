@@ -57,7 +57,8 @@ public sealed class AuditEventRepository(AuditDbContext context)
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<AuditEventEntity>> GetByDateRangeAsync(DateTimeOffset startDate, DateTimeOffset endDate,
+    public async Task<IEnumerable<AuditEventEntity>> GetByDateRangeAsync(DateTimeOffset startDate,
+        DateTimeOffset endDate,
         int maxResults = 1000, CancellationToken cancellationToken = default)
     {
         return await DbSet.AsNoTracking()

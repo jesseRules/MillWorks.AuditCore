@@ -214,4 +214,86 @@ public class FieldEncryptionServiceTests
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.EncryptFieldAsync("test", "TestField"));
     }
+
+    #region AAD Authentication Tests
+
+    [Test]
+    public async Task DecryptFieldAsync_WithTamperedKeyVersion_ThrowsCryptographicException()
+    {
+        // Arrange — encrypt with v1, then tamper the keyVersion in the payload
+        var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
+
+        var payloadBase64 = encrypted["ENC_V1:".Length..];
+        var payloadBytes = Convert.FromBase64String(payloadBase64);
+        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+
+        // Tamper the keyVersion — AAD won't match during decryption
+        dict["KeyVersion"] = "v999";
+
+        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
+        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
+
+        // Act & Assert — GCM authentication should fail due to AAD mismatch
+        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(tamperedEncrypted, "TestField"));
+    }
+
+    [Test]
+    public async Task DecryptFieldAsync_WithTamperedVersion_ThrowsVersionException()
+    {
+        // Arrange — encrypt then tamper the schema version
+        var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
+
+        var payloadBase64 = encrypted["ENC_V1:".Length..];
+        var payloadBytes = Convert.FromBase64String(payloadBase64);
+        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+
+        // Tamper the version
+        dict["Version"] = 99;
+
+        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
+        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
+
+        // Act & Assert — version validation should reject unsupported version
+        var ex = Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(tamperedEncrypted, "TestField"));
+        Assert.That(ex!.Message, Does.Contain("Unsupported encryption schema version"));
+    }
+
+    [Test]
+    public void DecryptField_Sync_WithTamperedVersion_ThrowsVersionException()
+    {
+        // Arrange
+        var encrypted = _service.EncryptField("secret", "TestField");
+
+        var payloadBase64 = encrypted["ENC_V1:".Length..];
+        var payloadBytes = Convert.FromBase64String(payloadBase64);
+        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+
+        dict["Version"] = 99;
+
+        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
+        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
+
+        // Act & Assert
+        var ex = Assert.Throws<FieldEncryptionException>(() =>
+            _service.DecryptField(tamperedEncrypted, "TestField"));
+        Assert.That(ex!.Message, Does.Contain("Unsupported encryption schema version"));
+    }
+
+    [Test]
+    public void IsEncrypted_UsesOrdinalComparison()
+    {
+        // These should NOT match due to case sensitivity (ordinal comparison)
+        Assert.That(_service.IsEncrypted("enc_v1:lowercase"), Is.False);
+        Assert.That(_service.IsEncrypted("ENC_v1:mixedcase"), Is.False);
+
+        // This should match
+        Assert.That(_service.IsEncrypted("ENC_V1:valid"), Is.True);
+    }
+
+    #endregion
 }

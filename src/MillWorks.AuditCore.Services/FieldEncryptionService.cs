@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -30,6 +31,11 @@ public sealed class FieldEncryptionService(
     /// </summary>
     private const string EncryptionPrefix = "ENC_V1:"; // Prefix to identify encrypted values
 
+    /// <summary>
+    /// Current payload schema version
+    /// </summary>
+    private const int CurrentSchemaVersion = 1;
+
     /// <inheritdoc />
     public async Task<string> EncryptFieldAsync(string plainText, string fieldName,
         CancellationToken cancellationToken = default)
@@ -58,6 +64,8 @@ public sealed class FieldEncryptionService(
         if (string.IsNullOrEmpty(plainText))
             return plainText;
 
+        byte[]? plainBytes = null;
+        byte[]? cipherBytes = null;
         try
         {
             // Get encryption key for this field and version
@@ -68,19 +76,22 @@ public sealed class FieldEncryptionService(
             RandomNumberGenerator.Fill(nonce);
 
             // Convert plaintext to bytes
-            var plainBytes = Encoding.UTF8.GetBytes(plainText);
+            plainBytes = Encoding.UTF8.GetBytes(plainText);
 
-            // Encrypt using AES-GCM
-            var cipherBytes = new byte[plainBytes.Length];
+            // Encrypt using AES-GCM with AAD for metadata authentication
+            cipherBytes = new byte[plainBytes.Length];
             var tag = new byte[TagSize];
 
+            // Build AAD: version|keyVersion|fieldName to authenticate metadata
+            var aad = BuildAad(CurrentSchemaVersion, keyVersion, fieldName);
+
             using var aesGcm = new AesGcm(key, TagSize);
-            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag);
+            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag, aad);
 
             // Create encrypted payload with metadata
             var payload = new EncryptedFieldPayload
             {
-                Version = 1,
+                Version = CurrentSchemaVersion,
                 KeyVersion = keyVersion,
                 Nonce = Convert.ToBase64String(nonce),
                 Ciphertext = Convert.ToBase64String(cipherBytes),
@@ -102,6 +113,11 @@ public sealed class FieldEncryptionService(
             throw new FieldEncryptionException(
                 $"Failed to encrypt field {fieldName} with version {keyVersion}", ex);
         }
+        finally
+        {
+            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
+            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
+        }
     }
 
     /// <inheritdoc />
@@ -111,6 +127,8 @@ public sealed class FieldEncryptionService(
         if (string.IsNullOrEmpty(encryptedValue) || !IsEncrypted(encryptedValue))
             return encryptedValue;
 
+        byte[]? cipherBytes = null;
+        byte[]? plainBytes = null;
         try
         {
             // Remove prefix and decode
@@ -121,6 +139,13 @@ public sealed class FieldEncryptionService(
             // Deserialize payload
             var payload = JsonSerializer.Deserialize<EncryptedFieldPayload>(payloadJson)
                           ?? throw new FieldEncryptionException("Failed to deserialize encrypted payload");
+
+            // Validate schema version before proceeding
+            if (payload.Version != CurrentSchemaVersion)
+            {
+                throw new FieldEncryptionException(
+                    $"Unsupported encryption schema version {payload.Version}. Expected {CurrentSchemaVersion}.");
+            }
 
             // Validate that the payload's field name matches the expected field
             if (!string.Equals(payload.FieldName, fieldName, StringComparison.Ordinal))
@@ -136,14 +161,17 @@ public sealed class FieldEncryptionService(
 
             // Decode encrypted components
             var nonce = Convert.FromBase64String(payload.Nonce);
-            var cipherBytes = Convert.FromBase64String(payload.Ciphertext);
+            cipherBytes = Convert.FromBase64String(payload.Ciphertext);
             var tag = Convert.FromBase64String(payload.Tag);
 
-            // Decrypt using AES-GCM
-            var plainBytes = new byte[cipherBytes.Length];
+            // Build AAD from metadata for authenticated decryption
+            var aad = BuildAad(payload.Version, payload.KeyVersion, payload.FieldName);
+
+            // Decrypt using AES-GCM with AAD
+            plainBytes = new byte[cipherBytes.Length];
 
             using var aesGcm = new AesGcm(key, TagSize);
-            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes);
+            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes, aad);
 
             return Encoding.UTF8.GetString(plainBytes);
         }
@@ -154,10 +182,19 @@ public sealed class FieldEncryptionService(
             throw new FieldEncryptionException(
                 $"Decryption failed for field {fieldName} - data may be tampered", ex);
         }
+        catch (FieldEncryptionException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to decrypt field {FieldName}", fieldName);
             throw new FieldEncryptionException($"Failed to decrypt field {fieldName}", ex);
+        }
+        finally
+        {
+            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
+            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
         }
     }
 
@@ -185,6 +222,8 @@ public sealed class FieldEncryptionService(
         if (string.IsNullOrEmpty(encryptedValue) || !IsEncrypted(encryptedValue))
             return encryptedValue;
 
+        byte[]? cipherBytes = null;
+        byte[]? plainBytes = null;
         try
         {
             var payloadBase64 = encryptedValue[EncryptionPrefix.Length..];
@@ -193,6 +232,13 @@ public sealed class FieldEncryptionService(
 
             var payload = JsonSerializer.Deserialize<EncryptedFieldPayload>(payloadJson)
                           ?? throw new FieldEncryptionException("Failed to deserialize encrypted payload");
+
+            // Validate schema version before proceeding
+            if (payload.Version != CurrentSchemaVersion)
+            {
+                throw new FieldEncryptionException(
+                    $"Unsupported encryption schema version {payload.Version}. Expected {CurrentSchemaVersion}.");
+            }
 
             if (!string.Equals(payload.FieldName, fieldName, StringComparison.Ordinal))
             {
@@ -203,13 +249,16 @@ public sealed class FieldEncryptionService(
             var key = keyProvider.GetEncryptionKey(fieldName, payload.KeyVersion);
 
             var nonce = Convert.FromBase64String(payload.Nonce);
-            var cipherBytes = Convert.FromBase64String(payload.Ciphertext);
+            cipherBytes = Convert.FromBase64String(payload.Ciphertext);
             var tag = Convert.FromBase64String(payload.Tag);
 
-            var plainBytes = new byte[cipherBytes.Length];
+            // Build AAD from metadata for authenticated decryption
+            var aad = BuildAad(payload.Version, payload.KeyVersion, payload.FieldName);
+
+            plainBytes = new byte[cipherBytes.Length];
 
             using var aesGcm = new AesGcm(key, TagSize);
-            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes);
+            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes, aad);
 
             return Encoding.UTF8.GetString(plainBytes);
         }
@@ -219,21 +268,32 @@ public sealed class FieldEncryptionService(
             throw new FieldEncryptionException(
                 $"Decryption failed for field {fieldName} - data may be tampered", ex);
         }
+        catch (FieldEncryptionException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to decrypt field {FieldName}", fieldName);
             throw new FieldEncryptionException($"Failed to decrypt field {fieldName}", ex);
+        }
+        finally
+        {
+            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
+            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
         }
     }
 
     /// <inheritdoc />
     public bool IsEncrypted(string? value)
     {
-        return !string.IsNullOrEmpty(value) && value.StartsWith(EncryptionPrefix);
+        return !string.IsNullOrEmpty(value) && value.StartsWith(EncryptionPrefix, StringComparison.Ordinal);
     }
 
     private string EncryptFieldWithVersion(string plainText, string fieldName, string keyVersion)
     {
+        byte[]? plainBytes = null;
+        byte[]? cipherBytes = null;
         try
         {
             var key = keyProvider.GetEncryptionKey(fieldName, keyVersion);
@@ -241,17 +301,20 @@ public sealed class FieldEncryptionService(
             var nonce = new byte[NonceSize];
             RandomNumberGenerator.Fill(nonce);
 
-            var plainBytes = Encoding.UTF8.GetBytes(plainText);
+            plainBytes = Encoding.UTF8.GetBytes(plainText);
 
-            var cipherBytes = new byte[plainBytes.Length];
+            cipherBytes = new byte[plainBytes.Length];
             var tag = new byte[TagSize];
 
+            // Build AAD: version|keyVersion|fieldName to authenticate metadata
+            var aad = BuildAad(CurrentSchemaVersion, keyVersion, fieldName);
+
             using var aesGcm = new AesGcm(key, TagSize);
-            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag);
+            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag, aad);
 
             var payload = new EncryptedFieldPayload
             {
-                Version = 1,
+                Version = CurrentSchemaVersion,
                 KeyVersion = keyVersion,
                 Nonce = Convert.ToBase64String(nonce),
                 Ciphertext = Convert.ToBase64String(cipherBytes),
@@ -271,6 +334,11 @@ public sealed class FieldEncryptionService(
                 fieldName, keyVersion);
             throw new FieldEncryptionException(
                 $"Failed to encrypt field {fieldName} with version {keyVersion}", ex);
+        }
+        finally
+        {
+            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
+            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
         }
     }
 
@@ -295,5 +363,17 @@ public sealed class FieldEncryptionService(
             throw new FieldEncryptionException(
                 $"Failed to re-encrypt field {fieldName} to version {newKeyVersion}", ex);
         }
+    }
+
+    /// <summary>
+    /// Builds Additional Authenticated Data (AAD) from metadata fields.
+    /// AAD is included in GCM authentication but not encrypted, ensuring
+    /// metadata integrity without storing it redundantly in ciphertext.
+    /// Format: version|keyVersion|fieldName (pipe-delimited, UTF-8 encoded)
+    /// </summary>
+    private static byte[] BuildAad(int version, string keyVersion, string fieldName)
+    {
+        var aadString = $"{version}|{keyVersion}|{fieldName}";
+        return Encoding.UTF8.GetBytes(aadString);
     }
 }
