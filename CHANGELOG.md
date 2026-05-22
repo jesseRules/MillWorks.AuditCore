@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-05-22
+
+### Fixed
+- **UTF-8 safe string truncation** — `SensitiveContentSanitizer.TruncateSafe` now checks for high surrogates before truncating, preventing split of multi-byte UTF-8 characters. Applied to `SensitiveContentSanitizer.Sanitize` and `AuditOutboxDrainer.TruncateError`.
+- **`AuditEventRedactionHelper` null `SystemFields` handling** — `RedactEvent` now returns `null` for `SystemFields` when the original is null, instead of throwing `ArgumentNullException` from the `Dictionary` constructor.
+- **`GetByOffsetAsync` ordering warning** — `Repository<T>.GetByOffsetAsync` now logs a debug warning when called without an `orderBy` parameter, since results may be non-deterministic without explicit ordering.
+
 ## [1.7.6] - 2026-05-19
 
 ### Added
@@ -330,7 +337,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
-[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.2...HEAD
+[1.8.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.0...v1.8.2
 [1.8.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.6...v1.8.0
 [1.7.6]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...v1.7.6
 [1.7.5]: https://github.com/jesserules/millworks.auditcore/compare/v1.6.2...v1.7.5
