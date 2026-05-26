@@ -96,15 +96,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private static bool HasNoAuditAttribute(Type type)
-    {
-        return _noAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
-    }
+    private static bool HasNoAuditAttribute(Type type) => _noAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
 
-    private static FERPAAttribute? GetFERPAAttribute(Type type)
-    {
-        return _ferpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
-    }
+    private static FERPAAttribute? GetFERPAAttribute(Type type) => _ferpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
 
     private static PropertyAuditMetadata GetPropertyMetadata(PropertyInfo? propertyInfo)
     {
@@ -212,7 +206,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         await DispatchProvidersAsync(eventData.Context, cancellationToken);
         return await base.SavedChangesAsync(eventData, result, cancellationToken);
     }
-    
+
     /// <summary>
     /// Clears pending provider dispatches on save failure to prevent stale entries
     /// from firing on the next successful save of the same context instance.
@@ -491,14 +485,16 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             using (accessor.SetCurrent(context))
             {
+                var envelopes = new List<AuditEnvelope>(auditableEntries.Count);
                 foreach (var entry in auditableEntries)
                 {
                     var envelope = BuildEnvelope(entry, contextSource);
-                    if (envelope is null)
-                        continue;
-
-                    await sink.PublishAsync(envelope, cancellationToken);
+                    if (envelope is not null)
+                        envelopes.Add(envelope);
                 }
+
+                if (envelopes.Count > 0)
+                    await sink.PublishBatchAsync(envelopes, cancellationToken);
             }
         }
         catch (Exception ex)

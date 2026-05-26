@@ -173,6 +173,22 @@ public interface IRepository<T> where T : class
         params Expression<Func<T, object>>[] includes);
 
     /// <summary>
+    /// Gets a paginated list of entities using offset-based pagination.
+    /// Unlike <see cref="GetPagedAsync"/> which uses page numbers, this method
+    /// correctly handles non-page-aligned offsets (e.g., offset=75, limit=50 returns rows 75-124).
+    /// </summary>
+    /// <param name="offset">Number of rows to skip (0-based)</param>
+    /// <param name="limit">Maximum number of rows to return</param>
+    /// <param name="predicate">Optional filter predicate</param>
+    /// <param name="orderBy">Optional ordering function</param>
+    /// <returns>Tuple of matching items and total count</returns>
+    Task<(IEnumerable<T> Items, int TotalCount)> GetByOffsetAsync(
+        int offset,
+        int limit,
+        Expression<Func<T, bool>>? predicate = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null);
+
+    /// <summary>
     /// Gets a queryable for building complex queries
     /// </summary>
     /// <returns>IQueryable of T</returns>

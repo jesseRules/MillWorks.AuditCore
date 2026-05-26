@@ -4,8 +4,10 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.Services.Options;
 
 namespace MillWorks.AuditCore.AspNetCore.Services;
 
@@ -15,6 +17,7 @@ namespace MillWorks.AuditCore.AspNetCore.Services;
 public sealed class AuditEventFactory(
     IHttpContextAccessor httpContextAccessor,
     IAuditContext auditContext,
+    IOptions<AuditOptions> auditOptions,
     ILogger<AuditEventFactory> logger)
     : IAuditEventFactory
 {
@@ -22,7 +25,6 @@ public sealed class AuditEventFactory(
     // no need to query the OS per event.
     private static readonly string _machineName = Environment.MachineName;
     private static readonly string _domainName = Environment.UserDomainName;
-    private static readonly string _culture = Thread.CurrentThread.CurrentCulture.ToString();
 
     // Cached compiled delegates for extracting "Id" property from entity types,
     // avoiding per-event reflection overhead.
@@ -143,8 +145,8 @@ public sealed class AuditEventFactory(
             MachineName = _machineName,
             DomainName = _domainName,
             CallingMethodName = callerMemberName,
-            AssemblyName = "MillWorks.Audit",
-            Culture = _culture
+            AssemblyName = auditOptions.Value.ApplicationName,
+            Culture = Thread.CurrentThread.CurrentCulture.ToString()
         };
     }
 
@@ -156,19 +158,26 @@ public sealed class AuditEventFactory(
         var context = httpContextAccessor.HttpContext;
         if (context?.User.Identity?.IsAuthenticated != true) return;
 
-        // Get AspNetUserId from claims
+        // Get AspNetUserId from claims - this is the ASP.NET Identity string identifier
         string? aspNetUserId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(aspNetUserId))
         {
             auditEvent.CustomFields["AspNetUserId"] = aspNetUserId;
         }
 
-        // Try to get AppUserDetailEntity information
-        auditEvent.CustomFields["UserId"] = aspNetUserId;
-        auditEvent.CustomFields["UserEmail"] = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        // Note: We intentionally do NOT set CustomFields["UserId"] here.
+        // UserId must be a Guid (the AppUserDetailEntity.Id), not a string.
+        // The persistence layer only maps CustomFields["UserId"] when it's a Guid.
+        // In this fallback path we only have the ASP.NET Identity string ID,
+        // which is already captured in AspNetUserId above.
+
+        string? userEmail = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrEmpty(userEmail))
+        {
+            auditEvent.CustomFields["UserEmail"] = userEmail;
+        }
 
         // Set the display username
-        string? userEmail = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         auditEvent.Environment.UserName = userEmail ?? context.User.Identity.Name ?? "Unknown";
     }
 
@@ -177,28 +186,49 @@ public sealed class AuditEventFactory(
     /// </summary>
     private void EnrichWithRequestContext(AuditEvent auditEvent)
     {
-        // First try to use AuditContext values
-        if (!string.IsNullOrEmpty(auditContext.CorrelationId))
+        var context = httpContextAccessor.HttpContext;
+
+        // For each field, prefer AuditContext if populated, otherwise fall back to HttpContext.
+        // This ensures we capture the most complete data even if middleware only partially populated AuditContext.
+
+        string? correlationId = !string.IsNullOrEmpty(auditContext.CorrelationId)
+            ? auditContext.CorrelationId
+            : context?.TraceIdentifier;
+
+        string? ipAddress = !string.IsNullOrEmpty(auditContext.IpAddress)
+            ? auditContext.IpAddress
+            : context?.Connection.RemoteIpAddress?.ToString();
+
+        string? userAgent = !string.IsNullOrEmpty(auditContext.UserAgent)
+            ? auditContext.UserAgent
+            : context?.Request.Headers["User-Agent"].ToString();
+
+        string? requestPath = !string.IsNullOrEmpty(auditContext.RequestPath)
+            ? auditContext.RequestPath
+            : context?.Request.Path.ToString();
+
+        string? requestMethod = !string.IsNullOrEmpty(auditContext.RequestMethod)
+            ? auditContext.RequestMethod
+            : context?.Request.Method;
+
+        // Only set fields that have values
+        if (!string.IsNullOrEmpty(correlationId))
         {
-            auditEvent.CustomFields["CorrelationId"] = auditContext.CorrelationId;
-            auditEvent.CustomFields["IpAddress"] = auditContext.IpAddress;
-            auditEvent.CustomFields["UserAgent"] = auditContext.UserAgent;
-            auditEvent.CustomFields["RequestPath"] = auditContext.RequestPath;
-            auditEvent.CustomFields["RequestMethod"] = auditContext.RequestMethod;
-            auditEvent.CustomFields["RequestId"] = auditContext.CorrelationId;
-            return;
+            auditEvent.CustomFields["CorrelationId"] = correlationId;
+            auditEvent.CustomFields["RequestId"] = Activity.Current?.Id ?? correlationId;
         }
 
-        // Fallback to direct HTTP context
-        var context = httpContextAccessor.HttpContext;
-        if (context == null) return;
+        if (!string.IsNullOrEmpty(ipAddress))
+            auditEvent.CustomFields["IpAddress"] = ipAddress;
 
-        auditEvent.CustomFields["CorrelationId"] = context.TraceIdentifier;
-        auditEvent.CustomFields["IpAddress"] = context.Connection.RemoteIpAddress?.ToString();
-        auditEvent.CustomFields["UserAgent"] = context.Request.Headers["User-Agent"].ToString();
-        auditEvent.CustomFields["RequestPath"] = context.Request.Path.ToString();
-        auditEvent.CustomFields["RequestMethod"] = context.Request.Method;
-        auditEvent.CustomFields["RequestId"] = Activity.Current?.Id ?? context.TraceIdentifier;
+        if (!string.IsNullOrEmpty(userAgent))
+            auditEvent.CustomFields["UserAgent"] = userAgent;
+
+        if (!string.IsNullOrEmpty(requestPath))
+            auditEvent.CustomFields["RequestPath"] = requestPath;
+
+        if (!string.IsNullOrEmpty(requestMethod))
+            auditEvent.CustomFields["RequestMethod"] = requestMethod;
     }
 
     /// <summary>

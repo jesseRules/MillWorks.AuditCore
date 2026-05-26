@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
@@ -125,8 +124,8 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         }
 
         var transaction = Context.Database.CurrentTransaction
-            ?? throw new InvalidOperationException(
-                "AcquireAppendLockAsync must be called inside an active transaction.");
+                          ?? throw new InvalidOperationException(
+                              "AcquireAppendLockAsync must be called inside an active transaction.");
 
         var connection = Context.Database.GetDbConnection();
         if (connection.State != ConnectionState.Open)
@@ -169,6 +168,13 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         }
     }
 
+    /// <summary>
+    /// Helper method to add input parameters to a DbCommand for sp_getapplock.
+    /// </summary>
+    /// <param name="cmd"></param>
+    /// <param name="name"></param>
+    /// <param name="type"></param>
+    /// <param name="value"></param>
     private static void AddInputParameter(DbCommand cmd, string name, DbType type, object value)
     {
         var p = cmd.CreateParameter();
@@ -322,7 +328,7 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             }
 
             var records = await DbSet.AsNoTracking()
-                .Where(ai => batch.Contains(ai.EventId))
+                .Where(ai => ((IEnumerable<Guid>)batch).Contains(ai.EventId))
                 .OrderBy(static ai => ai.SequenceNumber)
                 .ToListAsync(cancellationToken);
 

@@ -55,7 +55,7 @@ public sealed class DefaultAuditFieldRedactorTests
             ["MachineName"] = "Server01",
             ["AssemblyName"] = "MyApp",
             ["CallingMethodName"] = "DoWork",
-            ["CorrelationId"] = "abc-123",
+            // CorrelationId intentionally NOT in safe fields — it can contain PII
             ["Duration"] = 150,
             ["Success"] = true,
             ["RequestMethod"] = "POST"
@@ -68,6 +68,29 @@ public sealed class DefaultAuditFieldRedactorTests
             Assert.That(result[kvp.Key], Is.EqualTo(kvp.Value),
                 $"Safe field '{kvp.Key}' should pass through unchanged");
         }
+    }
+
+    [Test]
+    public void RedactFields_CorrelationId_IsRedacted()
+    {
+        var fields = new Dictionary<string, object?>
+        {
+            ["CorrelationId"] = "user@example.com-request-12345",
+            ["EventType"] = "Login"
+        };
+
+        var result = _redactor.RedactFields(fields);
+
+        result["EventType"].Should().Be("Login");
+        result["CorrelationId"].Should().Be(DefaultAuditFieldRedactor.RedactionMask);
+    }
+
+    [Test]
+    public void RedactValue_CorrelationId_IsRedacted()
+    {
+        var result = _redactor.RedactValue("CorrelationId", "user-123@tenant.com");
+
+        result.Should().Be(DefaultAuditFieldRedactor.RedactionMask);
     }
 
     [Test]
@@ -263,5 +286,68 @@ public sealed class DefaultAuditFieldRedactorTests
     public void RedactPropertyNames_Null_ReturnsNull()
     {
         _redactor.RedactPropertyNames(null).Should().BeNull();
+    }
+
+    // --- Configurable additional safe fields ---
+
+    [Test]
+    public void RedactValue_WithAdditionalSafeFields_PreservesConfiguredFields()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new MillWorks.AuditCore.Services.Options.RedactionOptions
+            {
+                AdditionalSafeFields = ["CorrelationId", "SessionId"]
+            });
+
+        var redactor = new DefaultAuditFieldRedactor(options);
+
+        redactor.RedactValue("CorrelationId", "my-correlation-id").Should().Be("my-correlation-id");
+        redactor.RedactValue("SessionId", "my-session-id").Should().Be("my-session-id");
+    }
+
+    [Test]
+    public void RedactFields_WithAdditionalSafeFields_PreservesConfiguredFields()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new MillWorks.AuditCore.Services.Options.RedactionOptions
+            {
+                AdditionalSafeFields = ["CorrelationId"]
+            });
+
+        var redactor = new DefaultAuditFieldRedactor(options);
+
+        var fields = new Dictionary<string, object?>
+        {
+            ["CorrelationId"] = "preserved-value",
+            ["SensitiveField"] = "should-be-redacted"
+        };
+
+        var result = redactor.RedactFields(fields);
+
+        result["CorrelationId"].Should().Be("preserved-value");
+        result["SensitiveField"].Should().Be(DefaultAuditFieldRedactor.RedactionMask);
+    }
+
+    [Test]
+    public void Constructor_WithNullOptions_UsesDefaultSafeFieldsOnly()
+    {
+        var redactor = new DefaultAuditFieldRedactor(null);
+
+        redactor.RedactValue("CorrelationId", "test").Should().Be(DefaultAuditFieldRedactor.RedactionMask);
+        redactor.RedactValue("EventType", "Login").Should().Be("Login");
+    }
+
+    [Test]
+    public void Constructor_WithEmptyAdditionalFields_UsesDefaultSafeFieldsOnly()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new MillWorks.AuditCore.Services.Options.RedactionOptions
+            {
+                AdditionalSafeFields = []
+            });
+
+        var redactor = new DefaultAuditFieldRedactor(options);
+
+        redactor.RedactValue("CorrelationId", "test").Should().Be(DefaultAuditFieldRedactor.RedactionMask);
     }
 }

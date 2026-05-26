@@ -1,7 +1,5 @@
-using System.Text;
 using System.Text.Json;
 using FluentAssertions;
-using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Services;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Tests.Helpers;
@@ -90,11 +88,10 @@ public sealed class RedactionPropertyTests
         for (var i = 0; i < 500; i++)
         {
             var eventType = $"Test.Event.{Rng.Next(100)}";
-            var correlationId = Guid.NewGuid().ToString();
 
             var evt = TestAuditEventBuilder.Create()
                 .WithEventType(eventType)
-                .WithCorrelationId(correlationId)
+                .WithCorrelationId("user@example.com-" + Guid.NewGuid())
                 .WithIpAddress("10.0.0.1") // sensitive - will be redacted
                 .Build();
 
@@ -102,8 +99,8 @@ public sealed class RedactionPropertyTests
 
             redacted.EventType.Should().Be(eventType,
                 $"iteration {i}: EventType must be preserved");
-            redacted.CorrelationId.Should().Be(correlationId,
-                $"iteration {i}: CorrelationId must be preserved");
+            redacted.CorrelationId.Should().Be("[REDACTED]",
+                $"iteration {i}: CorrelationId is redacted by default (safe-by-default posture)");
             redacted.EventId.Should().Be(evt.EventId);
             redacted.Action.Should().Be(evt.Action);
             redacted.EntityName.Should().Be(evt.EntityName);

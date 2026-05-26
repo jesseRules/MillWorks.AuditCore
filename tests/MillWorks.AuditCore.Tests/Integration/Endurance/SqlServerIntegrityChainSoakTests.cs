@@ -17,7 +17,6 @@ using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
-using Moq;
 using Testcontainers.MsSql;
 
 namespace MillWorks.AuditCore.Tests.Integration.Endurance;

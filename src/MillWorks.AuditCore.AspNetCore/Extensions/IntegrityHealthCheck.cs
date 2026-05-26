@@ -20,12 +20,12 @@ public sealed class IntegrityHealthCheck(
     /// <summary>
     /// Pending work items older than this are considered stale
     /// </summary>
-    private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan _staleThreshold = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// More than this many stale pending items triggers Degraded
     /// </summary>
-    private const int DegradedPendingThreshold = 10;
+    private const int _degradedPendingThreshold = 10;
 
     /// <inheritdoc />
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -39,21 +39,21 @@ public sealed class IntegrityHealthCheck(
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             var checkedAtUtc = DateTimeOffset.UtcNow;
-            var staleCutoff = checkedAtUtc - StaleThreshold;
+            var staleCutoff = checkedAtUtc - _staleThreshold;
 
             var failedCount = await dbContext.IntegrityWorkItems
-                .CountAsync(w => w.Status == IntegrityStatus.Failed, cancellationToken);
+                .CountAsync(static w => w.Status == IntegrityStatus.Failed, cancellationToken);
 
             var stalePendingCount = await dbContext.IntegrityWorkItems
                 .CountAsync(w => w.Status == IntegrityStatus.Pending && w.CreatedAt < staleCutoff, cancellationToken);
 
             var totalPendingCount = await dbContext.IntegrityWorkItems
-                .CountAsync(w => w.Status == IntegrityStatus.Pending, cancellationToken);
+                .CountAsync(static w => w.Status == IntegrityStatus.Pending, cancellationToken);
 
             var data = new Dictionary<string, object>
             {
                 ["checked_at_utc"] = checkedAtUtc,
-                ["stale_threshold_minutes"] = StaleThreshold.TotalMinutes,
+                ["stale_threshold_minutes"] = _staleThreshold.TotalMinutes,
                 ["pending_total"] = totalPendingCount,
                 ["pending_stale"] = stalePendingCount,
                 ["failed"] = failedCount
@@ -75,10 +75,10 @@ public sealed class IntegrityHealthCheck(
                     data: data);
             }
 
-            if (stalePendingCount > DegradedPendingThreshold)
+            if (stalePendingCount > _degradedPendingThreshold)
             {
                 return HealthCheckResult.Degraded(
-                    $"{stalePendingCount} integrity work item(s) have been pending for more than {StaleThreshold.TotalMinutes} minutes.",
+                    $"{stalePendingCount} integrity work item(s) have been pending for more than {_staleThreshold.TotalMinutes} minutes.",
                     data: data);
             }
 

@@ -1,7 +1,9 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MillWorks.AuditCore.Abstractions.Diagnostics;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Responses;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -26,21 +28,37 @@ public sealed class AuditQueryService(
     /// <summary>
     /// Gets the audit trail for a specific entity type and ID.
     /// </summary>
-    /// <param name="entityName"></param>
-    /// <param name="entityId"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="entityName">The entity type name.</param>
+    /// <param name="entityId">The entity identifier.</param>
+    /// <param name="maxResults">Maximum number of results to return. Clamped to QueryLimits.MaxPageSize.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The audit trail entries, ordered by most recent first.</returns>
     public async Task<IEnumerable<AuditLogDto>> GetEntityAuditTrailAsync(
         string entityName,
         Guid entityId,
+        int maxResults = 1000,
         CancellationToken cancellationToken = default)
     {
-        logger.LogDebug("Getting audit trail for {EntityName} with ID {EntityId}", entityName, entityId);
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "entity_trail");
+        activity?.SetTag(AuditActivitySource.Tags.AuditEntityType, entityName);
+        activity?.SetTag(AuditActivitySource.Tags.AuditEntityId, entityId.ToString());
+
+        maxResults = QueryLimits.Clamp(maxResults);
+        logger.LogDebug("Getting audit trail for {EntityName} with ID {EntityId}, max {MaxResults}",
+            entityName, entityId, maxResults);
 
         List<AuditEventEntity> events = await context.AuditEvents.AsNoTracking()
             .Where(e => e.EntityType == entityName && e.EntityId == entityId.ToString())
             .OrderByDescending(static e => e.InsertedDate)
+            .Take(maxResults)
             .ToListAsync(cancellationToken);
+
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, events.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
 
         return MapToAuditLogDtos(events);
     }
@@ -59,6 +77,13 @@ public sealed class AuditQueryService(
         int take = 50,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "user_activity");
+        activity?.SetTag(AuditActivitySource.Tags.AuditUserId, userId.ToString());
+
         take = QueryLimits.Clamp(take);
         logger.LogDebug("Getting user activity for user {UserId}", userId);
 
@@ -75,6 +100,9 @@ public sealed class AuditQueryService(
             .Take(take)
             .ToListAsync(cancellationToken);
 
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, events.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+
         return MapToAuditLogDtos(events);
     }
 
@@ -90,6 +118,12 @@ public sealed class AuditQueryService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AuditActivitySource.Source.StartActivity(
+            AuditActivitySource.Operations.AuditQuery,
+            ActivityKind.Internal);
+
+        activity?.SetTag(AuditActivitySource.Tags.QueryType, "paginated");
+
         limit = QueryLimits.Clamp(limit);
         if (offset < 0) offset = 0;
 
@@ -120,6 +154,9 @@ public sealed class AuditQueryService(
                 logger.LogWarning(ex, "Failed to parse JSON data for event {EventId}", item.EventId);
             }
         }
+
+        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, items.Count);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
 
         return new AuditEventsResponse
         {
@@ -201,7 +238,8 @@ public sealed class AuditQueryService(
         Guid entityId,
         CancellationToken cancellationToken = default)
     {
-        IEnumerable<AuditLogDto> events = await GetEntityAuditTrailAsync(entityName, entityId, cancellationToken);
+        IEnumerable<AuditLogDto> events = await GetEntityAuditTrailAsync(
+            entityName, entityId, QueryLimits.MaxPageSize, cancellationToken);
 
         return events
             .GroupBy(static e => e.Action.ToString())

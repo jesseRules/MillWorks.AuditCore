@@ -204,4 +204,96 @@ public sealed class AuditEventRedactionHelperTests
 
         evt.SystemFields["Secret"].Should().Be("value");
     }
+
+    // --- ErrorMessage redaction (Finding #1 - DLQ redaction incomplete) ---
+
+    [Test]
+    public void RedactEvent_ErrorMessage_RedactsSensitiveContent()
+    {
+        var evt = TestAuditEventBuilder.Create()
+            .WithError("Connection string: Server=prod;Password=secret123")
+            .Build();
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.ErrorMessage.Should().NotContain("secret123");
+        result.ErrorMessage.Should().NotContain("Password=");
+    }
+
+    [Test]
+    public void RedactEvent_ErrorMessage_RedactsPasswordPatterns()
+    {
+        var evt = TestAuditEventBuilder.Create()
+            .WithError("Failed to connect: Server=db.prod.local;User Id=admin;Password=s3cr3tP@ss;")
+            .Build();
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.ErrorMessage.Should().NotContain("s3cr3tP@ss");
+        result.ErrorMessage.Should().Contain("[SANITIZED]");
+    }
+
+    [Test]
+    public void RedactEvent_ErrorMessage_NullStaysNull()
+    {
+        var evt = TestAuditEventBuilder.Create().Build();
+        evt.ErrorMessage = null;
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.ErrorMessage.Should().BeNull();
+    }
+
+    [Test]
+    public void RedactEvent_ErrorMessage_DoesNotMutateOriginal()
+    {
+        var evt = TestAuditEventBuilder.Create()
+            .WithError("Password=secret")
+            .Build();
+
+        AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        evt.ErrorMessage.Should().Contain("Password=secret");
+    }
+
+    // --- CorrelationId redaction (Finding #4 - CorrelationId may contain PII) ---
+
+    [Test]
+    public void RedactEvent_CorrelationId_IsRedactedByDefault()
+    {
+        var evt = TestAuditEventBuilder.Create()
+            .WithCorrelationId("user@example.com-12345")
+            .Build();
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.CorrelationId.Should().Be("[REDACTED]");
+    }
+
+    [Test]
+    public void RedactEvent_SystemFields_CorrelationIdFieldIsRedacted()
+    {
+        var evt = TestAuditEventBuilder.Create().Build();
+        evt.SystemFields = new Dictionary<string, object?>
+        {
+            ["CorrelationId"] = "user-123@tenant.com"
+        };
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.SystemFields!["CorrelationId"].Should().Be("[REDACTED]");
+    }
+
+    // --- SessionId redaction (same rationale as CorrelationId) ---
+
+    [Test]
+    public void RedactEvent_SessionId_IsRedactedByDefault()
+    {
+        var evt = TestAuditEventBuilder.Create().Build();
+        evt.SessionId = "user-session-abc123";
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.SessionId.Should().Be("[REDACTED]");
+    }
 }

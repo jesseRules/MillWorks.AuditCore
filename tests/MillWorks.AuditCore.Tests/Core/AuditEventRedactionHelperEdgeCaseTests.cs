@@ -110,15 +110,16 @@ public sealed class AuditEventRedactionHelperEdgeCaseTests
     }
 
     [Test]
-    public void RedactEvent_PreservesCorrelationId()
+    public void RedactEvent_RedactsCorrelationId_ForSafeByDefaultPosture()
     {
         var evt = TestAuditEventBuilder.Create()
-            .WithCorrelationId("corr-123")
+            .WithCorrelationId("user@example.com-request-123")
             .Build();
 
         var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
 
-        result.CorrelationId.Should().Be("corr-123");
+        result.CorrelationId.Should().Be("[REDACTED]",
+            "CorrelationId is redacted by default because some systems embed PII in it");
     }
 
     [Test]
@@ -311,7 +312,6 @@ public sealed class AuditEventRedactionHelperEdgeCaseTests
         {
             ["EventType"] = "Login",
             ["Environment"] = "Production",
-            ["CorrelationId"] = "abc-123",
             ["Duration"] = 42,
             ["Success"] = true,
             ["Action"] = "Create"
@@ -321,8 +321,21 @@ public sealed class AuditEventRedactionHelperEdgeCaseTests
 
         result.SystemFields!["EventType"].Should().Be("Login");
         result.SystemFields!["Environment"].Should().Be("Production");
-        result.SystemFields!["CorrelationId"].Should().Be("abc-123");
         result.SystemFields!["Duration"].Should().Be(42);
+    }
+
+    [Test]
+    public void RedactEvent_SystemFields_CorrelationIdIsRedacted()
+    {
+        var evt = TestAuditEventBuilder.Create().Build();
+        evt.SystemFields = new Dictionary<string, object?>
+        {
+            ["CorrelationId"] = "user@example.com-request-123"
+        };
+
+        var result = AuditEventRedactionHelper.RedactEvent(_redactor, evt);
+
+        result.SystemFields!["CorrelationId"].Should().Be("[REDACTED]");
     }
 
     // ── ChangedProperties case sensitivity ──

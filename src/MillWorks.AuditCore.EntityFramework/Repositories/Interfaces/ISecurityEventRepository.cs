@@ -57,4 +57,18 @@ public interface ISecurityEventRepository : IRepository<AuditSecurityEventEntity
     Task<AuditSecurityEventEntity?> GetByRelatedAuditEventAsync(
         Guid auditEventId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets security events by severity within a date range (server-side filtering).
+    /// </summary>
+    /// <param name="severity"></param>
+    /// <param name="startDate"></param>
+    /// <param name="endDate"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<IEnumerable<AuditSecurityEventEntity>> GetBySeverityAndDateRangeAsync(
+        SecurityEventSeverity severity,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken = default);
 }

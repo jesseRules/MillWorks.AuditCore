@@ -2,7 +2,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
@@ -13,7 +12,7 @@ namespace MillWorks.AuditCore.Services.Maintenance;
 /// </summary>
 public sealed class AuditMaintenanceBackgroundService : BackgroundService
 {
-    private static readonly TimeSpan DefaultStartupDelay = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan _defaultStartupDelay = TimeSpan.FromMinutes(1);
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuditMaintenanceBackgroundService> _logger;
@@ -42,7 +41,7 @@ public sealed class AuditMaintenanceBackgroundService : BackgroundService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-        _startupDelay = startupDelay ?? DefaultStartupDelay;
+        _startupDelay = startupDelay ?? _defaultStartupDelay;
         _intervalOverride = intervalOverride;
     }
 

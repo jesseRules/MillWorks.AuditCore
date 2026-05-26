@@ -25,6 +25,7 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
     private readonly IAuditDeadLetterQueue? _deadLetterQueue;
     private readonly RequestAuditOverflowPolicy _overflowPolicy;
     private readonly IAuditDiagnostics? _diagnostics;
+    private volatile bool _stopping;
 
     public InProcessRequestAuditDispatcher(
         IServiceScopeFactory scopeFactory,
@@ -58,6 +59,18 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
 
+        if (_stopping)
+        {
+            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherShutdownDrain);
+            await HandleShutdownDispatchAsync(auditEvent);
+
+            if (_overflowPolicy == RequestAuditOverflowPolicy.Throw)
+                throw new InvalidOperationException(
+                    "Request audit dispatcher is shutting down and cannot accept new events.");
+
+            return;
+        }
+
         if (_enqueueTimeout == TimeSpan.Zero)
         {
             if (_channel.Writer.TryWrite(auditEvent))
@@ -81,11 +94,12 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
         }
         catch (ChannelClosedException cce)
         {
-            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout);
-            await HandleOverflowAsync(auditEvent, cce);
+            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherChannelClosed);
+            await HandleShutdownDispatchAsync(auditEvent);
 
             if (_overflowPolicy == RequestAuditOverflowPolicy.Throw)
-                throw;
+                throw new InvalidOperationException(
+                    "Request audit dispatcher is shutting down and cannot accept new events.", cce);
         }
         catch (OperationCanceledException oce) when (!cancellationToken.IsCancellationRequested)
         {
@@ -94,6 +108,32 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
 
             if (_overflowPolicy == RequestAuditOverflowPolicy.Throw)
                 throw;
+        }
+    }
+
+    private async Task HandleShutdownDispatchAsync(AuditEvent auditEvent)
+    {
+        if (_deadLetterQueue is null)
+        {
+            _logger.LogWarning(
+                "Dispatcher shutting down: event {EventId} with correlation id {CorrelationId} dropped because no dead letter queue is registered",
+                auditEvent.EventId, auditEvent.CorrelationId);
+            return;
+        }
+
+        try
+        {
+            await _deadLetterQueue.StoreFailedEventAsync(auditEvent, exception: null, "Dispatcher shutting down");
+            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherDlqRouted);
+            _logger.LogWarning(
+                "Dispatcher shutting down: event {EventId} with correlation id {CorrelationId} routed to dead letter queue",
+                auditEvent.EventId, auditEvent.CorrelationId);
+        }
+        catch (Exception dlqEx)
+        {
+            _logger.LogError(dlqEx,
+                "Dispatcher shutting down: failed to route event {EventId} with correlation id {CorrelationId} to dead letter queue",
+                auditEvent.EventId, auditEvent.CorrelationId);
         }
     }
 
@@ -133,6 +173,7 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
                         "Failed to route audit event {EventId} with correlation id {CorrelationId} to dead letter queue under overflow policy {OverflowPolicy}",
                         auditEvent.EventId, auditEvent.CorrelationId, _overflowPolicy);
                 }
+
                 return;
         }
     }
@@ -151,7 +192,7 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
                 while (_channel.Reader.TryRead(out var auditEvent))
                 {
                     mainLoopInFlight = auditEvent;
-                    await ProcessOneAsync(auditEvent, stoppingToken);
+                    await ProcessOneWithRecoveryAsync(auditEvent, stoppingToken);
                     mainLoopInFlight = null;
                 }
             }
@@ -165,6 +206,11 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
         }
         finally
         {
+            _stopping = true;
+            _channel.Writer.TryComplete();
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), CancellationToken.None);
+
             using var drainCts = new CancellationTokenSource(_drainTimeout);
             var drainTimedOut = false;
 
@@ -178,7 +224,7 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
 
                 try
                 {
-                    await ProcessOneAsync(remaining, drainCts.Token);
+                    await ProcessOneWithRecoveryAsync(remaining, drainCts.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -191,6 +237,53 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
             }
 
             _logger.LogInformation("InProcessRequestAuditDispatcher stopped");
+        }
+    }
+
+    private async Task ProcessOneWithRecoveryAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ProcessOneAsync(auditEvent, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherProcessingFailure);
+            _logger.LogError(ex,
+                "Request audit processing failed for event {EventId} with correlation id {CorrelationId}; routing to dead letter queue",
+                auditEvent.EventId, auditEvent.CorrelationId);
+
+            await RouteProcessingFailureAsync(auditEvent, ex);
+        }
+    }
+
+    private async Task RouteProcessingFailureAsync(AuditEvent auditEvent, Exception exception)
+    {
+        if (_deadLetterQueue is null)
+        {
+            _logger.LogCritical(
+                "Event {EventId} with correlation id {CorrelationId} lost: processing failed and no dead letter queue is registered",
+                auditEvent.EventId, auditEvent.CorrelationId);
+            return;
+        }
+
+        try
+        {
+            await _deadLetterQueue.StoreFailedEventAsync(auditEvent, exception, "Request audit processing failed");
+            _diagnostics?.Increment(AuditDiagnosticCounter.RequestDispatcherDlqRouted);
+            _logger.LogWarning(
+                "Event {EventId} with correlation id {CorrelationId} routed to dead letter queue after processing failure",
+                auditEvent.EventId, auditEvent.CorrelationId);
+        }
+        catch (Exception dlqEx)
+        {
+            _logger.LogCritical(dlqEx,
+                "Event {EventId} with correlation id {CorrelationId} lost: processing failed and DLQ storage also failed",
+                auditEvent.EventId, auditEvent.CorrelationId);
         }
     }
 

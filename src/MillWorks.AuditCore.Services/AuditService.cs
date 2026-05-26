@@ -35,7 +35,8 @@ public sealed class AuditService(
         CancellationToken cancellationToken = default)
     {
         IEnumerable<AuditLogEntity> auditLogs =
-            await auditLogRepository.GetEntityAuditTrailAsync(entityName, entityId, cancellationToken: cancellationToken);
+            await auditLogRepository.GetEntityAuditTrailAsync(entityName, entityId,
+                cancellationToken: cancellationToken);
         return mapper.Map<IEnumerable<AuditLogDto>>(auditLogs);
     }
 
@@ -92,9 +93,7 @@ public sealed class AuditService(
             }
 
             AuditEventDto result = mapper.Map<AuditEventDto>(auditEvent);
-            result.Data = auditEvent.JsonData != null
-                ? JsonSerializer.Deserialize<AuditEventJsonDataParsedResponse>(auditEvent.JsonData)
-                : null;
+            result.Data = TryParseJsonData(auditEvent.JsonData, auditEvent.EventId);
 
             logger.LogDebug("Successfully retrieved audit event {EventId}", eventId);
             return result;
@@ -122,19 +121,19 @@ public sealed class AuditService(
 
         try
         {
-            var (events, totalCount) = await auditEventRepository.GetPagedAsync(
-                pageNumber: (offset / limit) + 1,
-                pageSize: limit,
+            var (events, totalCount) = await auditEventRepository.GetByOffsetAsync(
+                offset: offset,
+                limit: limit,
                 orderBy: static q => q.OrderByDescending(static x => x.InsertedDate));
 
             var eventsList = events.ToList();
             int totalPages = (int)Math.Ceiling((double)totalCount / limit);
 
             List<AuditEventDto> mapped = mapper.Map<List<AuditEventDto>>(eventsList);
-            mapped.ForEach(static x =>
-                x.Data = x.JsonData != null
-                    ? JsonSerializer.Deserialize<AuditEventJsonDataParsedResponse>(x.JsonData)
-                    : null);
+            foreach (var dto in mapped)
+            {
+                dto.Data = TryParseJsonData(dto.JsonData, dto.EventId);
+            }
 
             logger.LogDebug("Retrieved {Count} audit events", mapped.Count);
 
@@ -207,9 +206,9 @@ public sealed class AuditService(
                     (x.EventType != null && x.EventType.Contains(searchTerm)));
             }
 
-            var (events, totalCount) = await auditEventRepository.GetPagedAsync(
-                pageNumber: (request.Offset / request.Limit) + 1,
-                pageSize: request.Limit,
+            var (events, totalCount) = await auditEventRepository.GetByOffsetAsync(
+                offset: request.Offset,
+                limit: request.Limit,
                 predicate: predicate,
                 orderBy: static q => q.OrderByDescending(static x => x.InsertedDate));
 
@@ -217,10 +216,10 @@ public sealed class AuditService(
             int totalPages = (int)Math.Ceiling((double)totalCount / request.Limit);
 
             List<AuditEventDto> mapped = mapper.Map<List<AuditEventDto>>(eventsList);
-            mapped.ForEach(static x =>
-                x.Data = x.JsonData != null
-                    ? JsonSerializer.Deserialize<AuditEventJsonDataParsedResponse>(x.JsonData)
-                    : null);
+            foreach (var dto in mapped)
+            {
+                dto.Data = TryParseJsonData(dto.JsonData, dto.EventId);
+            }
 
             logger.LogDebug("Search returned {Count} audit events", mapped.Count);
 
@@ -328,7 +327,8 @@ public sealed class AuditService(
                 .Select(static kvp => new AuditEventTypeCount { EventType = kvp.Key, Count = kvp.Value })
                 .ToList();
 
-            var topUserKvps = await auditEventRepository.GetTopUsersByActivityAsync(10, datePredicate, cancellationToken);
+            var topUserKvps =
+                await auditEventRepository.GetTopUsersByActivityAsync(10, datePredicate, cancellationToken);
             List<AuditUserCount> topUsers = topUserKvps
                 .Select(static kvp => new AuditUserCount { User = kvp.Key, Count = kvp.Value })
                 .ToList();
@@ -522,44 +522,35 @@ public sealed class AuditService(
     }
 
     /// <summary>
-    /// Logs a security event with high-risk content and a warning message.
+    /// Safely parses JsonData without throwing on malformed content.
+    /// Returns an error response for parse failures instead of propagating exceptions.
     /// </summary>
-    /// <param name="highRiskContent"></param>
-    /// <param name="warning"></param>
-    /// <param name="user"></param>
-    /// <param name="details"></param>
-    /// <param name="additionalInfo"></param>
-    /// <param name="cancellationToken"></param>
-    public async Task LogSecurityEventAsync(string highRiskContent, string warning, string user, object details,
-        object additionalInfo, CancellationToken cancellationToken)
+    private AuditEventJsonDataParsedResponse? TryParseJsonData(string? jsonData, Guid? eventId)
     {
-        logger.LogInformation("Logging security event for user {User}", user);
+        if (string.IsNullOrEmpty(jsonData))
+            return null;
 
         try
         {
-            AuditEventEntity auditEvent = new()
+            return JsonSerializer.Deserialize<AuditEventJsonDataParsedResponse>(jsonData);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Malformed JSON data for event {EventId}", eventId);
+            return new AuditEventJsonDataParsedResponse
             {
-                EventType = "Security",
-                User = user,
-                JsonData = JsonSerializer.Serialize(new
-                {
-                    HighRiskContent = highRiskContent,
-                    Warning = warning,
-                    Details = details,
-                    AdditionalInfo = additionalInfo
-                }),
-                InsertedDate = DateTimeOffset.UtcNow
+                EventId = eventId,
+                ErrorMessage = "Failed to parse audit data: Malformed JSON"
             };
-
-            await auditEventRepository.AddAsync(auditEvent, cancellationToken);
-            await auditEventRepository.SaveChangesAsync(cancellationToken);
-
-            logger.LogDebug("Successfully logged security event for user {User}", user);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error logging security event for user {User}", user);
-            throw;
+            logger.LogError(ex, "Unexpected error parsing JSON for event {EventId}", eventId);
+            return new AuditEventJsonDataParsedResponse
+            {
+                EventId = eventId,
+                ErrorMessage = "Failed to parse audit data: Parse error"
+            };
         }
     }
 
@@ -591,10 +582,8 @@ public static class ExpressionExtensions
     /// <param name="replaceEx"></param>
     /// <returns></returns>
     public static System.Linq.Expressions.Expression Replace(this System.Linq.Expressions.Expression expression,
-        System.Linq.Expressions.Expression searchEx, System.Linq.Expressions.Expression replaceEx)
-    {
-        return new ReplaceVisitor(searchEx, replaceEx).Visit(expression) ?? expression;
-    }
+        System.Linq.Expressions.Expression searchEx, System.Linq.Expressions.Expression replaceEx) =>
+        new ReplaceVisitor(searchEx, replaceEx).Visit(expression) ?? expression;
 }
 
 /// <summary>
@@ -608,8 +597,6 @@ internal sealed class ReplaceVisitor(System.Linq.Expressions.Expression from, Sy
     /// </summary>
     /// <param name="node"></param>
     /// <returns></returns>
-    public override System.Linq.Expressions.Expression? Visit(System.Linq.Expressions.Expression? node)
-    {
-        return node == from ? to : base.Visit(node);
-    }
+    public override System.Linq.Expressions.Expression? Visit(System.Linq.Expressions.Expression? node) =>
+        node == from ? to : base.Visit(node);
 }

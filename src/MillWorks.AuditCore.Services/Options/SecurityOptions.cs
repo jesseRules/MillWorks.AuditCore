@@ -138,6 +138,23 @@ public sealed class SecurityOptions
     /// Only applies under TransactionalOutbox sink mode.
     /// </summary>
     public TimeSpan OutboxDrainerCircuitBreakerSleep { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Duration of the lease acquired when a drainer claims outbox rows for processing.
+    /// If the drainer crashes or takes longer than this duration, another drainer may
+    /// reclaim the rows. Default 60s. Should be longer than expected processing time
+    /// for a single batch.
+    /// Only applies under TransactionalOutbox sink mode.
+    /// </summary>
+    public TimeSpan OutboxDrainerLeaseDuration { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Interval between lease recovery sweeps. The drainer periodically scans for
+    /// InFlight rows with expired leases (crashed drainer) and resets them to Pending
+    /// for reprocessing. Default 5 minutes.
+    /// Only applies under TransactionalOutbox sink mode.
+    /// </summary>
+    public TimeSpan OutboxDrainerLeaseRecoveryInterval { get; set; } = TimeSpan.FromMinutes(5);
 }
 
 /// <summary>
@@ -226,6 +243,20 @@ internal sealed class SecurityOptionsValidator : IValidateOptions<SecurityOption
             {
                 failures.Add(
                     $"{nameof(SecurityOptions.OutboxDrainerCircuitBreakerSleep)} must be > 0 when " +
+                    $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
+            }
+
+            if (options.OutboxDrainerLeaseDuration <= TimeSpan.Zero)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.OutboxDrainerLeaseDuration)} must be > 0 when " +
+                    $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
+            }
+
+            if (options.OutboxDrainerLeaseRecoveryInterval <= TimeSpan.Zero)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.OutboxDrainerLeaseRecoveryInterval)} must be > 0 when " +
                     $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
             }
         }

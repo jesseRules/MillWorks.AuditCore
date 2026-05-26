@@ -9,7 +9,10 @@ namespace MillWorks.AuditCore.Services;
 /// </summary>
 internal static class ExceptionDiagnosticHelper
 {
-    private const int MaxMessageLength = 256;
+    /// <summary>
+    /// Maximum length for sanitized exception messages.
+    /// </summary>
+    private const int _maxMessageLength = 256;
 
     /// <summary>
     /// Returns the exception type name (e.g. "DbUpdateException").
@@ -26,7 +29,7 @@ internal static class ExceptionDiagnosticHelper
         var message = exception?.Message;
         if (string.IsNullOrEmpty(message)) return message;
 
-        return SensitiveContentSanitizer.Sanitize(message, MaxMessageLength);
+        return SensitiveContentSanitizer.Sanitize(message, _maxMessageLength);
     }
 
     /// <summary>

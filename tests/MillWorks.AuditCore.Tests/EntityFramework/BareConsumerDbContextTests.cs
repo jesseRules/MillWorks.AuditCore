@@ -1,16 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
-using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.EntityFramework;
@@ -42,7 +41,8 @@ public class BareConsumerDbContextTests
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
@@ -181,6 +181,12 @@ public class BareConsumerDbContextTests
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
         {
             Envelopes.Add(envelope);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+        {
+            Envelopes.AddRange(envelopes);
             return Task.CompletedTask;
         }
     }

@@ -15,7 +15,6 @@ using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Redis;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
@@ -634,7 +633,7 @@ public class MillWorksAuditBuilderTests
     {
         _builder.UseArchival(static archival =>
         {
-            archival.Provider = ArchivalProvider.AWSs3;
+            archival.Provider = ArchivalProvider.AwSs3;
         });
 
         // AWS S3 not-implemented is reported by ArchivalOptionsValidator at options access,

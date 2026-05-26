@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Constants;
@@ -214,6 +213,59 @@ public sealed class InterceptorSinkRoutingTests
     }
 
     [Test]
+    public async Task MultipleEntities_UsesSingleBatchCall()
+    {
+        // Add multiple entities in one save
+        _dbContext.Entities.Add(new RoutingEntity { Name = "Entity1" });
+        _dbContext.Entities.Add(new RoutingEntity { Name = "Entity2" });
+        _dbContext.Entities.Add(new RoutingEntity { Name = "Entity3" });
+
+        await _dbContext.SaveChangesAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_sink.PublishBatchAsyncCallCount, Is.EqualTo(1),
+                "Interceptor should call PublishBatchAsync exactly once per SaveChanges");
+            Assert.That(_sink.PublishAsyncCallCount, Is.Zero,
+                "Interceptor should not call PublishAsync when batching");
+            Assert.That(_sink.Envelopes, Has.Count.EqualTo(3),
+                "All three entities should produce envelopes");
+        });
+    }
+
+    [Test]
+    public async Task MultipleEntities_MixedOperations_UsesSingleBatchCall()
+    {
+        // Setup: create entity to modify and delete
+        var toModify = new RoutingEntity { Name = "ToModify" };
+        var toDelete = new RoutingEntity { Name = "ToDelete" };
+        _dbContext.Entities.AddRange(toModify, toDelete);
+        await _dbContext.SaveChangesAsync();
+        _sink.Envelopes.Clear();
+        _sink.PublishAsyncCallCount = 0;
+        _sink.PublishBatchAsyncCallCount = 0;
+
+        // Perform mixed operations: add, modify, delete
+        _dbContext.Entities.Add(new RoutingEntity { Name = "NewEntity" });
+        toModify.Name = "Modified";
+        _dbContext.Entities.Remove(toDelete);
+
+        await _dbContext.SaveChangesAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_sink.PublishBatchAsyncCallCount, Is.EqualTo(1),
+                "Mixed operations should still use single batch call");
+            Assert.That(_sink.PublishAsyncCallCount, Is.Zero);
+            Assert.That(_sink.Envelopes, Has.Count.EqualTo(3),
+                "Add, modify, and delete should each produce an envelope");
+            Assert.That(_sink.Envelopes.Count(e => e.Action == AuditAction.Created), Is.EqualTo(1));
+            Assert.That(_sink.Envelopes.Count(e => e.Action == AuditAction.Updated), Is.EqualTo(1));
+            Assert.That(_sink.Envelopes.Count(e => e.Action == AuditAction.Deleted), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public Task SinkThrows_FailClosedRegulatedEntity_RethrowsAsAuditIntegrityException()
     {
         // Replace the recording sink with a throwing sink, fresh DI graph,
@@ -299,10 +351,20 @@ public sealed class InterceptorSinkRoutingTests
     private sealed class RecordingSink : IAuditSink
     {
         public List<AuditEnvelope> Envelopes { get; } = [];
+        public int PublishAsyncCallCount { get; set; }
+        public int PublishBatchAsyncCallCount { get; set; }
 
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
         {
+            PublishAsyncCallCount++;
             Envelopes.Add(envelope);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+        {
+            PublishBatchAsyncCallCount++;
+            Envelopes.AddRange(envelopes);
             return Task.CompletedTask;
         }
     }
@@ -310,6 +372,11 @@ public sealed class InterceptorSinkRoutingTests
     private sealed class ThrowingSink(Exception toThrow) : IAuditSink
     {
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+        {
+            throw toThrow;
+        }
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
         {
             throw toThrow;
         }

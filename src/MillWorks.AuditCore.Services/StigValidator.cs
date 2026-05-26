@@ -330,7 +330,8 @@ public sealed class StigValidator : IComplianceValidator
             FailedCount = hasMinimumAuditableEvents ? 0 : 1,
             Recommendations = hasMinimumAuditableEvents
                 ? auditableEventCategories < 5
-                    ? BuildMissingCategoryRecommendations(auditableEventCategories, logoffEvents, privilegeEvents, policyChangeEvents)
+                    ? BuildMissingCategoryRecommendations(auditableEventCategories, logoffEvents, privilegeEvents,
+                        policyChangeEvents)
                     : []
                 :
                 [
@@ -520,7 +521,9 @@ public sealed class StigValidator : IComplianceValidator
                 : eventsWithIpAddress > 0
                     ? $"IP address tracking active ({eventsWithIpAddress}/{events.Count} events) - consider explicit remote access event logging"
                     : "FINDING: Remote access must be monitored and controlled",
-            Severity = remoteAccessEvents.Any() || eventsWithIpAddress > 0 ? ValidationSeverity.Info : ValidationSeverity.High,
+            Severity = remoteAccessEvents.Any() || eventsWithIpAddress > 0
+                ? ValidationSeverity.Info
+                : ValidationSeverity.High,
             ComplianceStandard = "DISA STIG",
             Category = "Access Control",
             RegulationReference = "NIST 800-53 AC-17 / V-222553",
@@ -750,7 +753,8 @@ public sealed class StigValidator : IComplianceValidator
         recommendations.Add("📚 DISA STIG Resources:");
         recommendations.Add("  • DISA STIG Library: https://public.cyber.mil/stigs/");
         recommendations.Add("  • STIG Viewer: https://public.cyber.mil/stigs/srg-stig-tools/");
-        recommendations.Add("  • Application Security STIG: search 'Application Security and Development' on DISA site");
+        recommendations.Add(
+            "  • Application Security STIG: search 'Application Security and Development' on DISA site");
         recommendations.Add("  • NIST 800-53 Controls: https://csf.tools/reference/nist-sp-800-53/");
         recommendations.Add("");
 

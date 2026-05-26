@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -9,7 +8,6 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
-using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.TamperDetection;

@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using FluentAssertions;
 using MillWorks.AuditCore.Abstractions.Canonicalization;
 

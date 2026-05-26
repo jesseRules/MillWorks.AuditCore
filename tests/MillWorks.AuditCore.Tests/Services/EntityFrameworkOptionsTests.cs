@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.EntityFramework.Options;
 
 namespace MillWorks.AuditCore.Tests.Services;

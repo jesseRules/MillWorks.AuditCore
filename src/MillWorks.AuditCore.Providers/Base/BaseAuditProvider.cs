@@ -71,6 +71,7 @@ public abstract class BaseAuditProvider : IAuditProvider
             auditEvent.UserAgent = _httpContextAccessor.HttpContext.Request.Headers["User-Agent"].ToString();
             auditEvent.RequestId = _httpContextAccessor.HttpContext.TraceIdentifier;
         }
+
         // Add changes if available
         if (oldValues != null)
         {
@@ -139,7 +140,7 @@ public abstract class BaseAuditProvider : IAuditProvider
                     oldValue = property.GetValue(oldValues);
                 }
 
-                object? newValue = property.GetValue(newValues);
+                var newValue = property.GetValue(newValues);
 
                 if (!Equals(oldValue, newValue))
                 {
@@ -176,8 +177,6 @@ public abstract class BaseAuditProvider : IAuditProvider
     /// <param name="property"></param>
     /// <typeparam name="TAttribute"></typeparam>
     /// <returns></returns>
-    protected bool HasAttribute<TAttribute>(PropertyInfo property) where TAttribute : Attribute
-    {
-        return property.GetCustomAttribute<TAttribute>() != null;
-    }
+    protected bool HasAttribute<TAttribute>(PropertyInfo property) where TAttribute : Attribute =>
+        property.GetCustomAttribute<TAttribute>() != null;
 }

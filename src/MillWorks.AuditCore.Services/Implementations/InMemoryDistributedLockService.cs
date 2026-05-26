@@ -16,10 +16,28 @@ namespace MillWorks.AuditCore.Services.DistributedLocking.Implementations;
 /// holder disposes the handle. This avoids the lease-race that allowed two writers into the
 /// integrity-chain critical section under long-running batch writes (Phase 6.5 finding).
 /// </para>
+/// <para>
+/// <b>Multi-node safety:</b> This implementation is process-local only. In a multi-node deployment,
+/// each instance maintains its own independent lock store, so a lock acquired on one instance does
+/// NOT prevent another instance from acquiring the same lock. Use <c>RedisDistributedLockService</c>
+/// for true distributed locking across multiple nodes.
+/// </para>
 /// </summary>
-public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockService> logger)
-    : IAuditDistributedLockService
+public class InMemoryDistributedLockService : IAuditDistributedLockService
 {
+    private readonly ILogger<InMemoryDistributedLockService> _logger;
+
+    public InMemoryDistributedLockService(ILogger<InMemoryDistributedLockService> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // Log a one-time warning at construction to alert operators
+        _logger.LogWarning(
+            "InMemoryDistributedLockService is active. This lock implementation is PROCESS-LOCAL ONLY " +
+            "and does NOT provide distributed mutual exclusion across multiple application instances. " +
+            "For multi-node deployments, configure UseRedisLocking=true to use RedisDistributedLockService.");
+    }
+
     /// <summary>
     /// Process-wide lock store. Static so the in-memory lock serializes across all
     /// instances of this service within one process, regardless of how the service is
@@ -27,12 +45,6 @@ public class InMemoryDistributedLockService(ILogger<InMemoryDistributedLockServi
     /// integrity-chain critical section in <c>TamperDetectionService</c>.
     /// </summary>
     private static readonly ConcurrentDictionary<string, LockInfo> _locks = new();
-
-    /// <summary>
-    /// Logger instance
-    /// </summary>
-    private readonly ILogger<InMemoryDistributedLockService> _logger =
-        logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>
     /// Acquires a distributed lock for the specified resource.

@@ -13,32 +13,32 @@ namespace MillWorks.AuditCore.EntityFramework.Interceptors;
 /// </summary>
 public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
 {
-    private static readonly Meter Meter = new("MillWorks.AuditCore.Sql", "1.0.0");
+    private static readonly Meter _meter = new("MillWorks.AuditCore.Sql", "1.0.0");
 
-    private static readonly Histogram<double> CommandDuration = Meter.CreateHistogram<double>(
+    private static readonly Histogram<double> _commandDuration = _meter.CreateHistogram<double>(
         "sql_command_duration_seconds",
         "seconds",
         "SQL command execution duration");
 
-    private static readonly Counter<long> SqlErrors = Meter.CreateCounter<long>(
+    private static readonly Counter<long> _sqlErrors = _meter.CreateCounter<long>(
         "sql_errors_total",
         "errors",
         "SQL errors by category");
 
-    private static readonly Counter<long> SqlRetries = Meter.CreateCounter<long>(
+    private static readonly Counter<long> _sqlRetries = _meter.CreateCounter<long>(
         "sql_retries_total",
         "retries",
         "SQL command retry attempts");
 
-    private static readonly Counter<long> SlowCommands = Meter.CreateCounter<long>(
+    private static readonly Counter<long> _slowCommands = _meter.CreateCounter<long>(
         "sql_slow_commands_total",
         "commands",
         "SQL commands exceeding 1 second threshold");
 
-    private static readonly TimeSpan SlowThreshold = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan _slowThreshold = TimeSpan.FromSeconds(1);
 
     // Azure SQL throttling error codes
-    private static readonly HashSet<int> ThrottlingCodes =
+    private static readonly HashSet<int> _throttlingCodes =
     [
         10928, // Resource ID: %d. The %s limit for the database is %d and has been reached.
         10929, // Resource ID: %d. The %s minimum guarantee is %d, maximum limit is %d.
@@ -51,36 +51,44 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
         40553, // The session has been terminated because of excessive memory usage.
         49918, // Cannot process request. Not enough resources to process request.
         49919, // Cannot process create or update request. Too many create or update operations in progress.
-        49920  // Cannot process request. Too many operations in progress.
+        49920 // Cannot process request. Too many operations in progress.
     ];
 
     // Connection pool / connection errors
-    private static readonly HashSet<int> ConnectionPoolCodes =
+    private static readonly HashSet<int> _connectionPoolCodes =
     [
-        -2,    // Timeout expired (connection pool exhaustion often manifests as timeout)
-        233,   // Connection initialization error
+        -2, // Timeout expired (connection pool exhaustion often manifests as timeout)
+        233, // Connection initialization error
         10053, // Connection forcibly closed
         10054, // Connection reset by peer
         10060, // Connection timed out
         40143, // Connection could not be initialized
         40197, // The service has encountered an error processing your request
-        40613  // Database is currently unavailable
+        40613 // Database is currently unavailable
     ];
 
     // Deadlock
-    private const int DeadlockCode = 1205;
+    /// <summary>
+    /// SQL error code for deadlock victim. This is a well-known code that indicates the command was chosen as a victim in a deadlock situation and was rolled back by SQL Server.
+    /// Retrying may succeed if the deadlock was transient.
+    /// </summary>
+    private const int _deadlockCode = 1205;
 
     // Transient errors that typically succeed on retry
-    private static readonly HashSet<int> TransientCodes =
+    /// <summary>
+    /// List of SQL error codes considered transient for retry logic. This is not exhaustive but includes common transient errors that may succeed on retry,
+    /// such as network issues, timeouts, and failover-related errors.
+    /// </summary>
+    private static readonly HashSet<int> _transientCodes =
     [
-        -1,    // General network error
-        2,     // Timeout
-        53,    // Network path not found
-        121,   // Semaphore timeout
-        1232,  // Network error
-        4060,  // Cannot open database (may be transient during failover)
-        4221,  // Login to read-secondary failed
-        18456  // Login failed (may be transient during AAD token refresh)
+        -1, // General network error
+        2, // Timeout
+        53, // Network path not found
+        121, // Semaphore timeout
+        1232, // Network error
+        4060, // Cannot open database (may be transient during failover)
+        4221, // Login to read-secondary failed
+        18456 // Login failed (may be transient during AAD token refresh)
     ];
 
     public override DbDataReader ReaderExecuted(
@@ -157,6 +165,11 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
         return base.CommandFailedAsync(command, eventData, cancellationToken);
     }
 
+    /// <summary>
+    /// Records a successful command execution, including duration and slow command detection.
+    /// </summary>
+    /// <param name="eventData"></param>
+    /// <param name="operation"></param>
     private static void RecordSuccess(CommandExecutedEventData eventData, string operation)
     {
         var duration = eventData.Duration.TotalSeconds;
@@ -166,35 +179,38 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
             { "outcome", "success" }
         };
 
-        CommandDuration.Record(duration, tags);
+        _commandDuration.Record(duration, tags);
 
-        if (eventData.Duration > SlowThreshold)
+        if (eventData.Duration > _slowThreshold)
         {
-            SlowCommands.Add(1, new TagList { { "operation", operation } });
+            _slowCommands.Add(1, new TagList { { "operation", operation } });
         }
     }
 
+    /// <summary>
+    /// Records a failed command execution, classifying the error for metrics tagging. Call this from CommandFailed handlers.
+    /// </summary>
+    /// <param name="eventData"></param>
+    /// <param name="operation"></param>
     private static void RecordFailure(CommandErrorEventData eventData, string operation)
     {
         var duration = eventData.Duration.TotalSeconds;
         var category = ClassifyError(eventData.Exception);
 
-        CommandDuration.Record(duration, new TagList
+        _commandDuration.Record(duration, new TagList
         {
             { "operation", operation },
             { "outcome", "failure" }
         });
 
-        SqlErrors.Add(1, new TagList { { "category", category } });
+        _sqlErrors.Add(1, new TagList { { "category", category } });
     }
 
     /// <summary>
     /// Records a retry attempt. Call this from retry logic (e.g., Polly handler).
     /// </summary>
-    public static void RecordRetry(string? operation = null)
-    {
-        SqlRetries.Add(1, new TagList { { "operation", operation ?? "unknown" } });
-    }
+    public static void RecordRetry(string? operation = null) =>
+        _sqlRetries.Add(1, new TagList { { "operation", operation ?? "unknown" } });
 
     /// <summary>
     /// Classifies a SQL exception into a category for metrics tagging.
@@ -205,16 +221,16 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
         {
             foreach (SqlError error in sqlEx.Errors)
             {
-                if (error.Number == DeadlockCode)
+                if (error.Number == _deadlockCode)
                     return "deadlock";
 
-                if (ThrottlingCodes.Contains(error.Number))
+                if (_throttlingCodes.Contains(error.Number))
                     return "throttling";
 
-                if (ConnectionPoolCodes.Contains(error.Number))
+                if (_connectionPoolCodes.Contains(error.Number))
                     return "connection_pool";
 
-                if (TransientCodes.Contains(error.Number))
+                if (_transientCodes.Contains(error.Number))
                     return "transient";
             }
         }

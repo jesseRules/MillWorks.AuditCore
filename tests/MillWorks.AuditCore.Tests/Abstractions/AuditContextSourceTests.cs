@@ -1,9 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -174,6 +172,12 @@ public sealed class AuditContextSourceTests
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
         {
             Envelopes.Add(envelope);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+        {
+            Envelopes.AddRange(envelopes);
             return Task.CompletedTask;
         }
     }

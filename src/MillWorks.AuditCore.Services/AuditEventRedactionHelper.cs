@@ -25,13 +25,11 @@ internal static class AuditEventRedactionHelper
             Target = redactor.RedactTarget(original.Target),
             CustomFields = redactor.RedactFields(original.CustomFields),
             Success = original.Success,
-            ErrorMessage = original.ErrorMessage,
-            SystemFields = original.SystemFields is not null
-                ? redactor.RedactFields(new Dictionary<string, object?>(original.SystemFields))
-                : null!,
-            CorrelationId = original.CorrelationId,
+            ErrorMessage = redactor.RedactValue("ErrorMessage", original.ErrorMessage),
+            SystemFields = original.SystemFields is null ? null! : redactor.RedactFields(new Dictionary<string, object?>(original.SystemFields)),
+            CorrelationId = redactor.RedactValue("CorrelationId", original.CorrelationId),
             ParentId = original.ParentId,
-            SessionId = original.SessionId,
+            SessionId = redactor.RedactValue("SessionId", original.SessionId),
             IpAddress = redactor.RedactValue("IpAddress", original.IpAddress),
             UserAgent = redactor.RedactValue("UserAgent", original.UserAgent),
             RequestId = original.RequestId,

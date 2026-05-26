@@ -24,7 +24,10 @@ internal sealed class HashingReadStream(
         set => throw new NotSupportedException();
     }
 
-    public override void Flush() { }
+    public override void Flush()
+    {
+    }
+
     public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();

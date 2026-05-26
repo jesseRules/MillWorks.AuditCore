@@ -42,6 +42,13 @@ public sealed class ArchivalOptions
     /// Container/bucket name for cloud storage
     /// </summary>
     public string ContainerName { get; set; } = "audit-archives";
+
+    /// <summary>
+    /// Startup delay in seconds before the first archival cycle runs.
+    /// Allows the application to fully initialize before background work begins.
+    /// Default: 120 (2 minutes).
+    /// </summary>
+    public int StartupDelaySeconds { get; set; } = 120;
 }
 
 /// <summary>
@@ -62,7 +69,7 @@ internal sealed class ArchivalOptionsValidator : IValidateOptions<ArchivalOption
                 $"{nameof(ArchivalOptions.Provider)} is {nameof(ArchivalProvider.AzureBlob)}.");
         }
 
-        if (options.Provider == ArchivalProvider.AWSs3)
+        if (options.Provider == ArchivalProvider.AwSs3)
         {
             failures.Add("AWS S3 archival provider is not yet implemented.");
         }

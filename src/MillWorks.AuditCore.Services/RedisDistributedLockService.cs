@@ -50,7 +50,7 @@ public sealed class RedisDistributedLockService(
     /// <summary>
     /// Lock key prefix
     /// </summary>
-    private const string LockPrefix = "lock:";
+    private const string _lockPrefix = "lock:";
 
     /// <summary>
     /// Acquires a distributed lock for the specified resource with a given expiry time
@@ -67,7 +67,7 @@ public sealed class RedisDistributedLockService(
             throw new ArgumentException("Expiry must be greater than zero", nameof(expiry));
         }
 
-        var lockKey = $"{LockPrefix}{resource}";
+        var lockKey = $"{_lockPrefix}{resource}";
         var lockValue = Guid.NewGuid().ToString();
         var db = _redis.GetDatabase();
 
@@ -86,7 +86,7 @@ public sealed class RedisDistributedLockService(
             if (acquired)
             {
                 // Successfully acquired the lock, break out of loop
-                break; 
+                break;
             }
 
             retryCount++;

@@ -542,7 +542,7 @@ Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/de
 
 ## Observability
 
-AuditCore emits OpenTelemetry-compatible metrics for SQL operations and audit pipeline health. These metrics are exposed via `System.Diagnostics.Metrics` and can be consumed by any OpenTelemetry-compatible collector.
+AuditCore emits OpenTelemetry-compatible **metrics** for SQL operations and audit pipeline health, plus **distributed tracing spans** for audit writes, queries, archival, and integrity operations. Both are exposed via `System.Diagnostics` and can be consumed by any OpenTelemetry-compatible collector (Jaeger, Grafana, Prometheus, etc.).
 
 ### Meters
 
@@ -572,20 +572,45 @@ The `AuditSqlCommandInterceptor` (registered automatically when using `UseEntity
 | `transient` | -1, 2, 53, 121, 1232, 4060, 4221, 18456 | Transient network/auth errors |
 | `other` | * | Unclassified errors |
 
-### Subscribing to Metrics
+### Distributed Tracing
+
+AuditCore emits distributed tracing spans via `System.Diagnostics.ActivitySource`. Spans appear in Jaeger, Zipkin, or any OpenTelemetry-compatible backend, enabling end-to-end request tracing through audit operations.
+
+**ActivitySource:** `MillWorks.AuditCore`
+
+| Operation | Description |
+|-----------|-------------|
+| `audit.write` | Single audit event write (with retry/DLQ events) |
+| `audit.write_batch` | Batch audit event write |
+| `audit.query` | Audit query execution (entity trail, user activity, paginated) |
+| `audit.archive` | Archive creation to blob storage |
+| `audit.restore` | Archive restoration |
+| `outbox.write` | Outbox row insertion (transactional outbox mode) |
+| `outbox.drain` | Outbox batch drain cycle |
+| `integrity.write` | Integrity record enqueue |
+| `integrity.flush` | Integrity batch flush |
+
+Spans include contextual tags (`audit.event.id`, `audit.event.type`, `batch.size`, `outcome`, etc.) and events for retries, DLQ routing, and integrity failures.
+
+### Subscribing to Metrics and Tracing
 
 **OpenTelemetry SDK (recommended):**
 
 ```csharp
+using MillWorks.AuditCore.Abstractions.Diagnostics;
+
 builder.Services.AddOpenTelemetry()
     .WithMetrics(metrics =>
     {
         metrics.AddMeter("MillWorks.AuditCore.Sql");
         metrics.AddMeter("MillWorks.AuditCore.OutboxDrainer");
-        
-        // Add exporters
-        metrics.AddOtlpExporter();           // For Jaeger, Grafana, etc.
-        // metrics.AddConsoleExporter();     // For local dev
+        metrics.AddOtlpExporter();
+    })
+    .WithTracing(tracing =>
+    {
+        tracing.AddAuditCoreInstrumentation();  // Registers MillWorks.AuditCore ActivitySource
+        tracing.AddAspNetCoreInstrumentation();
+        tracing.AddOtlpExporter();
     });
 ```
 

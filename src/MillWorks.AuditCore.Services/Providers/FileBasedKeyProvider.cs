@@ -40,12 +40,12 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     /// <summary>
     /// Current version file name
     /// </summary>
-    private const string CurrentVersionFile = "current-version.txt";
+    private const string _currentVersionFile = "current-version.txt";
 
     /// <summary>
     /// Key file name pattern
     /// </summary>
-    private const string KeyFilePattern = "key-{0}.encrypted";
+    private const string _keyFilePattern = "key-{0}.encrypted";
 
     /// <summary>
     /// File-based key provider constructor
@@ -94,7 +94,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
         {
             var keyFilePath = Path.Combine(
                 _keyStorePath,
-                string.Format(KeyFilePattern, keyVersion));
+                string.Format(_keyFilePattern, keyVersion));
 
             if (!File.Exists(keyFilePath))
             {
@@ -118,7 +118,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     {
         try
         {
-            var versionFilePath = Path.Combine(_keyStorePath, CurrentVersionFile);
+            var versionFilePath = Path.Combine(_keyStorePath, _currentVersionFile);
 
             if (!File.Exists(versionFilePath))
             {
@@ -169,7 +169,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
         {
             var keyFilePath = Path.Combine(
                 _keyStorePath,
-                string.Format(KeyFilePattern, keyVersion));
+                string.Format(_keyFilePattern, keyVersion));
 
             if (!File.Exists(keyFilePath))
             {
@@ -193,7 +193,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     {
         try
         {
-            var versionFilePath = Path.Combine(_keyStorePath, CurrentVersionFile);
+            var versionFilePath = Path.Combine(_keyStorePath, _currentVersionFile);
 
             if (!File.Exists(versionFilePath))
             {
@@ -240,12 +240,12 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
             var encryptedKey = EncryptKeyFile(newKey);
             var keyFilePath = Path.Combine(
                 _keyStorePath,
-                string.Format(KeyFilePattern, newVersion));
+                string.Format(_keyFilePattern, newVersion));
 
             await File.WriteAllBytesAsync(keyFilePath, encryptedKey, cancellationToken);
 
             // Update current version pointer
-            var versionFilePath = Path.Combine(_keyStorePath, CurrentVersionFile);
+            var versionFilePath = Path.Combine(_keyStorePath, _currentVersionFile);
             await File.WriteAllTextAsync(versionFilePath, newVersion, cancellationToken);
 
             // Clear cache to force reload
@@ -301,11 +301,11 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
         var encryptedKey = EncryptKeyFile(newKey);
         var keyFilePath = Path.Combine(
             _keyStorePath,
-            string.Format(KeyFilePattern, newVersion));
+            string.Format(_keyFilePattern, newVersion));
 
         File.WriteAllBytes(keyFilePath, encryptedKey);
 
-        var versionFilePath = Path.Combine(_keyStorePath, CurrentVersionFile);
+        var versionFilePath = Path.Combine(_keyStorePath, _currentVersionFile);
         File.WriteAllText(versionFilePath, newVersion);
 
         _keyCache.Clear();
@@ -369,7 +369,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
     /// Fixed application-specific salt to avoid the degenerate all-zero HKDF salt case.
     /// Deterministic across all instances — maintains the deterministic derivation property.
     /// </summary>
-    private static readonly byte[] ApplicationSalt =
+    private static readonly byte[] _applicationSalt =
         SHA256.HashData("MillWorks.AuditCore.FieldKeyDerivation"u8);
 
     /// <summary>
@@ -380,7 +380,7 @@ public sealed class FileBasedKeyProvider : IEncryptionKeyProvider
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}");
         var derivedKey = new byte[32]; // 256 bits
 
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, _applicationSalt, info);
 
         return derivedKey;
     }

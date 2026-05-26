@@ -42,6 +42,11 @@ public static class ServiceCollectionExtensions
             // Aggregate diagnostic counters — singleton, thread-safe, queryable from health checks
             services.TryAddSingleton<IAuditDiagnostics, AuditDiagnostics>();
 
+            // Redaction options — allows consumers to add CorrelationId/SessionId to safe fields
+            // if their system guarantees these fields never contain PII.
+            services.AddOptions<RedactionOptions>()
+                .BindConfiguration("Audit:Redaction");
+
             // Safe-by-default redactor — masks all non-structural fields. Consumers can
             // register their own IAuditFieldRedactor before calling AddMillWorksAudit()
             // and TryAdd will not overwrite it. Use PassThroughAuditFieldRedactor only

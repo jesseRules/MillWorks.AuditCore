@@ -26,6 +26,9 @@ public sealed class AuditSecurityEventService(
     IConfiguration configuration)
     : IAuditSecurityEventService
 {
+    private const int MaxMessageLength = 500;
+    private const int MaxDetailsJsonLength = 4000;
+
     /// <summary>
     /// Records a new security event.
     /// </summary>
@@ -44,10 +47,38 @@ public sealed class AuditSecurityEventService(
         entity.IpAddress = auditContext.IpAddress;
         entity.Status = SecurityEventStatus.Open;
 
-        // Serialize details
+        // Enforce entity size limits to prevent persistence failures
+        if (entity.Message.Length > MaxMessageLength)
+        {
+            logger.LogWarning(
+                "Security event message truncated from {Original} to {Max} chars for event type {EventType}",
+                entity.Message.Length, MaxMessageLength, entity.EventType);
+            entity.Message = entity.Message[..MaxMessageLength];
+        }
+
+        // Serialize details with size guard - must produce valid JSON
         if (securityEvent.Details.Any())
         {
-            entity.DetailsJson = JsonSerializer.Serialize(securityEvent.Details);
+            var serialized = JsonSerializer.Serialize(securityEvent.Details);
+            if (serialized.Length > MaxDetailsJsonLength)
+            {
+                logger.LogWarning(
+                    "Security event details exceeded {Max} chars ({Actual}), storing summary for event type {EventType}",
+                    MaxDetailsJsonLength, serialized.Length, entity.EventType);
+
+                // Store a valid JSON summary instead of truncated invalid JSON
+                entity.DetailsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["_truncated"] = true,
+                    ["_originalLength"] = serialized.Length,
+                    ["_keyCount"] = securityEvent.Details.Count,
+                    ["_keys"] = securityEvent.Details.Keys.Take(20).ToList()
+                });
+            }
+            else
+            {
+                entity.DetailsJson = serialized;
+            }
         }
 
         // IMPORTANT: Save directly without triggering audit interceptor
@@ -69,6 +100,7 @@ public sealed class AuditSecurityEventService(
 
     /// <summary>
     /// Gets critical security events detected within the specified number of hours.
+    /// Uses server-side filtering for efficiency on busy systems.
     /// </summary>
     /// <param name="hours"></param>
     /// <param name="cancellationToken"></param>
@@ -78,11 +110,10 @@ public sealed class AuditSecurityEventService(
         CancellationToken cancellationToken = default)
     {
         var since = DateTimeOffset.UtcNow.AddHours(-hours);
-        var events = await securityEventRepository.GetByDateRangeAsync(
-            since, DateTimeOffset.UtcNow, cancellationToken);
+        var events = await securityEventRepository.GetBySeverityAndDateRangeAsync(
+            SecurityEventSeverity.Critical, since, DateTimeOffset.UtcNow, cancellationToken);
 
-        return mapper.Map<IEnumerable<SecurityEventDto>>(
-            events.Where(static e => e.Severity == SecurityEventSeverity.Critical));
+        return mapper.Map<IEnumerable<SecurityEventDto>>(events);
     }
 
     /// <summary>

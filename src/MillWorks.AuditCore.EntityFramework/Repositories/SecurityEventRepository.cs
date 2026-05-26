@@ -97,4 +97,26 @@ public sealed class SecurityEventRepository(AuditDbContext context)
             .Include(static e => e.RelatedAuditEvent)
             .FirstOrDefaultAsync(e => e.RelatedAuditEventId == auditEventId, cancellationToken);
     }
+
+    /// <summary>
+    /// Gets security events by severity within a date range (server-side filtering).
+    /// </summary>
+    /// <param name="severity"></param>
+    /// <param name="startDate"></param>
+    /// <param name="endDate"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<IEnumerable<AuditSecurityEventEntity>> GetBySeverityAndDateRangeAsync(
+        SecurityEventSeverity severity,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .Where(e => e.Severity == severity &&
+                        e.DetectedAt >= startDate &&
+                        e.DetectedAt <= endDate)
+            .OrderByDescending(static e => e.DetectedAt)
+            .ToListAsync(cancellationToken);
+    }
 }

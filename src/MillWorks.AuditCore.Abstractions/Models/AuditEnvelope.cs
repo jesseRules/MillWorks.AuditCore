@@ -28,6 +28,13 @@ namespace MillWorks.AuditCore.Abstractions.Models;
 public sealed record AuditEnvelope
 {
     /// <summary>
+    /// Stable identity for result correlation. This is NOT the same thing as an
+    /// explicit event's AuditEvent.EventId and must exist for EntityChange envelopes too.
+    /// Producers must preserve EnvelopeId across retries and outbox serialization.
+    /// </summary>
+    public Guid EnvelopeId { get; init; } = Guid.NewGuid();
+
+    /// <summary>
     /// Discriminator identifying the producer path and which optional fields are populated.
     /// </summary>
     public required AuditEnvelopeKind Kind { get; init; }
@@ -96,4 +103,12 @@ public sealed record AuditEnvelope
     /// Optional human-readable description.
     /// </summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// For <see cref="AuditEnvelopeKind.ExplicitEvent"/> envelopes, the original
+    /// <c>AuditEvent.EventId</c> from the caller. Used as the outbox idempotency key
+    /// to prevent duplicate logical events from producing duplicate outbox rows.
+    /// Null for <see cref="AuditEnvelopeKind.EntityChange"/> envelopes.
+    /// </summary>
+    public Guid? ExplicitEventId { get; init; }
 }

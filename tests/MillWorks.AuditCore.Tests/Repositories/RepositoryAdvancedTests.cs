@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;

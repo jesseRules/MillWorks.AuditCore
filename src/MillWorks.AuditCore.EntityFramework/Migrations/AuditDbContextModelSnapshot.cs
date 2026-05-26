@@ -664,9 +664,22 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 
+                    b.Property<Guid>("IdempotencyKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("LastError")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LeaseOwner")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset?>("NextRetryAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
@@ -678,8 +691,12 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("IX_AuditOutbox_CreatedAt");
 
-                    b.HasIndex("Status")
-                        .HasDatabaseName("IX_AuditOutbox_Status");
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AuditOutbox_IdempotencyKey");
+
+                    b.HasIndex("Status", "NextRetryAt", "LeaseExpiresAt", "CreatedAt")
+                        .HasDatabaseName("IX_AuditOutbox_Claimable");
 
                     b.ToTable("AuditOutbox", "audit");
                 });

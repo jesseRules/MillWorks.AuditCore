@@ -281,11 +281,10 @@ public class FieldEncryptionServiceErrorPathTests
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
         // Act & Assert — Ordinal comparison means whitespace causes mismatch.
-        // The inner FieldEncryptionException (mismatch) is wrapped by the outer catch.
+        // FieldEncryptionException is thrown directly (not wrapped).
         var act = () => _service.DecryptFieldAsync(encrypted, " TestField ");
         var ex = await act.Should().ThrowAsync<FieldEncryptionException>();
-        ex.WithInnerException<FieldEncryptionException>()
-            .WithMessage("*mismatch*");
+        ex.WithMessage("*mismatch*");
     }
 
     [Test]
@@ -294,11 +293,10 @@ public class FieldEncryptionServiceErrorPathTests
         // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Act & Assert — sync path wraps the inner mismatch exception too
+        // Act & Assert — FieldEncryptionException is thrown directly (not wrapped).
         var act = () => _service.DecryptField(encrypted, "WrongField");
         var ex = act.Should().Throw<FieldEncryptionException>();
-        ex.WithInnerException<FieldEncryptionException>()
-            .WithMessage("*mismatch*");
+        ex.WithMessage("*mismatch*");
     }
 
     #endregion

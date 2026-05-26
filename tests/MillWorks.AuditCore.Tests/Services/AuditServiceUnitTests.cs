@@ -240,12 +240,11 @@ public class AuditServiceUnitTests
             .ToList();
 
         _mockAuditEventRepository
-            .Setup(static x => x.GetPagedAsync(
+            .Setup(static x => x.GetByOffsetAsync(
                 It.IsAny<int>(),
                 limit,
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
-                It.IsAny<Expression<Func<AuditEventEntity, object>>[]>()))
+                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
             .ReturnsAsync((entities.AsEnumerable(), totalCount));
 
         _mockMapper
@@ -296,12 +295,11 @@ public class AuditServiceUnitTests
         };
 
         _mockAuditEventRepository
-            .Setup(x => x.GetPagedAsync(
+            .Setup(x => x.GetByOffsetAsync(
                 It.IsAny<int>(),
                 request.Limit,
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
-                It.IsAny<Expression<Func<AuditEventEntity, object>>[]>()))
+                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
             .ReturnsAsync((entities.AsEnumerable(), 1));
 
         _mockMapper
@@ -337,12 +335,11 @@ public class AuditServiceUnitTests
             var endDate = DateTimeOffset.UtcNow.AddDays(-1);
 
             _mockAuditEventRepository
-                .Setup(static x => x.GetPagedAsync(
+                .Setup(static x => x.GetByOffsetAsync(
                     It.IsAny<int>(),
                     It.IsAny<int>(),
                     It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                    It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
-                    It.IsAny<Expression<Func<AuditEventEntity, object>>[]>()))
+                    It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
                 .ReturnsAsync((Enumerable.Empty<AuditEventEntity>(), 0));
 
             _mockMapper
@@ -512,51 +509,4 @@ public class AuditServiceUnitTests
         Assert.That(result, Does.Contain("User.Login"));
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // 13. LogSecurityEventAsync — creates and persists a security event
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// LogSecurityEventAsync constructs an AuditEventEntity with EventType "Security" and
-    /// persists it by calling AddAsync followed by SaveChangesAsync on the audit event repository.
-    /// </summary>
-    [Test]
-    public async Task LogSecurityEventAsync_CreatesSecurityEvent()
-    {
-        // Arrange
-        const string highRiskContent = "SQL injection attempt";
-        const string warning = "Potential SQL injection detected";
-        const string user = "attacker@example.com";
-        var details = new { Field = "Username", Value = "' OR 1=1--" };
-        var additionalInfo = new { IpAddress = "10.0.0.1" };
-
-        AuditEventEntity? capturedEntity = null;
-
-        _mockAuditEventRepository
-            .Setup(static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
-            .Callback<AuditEventEntity, CancellationToken>((e, _) => capturedEntity = e)
-            .ReturnsAsync(static (AuditEventEntity e, CancellationToken _) => e);
-
-        _mockAuditEventRepository
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        await _auditService.LogSecurityEventAsync(
-            highRiskContent, warning, user, details, additionalInfo, CancellationToken.None);
-
-        // Assert — AddAsync was called exactly once with a Security event for the right user
-        _mockAuditEventRepository.Verify(
-            static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-
-        _mockAuditEventRepository.Verify(
-            static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
-
-        Assert.That(capturedEntity, Is.Not.Null);
-        Assert.That(capturedEntity!.EventType, Is.EqualTo("Security"));
-        Assert.That(capturedEntity.User, Is.EqualTo(user));
-        Assert.That(capturedEntity.JsonData, Does.Contain(highRiskContent));
-    }
 }

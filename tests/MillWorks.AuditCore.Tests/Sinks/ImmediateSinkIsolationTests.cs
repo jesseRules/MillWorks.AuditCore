@@ -2,7 +2,6 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Enums;
@@ -14,6 +13,7 @@ using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Diagnostics;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 
 namespace MillWorks.AuditCore.Tests.Sinks;
@@ -148,7 +148,8 @@ public sealed class ImmediateSinkIsolationTests
         services.AddLogging();
         services.AddSingleton(Mock.Of<IAuditLogger>());
         services.AddDbContext<AuditDbContext>(o => o.UseSqlite(_auditConnection));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
         return services.BuildServiceProvider();
@@ -198,6 +199,9 @@ public sealed class ImmediateSinkIsolationTests
     private sealed class ThrowingSink : IAuditSink
     {
         public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("test-induced sink-publish failure");
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("test-induced sink-publish failure");
     }
 }

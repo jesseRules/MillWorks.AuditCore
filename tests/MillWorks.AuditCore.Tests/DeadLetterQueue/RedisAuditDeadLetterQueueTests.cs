@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
-using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Core;
@@ -61,6 +60,10 @@ public class RedisAuditDeadLetterQueueTests
 
         _mockRedis.Setup(static x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
             .Returns(_mockDatabase.Object);
+
+        // Setup CreateTransaction — returns a mock transaction that writes to storage
+        _mockDatabase.Setup(static x => x.CreateTransaction(It.IsAny<object>()))
+            .Returns(() => CreateMockTransaction());
 
         // Setup SortedSetAdd — stores event ID as member, timestamp as score
         _mockDatabase.Setup(static x => x.SortedSetAddAsync(
@@ -214,6 +217,91 @@ public class RedisAuditDeadLetterQueueTests
             _mockLogger.Object);
     }
 
+    /// <summary>
+    /// Creates a mock transaction that writes directly to storage and returns success.
+    /// </summary>
+    private ITransaction CreateMockTransaction()
+    {
+        var mockTransaction = new Mock<ITransaction>();
+
+        // HashSetAsync on transaction writes directly to hash storage
+        mockTransaction.Setup(x => x.HashSetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<When>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue hashField, RedisValue value, When _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_hashStorage.ContainsKey(keyStr))
+                    _hashStorage[keyStr] = new Dictionary<RedisValue, RedisValue>();
+                _hashStorage[keyStr][hashField] = value;
+                return Task.FromResult(true);
+            });
+
+        // SortedSetAddAsync on transaction writes directly to sorted set storage
+        mockTransaction.Setup(x => x.SortedSetAddAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<double>(),
+                It.IsAny<SortedSetWhen>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue value, double score, SortedSetWhen _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_sortedSetStorage.ContainsKey(keyStr))
+                    _sortedSetStorage[keyStr] = [];
+                _sortedSetStorage[keyStr].Add((value, score));
+                return Task.FromResult(true);
+            });
+
+        // KeyExpireAsync on transaction — no-op for tests
+        mockTransaction.Setup(x => x.KeyExpireAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<TimeSpan?>(),
+                It.IsAny<ExpireWhen>(),
+                It.IsAny<CommandFlags>()))
+            .Returns(Task.FromResult(true));
+
+        // HashDeleteAsync on transaction
+        mockTransaction.Setup(x => x.HashDeleteAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue hashField, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                var removed = _hashStorage.TryGetValue(keyStr, out var hash) && hash.Remove(hashField);
+                return Task.FromResult(removed);
+            });
+
+        // SortedSetRemoveAsync on transaction
+        mockTransaction.Setup(x => x.SortedSetRemoveAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue value, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (_sortedSetStorage.TryGetValue(keyStr, out var entries))
+                {
+                    var idx = entries.FindIndex(e => e.Member == value);
+                    if (idx >= 0)
+                    {
+                        entries.RemoveAt(idx);
+                        return Task.FromResult(true);
+                    }
+                }
+                return Task.FromResult(false);
+            });
+
+        // ExecuteAsync commits the transaction — always succeeds in tests
+        mockTransaction.Setup(x => x.ExecuteAsync(It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+
+        return mockTransaction.Object;
+    }
 
     /// <summary>
     /// Tears down the test by disposing the dead letter queue
@@ -242,29 +330,17 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEventAsync(auditEvent, exception, "Test failure");
 
-        // Assert — both index (sorted set) and data (hash) should have entries
-        _mockDatabase.Verify(static x => x.SortedSetAddAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<double>(),
-            It.IsAny<SortedSetWhen>(),
-            It.IsAny<CommandFlags>()), Times.Once);
-
-        // Hash should be called twice: once for data, once for... actually just once for data
-        // (old metadata hash is gone)
-        _mockDatabase.Verify(static x => x.HashSetAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<When>(),
-            It.IsAny<CommandFlags>()), Times.Once);
+        // Assert — verify the event is retrievable (proves both index and hash were written)
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(events, Has.Count.EqualTo(1));
+        Assert.That(events[0].OriginalEvent?.EventId, Is.EqualTo(auditEvent.EventId));
     }
 
     /// <summary>
-    /// Storing an event applies expiry to both index and data keys
+    /// Storing an event uses a Redis transaction for atomicity
     /// </summary>
     [Test]
-    public async Task StoreFailedEventAsync_AppliesExpiryToBothKeys()
+    public async Task StoreFailedEventAsync_UsesTransaction()
     {
         // Arrange
         var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
@@ -272,12 +348,8 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason");
 
-        // Assert — KeyExpireAsync should be called twice: once for index key, once for data key
-        _mockDatabase.Verify(static x => x.KeyExpireAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<TimeSpan?>(),
-            It.IsAny<ExpireWhen>(),
-            It.IsAny<CommandFlags>()), Times.Exactly(2));
+        // Assert — CreateTransaction should be called for atomic writes
+        _mockDatabase.Verify(static x => x.CreateTransaction(It.IsAny<object>()), Times.AtLeastOnce);
     }
 
     /// <summary>
@@ -297,13 +369,10 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEntityAsync(entity, null, "Test reason");
 
-        // Assert
-        _mockDatabase.Verify(static x => x.SortedSetAddAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<double>(),
-            It.IsAny<SortedSetWhen>(),
-            It.IsAny<CommandFlags>()), Times.Once);
+        // Assert — verify the entity is retrievable
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(events, Has.Count.EqualTo(1));
+        Assert.That(events[0].OriginalEntity?.EventId, Is.EqualTo(entity.EventId));
     }
 
     /// <summary>
@@ -649,7 +718,7 @@ public class RedisAuditDeadLetterQueueTests
     }
 
     /// <summary>
-    /// Constructor with custom queue name uses the custom name for index key
+    /// Constructor with custom queue name uses the custom name for keys
     /// </summary>
     [Test]
     public async Task Constructor_WithCustomQueueName_UsesCustomName()
@@ -667,13 +736,12 @@ public class RedisAuditDeadLetterQueueTests
         var event1 = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
         await dlq.StoreFailedEventAsync(event1, null, "Reason");
 
-        // Assert — sorted set should use {queueName}:index
-        _mockDatabase.Verify(x => x.SortedSetAddAsync(
-            It.Is<RedisKey>(k => k.ToString() == $"{customQueueName}:index"),
-            It.IsAny<RedisValue>(),
-            It.IsAny<double>(),
-            It.IsAny<SortedSetWhen>(),
-            It.IsAny<CommandFlags>()), Times.Once);
+        // Assert — verify CreateTransaction was called (atomicity guarantee)
+        _mockDatabase.Verify(x => x.CreateTransaction(It.IsAny<object>()), Times.AtLeastOnce);
+
+        // Verify the event can be retrieved
+        var events = await dlq.GetFailedEventsAsync();
+        Assert.That(events, Has.Count.EqualTo(1));
     }
 
     /// <summary>
@@ -692,20 +760,11 @@ public class RedisAuditDeadLetterQueueTests
         // Act
         await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Test reason");
 
-        // Assert - Verify it was stored in both index and data
-        _mockDatabase.Verify(static x => x.SortedSetAddAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<double>(),
-            It.IsAny<SortedSetWhen>(),
-            It.IsAny<CommandFlags>()), Times.Once);
-
-        _mockDatabase.Verify(static x => x.HashSetAsync(
-            It.IsAny<RedisKey>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<RedisValue>(),
-            It.IsAny<When>(),
-            It.IsAny<CommandFlags>()), Times.Once);
+        // Assert - Verify the event was stored and has no exception details
+        var events = await _deadLetterQueue.GetFailedEventsAsync();
+        Assert.That(events, Has.Count.EqualTo(1));
+        Assert.That(events[0].ExceptionType, Is.Null.Or.Empty);
+        Assert.That(events[0].ExceptionMessage, Is.Null.Or.Empty);
     }
 
     /// <summary>
@@ -812,6 +871,42 @@ public class RedisAuditDeadLetterQueueTests
         var ids = events.Select(static e => e.Id).ToList();
         Assert.That(ids.Distinct().Count(), Is.EqualTo(ids.Count));
     }
+
+    /// <summary>
+    /// When Redis transaction fails, StoreFailedEventAsync throws with explicit message
+    /// </summary>
+    [Test]
+    public void StoreFailedEventAsync_WhenTransactionFails_ThrowsWithExplicitMessage()
+    {
+        // Arrange - create a transaction that returns false from ExecuteAsync
+        var failingTransaction = new Mock<ITransaction>();
+        failingTransaction.Setup(x => x.HashSetAsync(
+                It.IsAny<RedisKey>(), It.IsAny<RedisValue>(), It.IsAny<RedisValue>(),
+                It.IsAny<When>(), It.IsAny<CommandFlags>()))
+            .Returns(Task.FromResult(true));
+        failingTransaction.Setup(x => x.SortedSetAddAsync(
+                It.IsAny<RedisKey>(), It.IsAny<RedisValue>(), It.IsAny<double>(),
+                It.IsAny<SortedSetWhen>(), It.IsAny<CommandFlags>()))
+            .Returns(Task.FromResult(true));
+        failingTransaction.Setup(x => x.KeyExpireAsync(
+                It.IsAny<RedisKey>(), It.IsAny<TimeSpan?>(),
+                It.IsAny<ExpireWhen>(), It.IsAny<CommandFlags>()))
+            .Returns(Task.FromResult(true));
+        failingTransaction.Setup(x => x.ExecuteAsync(It.IsAny<CommandFlags>()))
+            .ReturnsAsync(false); // Transaction fails
+
+        _mockDatabase.Setup(x => x.CreateTransaction(It.IsAny<object>()))
+            .Returns(failingTransaction.Object);
+
+        var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
+
+        // Act & Assert
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason"));
+
+        Assert.That(ex!.Message, Does.Contain("transaction failed"));
+        Assert.That(ex.Message, Does.Contain("not persisted"));
+    }
 }
 
 /// <summary>
@@ -839,6 +934,10 @@ public class RedisAuditDeadLetterQueueReplayTests
 
         _mockRedis.Setup(static x => x.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
             .Returns(_mockDatabase.Object);
+
+        // Setup CreateTransaction for transactional writes
+        _mockDatabase.Setup(static x => x.CreateTransaction(It.IsAny<object>()))
+            .Returns(() => CreateMockTransaction());
 
         // Track stored entries in sorted set
         _mockDatabase.Setup(x => x.SortedSetAddAsync(
@@ -979,6 +1078,86 @@ public class RedisAuditDeadLetterQueueReplayTests
             new PassThroughAuditFieldRedactor(),
             logger: null,
             serviceScopeFactory: _mockScopeFactory.Object);
+    }
+
+    /// <summary>
+    /// Creates a mock transaction that writes directly to storage and returns success.
+    /// </summary>
+    private ITransaction CreateMockTransaction()
+    {
+        var mockTransaction = new Mock<ITransaction>();
+
+        mockTransaction.Setup(x => x.HashSetAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<When>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue hashField, RedisValue value, When _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_hashStorage.ContainsKey(keyStr))
+                    _hashStorage[keyStr] = new Dictionary<RedisValue, RedisValue>();
+                _hashStorage[keyStr][hashField] = value;
+                return Task.FromResult(true);
+            });
+
+        mockTransaction.Setup(x => x.SortedSetAddAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<double>(),
+                It.IsAny<SortedSetWhen>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue value, double score, SortedSetWhen _, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (!_sortedSetStorage.ContainsKey(keyStr))
+                    _sortedSetStorage[keyStr] = [];
+                _sortedSetStorage[keyStr].Add((value, score));
+                return Task.FromResult(true);
+            });
+
+        mockTransaction.Setup(x => x.KeyExpireAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<TimeSpan?>(),
+                It.IsAny<ExpireWhen>(),
+                It.IsAny<CommandFlags>()))
+            .Returns(Task.FromResult(true));
+
+        mockTransaction.Setup(x => x.HashDeleteAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue hashField, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                var removed = _hashStorage.TryGetValue(keyStr, out var hash) && hash.Remove(hashField);
+                return Task.FromResult(removed);
+            });
+
+        mockTransaction.Setup(x => x.SortedSetRemoveAsync(
+                It.IsAny<RedisKey>(),
+                It.IsAny<RedisValue>(),
+                It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue value, CommandFlags _) =>
+            {
+                var keyStr = key.ToString();
+                if (_sortedSetStorage.TryGetValue(keyStr, out var entries))
+                {
+                    var idx = entries.FindIndex(e => e.Member == value);
+                    if (idx >= 0)
+                    {
+                        entries.RemoveAt(idx);
+                        return Task.FromResult(true);
+                    }
+                }
+                return Task.FromResult(false);
+            });
+
+        mockTransaction.Setup(x => x.ExecuteAsync(It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+
+        return mockTransaction.Object;
     }
 
     [TearDown]

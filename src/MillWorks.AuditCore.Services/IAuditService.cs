@@ -126,17 +126,4 @@ public interface IAuditService
     /// </summary>
     /// <returns></returns>
     Task<List<string?>> GetDistinctEventTypes(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Logs a security event with high-risk content and a warning message.
-    /// </summary>
-    /// <param name="highRiskContent"></param>
-    /// <param name="warning"></param>
-    /// <param name="user"></param>
-    /// <param name="details"></param>
-    /// <param name="additionalInfo"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task LogSecurityEventAsync(string highRiskContent, string warning, string user, object details, object additionalInfo,
-        CancellationToken cancellationToken);
 }

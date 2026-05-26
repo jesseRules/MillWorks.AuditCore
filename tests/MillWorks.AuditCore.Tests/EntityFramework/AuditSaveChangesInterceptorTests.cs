@@ -4,12 +4,14 @@ using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Attributes;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Attributes;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Writers;
 using MillWorks.AuditCore.EntityFramework.Sinks;
 using MillWorks.AuditCore.Tests.Helpers;
 
@@ -67,7 +69,8 @@ public class AuditSaveChangesInterceptorTests
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
                     w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
                 }));
-        services.AddScoped<IAuditEntityWriter, AuditDbContextEntityWriter>();
+        services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
+        services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditSink, ImmediateSink>();
 
@@ -911,6 +914,72 @@ public class AuditSaveChangesInterceptorTests
 
         Assert.That(auditLog.AdditionalData, Does.Contain("[ENCRYPTED]"));
         Assert.That(auditLog.AdditionalData, Does.Not.Contain("secret-data"));
+    }
+
+    [Test]
+    public async Task SavingChanges_InterceptorBuiltEnvelope_HasNonEmptyEnvelopeId()
+    {
+        var dbName = $"EnvelopeIdTestDb_{Guid.NewGuid()}";
+        var capturingSink = new CapturingAuditSink();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Mock.Of<IAuditLogger>());
+        services.AddDbContext<AuditDbContext>(o =>
+            o.UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
+        services.AddSingleton<IAuditSink>(capturingSink);
+
+        using var provider = services.BuildServiceProvider();
+        var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+
+        var mockLogger = new Mock<ILogger<AuditSaveChangesInterceptor>>();
+        var interceptor = new AuditSaveChangesInterceptor(
+            mockLogger.Object,
+            scopeFactory: scopeFactory);
+
+        var dbOptions = TestDbContextFactory.CreateInMemoryOptions<TestDbContext>(
+            dbName: dbName,
+            configure: builder => builder.AddInterceptors(interceptor));
+
+        using var dbContext = new TestDbContext(dbOptions);
+
+        var entity = new TestEntity { Name = "EnvelopeIdTest" };
+        dbContext.TestEntities.Add(entity);
+
+        await dbContext.SaveChangesAsync();
+
+        Assert.That(capturingSink.CapturedEnvelopes, Has.Count.EqualTo(1));
+        var envelope = capturingSink.CapturedEnvelopes[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(envelope.EnvelopeId, Is.Not.EqualTo(Guid.Empty),
+                "Interceptor-built envelope must have a non-empty EnvelopeId");
+            Assert.That(envelope.EntityName, Is.EqualTo("TestEntity"));
+            Assert.That(envelope.Kind, Is.EqualTo(AuditEnvelopeKind.EntityChange));
+        });
+    }
+
+    private sealed class CapturingAuditSink : IAuditSink
+    {
+        public List<AuditEnvelope> CapturedEnvelopes { get; } = [];
+
+        public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default)
+        {
+            CapturedEnvelopes.Add(envelope);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+        {
+            CapturedEnvelopes.AddRange(envelopes);
+            return Task.CompletedTask;
+        }
     }
 
     // Test DbContext and Entity for testing

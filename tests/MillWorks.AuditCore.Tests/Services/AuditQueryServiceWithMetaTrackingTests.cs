@@ -47,7 +47,7 @@ public class AuditQueryServiceWithMetaTrackingTests
         var logs = new List<AuditLogDto> { new(), new() };
 
         _mockInner
-            .Setup(x => x.GetEntityAuditTrailAsync("Patient", entityId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetEntityAuditTrailAsync("Patient", entityId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(logs);
 
         var result = await _service.GetEntityAuditTrailAsync("Patient", entityId);

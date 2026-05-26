@@ -14,7 +14,7 @@ public static class FieldKeyDerivation
     /// Fixed application-specific salt to avoid the degenerate all-zero HKDF salt case.
     /// Deterministic across all instances — maintains the deterministic derivation property.
     /// </summary>
-    private static readonly byte[] ApplicationSalt =
+    private static readonly byte[] _applicationSalt =
         SHA256.HashData("MillWorks.AuditCore.FieldKeyDerivation"u8);
 
     /// <summary>
@@ -28,7 +28,7 @@ public static class FieldKeyDerivation
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}");
         var derivedKey = new byte[32];
 
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, _applicationSalt, info);
 
         return derivedKey;
     }
@@ -48,7 +48,7 @@ public static class FieldKeyDerivation
         var info = Encoding.UTF8.GetBytes($"field:{fieldName}:version:{keyVersion}");
         var derivedKey = new byte[32];
 
-        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, ApplicationSalt, info);
+        HKDF.DeriveKey(HashAlgorithmName.SHA256, masterKey, derivedKey, _applicationSalt, info);
 
         return derivedKey;
     }

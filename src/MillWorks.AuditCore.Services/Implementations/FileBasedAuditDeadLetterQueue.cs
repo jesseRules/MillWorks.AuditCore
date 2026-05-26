@@ -348,16 +348,22 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     }
 
     /// <summary>
-    /// Reprocess a specific dead letter event by its ID
+    /// Reprocess a specific dead letter event by its ID.
+    /// The write lock is held only during file reads/writes, NOT during the
+    /// potentially slow LogAsync call to avoid blocking all DLQ operations.
     /// </summary>
     public async Task<bool> ReprocessEventAsync(string deadLetterId)
     {
         await EnsureIndexBuiltAsync();
 
+        DeadLetterAuditEvent? deadLetterEvent;
+        string filePath;
+
+        // Phase 1: Read event under lock
         await _writeLock.WaitAsync();
         try
         {
-            var filePath = GetFilePathForEvent(deadLetterId);
+            filePath = GetFilePathForEvent(deadLetterId);
             if (!File.Exists(filePath))
             {
                 _logger.LogWarning("Dead letter event {Id} not found", deadLetterId);
@@ -365,7 +371,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             }
 
             var json = await File.ReadAllTextAsync(filePath);
-            var deadLetterEvent = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
+            deadLetterEvent = JsonSerializer.Deserialize<DeadLetterAuditEvent>(json, _jsonOptions);
 
             if (deadLetterEvent == null)
             {
@@ -373,61 +379,75 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 return false;
             }
 
-            // Update retry information
+            // Update retry information before releasing lock
             deadLetterEvent.RetryCount++;
             deadLetterEvent.LastRetryAt = DateTimeOffset.UtcNow;
 
-            try
+            // Persist retry count increment before attempting replay
+            await SaveDeadLetterEventAsync(deadLetterEvent);
+
+            // Update index with new retry count
+            if (_fileIndex.TryGetValue(deadLetterId, out var entry))
             {
-                // Create a scope to get the scoped IAuditLogger
-                using var scope = _serviceScopeFactory.CreateScope();
-                var auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
-
-                // Attempt to reprocess
-                if (auditLogger != null && deadLetterEvent.OriginalEvent != null)
-                {
-                    await auditLogger.LogAsync(deadLetterEvent.OriginalEvent);
-
-                    // Mark as processed
-                    deadLetterEvent.IsProcessed = true;
-                    deadLetterEvent.ProcessedAt = DateTimeOffset.UtcNow;
-
-                    // Update the file
-                    await SaveDeadLetterEventAsync(deadLetterEvent);
-
-                    // Update index
-                    if (_fileIndex.TryGetValue(deadLetterId, out var entry))
-                    {
-                        _fileIndex[deadLetterId] = entry with
-                        {
-                            IsProcessed = true,
-                            RetryCount = deadLetterEvent.RetryCount
-                        };
-                    }
-
-                    _logger.LogInformation("Successfully reprocessed dead letter event {Id}", deadLetterId);
-                    return true;
-                }
-
-                _logger.LogWarning("Cannot reprocess event {Id} - no audit logger available", deadLetterId);
-                return false;
+                _fileIndex[deadLetterId] = entry with { RetryCount = deadLetterEvent.RetryCount };
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to reprocess dead letter event {Id}", deadLetterId);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
 
-                // Update failure information
-                deadLetterEvent.Metadata[$"RetryFailure_{deadLetterEvent.RetryCount}"] = ex.Message;
+        // Phase 2: Replay without holding lock (may be slow)
+        bool replaySucceeded = false;
+        Exception? replayException = null;
+
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
+
+            if (auditLogger != null && deadLetterEvent.OriginalEvent != null)
+            {
+                await auditLogger.LogAsync(deadLetterEvent.OriginalEvent);
+                replaySucceeded = true;
+            }
+            else
+            {
+                _logger.LogWarning("Cannot reprocess event {Id} - no audit logger available", deadLetterId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reprocess dead letter event {Id}", deadLetterId);
+            replayException = ex;
+        }
+
+        // Phase 3: Update final state under lock
+        await _writeLock.WaitAsync();
+        try
+        {
+            if (replaySucceeded)
+            {
+                deadLetterEvent.IsProcessed = true;
+                deadLetterEvent.ProcessedAt = DateTimeOffset.UtcNow;
                 await SaveDeadLetterEventAsync(deadLetterEvent);
 
-                // Update index retry count
-                if (_fileIndex.TryGetValue(deadLetterId, out var entry2))
+                if (_fileIndex.TryGetValue(deadLetterId, out var entry))
                 {
-                    _fileIndex[deadLetterId] = entry2 with { RetryCount = deadLetterEvent.RetryCount };
+                    _fileIndex[deadLetterId] = entry with { IsProcessed = true };
                 }
 
-                return false;
+                _logger.LogInformation("Successfully reprocessed dead letter event {Id}", deadLetterId);
+                return true;
             }
+
+            if (replayException != null)
+            {
+                deadLetterEvent.Metadata[$"RetryFailure_{deadLetterEvent.RetryCount}"] = replayException.Message;
+                await SaveDeadLetterEventAsync(deadLetterEvent);
+            }
+
+            return false;
         }
         finally
         {

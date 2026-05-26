@@ -11,6 +11,12 @@ namespace MillWorks.AuditCore.EntityFramework.Data;
 /// </summary>
 internal sealed class AuditModelCacheKeyFactory : IModelCacheKeyFactory
 {
+    /// <summary>
+    /// Creates a cache key that includes the context type, configured audit schema, and design-time flag.
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="designTime"></param>
+    /// <returns></returns>
     public object Create(DbContext context, bool designTime)
     {
         var schema = (context as AuditDbContext)?.Schema ?? "audit";
