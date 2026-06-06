@@ -81,6 +81,59 @@ public sealed class SecurityEventDto
     public string? IpAddress { get; set; }
 
     /// <summary>
+    /// Correlation ID linking related security events across a break-glass or investigation flow.
+    /// </summary>
+    [MaxLength(36)]
+    [Display(Name = "Correlation ID")]
+    [JsonPropertyName("correlation_id")]
+    public string? CorrelationId { get; set; }
+
+    /// <summary>
+    /// Tenant identifier for multi-tenant deployments.
+    /// </summary>
+    [Display(Name = "Tenant ID")]
+    [JsonPropertyName("tenant_id")]
+    public Guid? TenantId { get; set; }
+
+    /// <summary>
+    /// User ID of the actor initiating the security event.
+    /// </summary>
+    [Display(Name = "Actor User ID")]
+    [JsonPropertyName("actor_user_id")]
+    public Guid? ActorUserId { get; set; }
+
+    /// <summary>
+    /// User ID of the subject affected by the security event (e.g., the user being accessed via break-glass).
+    /// </summary>
+    [Display(Name = "Subject User ID")]
+    [JsonPropertyName("subject_user_id")]
+    public Guid? SubjectUserId { get; set; }
+
+    /// <summary>
+    /// SHA-256 hash of the source IP address for privacy-preserving logging.
+    /// </summary>
+    [MaxLength(64)]
+    [Display(Name = "Source IP Hash")]
+    [JsonPropertyName("source_ip_hash")]
+    public string? SourceIpHash { get; set; }
+
+    /// <summary>
+    /// SHA-256 hash of the user agent string for privacy-preserving logging.
+    /// </summary>
+    [MaxLength(64)]
+    [Display(Name = "User Agent Hash")]
+    [JsonPropertyName("user_agent_hash")]
+    public string? UserAgentHash { get; set; }
+
+    /// <summary>
+    /// Operation name or identifier for the security event (e.g., "NetworkPolicyOverride", "MfaBypass").
+    /// </summary>
+    [MaxLength(100)]
+    [Display(Name = "Operation")]
+    [JsonPropertyName("operation")]
+    public string? Operation { get; set; }
+
+    /// <summary>
     /// Current status of the security event (e.g., "Open", "Investigating", "Resolved").
     /// </summary>
     [Required]
@@ -160,7 +213,57 @@ public enum SecurityEventType
     /// <summary>
     /// Event indicating an attempt to escalate user privileges beyond authorized levels.
     /// </summary>
-    PrivilegeEscalation
+    PrivilegeEscalation,
+
+    /// <summary>
+    /// Break-glass access attempt initiated.
+    /// </summary>
+    BreakGlassAttempt,
+
+    /// <summary>
+    /// Break-glass access denied (policy or validation failure).
+    /// </summary>
+    BreakGlassDenied,
+
+    /// <summary>
+    /// Break-glass challenge issued to the requestor.
+    /// </summary>
+    BreakGlassChallengeIssued,
+
+    /// <summary>
+    /// Break-glass challenge failed (incorrect response, expired, etc.).
+    /// </summary>
+    BreakGlassChallengeFailed,
+
+    /// <summary>
+    /// Break-glass grant issued successfully.
+    /// </summary>
+    BreakGlassGranted,
+
+    /// <summary>
+    /// Break-glass grant consumed (used for access).
+    /// </summary>
+    BreakGlassConsumed,
+
+    /// <summary>
+    /// Break-glass grant expired without consumption.
+    /// </summary>
+    BreakGlassExpired,
+
+    /// <summary>
+    /// Break-glass grant revoked administratively.
+    /// </summary>
+    BreakGlassRevoked,
+
+    /// <summary>
+    /// Break-glass policy or configuration changed.
+    /// </summary>
+    BreakGlassPolicyChanged,
+
+    /// <summary>
+    /// Break-glass enrollment or recovery method changed.
+    /// </summary>
+    BreakGlassEnrollmentChanged
 }
 
 /// <summary>

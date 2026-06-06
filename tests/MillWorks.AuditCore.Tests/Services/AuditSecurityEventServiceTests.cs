@@ -328,4 +328,227 @@ public class AuditSecurityEventServiceTests
         Assert.That(entity.DetailsJson, Does.Contain("UserId"));
         Assert.That(entity.DetailsJson, Does.Contain("TargetRole"));
     }
+
+    [Test]
+    public async Task RecordEventAsync_BreakGlassGranted_PersistsWithNormalizedFields()
+    {
+        var tenantId = Guid.NewGuid();
+        var actorUserId = Guid.NewGuid();
+        var subjectUserId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid().ToString();
+
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Break-glass access granted",
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            SubjectUserId = subjectUserId,
+            CorrelationId = correlationId,
+            Operation = "NetworkPolicyOverride",
+            SourceIpHash = "abc123hash",
+            UserAgentHash = "def456hash"
+        };
+
+        var entity = new AuditSecurityEventEntity
+        {
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            SubjectUserId = subjectUserId,
+            CorrelationId = correlationId,
+            Operation = "NetworkPolicyOverride",
+            SourceIpHash = "abc123hash",
+            UserAgentHash = "def456hash"
+        };
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+
+        await _service.RecordEventAsync(inputDto);
+
+        Assert.That(entity.TenantId, Is.EqualTo(tenantId));
+        Assert.That(entity.ActorUserId, Is.EqualTo(actorUserId));
+        Assert.That(entity.SubjectUserId, Is.EqualTo(subjectUserId));
+        Assert.That(entity.CorrelationId, Is.EqualTo(correlationId));
+        Assert.That(entity.Operation, Is.EqualTo("NetworkPolicyOverride"));
+        Assert.That(entity.SourceIpHash, Is.EqualTo("abc123hash"));
+        Assert.That(entity.UserAgentHash, Is.EqualTo("def456hash"));
+        _mockRepository.Verify(r => r.AddAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RecordEventAsync_HashOnlyBreakGlass_DoesNotStampRawIpAddress()
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Break-glass with hash-only metadata",
+            SourceIpHash = "sha256hashofip",
+            IpAddress = null
+        };
+
+        var entity = new AuditSecurityEventEntity
+        {
+            SourceIpHash = "sha256hashofip"
+        };
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+
+        _auditContext.IpAddress = "10.0.0.100";
+
+        await _service.RecordEventAsync(inputDto);
+
+        Assert.That(entity.IpAddress, Is.Null,
+            "When SourceIpHash is set and IpAddress is null, raw IP should not be stamped from auditContext");
+        Assert.That(entity.SourceIpHash, Is.EqualTo("sha256hashofip"));
+    }
+
+    [Test]
+    public async Task RecordEventAsync_HashOnlyButExplicitIpProvided_UsesProvidedIp()
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassAttempt,
+            Severity = SecurityEventSeverity.Medium,
+            Message = "Break-glass attempt with explicit IP",
+            SourceIpHash = "sha256hashofip",
+            IpAddress = "192.168.1.1"
+        };
+
+        var entity = new AuditSecurityEventEntity
+        {
+            SourceIpHash = "sha256hashofip"
+        };
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+
+        await _service.RecordEventAsync(inputDto);
+
+        Assert.That(entity.IpAddress, Is.EqualTo("192.168.1.1"),
+            "When IpAddress is explicitly provided, it should be used regardless of SourceIpHash");
+    }
+
+    [Test]
+    public async Task RecordEventAsync_NoSourceIpHash_StampsFromAuditContext()
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.UnauthorizedAccess,
+            Severity = SecurityEventSeverity.High,
+            Message = "Standard security event without hash"
+        };
+
+        var entity = new AuditSecurityEventEntity();
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+
+        _auditContext.IpAddress = "10.0.0.200";
+
+        await _service.RecordEventAsync(inputDto);
+
+        Assert.That(entity.IpAddress, Is.EqualTo("10.0.0.200"),
+            "When SourceIpHash is not set, IpAddress should be stamped from auditContext");
+    }
+
+    [Test]
+    public void RecordEventAsync_AddAsyncFailure_PropagatesException()
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Critical event that must persist"
+        };
+
+        var entity = new AuditSecurityEventEntity();
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockRepository.Setup(r => r.AddAsync(entity, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database connection failed"));
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
+    }
+
+    [Test]
+    public void RecordEventAsync_SaveChangesAsyncFailure_PropagatesException()
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassConsumed,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Critical event that must persist"
+        };
+
+        var entity = new AuditSecurityEventEntity();
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockRepository.Setup(static r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Save failed"));
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
+    }
+
+    [TestCase(SecurityEventType.BreakGlassAttempt)]
+    [TestCase(SecurityEventType.BreakGlassDenied)]
+    [TestCase(SecurityEventType.BreakGlassChallengeIssued)]
+    [TestCase(SecurityEventType.BreakGlassChallengeFailed)]
+    [TestCase(SecurityEventType.BreakGlassGranted)]
+    [TestCase(SecurityEventType.BreakGlassConsumed)]
+    [TestCase(SecurityEventType.BreakGlassExpired)]
+    [TestCase(SecurityEventType.BreakGlassRevoked)]
+    [TestCase(SecurityEventType.BreakGlassPolicyChanged)]
+    [TestCase(SecurityEventType.BreakGlassEnrollmentChanged)]
+    public async Task RecordEventAsync_AllBreakGlassEventTypes_MapAndPersist(SecurityEventType eventType)
+    {
+        var inputDto = new SecurityEventDto
+        {
+            EventType = eventType,
+            Severity = SecurityEventSeverity.High,
+            Message = $"Test {eventType}"
+        };
+
+        var entity = new AuditSecurityEventEntity { EventType = eventType };
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto { EventType = eventType });
+
+        var result = await _service.RecordEventAsync(inputDto);
+
+        Assert.That(result.EventType, Is.EqualTo(eventType));
+        _mockRepository.Verify(r => r.AddAsync(It.Is<AuditSecurityEventEntity>(e => e.EventType == eventType),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RecordEventAsync_LargeDetails_ProducesValidJsonSummary()
+    {
+        var largeDetails = new Dictionary<string, object?>
+        {
+            ["key1"] = new string('x', 2000),
+            ["key2"] = new string('y', 2000),
+            ["key3"] = new string('z', 2000)
+        };
+        var inputDto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Event with large details",
+            Details = largeDetails
+        };
+
+        var entity = new AuditSecurityEventEntity();
+        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
+        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+
+        await _service.RecordEventAsync(inputDto);
+
+        Assert.That(entity.DetailsJson, Is.Not.Null);
+        Assert.That(entity.DetailsJson!.Length, Is.LessThanOrEqualTo(4000),
+            "DetailsJson should be truncated to max length");
+
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(entity.DetailsJson);
+        Assert.That(parsed, Is.Not.Null, "Truncated DetailsJson must be valid JSON");
+        Assert.That(parsed!.ContainsKey("_truncated"), Is.True);
+        Assert.That(parsed.ContainsKey("_originalLength"), Is.True);
+        Assert.That(parsed.ContainsKey("_keyCount"), Is.True);
+        Assert.That(parsed.ContainsKey("_keys"), Is.True);
+    }
 }

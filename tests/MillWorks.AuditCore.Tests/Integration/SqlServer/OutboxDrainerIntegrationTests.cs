@@ -21,6 +21,7 @@ using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
+using MillWorks.AuditCore.Services.Sinks.Processing;
 using MillWorks.AuditCore.Services.Sinks.Writers;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
@@ -133,10 +134,11 @@ public sealed class OutboxDrainerIntegrationTests
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
+        var rowId = Guid.NewGuid();
         await consumerCtx.Database.ExecuteSqlRawAsync(
-            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-            Guid.NewGuid(), envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         var sp = BuildDrainerServiceProvider(opts, throwOnPublish: false);
@@ -237,25 +239,25 @@ public sealed class OutboxDrainerIntegrationTests
 
         var rowId = Guid.NewGuid();
         await consumerCtx.Database.ExecuteSqlRawAsync(
-            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-            rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4); // 4 attempts already, 1 more = 5 = max
+            "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4); // 4 attempts already, 1 more = 5 = max
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
         opts.OutboxDrainerRetryBackoff = [TimeSpan.FromMilliseconds(10)];
 
-        long failedCount = 0;
+        long dlqRoutedCount = 0;
         using var meterListener = new MeterListener();
         meterListener.InstrumentPublished = (instrument, listener) =>
         {
-            if (instrument.Name == "audit.outbox.drainer.failed")
+            if (instrument.Name == "audit.outbox.dlq_routed")
                 listener.EnableMeasurementEvents(instrument);
         };
         meterListener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
         {
-            if (instrument.Name == "audit.outbox.drainer.failed")
-                Interlocked.Add(ref failedCount, measurement);
+            if (instrument.Name == "audit.outbox.dlq_routed")
+                Interlocked.Add(ref dlqRoutedCount, measurement);
         });
         meterListener.Start();
 
@@ -283,8 +285,8 @@ public sealed class OutboxDrainerIntegrationTests
                 "Row should be marked Failed after exhausting retries");
             Assert.That(row.AttemptCount, Is.EqualTo(5),
                 "AttemptCount should equal MaxAttempts");
-            Assert.That(failedCount, Is.EqualTo(1),
-                "audit.outbox.drainer.failed counter should increment exactly once");
+            Assert.That(dlqRoutedCount, Is.EqualTo(1),
+                "audit.outbox.dlq_routed counter should increment exactly once");
         });
     }
 
@@ -309,9 +311,9 @@ public sealed class OutboxDrainerIntegrationTests
 
         var rowId = Guid.NewGuid();
         await consumerCtx.Database.ExecuteSqlRawAsync(
-            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-            rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
@@ -410,16 +412,18 @@ public sealed class OutboxDrainerIntegrationTests
         foreach (var envelope in new[] { explicitEvent1, explicitEvent2, entityChange1, entityChange2 })
         {
             var json = JsonSerializer.Serialize(envelope, jsonOptions);
+            var rowId = Guid.NewGuid();
             await consumerCtx.Database.ExecuteSqlRawAsync(
-                "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-                "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-                Guid.NewGuid(), json, 1, 0, DateTimeOffset.UtcNow, 0);
+                "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+                "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+                rowId, rowId, json, 1, 0, DateTimeOffset.UtcNow, 0);
         }
 
         var opts = CreateSecurityOptions();
-        var countingLogger = new CountingAuditLogger();
-        var batchFailingWriter = new BatchFailingEntityBatchWriter();
-        var sp = BuildDrainerServiceProviderWithCustomServices(opts, countingLogger, batchFailingWriter);
+        // Entity writer throws on batch size > 1, causing entity rows to retry until exhausted
+        var entityWriter = new BatchFailingEntityBatchWriter();
+        var eventWriter = new CountingAuditEventBatchWriter();
+        var sp = BuildDrainerServiceProviderWithCustomServices(opts, entityWriter, eventWriter);
 
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
@@ -428,25 +432,26 @@ public sealed class OutboxDrainerIntegrationTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
-
-        // Wait for processing
         await Task.Delay(TimeSpan.FromMilliseconds(800));
         await drainer.StopAsync(CancellationToken.None);
 
-        // Verify explicit events were logged exactly twice (once each), not four times
-        // The bug would cause them to be replayed in the fallback loop after batch failure
-        Assert.That(countingLogger.LogAsyncCallCount, Is.EqualTo(2),
-            "Explicit events should be logged exactly once each, not duplicated on batch fallback");
+        // Core invariant: explicit events processed exactly once, not duplicated when entity batch fails
+        Assert.That(eventWriter.EnvelopeCount, Is.EqualTo(2),
+            "Explicit events should be processed exactly once each");
 
-        // Verify entity changes were written (batch failed, then succeeded one-at-a-time)
-        Assert.That(batchFailingWriter.SingleEnvelopeCallCount, Is.EqualTo(2),
-            "Entity changes should fall back to one-at-a-time after batch failure");
-
-        // Verify all rows completed
+        // Verify final row statuses
         var completedCount = await consumerCtx.Database
             .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox] WHERE Status = {(int)AuditOutboxStatus.Completed}")
             .SingleAsync();
-        Assert.That(completedCount, Is.EqualTo(4), "All 4 rows should be marked Completed");
+        var failedCount = await consumerCtx.Database
+            .SqlQueryRaw<int>($"SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox] WHERE Status = {(int)AuditOutboxStatus.Failed}")
+            .SingleAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completedCount, Is.EqualTo(2), "Explicit event rows should complete");
+            Assert.That(failedCount, Is.EqualTo(2), "Entity change rows should fail after exhausting retries");
+        });
     }
 
     [Test]
@@ -474,10 +479,11 @@ public sealed class OutboxDrainerIntegrationTests
         Assert.That(envelopeJson, Does.Contain("\"envelopeId\""));
         Assert.That(envelopeJson, Does.Contain(originalEnvelopeId.ToString()));
 
+        var rowId = Guid.NewGuid();
         await consumerCtx.Database.ExecuteSqlRawAsync(
-            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-            Guid.NewGuid(), envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         var capturedEnvelopes = new System.Collections.Concurrent.ConcurrentBag<AuditEnvelope>();
@@ -530,10 +536,11 @@ public sealed class OutboxDrainerIntegrationTests
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
+        var rowId = Guid.NewGuid();
         await consumerCtx.Database.ExecuteSqlRawAsync(
-            "INSERT INTO [dbo].[AuditOutbox] (Id, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
-            "VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
-            Guid.NewGuid(), envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4);
+            "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
+            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4);
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
@@ -617,6 +624,8 @@ public sealed class OutboxDrainerIntegrationTests
         }
 
         services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
 
         if (dlq is not null)
@@ -629,8 +638,8 @@ public sealed class OutboxDrainerIntegrationTests
 
     private IServiceProvider BuildDrainerServiceProviderWithCustomServices(
         SecurityOptions opts,
-        IAuditLogger auditLogger,
-        IAuditEntityBatchWriter entityBatchWriter)
+        IAuditEntityBatchWriter entityBatchWriter,
+        IAuditEventBatchWriter eventBatchWriter)
     {
         var services = new ServiceCollection();
 
@@ -648,9 +657,11 @@ public sealed class OutboxDrainerIntegrationTests
         });
 
         services.AddScoped<IAuditDistributedLockService, NoOpLockService>();
-        services.AddSingleton(auditLogger);
-        services.AddSingleton(entityBatchWriter);
-        services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
+        services.AddSingleton<IAuditLogger, NoOpAuditLogger>();
+        services.AddSingleton<IAuditEntityBatchWriter>(entityBatchWriter);
+        services.AddSingleton<IAuditEventBatchWriter>(eventBatchWriter);
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
 
         return services.BuildServiceProvider();
@@ -679,6 +690,8 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<IAuditLogger, NoOpAuditLogger>();
         services.AddSingleton<IAuditEntityBatchWriter>(new CapturingAuditEntityBatchWriter(capturedEnvelopes));
         services.AddScoped<IAuditEventBatchWriter, NoOpAuditEventBatchWriter>();
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
 
         return services.BuildServiceProvider();
@@ -841,34 +854,19 @@ public sealed class OutboxDrainerIntegrationTests
         }
     }
 
-    private sealed class CountingAuditLogger : IAuditLogger
+    private sealed class CountingAuditEventBatchWriter : IAuditEventBatchWriter
     {
-        private int _logAsyncCallCount;
-        public int LogAsyncCallCount => _logAsyncCallCount;
+        private int _envelopeCount;
+        public int EnvelopeCount => _envelopeCount;
 
-        public Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<WriteOutcome>> WriteBatchAsync(
+            IReadOnlyList<AuditEnvelope> envelopes,
+            CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref _logAsyncCallCount);
-            return Task.CompletedTask;
+            Interlocked.Add(ref _envelopeCount, envelopes.Count);
+            var outcomes = envelopes.Select(e => WriteOutcome.Success(e.EnvelopeId)).ToList();
+            return Task.FromResult<IReadOnlyList<WriteOutcome>>(outcomes);
         }
-
-        public Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
-            => Task.FromResult(new BatchAuditResult());
-
-        public Task LogAsync(string eventType, object? data = null, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task LogAsync(string eventType, string message, Dictionary<string, object?> data, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<Guid> BeginOperationAsync(string operationType, object? metadata = null)
-            => Task.FromResult(Guid.NewGuid());
-
-        public Task EndOperationAsync(Guid operationId, bool success = true, object? result = null)
-            => Task.CompletedTask;
-
-        public ICustomAuditScope CreateScope(string eventType, object? target = null)
-            => Mock.Of<ICustomAuditScope>();
     }
 
     private sealed class NoOpAuditLogger : IAuditLogger

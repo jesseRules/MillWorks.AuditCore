@@ -44,8 +44,15 @@ public sealed class AuditSecurityEventService(
         // Set metadata - handle cases where context isn't available
         entity.DetectedAt = DateTimeOffset.UtcNow;
         entity.DetectedBy = auditContext.UserEmail ?? "System";
-        entity.IpAddress = auditContext.IpAddress;
         entity.Status = SecurityEventStatus.Open;
+
+        // Privacy-preserving source metadata: if SourceIpHash is populated and IpAddress
+        // is null on the incoming DTO, do not stamp raw IpAddress from auditContext.
+        // This allows break-glass callers to record hash-only metadata.
+        if (string.IsNullOrEmpty(entity.SourceIpHash) || !string.IsNullOrEmpty(securityEvent.IpAddress))
+        {
+            entity.IpAddress = securityEvent.IpAddress ?? auditContext.IpAddress;
+        }
 
         // Enforce entity size limits to prevent persistence failures
         if (entity.Message.Length > MaxMessageLength)

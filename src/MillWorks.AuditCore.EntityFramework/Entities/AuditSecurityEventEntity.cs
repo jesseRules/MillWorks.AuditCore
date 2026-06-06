@@ -16,6 +16,11 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(Severity), Name = "IX_SecurityEvents_Severity")]
 [Index(nameof(DetectedAt), Name = "IX_SecurityEvents_DetectedAt")]
 [Index(nameof(Status), Name = "IX_SecurityEvents_Status")]
+[Index(nameof(TenantId), Name = "IX_SecurityEvents_TenantId")]
+[Index(nameof(ActorUserId), Name = "IX_SecurityEvents_ActorUserId")]
+[Index(nameof(SubjectUserId), Name = "IX_SecurityEvents_SubjectUserId")]
+[Index(nameof(CorrelationId), Name = "IX_SecurityEvents_CorrelationId")]
+[Index(nameof(Operation), Name = "IX_SecurityEvents_Operation")]
 public class AuditSecurityEventEntity : AuditAggregateRoot
 {
     /// <summary>
@@ -74,6 +79,52 @@ public class AuditSecurityEventEntity : AuditAggregateRoot
     [MaxLength(45)]
     [Column("IpAddress")]
     public string? IpAddress { get; set; }
+
+    /// <summary>
+    /// Correlation ID linking related security events across a break-glass or investigation flow.
+    /// </summary>
+    [MaxLength(36)]
+    [Column("CorrelationId")]
+    public string? CorrelationId { get; set; }
+
+    /// <summary>
+    /// Tenant identifier for multi-tenant deployments.
+    /// </summary>
+    [Column("TenantId")]
+    public Guid? TenantId { get; set; }
+
+    /// <summary>
+    /// User ID of the actor initiating the security event.
+    /// </summary>
+    [Column("ActorUserId")]
+    public Guid? ActorUserId { get; set; }
+
+    /// <summary>
+    /// User ID of the subject affected by the security event (e.g., the user being accessed via break-glass).
+    /// </summary>
+    [Column("SubjectUserId")]
+    public Guid? SubjectUserId { get; set; }
+
+    /// <summary>
+    /// SHA-256 hash of the source IP address for privacy-preserving logging.
+    /// </summary>
+    [MaxLength(64)]
+    [Column("SourceIpHash")]
+    public string? SourceIpHash { get; set; }
+
+    /// <summary>
+    /// SHA-256 hash of the user agent string for privacy-preserving logging.
+    /// </summary>
+    [MaxLength(64)]
+    [Column("UserAgentHash")]
+    public string? UserAgentHash { get; set; }
+
+    /// <summary>
+    /// Operation name or identifier for the security event (e.g., "NetworkPolicyOverride", "MfaBypass").
+    /// </summary>
+    [MaxLength(100)]
+    [Column("Operation")]
+    public string? Operation { get; set; }
 
     /// <summary>
     /// Current status of the security event indicating its lifecycle state (e.g., "Open", "Investigating", "Resolved").

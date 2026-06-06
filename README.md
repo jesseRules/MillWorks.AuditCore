@@ -535,7 +535,7 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `AuditIntegrity` | Hash chain records for tamper detection | `Id`, `AuditEventId`, `EventHash`, `PreviousHash`, `SequenceNumber`, `HmacSignature` |
 | `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
 | `ArchiveRecord` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
-| `SecurityEvents` | Security-relevant events and tamper/compliance alerts | `Id`, `EventType`, `Severity`, `Message`, `DetailsJson`, `IpAddress`, `DetectedAt`, `Status` |
+| `SecurityEvents` | Security-relevant events, tamper/compliance alerts, and break-glass access records | `Id`, `EventType`, `Severity`, `Message`, `DetailsJson`, `IpAddress`, `DetectedAt`, `Status`, `CorrelationId`, `TenantId`, `ActorUserId`, `SubjectUserId`, `SourceIpHash`, `UserAgentHash`, `Operation` |
 | `AuditOutbox` | Durable handoff for `TransactionalOutbox` sink | `Id`, `EnvelopeJson`, `Status`, `CreatedAt`, `CompletedAt`, `AttemptCount`, `LastError` |
 
 Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.

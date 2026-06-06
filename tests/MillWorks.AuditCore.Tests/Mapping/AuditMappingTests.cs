@@ -189,6 +189,181 @@ public class AuditMappingTests
     }
 
     [Test]
+    public void SecurityEventEntity_ToDto_ParsesDetailsJsonToDetails()
+    {
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Break-glass granted",
+            DetailsJson = """{"GrantId":"grant-123","PolicyAfterHash":"abc456","GrantTtlSeconds":3600}"""
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.Details, Is.Not.Null);
+        Assert.That(dto.Details, Has.Count.EqualTo(3));
+        Assert.That(dto.Details["GrantId"], Is.EqualTo("grant-123"));
+        Assert.That(dto.Details["PolicyAfterHash"], Is.EqualTo("abc456"));
+        Assert.That(dto.Details["GrantTtlSeconds"], Is.EqualTo(3600L));
+    }
+
+    [Test]
+    public void SecurityEventEntity_ToDto_HandlesNullDetailsJson()
+    {
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassDenied,
+            Severity = SecurityEventSeverity.Medium,
+            Message = "Access denied",
+            DetailsJson = null
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.Details, Is.Not.Null);
+        Assert.That(dto.Details, Is.Empty);
+    }
+
+    [Test]
+    public void SecurityEventEntity_ToDto_HandlesMalformedDetailsJson()
+    {
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassChallengeFailed,
+            Severity = SecurityEventSeverity.High,
+            Message = "Challenge failed",
+            DetailsJson = "this is not valid json {"
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.Details, Is.Not.Null);
+        Assert.That(dto.Details, Is.Empty);
+    }
+
+    [Test]
+    public void SecurityEventEntity_ToDto_HandlesEmptyDetailsJson()
+    {
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassExpired,
+            Severity = SecurityEventSeverity.Low,
+            Message = "Grant expired",
+            DetailsJson = ""
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.Details, Is.Not.Null);
+        Assert.That(dto.Details, Is.Empty);
+    }
+
+    [Test]
+    public void SecurityEventEntity_ToDto_ParsesNestedDetailsJson()
+    {
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassPolicyChanged,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Policy changed",
+            DetailsJson = """{"Policy":{"AllowedCountries":["US","CA"],"MaxGrants":5},"ChangedBy":"admin"}"""
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.Details, Has.Count.EqualTo(2));
+        Assert.That(dto.Details["ChangedBy"], Is.EqualTo("admin"));
+        Assert.That(dto.Details["Policy"], Is.TypeOf<Dictionary<string, object?>>());
+
+        var policy = (Dictionary<string, object?>)dto.Details["Policy"]!;
+        Assert.That(policy["MaxGrants"], Is.EqualTo(5L));
+    }
+
+    [Test]
+    public void SecurityEventEntity_NormalizedFields_RoundTrip()
+    {
+        var tenantId = Guid.NewGuid();
+        var actorUserId = Guid.NewGuid();
+        var subjectUserId = Guid.NewGuid();
+        var correlationId = Guid.NewGuid().ToString();
+
+        var entity = new AuditSecurityEventEntity
+        {
+            EventType = SecurityEventType.BreakGlassGranted,
+            Severity = SecurityEventSeverity.Critical,
+            Message = "Break-glass granted",
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            SubjectUserId = subjectUserId,
+            CorrelationId = correlationId,
+            Operation = "NetworkPolicyOverride",
+            SourceIpHash = "sha256ipaddress",
+            UserAgentHash = "sha256useragent"
+        };
+
+        var dto = _mapper.Map<SecurityEventDto>(entity);
+
+        Assert.That(dto.TenantId, Is.EqualTo(tenantId));
+        Assert.That(dto.ActorUserId, Is.EqualTo(actorUserId));
+        Assert.That(dto.SubjectUserId, Is.EqualTo(subjectUserId));
+        Assert.That(dto.CorrelationId, Is.EqualTo(correlationId));
+        Assert.That(dto.Operation, Is.EqualTo("NetworkPolicyOverride"));
+        Assert.That(dto.SourceIpHash, Is.EqualTo("sha256ipaddress"));
+        Assert.That(dto.UserAgentHash, Is.EqualTo("sha256useragent"));
+    }
+
+    [Test]
+    public void SecurityEventDto_NormalizedFields_MapsToEntity()
+    {
+        var tenantId = Guid.NewGuid();
+        var actorUserId = Guid.NewGuid();
+
+        var dto = new SecurityEventDto
+        {
+            EventType = SecurityEventType.BreakGlassAttempt,
+            Severity = SecurityEventSeverity.Medium,
+            Message = "Attempt",
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            Operation = "MfaBypass"
+        };
+
+        var entity = _mapper.Map<AuditSecurityEventEntity>(dto);
+
+        Assert.That(entity.TenantId, Is.EqualTo(tenantId));
+        Assert.That(entity.ActorUserId, Is.EqualTo(actorUserId));
+        Assert.That(entity.Operation, Is.EqualTo("MfaBypass"));
+    }
+
+    [TestCase(SecurityEventType.BreakGlassAttempt)]
+    [TestCase(SecurityEventType.BreakGlassDenied)]
+    [TestCase(SecurityEventType.BreakGlassChallengeIssued)]
+    [TestCase(SecurityEventType.BreakGlassChallengeFailed)]
+    [TestCase(SecurityEventType.BreakGlassGranted)]
+    [TestCase(SecurityEventType.BreakGlassConsumed)]
+    [TestCase(SecurityEventType.BreakGlassExpired)]
+    [TestCase(SecurityEventType.BreakGlassRevoked)]
+    [TestCase(SecurityEventType.BreakGlassPolicyChanged)]
+    [TestCase(SecurityEventType.BreakGlassEnrollmentChanged)]
+    public void BreakGlassEventType_MapsCorrectly(SecurityEventType eventType)
+    {
+        var dto = new SecurityEventDto
+        {
+            EventType = eventType,
+            Severity = SecurityEventSeverity.High,
+            Message = $"Test {eventType}"
+        };
+
+        var entity = _mapper.Map<AuditSecurityEventEntity>(dto);
+
+        Assert.That(entity.EventType, Is.EqualTo(eventType));
+
+        var roundTripped = _mapper.Map<SecurityEventDto>(entity);
+        Assert.That(roundTripped.EventType, Is.EqualTo(eventType));
+    }
+
+    [Test]
     public void AllMappings_DoNotThrow()
     {
         // Verify the entire configuration is valid
