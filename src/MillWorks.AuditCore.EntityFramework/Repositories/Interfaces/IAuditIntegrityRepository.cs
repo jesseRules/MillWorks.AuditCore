@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 
 namespace MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
@@ -34,6 +35,21 @@ public interface IAuditIntegrityRepository : IRepository<AuditIntegrityEntity>
 
     /// <summary>
     /// Validates the integrity chain by checking hash linkage between consecutive records.
+    /// Returns a detailed result that distinguishes "no data" from "valid" and validates
+    /// boundary sequence numbers against the requested range.
+    /// </summary>
+    /// <param name="startSequence"></param>
+    /// <param name="endSequence"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns>A result containing validity status and details about any issues found.</returns>
+    Task<ChainValidationResult> ValidateIntegrityChainWithDetailsAsync(
+        long startSequence,
+        long endSequence,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Validates the integrity chain by checking hash linkage between consecutive records.
+    /// Legacy method - use <see cref="ValidateIntegrityChainWithDetailsAsync"/> for boundary validation.
     /// </summary>
     /// <param name="startSequence"></param>
     /// <param name="endSequence"></param>

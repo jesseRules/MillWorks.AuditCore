@@ -14,9 +14,12 @@ public static class AuditCanonicalizer
 {
     /// <summary>
     /// Algorithm version stored on integrity records.
-    /// Documents which canonicalization algorithm produced a given hash.
+    /// Documents which canonicalization and integrity algorithm produced a given hash.
+    /// v1: Original format
+    /// v2: JSON canonicalization with Unicode NFC normalization
+    /// v3: Chain-position-aware HMAC/signature (includes eventHash, previousHash, sequenceNumber, timestamp)
     /// </summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>
     /// ISO 8601 output format with forced UTC and full fractional-second precision.

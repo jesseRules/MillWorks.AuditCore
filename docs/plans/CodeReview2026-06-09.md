@@ -8,7 +8,7 @@ Findings are grouped into one document per theme, ordered here by recommended pr
 | Priority | Document | Headline |
 |---|---|---|
 | 1 | [AuditWritePipelineDurability.md](AuditWritePipelineDurability.md) | ✅ **Done** — A mixed replay batch hitting one duplicate key silently loses every other event in the batch and reports success. Plus outbox/DLQ false-success paths. |
-| 2 | [TamperDetectionIntegrityGaps.md](TamperDetectionIntegrityGaps.md) | HMAC and signatures don't cover event content or chain position; tail truncation and deleted-event rows verify clean; GDPR anonymization breaks the hash chain. |
+| 2 | [TamperDetectionIntegrityGaps.md](TamperDetectionIntegrityGaps.md) | ✅ **Done** — HMAC/signatures now cover chain position (v3 algorithm); deleted-event detection, boundary validation, malformed-JSON detection added. Deferred: GDPR anonymization re-chaining (#5), tail truncation via head anchor (#3) to Merkle pipeline. |
 | 3 | [EfInterceptorCoverageGaps.md](EfInterceptorCoverageGaps.md) | Three paths persist entity changes with zero audit records (mixed batches, disconnected updates, sync saves); FERPA AuditOnly can crash the consumer's save; archive cleanup SQL fails on SQL Server. |
 | 4 | [ComplianceValidatorAccuracy.md](ComplianceValidatorAccuracy.md) | Retention wildcard `"User.*"` matches `UserProfile.*` (data-destroying); integrity rules read a never-loaded navigation; retention rules computed over a recency-biased sample. |
 | 5 | [HostingAndConfigurationIssues.md](HostingAndConfigurationIssues.md) | `UseRequestAuditDispatcher` unregisters unrelated hosted services (kills `IntegrityWriteBatcher`); flat `"Audit"` config binding makes the sample's nested appsettings dead config; long `X-Correlation-Id` headers suppress audit rows. |

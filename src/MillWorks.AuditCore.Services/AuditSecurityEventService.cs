@@ -55,12 +55,13 @@ public sealed class AuditSecurityEventService(
         }
 
         // Enforce entity size limits to prevent persistence failures
+        // Use TruncateSafe to avoid splitting surrogate pairs (#10)
         if (entity.Message.Length > MaxMessageLength)
         {
             logger.LogWarning(
                 "Security event message truncated from {Original} to {Max} chars for event type {EventType}",
                 entity.Message.Length, MaxMessageLength, entity.EventType);
-            entity.Message = entity.Message[..MaxMessageLength];
+            entity.Message = SensitiveContentSanitizer.TruncateSafe(entity.Message, MaxMessageLength);
         }
 
         // Serialize details with size guard - must produce valid JSON

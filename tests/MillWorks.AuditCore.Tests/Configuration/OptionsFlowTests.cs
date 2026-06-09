@@ -154,8 +154,14 @@ public sealed class OptionsFlowTests
             JsonData = "{\"test\":\"same-data\"}"
         };
 
-        var fluentSignature = await CaptureHmacSignatureAsync(fluentOptions, dto);
-        var configSignature = await CaptureHmacSignatureAsync(configOptions, dto);
+        // Use a fixed timestamp so both services produce identical HMACs.
+        // The v3 HMAC format includes TrustedTimestamp, so without a fixed time
+        // the signatures would differ even with the same HMAC key.
+        var fixedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var fixedTimeProvider = new FakeTimeProvider(fixedTime);
+
+        var fluentSignature = await CaptureHmacSignatureAsync(fluentOptions, dto, fixedTimeProvider);
+        var configSignature = await CaptureHmacSignatureAsync(configOptions, dto, fixedTimeProvider);
 
         Assert.That(fluentSignature, Is.Not.Null.And.Not.Empty);
         Assert.That(configSignature, Is.EqualTo(fluentSignature));
@@ -199,7 +205,8 @@ public sealed class OptionsFlowTests
 
     private static async Task<string?> CaptureHmacSignatureAsync(
         IOptions<AuditOptions> auditOptions,
-        AuditIntegrityDto dto)
+        AuditIntegrityDto dto,
+        TimeProvider? timeProvider = null)
     {
         var mockEventRepo = new Mock<IAuditEventRepository>();
         var mockIntegrityRepo = new Mock<IAuditIntegrityRepository>();
@@ -241,10 +248,20 @@ public sealed class OptionsFlowTests
             mockSecurityEventService.Object,
             NullLogger<TamperDetectionService>.Instance,
             auditOptions,
-            Options.Create(new SecurityOptions()));
+            Options.Create(new SecurityOptions()),
+            timeProvider: timeProvider);
 
         await service.CreateIntegrityRecordAsync(dto);
         return captured;
+    }
+
+    private sealed class FakeTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset _fixedTime;
+
+        public FakeTimeProvider(DateTimeOffset fixedTime) => _fixedTime = fixedTime;
+
+        public override DateTimeOffset GetUtcNow() => _fixedTime;
     }
 
     private sealed class FakeHostEnvironment : IHostEnvironment

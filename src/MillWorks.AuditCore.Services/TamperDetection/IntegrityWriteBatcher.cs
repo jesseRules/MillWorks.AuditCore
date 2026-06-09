@@ -238,19 +238,50 @@ public sealed class IntegrityWriteBatcher : BackgroundService
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
 
             var events = batch.Select(static b => b.Event).ToList();
-            var results = await tamperDetection.CreateIntegrityRecordBatchAsync(events, cancellationToken);
+            var eventIds = events.Select(static e => e.EventId).ToList();
 
-            if (results.Count != batch.Count)
+            // #10: Check for events that already have integrity records (created by reconciler
+            // or a previous attempt). Skip those to avoid burning retry attempts on duplicate keys.
+            var existingIntegrityEventIds = await dbContext.AuditIntegrity
+                .Where(ai => eventIds.Contains(ai.EventId))
+                .Select(static ai => ai.EventId)
+                .ToListAsync(cancellationToken);
+
+            var existingSet = existingIntegrityEventIds.ToHashSet();
+            var eventsToCreate = events.Where(e => !existingSet.Contains(e.EventId)).ToList();
+
+            if (existingIntegrityEventIds.Count > 0)
+            {
+                _logger.LogDebug(
+                    "IntegrityWriteBatcher: {Count} of {Total} events already have integrity records, skipping",
+                    existingIntegrityEventIds.Count, events.Count);
+            }
+
+            // Create integrity records only for events that don't already have them
+            var results = eventsToCreate.Count > 0
+                ? await tamperDetection.CreateIntegrityRecordBatchAsync(eventsToCreate, cancellationToken)
+                : [];
+
+            // Build a complete results list that includes both newly created and pre-existing
+            var resultsDict = results.ToDictionary(static r => r.EventId);
+            foreach (var existingId in existingIntegrityEventIds)
+            {
+                resultsDict[existingId] = new AuditIntegrityDto { EventId = existingId };
+            }
+
+            // Verify we have a result for every input
+            if (resultsDict.Count != batch.Count)
             {
                 throw new InvalidOperationException(
-                    $"IntegrityWriteBatcher: CreateIntegrityRecordBatchAsync returned {results.Count} " +
-                    $"results but {batch.Count} were expected. Failing the entire batch.");
+                    $"IntegrityWriteBatcher: result count {resultsDict.Count} does not match batch count {batch.Count}");
             }
+
+            // Reassign results in batch order for the completion signaling below
+            var orderedResults = batch.Select(b => resultsDict[b.Event.EventId]).ToList();
 
             // Mark work items and events as Completed atomically.
             // Both updates must succeed together to avoid orphaned Pending events
             // that the reconciliation service won't pick up.
-            var eventIds = batch.Select(static b => b.Event.EventId).ToList();
 
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
             try
@@ -286,7 +317,7 @@ public sealed class IntegrityWriteBatcher : BackgroundService
             // Signal success to all callers
             for (int i = 0; i < batch.Count; i++)
             {
-                batch[i].Completion.TrySetResult(results[i]);
+                batch[i].Completion.TrySetResult(orderedResults[i]);
             }
 
             activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, batch.Count);
