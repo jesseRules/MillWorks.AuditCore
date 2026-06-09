@@ -45,6 +45,7 @@ internal sealed class AuditEntityBatchWriter(
                     {
                         auditLogSet.Add(new AuditLogEntity
                         {
+                            EnvelopeId = envelope.EnvelopeId,
                             EntityName = envelope.EntityName,
                             EntityId = envelope.EntityId,
                             Action = envelope.Action,
@@ -64,6 +65,7 @@ internal sealed class AuditEntityBatchWriter(
                 {
                     auditLogSet.Add(new AuditLogEntity
                     {
+                        EnvelopeId = envelope.EnvelopeId,
                         EntityName = envelope.EntityName,
                         EntityId = envelope.EntityId,
                         Action = envelope.Action,
@@ -90,20 +92,17 @@ internal sealed class AuditEntityBatchWriter(
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            // Duplicate key violation for entity-change envelopes is unexpected.
-            // AuditLogEntity uses auto-generated GUIDs for PKs and has no unique
-            // constraints on business keys. A duplicate key error here indicates
-            // either a data bug or an unrelated constraint violation - not an
-            // idempotent replay. Mark as failed rather than silently succeeding.
-            var errorMessage = ex.InnerException?.Message ?? ex.Message;
-            logger.LogError(ex,
-                "Unexpected duplicate key in AuditLogEntity batch ({EnvelopeCount} envelopes): {Error}",
-                envelopes.Count, errorMessage);
+            // Duplicate key on the (EnvelopeId, PropertyName) unique index means this
+            // envelope was already persisted — an idempotent replay after outbox drainer
+            // crash. Mark all envelopes as duplicates (success).
+            logger.LogDebug(
+                "Duplicate key in AuditLogEntity batch ({EnvelopeCount} envelopes), treating as idempotent replay",
+                envelopes.Count);
 
             foreach (var envelope in envelopes)
             {
                 if (envelope is not null)
-                    outcomes.Add(WriteOutcome.Failed(envelope.EnvelopeId, $"Unexpected duplicate key: {errorMessage}", isRetryable: false, ex));
+                    outcomes.Add(WriteOutcome.Duplicate(envelope.EnvelopeId));
             }
         }
         catch (DbUpdateException ex)

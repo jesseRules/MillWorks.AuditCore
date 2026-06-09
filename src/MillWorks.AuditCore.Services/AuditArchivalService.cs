@@ -145,6 +145,7 @@ public sealed class AuditArchivalService(
 
         AuditArchiveRecordEntity? archiveRecord = null;
         BlobClient? blobClient = null;
+        Task? uploadTask = null;
         var blobWriteStarted = false;
 
         try
@@ -165,6 +166,7 @@ public sealed class AuditArchivalService(
 
             if (eventCount == 0)
             {
+                result.Success = true;
                 result.Message = "No events to archive";
                 await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId,
                     MillWorksArchiveStatus.Completed, "No events found to archive", cancellationToken);
@@ -208,7 +210,7 @@ public sealed class AuditArchivalService(
 
             // Start upload consumer first so the producer has somewhere to drain into.
             await using var readerStream = pipe.Reader.AsStream();
-            var uploadTask = blobClient.UploadAsync(readerStream, overwrite: true, cancellationToken);
+            uploadTask = blobClient.UploadAsync(readerStream, overwrite: true, cancellationToken);
 
             try
             {
@@ -419,8 +421,23 @@ public sealed class AuditArchivalService(
 
             // If we started a blob write, a partial or fully-committed blob may exist.
             // Delete it so subsequent retries don't see a half-written payload.
+            // IMPORTANT: Await the upload task first (with a timeout) so the delete doesn't
+            // race against a still-running commit — otherwise a partial blob can survive.
             if (blobWriteStarted && blobClient is not null)
             {
+                if (uploadTask is not null)
+                {
+                    try
+                    {
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        await uploadTask.WaitAsync(cts.Token);
+                    }
+                    catch
+                    {
+                        // Upload failed or timed out — safe to proceed with cleanup.
+                    }
+                }
+
                 try
                 {
                     await blobClient.DeleteIfExistsAsync(cancellationToken: CancellationToken.None);

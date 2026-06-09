@@ -159,10 +159,11 @@ public sealed class AuditOutboxDrainer(
         drainStopwatch.Stop();
         AuditMetrics.OutboxDrainDuration.Record(drainStopwatch.Elapsed.TotalMilliseconds);
 
-        var processed = validRows.Count - invalidRows.Count;
+        var processed = validRows.Count;
         activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, processed);
         activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
-        logger.LogDebug("Drained {Processed}/{Total} outbox rows", processed, claimedRows.Count);
+        logger.LogDebug("Drained {Processed}/{Total} outbox rows ({InvalidCount} invalid)",
+            processed, claimedRows.Count, invalidRows.Count);
 
         return processed;
     }

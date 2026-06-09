@@ -5,6 +5,7 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -130,10 +131,14 @@ public sealed class InMemoryAuditDeadLetterQueue(
 
         try
         {
-            // Create a scope to get the scoped IAuditLogger
+            // Create a scope to get the scoped AuditLogger.
+            // Resolve the undecorated AuditLogger directly, NOT IAuditLogger.
+            // IAuditLogger may be decorated by ResilientAuditLogger, which catches
+            // failures and routes back to DLQ without throwing — causing reprocessing
+            // to report success when the event is actually still in DLQ.
             var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
             using var scope = scopeFactory.CreateScope();
-            IAuditLogger? auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
+            AuditLogger? auditLogger = scope.ServiceProvider.GetService<AuditLogger>();
 
             if (auditLogger == null || deadLetterEvent.OriginalEvent == null) return false;
             await auditLogger.LogAsync(deadLetterEvent.OriginalEvent);

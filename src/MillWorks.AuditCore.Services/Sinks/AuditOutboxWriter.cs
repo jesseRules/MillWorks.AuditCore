@@ -135,10 +135,11 @@ WHERE NOT EXISTS (
 
             return inserted;
         }
-        catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+        catch (Exception ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
             // Race condition: another transaction inserted between our check and insert.
-            // Fall back to one-at-a-time to determine which rows are duplicates.
+            // ExecuteSqlRawAsync throws provider exceptions directly (SqlException, etc.),
+            // not DbUpdateException, so we catch the base Exception type.
             logger.LogDebug(ex, "Duplicate key conflict in batch insert, falling back to individual inserts");
             return await WriteIndividuallyAsync(rows, createdAt, cancellationToken);
         }
@@ -173,8 +174,10 @@ WHERE NOT EXISTS (
                 if (result > 0)
                     inserted++;
             }
-            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            catch (Exception ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
             {
+                // ExecuteSqlRawAsync throws provider exceptions directly (SqlException, etc.),
+                // not DbUpdateException, so we catch the base Exception type.
                 logger.LogDebug("Duplicate outbox row skipped for IdempotencyKey {Key}", idempotencyKey);
             }
         }

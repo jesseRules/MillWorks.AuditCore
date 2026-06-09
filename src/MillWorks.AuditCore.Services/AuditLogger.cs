@@ -215,8 +215,41 @@ public class AuditLogger(
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            logger.LogDebug("Duplicate key in batch. Treating as success (idempotent replay).");
-            return BatchAuditResult.Duplicate(auditEvents.Count);
+            // A duplicate key in an atomic batch means at least one event already exists,
+            // but others may be new. Fall back to per-event writes to ensure new events
+            // are persisted. The blanket "all duplicates" assumption only holds when the
+            // entire batch is a replay, which we cannot determine from the exception.
+            logger.LogDebug(
+                "Duplicate key in batch of {Count} events. Falling back to per-event writes.",
+                auditEvents.Count);
+
+            // Detach any entities that were added to the change tracker before the exception
+            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+            }
+
+            // Insert each event individually — LogAsync handles per-event duplicate detection
+            int duplicateCount = 0;
+            foreach (var auditEvent in auditEvents)
+            {
+                bool wasDuplicate = await TryLogSingleEventAsync(auditEvent, cancellationToken);
+                if (wasDuplicate)
+                    duplicateCount++;
+            }
+
+            // All events are now either persisted or confirmed as duplicates
+            if (duplicateCount == auditEvents.Count)
+            {
+                logger.LogDebug("All {Count} events in batch were duplicates", auditEvents.Count);
+                return BatchAuditResult.Duplicate(auditEvents.Count);
+            }
+
+            logger.LogDebug(
+                "Batch fallback complete: {NewCount} new, {DuplicateCount} duplicates",
+                auditEvents.Count - duplicateCount, duplicateCount);
+            return BatchAuditResult.Succeeded(auditEvents.Count);
         }
         catch (OperationCanceledException)
         {
@@ -227,6 +260,58 @@ public class AuditLogger(
         {
             logger.LogError(ex, "Failed to log batch of {Count} audit events", auditEvents.Count);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to log a single audit event, returning true if it was a duplicate.
+    /// Does not throw on duplicate key; throws on other errors.
+    /// </summary>
+    private async Task<bool> TryLogSingleEventAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var entity = ConvertToEntity(auditEvent);
+
+            if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
+            {
+                entity.IntegrityStatus = IntegrityStatus.Completed;
+                await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                {
+                    await auditEventRepository.AddAsync(entity, cancellationToken);
+                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+
+                    var dto = new AuditIntegrityDto
+                    {
+                        EventId = entity.EventId,
+                        InsertedDate = entity.InsertedDate,
+                        LastUpdatedDate = entity.LastUpdatedDate,
+                        JsonData = entity.JsonData,
+                        EventType = entity.EventType,
+                        User = entity.User,
+                        UserId = entity.UserId
+                    };
+                    await tamperDetectionService.CreateIntegrityRecordAsync(dto, cancellationToken);
+                }, cancellationToken);
+            }
+            else
+            {
+                entity.IntegrityStatus = IntegrityStatus.Completed;
+                await auditEventRepository.AddAsync(entity, cancellationToken);
+                await auditEventRepository.SaveChangesAsync(cancellationToken);
+            }
+
+            return false; // Not a duplicate
+        }
+        catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+        {
+            // Detach the entity that failed so it doesn't pollute subsequent inserts
+            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+            }
+            return true; // Was a duplicate
         }
     }
 
@@ -277,6 +362,8 @@ public class AuditLogger(
         }
         catch (Exception ex)
         {
+            // Remove the scope we just added — LogAsync failed so the operation isn't valid
+            _activeOperations.TryRemove(operationId, out _);
             logger.LogError(ex, "Failed to begin audit operation {OperationType}", operationType);
             throw;
         }

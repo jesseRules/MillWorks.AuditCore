@@ -69,15 +69,19 @@ public sealed class DeadLetterAuditScope(
     }
 
     /// <summary>
-    /// Disposes the audit scope, ensuring resources are cleaned up
+    /// Disposes the audit scope synchronously.
+    /// Sync Dispose is a no-op to avoid deadlocks from sync-over-async patterns.
+    /// Use 'await using' or DisposeAsync() for the event to be saved to DLQ.
     /// </summary>
     public void Dispose()
     {
-        if (!_disposed)
-        {
-            SaveAsync().GetAwaiter().GetResult();
-            _disposed = true;
-        }
+        if (_disposed) return;
+        _disposed = true;
+
+        logger.LogWarning(
+            "DeadLetterAuditScope.Dispose() called synchronously for event {EventId}. " +
+            "The audit event will not be saved to DLQ. Use 'await using' or DisposeAsync() instead.",
+            Event.EventId);
     }
 
     /// <summary>

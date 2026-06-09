@@ -431,7 +431,7 @@ public sealed class ResilientAuditLogger(
                     Target = redactedTarget,
                     CustomFields = redactedCustomFields,
                     auditEvent.Success,
-                    auditEvent.ErrorMessage
+                    ErrorMessage = fieldRedactor.RedactValue("ErrorMessage", auditEvent.ErrorMessage)
                 },
                 Error = exception.GetType().Name // Exclude full stack trace from temp files
             };

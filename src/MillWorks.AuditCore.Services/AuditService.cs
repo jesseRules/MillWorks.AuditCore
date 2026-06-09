@@ -413,12 +413,16 @@ public sealed class AuditService(
                         .ToList(),
                     "month" => dailyCounts
                         .GroupBy(static d => new { d.Date.Year, d.Date.Month, d.EventType })
-                        .Select(static g => new AuditChartData
+                        .Select(static g =>
                         {
-                            Date = new DateTime(g.Key.Year, g.Key.Month, 1),
-                            Label = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy"),
-                            Count = g.Sum(static x => x.Count),
-                            EventType = g.Key.EventType
+                            var monthStart = new DateTimeOffset(g.Key.Year, g.Key.Month, 1, 0, 0, 0, TimeSpan.Zero);
+                            return new AuditChartData
+                            {
+                                Date = monthStart,
+                                Label = monthStart.ToString("MMM yyyy"),
+                                Count = g.Sum(static x => x.Count),
+                                EventType = g.Key.EventType
+                            };
                         })
                         .OrderBy(static x => x.Date)
                         .ToList(),
@@ -460,8 +464,8 @@ public sealed class AuditService(
     /// </summary>
     private static DateTimeOffset GetFirstDayOfWeek(int year, int weekNumber)
     {
-        // Find the first day of the year
-        DateTimeOffset jan1 = new DateTime(year, 1, 1);
+        // Find the first day of the year (use UTC to avoid server-local timezone drift)
+        var jan1 = new DateTimeOffset(year, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         // Get the day of week for Jan 1
         int daysOffset = DayOfWeek.Monday - jan1.DayOfWeek;

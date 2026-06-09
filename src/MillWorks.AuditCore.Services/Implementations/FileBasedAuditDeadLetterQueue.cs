@@ -7,6 +7,7 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -100,7 +101,8 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
 
     private sealed record DlqFileEntry(
         string FilePath, string EventId, DateTimeOffset FailedAt, bool IsProcessed,
-        int RetryCount, string? EventType, string? FailureReason, long FileSize);
+        int RetryCount, string? EventType, string? FailureReason, long FileSize,
+        DateTimeOffset? ProcessedAt = null);
 
     /// <summary>
     /// File-based Audit Dead Letter Queue constructor
@@ -180,7 +182,8 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                             _fileIndex[envelope.Id] = new DlqFileEntry(
                                 file, envelope.Id, envelope.FailedAt, true,
                                 envelope.RetryCount, envelope.OriginalEvent?.EventType,
-                                envelope.FailureReason, new FileInfo(file).Length);
+                                envelope.FailureReason, new FileInfo(file).Length,
+                                envelope.ProcessedAt);
                         }
                     }
                     catch (Exception ex)
@@ -404,7 +407,11 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
         try
         {
             using var scope = _serviceScopeFactory.CreateScope();
-            var auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
+            // Resolve the undecorated AuditLogger directly, NOT IAuditLogger.
+            // IAuditLogger may be decorated by ResilientAuditLogger, which catches
+            // failures and routes back to DLQ without throwing — causing reprocessing
+            // to report success when the event is actually still in DLQ.
+            var auditLogger = scope.ServiceProvider.GetService<AuditLogger>();
 
             if (auditLogger != null && deadLetterEvent.OriginalEvent != null)
             {
@@ -429,12 +436,13 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             if (replaySucceeded)
             {
                 deadLetterEvent.IsProcessed = true;
-                deadLetterEvent.ProcessedAt = DateTimeOffset.UtcNow;
+                var processedAt = DateTimeOffset.UtcNow;
+                deadLetterEvent.ProcessedAt = processedAt;
                 await SaveDeadLetterEventAsync(deadLetterEvent);
 
                 if (_fileIndex.TryGetValue(deadLetterId, out var entry))
                 {
-                    _fileIndex[deadLetterId] = entry with { IsProcessed = true };
+                    _fileIndex[deadLetterId] = entry with { IsProcessed = true, ProcessedAt = processedAt };
                 }
 
                 _logger.LogInformation("Successfully reprocessed dead letter event {Id}", deadLetterId);
@@ -540,10 +548,11 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 }
             }
 
-            // Clean up old files from the Processed folder that have exceeded retention
+            // Clean up old files from the Processed folder that have exceeded retention.
+            // Use ProcessedAt (when it was successfully replayed), not FailedAt (when it first failed).
             var cutoff = DateTimeOffset.UtcNow - _processedRetention;
             var expiredEntries = _fileIndex.Values
-                .Where(e => e.IsProcessed && e.FailedAt < cutoff)
+                .Where(e => e.IsProcessed && e.ProcessedAt.HasValue && e.ProcessedAt.Value < cutoff)
                 .ToList();
 
             foreach (var entry in expiredEntries)
