@@ -54,6 +54,12 @@ public sealed class AuditArchivalService(
     private const int _pipePauseBytes = 4 * 1024 * 1024;
 
     /// <summary>
+    /// Timeout for awaiting the upload task in the failure cleanup path. If the upload
+    /// hasn't completed or failed within this window, proceed with blob cleanup anyway.
+    /// </summary>
+    private static readonly TimeSpan _uploadCleanupTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// How often the JSON writer's internal buffer is flushed to the gzip stream during
     /// event streaming. Keeps the writer's own buffer bounded independent of event count.
     /// </summary>
@@ -429,7 +435,7 @@ public sealed class AuditArchivalService(
                 {
                     try
                     {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        using var cts = new CancellationTokenSource(_uploadCleanupTimeout);
                         await uploadTask.WaitAsync(cts.Token);
                     }
                     catch

@@ -153,6 +153,21 @@ public sealed class AuditEventRepository(AuditDbContext context)
             .AnyAsync(ae => ae.EventId == auditEventEventId, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken = default)
+    {
+        var idList = eventIds.ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var existing = await DbSet.AsNoTracking()
+            .Where(ae => idList.Contains(ae.EventId))
+            .Select(ae => ae.EventId)
+            .ToListAsync(cancellationToken);
+
+        return [..existing];
+    }
+
     /// <summary>
     /// Gets distinct event types from audit events.
     /// </summary>

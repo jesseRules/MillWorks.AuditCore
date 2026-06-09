@@ -137,6 +137,12 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
     Task<bool> EventExistsAsync(Guid auditEventEventId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the subset of the given EventIds that already exist in the database.
+    /// Used for batch duplicate detection without per-event queries.
+    /// </summary>
+    Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a list of distinct event types from audit events.
     /// </summary>
     /// <param name="cancellationToken"></param>
