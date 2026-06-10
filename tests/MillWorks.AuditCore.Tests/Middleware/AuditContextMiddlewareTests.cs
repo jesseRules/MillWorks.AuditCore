@@ -185,6 +185,46 @@ public class AuditContextMiddlewareTests
     }
 
     [Test]
+    public async Task InvokeAsync_ExcludedPathMatchesSegmentBoundary_NotBarePrefix()
+    {
+        _middleware = CreateMiddleware(new AuditMiddlewareOptions
+        {
+            ExcludedPaths = ["/test"]
+        });
+
+        _httpContext.Request.Path = "/testimonials";
+        _httpContext.Request.Method = "POST";
+
+        Task Next(HttpContext ctx) => Task.CompletedTask;
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        _mockAuditEventFactory.Verify(
+            x => x.CreateEvent(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task InvokeAsync_ExcludedPathWithSubpath_IsExcluded()
+    {
+        _middleware = CreateMiddleware(new AuditMiddlewareOptions
+        {
+            ExcludedPaths = ["/test"]
+        });
+
+        _httpContext.Request.Path = "/test/subpath";
+        _httpContext.Request.Method = "POST";
+
+        Task Next(HttpContext ctx) => Task.CompletedTask;
+
+        await _middleware.InvokeAsync(_httpContext, Next);
+
+        _mockAuditEventFactory.Verify(
+            x => x.CreateEvent(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Test]
     public async Task InvokeAsync_WithConfiguredExcludedReadPath_DoesNotCreateRequestAuditEvent()
     {
         _middleware = CreateMiddleware(new AuditMiddlewareOptions

@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 
@@ -40,6 +42,11 @@ public sealed class AuditComplianceService : IAuditComplianceService
     private readonly Dictionary<ComplianceStandard, IComplianceValidator> _validators;
 
     /// <summary>
+    /// Compliance options with enabled standards
+    /// </summary>
+    private readonly ComplianceOptions _complianceOptions;
+
+    /// <summary>
     /// AuditComplianceService constructor
     /// </summary>
     public AuditComplianceService(
@@ -47,12 +54,14 @@ public sealed class AuditComplianceService : IAuditComplianceService
         IEnumerable<IComplianceValidator> validators,
         ILogger<AuditComplianceService> logger,
         IConfiguration configuration,
+        IOptions<ComplianceOptions> complianceOptions,
         IAuditArchivalService? auditArchivalService = null)
     {
         _auditEventRepository = auditEventRepository;
         _auditArchivalService = auditArchivalService;
         _logger = logger;
         _configuration = configuration;
+        _complianceOptions = complianceOptions.Value;
 
         _validators = validators.ToDictionary(static v => v.Standard);
     }
@@ -85,13 +94,29 @@ public sealed class AuditComplianceService : IAuditComplianceService
             throw new NotSupportedException($"Compliance standard {standard} not supported");
         }
 
-        // Fetch a bounded sample for validation (validators do in-memory LINQ checks)
+        // Fetch server-side aggregates for accurate date range and integrity checks
+        var dateBoundaries = await _auditEventRepository.GetDateRangeBoundariesAsync(
+            startDate, endDate, cancellationToken);
+        var (totalEvents, unprotectedEvents) = await _auditEventRepository.GetIntegrityStatusCountsAsync(
+            startDate, endDate, cancellationToken);
+
+        // Fetch a bounded sample for validators that need to inspect event content
         var events = await _auditEventRepository.GetByDateRangeAsync(startDate, endDate,
             maxResults: 5000, cancellationToken: cancellationToken);
         var eventsList = events.ToList();
 
-        // Validate compliance
-        report.ValidationResults = await validator.ValidateAsync(eventsList);
+        var context = new ComplianceValidationContext
+        {
+            Events = eventsList,
+            OldestEventDate = dateBoundaries?.OldestDate,
+            NewestEventDate = dateBoundaries?.NewestDate,
+            TotalEventCount = totalEvents,
+            UnprotectedEventCount = unprotectedEvents,
+            EnabledStandards = _complianceOptions.Standards.ToHashSet()
+        };
+
+        // Validate compliance using server-side aggregates
+        report.ValidationResults = await validator.ValidateAsync(context);
         report.IsCompliant = report.ValidationResults.All(static r => r.Passed);
 
         // Generate recommendations
@@ -523,8 +548,26 @@ public sealed class AuditComplianceService : IAuditComplianceService
         var events = await _auditEventRepository.FindAsync(
             e => e.EventType == eventType && e.InsertedDate >= startDate && e.InsertedDate <= endDate,
             cancellationToken);
+        var eventsList = events.ToList();
 
-        return await validator.ValidateAsync(events.ToList());
+        // For event-type-specific validation, we use the filtered events
+        // Server-side aggregates are scoped to this filtered set
+        var dateBoundaries = await _auditEventRepository.GetDateRangeBoundariesAsync(
+            startDate, endDate, cancellationToken);
+        var (totalEvents, unprotectedEvents) = await _auditEventRepository.GetIntegrityStatusCountsAsync(
+            startDate, endDate, cancellationToken);
+
+        var context = new ComplianceValidationContext
+        {
+            Events = eventsList,
+            OldestEventDate = dateBoundaries?.OldestDate,
+            NewestEventDate = dateBoundaries?.NewestDate,
+            TotalEventCount = totalEvents,
+            UnprotectedEventCount = unprotectedEvents,
+            EnabledStandards = _complianceOptions.Standards.ToHashSet()
+        };
+
+        return await validator.ValidateAsync(context);
     }
 
     /// <summary>

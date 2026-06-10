@@ -177,7 +177,8 @@ public class UserAuditProviderTests
         var entity = new TestUserEntity { Email = "user@example.com" };
         var expectedEvent = new AuditEvent { EventType = "User.Create" };
 
-        _mockEventFactory.Setup(f => f.CreateEntityEvent("User", "Create", entity, null))
+        // Entity is sanitized to a Dictionary before passing to CreateEntityEvent
+        _mockEventFactory.Setup(f => f.CreateEntityEvent("User", "Create", It.IsAny<Dictionary<string, object?>>(), null))
             .Returns(expectedEvent);
         _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 

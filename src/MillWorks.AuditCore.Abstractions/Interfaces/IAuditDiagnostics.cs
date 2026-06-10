@@ -85,6 +85,21 @@ public interface IAuditDiagnostics
     long InterceptorAuditFailureCount { get; }
 
     /// <summary>
+    /// Number of synchronous SaveChanges calls that were blocked with
+    /// NotSupportedException. This counter tracks how often code paths attempt
+    /// synchronous saves, which audit interceptors cannot support reliably.
+    /// </summary>
+    long SyncSaveChangesBlockedCount { get; }
+
+    /// <summary>
+    /// Number of entity updates where snapshot capture fell back to log-only mode
+    /// because the entity was disconnected (not tracked by EF). These updates are
+    /// audited with limited data; the counter helps identify codepaths that
+    /// bypass the normal tracking flow.
+    /// </summary>
+    long DisconnectedUpdateFallbackCount { get; }
+
+    /// <summary>
     /// Number of request-audit dispatch enqueue timeout events raised by
     /// <c>InProcessRequestAuditDispatcher</c> when the bounded channel is full and
     /// the enqueue timeout expires. Incremented once per timeout regardless of the
@@ -160,6 +175,8 @@ public enum AuditDiagnosticCounter
     IntegrityReconciliationFailure,
     IntegrityPermanentFailure,
     InterceptorAuditFailure,
+    SyncSaveChangesBlocked,
+    DisconnectedUpdateFallback,
     RequestDispatcherEnqueueTimeout,
     RequestDispatcherChannelClosed,
     RequestDispatcherDlqRouted,

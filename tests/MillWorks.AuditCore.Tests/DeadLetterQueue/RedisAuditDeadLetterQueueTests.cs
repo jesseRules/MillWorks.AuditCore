@@ -640,6 +640,10 @@ public class RedisAuditDeadLetterQueueTests
         mockScopedProvider
             .Setup(x => x.GetService(typeof(IAuditLogger)))
             .Returns(mockAuditLogger.Object);
+        // DLQ reprocessing resolves AuditLogger directly to bypass decorators
+        mockScopedProvider
+            .Setup(x => x.GetService(typeof(AuditLogger)))
+            .Returns(new StatisticsTestAuditLogger(mockAuditLogger.Object));
         mockScope.Setup(x => x.ServiceProvider).Returns(mockScopedProvider.Object);
 
         var mockScopeFactory = new Mock<IServiceScopeFactory>();
@@ -907,6 +911,16 @@ public class RedisAuditDeadLetterQueueTests
         Assert.That(ex!.Message, Does.Contain("transaction failed"));
         Assert.That(ex.Message, Does.Contain("not persisted"));
     }
+
+    /// <summary>
+    /// Test double for AuditLogger that delegates to a mock IAuditLogger.
+    /// Required because DLQ reprocessing resolves AuditLogger directly to bypass decorators.
+    /// </summary>
+    private sealed class StatisticsTestAuditLogger(IAuditLogger innerLogger) : AuditLogger(null!, null!, null!, null!, null!, null!)
+    {
+        public override Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+            => innerLogger.LogAsync(auditEvent, cancellationToken);
+    }
 }
 
 /// <summary>
@@ -1068,6 +1082,9 @@ public class RedisAuditDeadLetterQueueReplayTests
         var mockScopedProvider = new Mock<IServiceProvider>();
         mockScopedProvider.Setup(static x => x.GetService(typeof(IAuditLogger)))
             .Returns(() => _mockAuditLogger.Object);
+        // DLQ reprocessing resolves AuditLogger directly to bypass decorators
+        mockScopedProvider.Setup(x => x.GetService(typeof(AuditLogger)))
+            .Returns(() => new TestableAuditLogger(_mockAuditLogger.Object));
         mockScope.Setup(static x => x.ServiceProvider).Returns(mockScopedProvider.Object);
 
         _mockScopeFactory = new Mock<IServiceScopeFactory>();
@@ -1247,5 +1264,15 @@ public class RedisAuditDeadLetterQueueReplayTests
         Assert.That(evt, Is.Not.Null);
         Assert.That(evt!.IsProcessed, Is.False);
         Assert.That(evt.RetryCount, Is.EqualTo(1));
+    }
+
+    /// <summary>
+    /// Test double for AuditLogger that delegates to a mock IAuditLogger.
+    /// Required because DLQ reprocessing resolves AuditLogger directly to bypass decorators.
+    /// </summary>
+    private sealed class TestableAuditLogger(IAuditLogger innerLogger) : AuditLogger(null!, null!, null!, null!, null!, null!)
+    {
+        public override Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+            => innerLogger.LogAsync(auditEvent, cancellationToken);
     }
 }

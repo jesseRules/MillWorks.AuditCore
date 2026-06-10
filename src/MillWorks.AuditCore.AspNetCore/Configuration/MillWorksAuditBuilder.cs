@@ -100,12 +100,15 @@ public sealed class MillWorksAuditBuilder
     public void UseRequestAuditDispatcher<TDispatcher>()
         where TDispatcher : class, IRequestAuditDispatcher
     {
+        // Remove only the InProcessRequestAuditDispatcher registrations, not other hosted services.
+        // The wrapper class enables targeting IHostedService by ImplementationType.
         foreach (var descriptor in Services
                      .Where(static s =>
                          s.ServiceType == typeof(IRequestAuditDispatcher) ||
                          s.ServiceType == typeof(InProcessRequestAuditDispatcher) ||
+                         s.ServiceType == typeof(InProcessRequestAuditDispatcherHostedService) ||
                          (s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
-                          s.ImplementationFactory != null))
+                          s.ImplementationType == typeof(InProcessRequestAuditDispatcherHostedService)))
                      .ToList())
         {
             Services.Remove(descriptor);
@@ -120,7 +123,7 @@ public sealed class MillWorksAuditBuilder
     public void UseEntityFramework(Action<EntityFrameworkOptions> configure)
     {
         Services.AddOptions<EntityFrameworkOptions>()
-            .BindConfiguration("Audit")
+            .BindConfiguration("Audit:EntityFramework")
             .Configure(configure)
             .ValidateOnStart();
 
@@ -173,7 +176,9 @@ public sealed class MillWorksAuditBuilder
                 // archival, and compliance operations) which are incompatible with
                 // SqlServerRetryingExecutionStrategy. Retry logic is handled at a
                 // higher level by ResilientAuditLogger and the dead letter queue.
-                sqlOptions.CommandTimeout(efOptions.MigrationTimeoutSeconds);
+                // CommandTimeoutSeconds is for runtime queries; MigrationTimeoutSeconds
+                // is applied separately in DatabaseInitializationService.
+                sqlOptions.CommandTimeout(efOptions.CommandTimeoutSeconds);
                 sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
             });
 
@@ -291,7 +296,7 @@ public sealed class MillWorksAuditBuilder
     public void UseSecurity(Action<SecurityOptions> configure)
     {
         Services.AddOptions<SecurityOptions>()
-            .BindConfiguration("Audit")
+            .BindConfiguration("Audit:Security")
             .Configure(configure)
             .ValidateOnStart();
 
@@ -362,7 +367,7 @@ public sealed class MillWorksAuditBuilder
     public void UseCompliance(Action<ComplianceOptions> configure)
     {
         Services.AddOptions<ComplianceOptions>()
-            .BindConfiguration("Audit")
+            .BindConfiguration("Audit:Compliance")
             .Configure(configure)
             .ValidateOnStart();
 
@@ -395,43 +400,16 @@ public sealed class MillWorksAuditBuilder
         // Register compliance service (will be used by AuditServiceExtensions)
         Services.AddScoped<IAuditComplianceService, AuditComplianceService>();
 
-        // Validator set resolved at service-resolution time based on configured standards.
-        // AuditComplianceService consumes IEnumerable<IComplianceValidator>.
-        Services.AddScoped<IEnumerable<IComplianceValidator>>(static sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<ComplianceOptions>>().Value;
-            var validators = new List<IComplianceValidator>();
-
-            foreach (var standard in options.Standards)
-            {
-                switch (standard)
-                {
-                    case ComplianceStandard.GDPR:
-                        validators.Add(ActivatorUtilities.CreateInstance<GdprValidator>(sp));
-                        break;
-                    case ComplianceStandard.SOC2:
-                        validators.Add(ActivatorUtilities.CreateInstance<Soc2Validator>(sp));
-                        break;
-                    case ComplianceStandard.HIPAA:
-                        validators.Add(ActivatorUtilities.CreateInstance<HipaaValidator>(sp));
-                        break;
-                    case ComplianceStandard.ISO27001:
-                        validators.Add(ActivatorUtilities.CreateInstance<Iso27001Validator>(sp));
-                        break;
-                    case ComplianceStandard.FERPA:
-                        validators.Add(ActivatorUtilities.CreateInstance<FerpaValidator>(sp));
-                        break;
-                    case ComplianceStandard.PCI_DSS:
-                        validators.Add(ActivatorUtilities.CreateInstance<PciDssValidator>(sp));
-                        break;
-                    case ComplianceStandard.STIG:
-                        validators.Add(ActivatorUtilities.CreateInstance<StigValidator>(sp));
-                        break;
-                }
-            }
-
-            return validators;
-        });
+        // Register validators via TryAddEnumerable so consumers can add their own.
+        // Each validator checks ComplianceOptions.Standards at runtime and short-circuits
+        // if its standard isn't configured.
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, GdprValidator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, Soc2Validator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, HipaaValidator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, Iso27001Validator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, FerpaValidator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, PciDssValidator>());
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, StigValidator>());
     }
 
     /// <summary>
@@ -440,7 +418,7 @@ public sealed class MillWorksAuditBuilder
     public void UseArchival(Action<ArchivalOptions> configure)
     {
         Services.AddOptions<ArchivalOptions>()
-            .BindConfiguration("Audit")
+            .BindConfiguration("Audit:Archival")
             .Configure(configure)
             .ValidateOnStart();
 
@@ -494,7 +472,7 @@ public sealed class MillWorksAuditBuilder
     public void UseResilience(Action<ResilienceOptions> configure)
     {
         Services.AddOptions<ResilienceOptions>()
-            .BindConfiguration("Audit")
+            .BindConfiguration("Audit:Resilience")
             .Configure(configure)
             .ValidateOnStart();
 

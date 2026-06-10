@@ -14,6 +14,22 @@ public sealed class AuditMiddlewareOptions
     public List<string> ExcludedReadPaths { get; set; } = [];
 
     /// <summary>
+    /// Path prefixes to exclude from request-level audit dispatching on all HTTP methods.
+    /// Matching is segment-aware: "/test" matches "/test" and "/test/foo" but not "/testimonials".
+    /// Defaults include common infrastructure paths; set to empty list to audit all paths.
+    /// </summary>
+    public List<string> ExcludedPaths { get; set; } =
+    [
+        "/health",
+        "/metrics",
+        "/_framework",
+        "/swagger",
+        "/hangfire",
+        "/cdn",
+        "/test"
+    ];
+
+    /// <summary>
     /// When true, only POST/PUT/PATCH/DELETE requests are dispatched as request-level audits.
     /// </summary>
     public bool AuditWritesOnly { get; set; }

@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -34,7 +35,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-60), User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Information System Activity Review");
         Assert.That(result!.Passed, Is.False);
@@ -54,7 +55,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Automatic Logoff");
         Assert.That(result!.Passed, Is.False);
@@ -73,7 +74,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Automatic Logoff")!.Passed, Is.True);
     }
 
@@ -89,7 +90,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Log-in Monitoring");
         Assert.That(result!.Passed, Is.False);
@@ -106,7 +107,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Login.Denied", InsertedDate = DateTimeOffset.UtcNow, User = "attacker" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Log-in Monitoring");
         Assert.That(result!.Passed, Is.True);
@@ -129,7 +130,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "system" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Security Incident Tracking");
         Assert.That(result!.Passed, Is.True);
@@ -143,7 +144,7 @@ public class HipaaValidatorBranchTests
     [Test]
     public async Task ValidateAsync_WithEmptyEvents_ReportsNoRetentionPolicy()
     {
-        var results = await _validator.ValidateAsync([]);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         var result = Find(results, "Documentation Retention");
         Assert.That(result!.Passed, Is.False);
@@ -162,7 +163,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Authorization Tracking");
         Assert.That(result!.Passed, Is.False);
@@ -181,7 +182,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Authorization Tracking")!.Passed, Is.True);
     }
 
@@ -199,7 +200,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "doctor" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Emergency Access");
         Assert.That(result!.Passed, Is.True);
@@ -218,7 +219,7 @@ public class HipaaValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow, User = "user", AuditIntegrity = null }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Authentication Mechanism");
         Assert.That(result!.Passed, Is.False);

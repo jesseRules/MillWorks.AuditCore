@@ -203,9 +203,9 @@ public class AuditEventEntity : AuditAggregateRoot
     public string? AssemblyName { get; set; }
 
     /// <summary>
-    /// Correlation Id
+    /// Correlation Id. Supports W3C traceparent (55 chars) and other tracing formats up to 128 chars.
     /// </summary>
-    [MaxLength(36)]
+    [MaxLength(128)]
     [Column("CorrelationId")]
     [JsonPropertyName("correlation_id")]
     [DisplayName("Correlation Id")]

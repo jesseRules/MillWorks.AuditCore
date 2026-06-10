@@ -39,9 +39,17 @@ public sealed class EntityFrameworkOptions
     public string Schema { get; set; } = "audit";
 
     /// <summary>
-    /// Timeout for migration operations in seconds
+    /// Timeout for migration operations in seconds. Only applies during database
+    /// migrations, not runtime queries.
     /// </summary>
     public int MigrationTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Command timeout for runtime queries in seconds. Defaults to 30 seconds.
+    /// This is distinct from <see cref="MigrationTimeoutSeconds"/> which only applies
+    /// during database migrations.
+    /// </summary>
+    public int CommandTimeoutSeconds { get; set; } = 30;
 }
 
 /// <summary>
@@ -72,6 +80,12 @@ internal sealed class EntityFrameworkOptionsValidator : IValidateOptions<EntityF
         {
             failures.Add(
                 $"{nameof(EntityFrameworkOptions.MigrationTimeoutSeconds)} must be > 0.");
+        }
+
+        if (options.CommandTimeoutSeconds <= 0)
+        {
+            failures.Add(
+                $"{nameof(EntityFrameworkOptions.CommandTimeoutSeconds)} must be > 0.");
         }
 
         if (string.IsNullOrWhiteSpace(options.Schema))

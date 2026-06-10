@@ -142,16 +142,18 @@ public class AuditRetentionPolicy
             return true;
 
         // Prefix wildcard: "User.*" matches "User.Login", "User.Logout", etc.
+        // Keep the dot to prevent "User.*" from matching "UserProfile.Updated"
         if (EventType.EndsWith(".*"))
         {
-            var prefix = EventType[..^2]; // Remove ".*"
+            var prefix = EventType[..^1]; // Remove "*", keep "User."
             return eventType.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
 
         // Suffix wildcard: "*.Login" matches "User.Login", "Admin.Login", etc.
+        // Keep the dot to prevent "*.Login" from matching "User.FailedLogin"
         if (EventType.StartsWith("*."))
         {
-            var suffix = EventType[2..]; // Remove "*."
+            var suffix = EventType[1..]; // Remove "*", keep ".Login"
             return eventType.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
         }
 

@@ -33,6 +33,19 @@ public abstract class BaseAuditProvider : IAuditProvider
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
 
     /// <summary>
+    /// Default sensitive property names that should be excluded from Target snapshots.
+    /// Derived providers can override <see cref="SensitiveProperties"/> to add more.
+    /// </summary>
+    private static readonly HashSet<string> DefaultSensitiveProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Password", "PasswordHash", "PasswordSalt",
+        "Secret", "SecretKey", "ClientSecret",
+        "Token", "AccessToken", "RefreshToken", "ApiKey",
+        "SecurityStamp", "ConcurrencyStamp",
+        "PrivateKey", "EncryptionKey", "Key"
+    };
+
+    /// <summary>
     /// Base constructor for audit providers
     /// </summary>
     /// <param name="httpContextAccessor"></param>
@@ -54,17 +67,28 @@ public abstract class BaseAuditProvider : IAuditProvider
     public abstract string EntityType { get; }
 
     /// <summary>
+    /// Properties to exclude from Target snapshots. Override to add entity-specific sensitive properties.
+    /// Uses case-insensitive matching.
+    /// </summary>
+    protected virtual IReadOnlySet<string> SensitiveProperties => DefaultSensitiveProperties;
+
+    /// <summary>
     /// Creates an audit event for the specified action and entity
     /// </summary>
     /// <param name="action"></param>
     /// <param name="entity"></param>
     /// <param name="oldValues"></param>
     /// <returns></returns>
-    public virtual async Task<AuditEvent> CreateAuditEventAsync(string action, object? entity, object? oldValues = null)
+    public virtual async Task<AuditEvent> CreateAuditEventAsync(string action, object entity, object? oldValues = null)
     {
         ArgumentNullException.ThrowIfNull(entity);
 
-        AuditEvent auditEvent = _eventFactory.CreateEntityEvent(EntityType, action, entity, oldValues);
+        // Sanitize entities before storing in Target to prevent sensitive data leakage.
+        // The default redactor is a pass-through, so raw entities would expose secrets.
+        var sanitizedNew = CreateSanitizedSnapshot(entity)!; // entity is non-null (checked above)
+        var sanitizedOld = CreateSanitizedSnapshot(oldValues);
+
+        AuditEvent auditEvent = _eventFactory.CreateEntityEvent(EntityType, action, sanitizedNew, sanitizedOld);
         if (_httpContextAccessor.HttpContext != null)
         {
             auditEvent.IpAddress = _httpContextAccessor.HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -162,13 +186,54 @@ public abstract class BaseAuditProvider : IAuditProvider
 
     /// <summary>
     /// Gets scalar (non-navigation, non-collection) public instance properties for a type, with caching.
+    /// Excludes classes (except string), interfaces (e.g. ICollection&lt;T&gt;), and indexers.
     /// </summary>
     protected static PropertyInfo[] GetScalarProperties(Type type)
     {
         return _propertyCache.GetOrAdd(type, static t =>
             t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(static p => !p.PropertyType.IsClass || p.PropertyType == typeof(string))
+                .Where(static p =>
+                    (!p.PropertyType.IsClass || p.PropertyType == typeof(string)) &&
+                    !p.PropertyType.IsInterface &&
+                    p.GetIndexParameters().Length == 0)
                 .ToArray());
+    }
+
+    /// <summary>
+    /// Creates a sanitized dictionary snapshot of an entity, including only scalar properties
+    /// and excluding sensitive properties. Used for Target.Old/New to avoid leaking secrets.
+    /// </summary>
+    protected Dictionary<string, object?>? CreateSanitizedSnapshot(object? entity)
+    {
+        if (entity == null)
+            return null;
+
+        if (entity is Dictionary<string, object?> dict)
+        {
+            return dict
+                .Where(kvp => !SensitiveProperties.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+
+        var snapshot = new Dictionary<string, object?>();
+        var properties = GetScalarProperties(entity.GetType());
+
+        foreach (var property in properties)
+        {
+            if (SensitiveProperties.Contains(property.Name))
+                continue;
+
+            try
+            {
+                snapshot[property.Name] = property.GetValue(entity);
+            }
+            catch (TargetException)
+            {
+                // Skip properties that can't be accessed
+            }
+        }
+
+        return snapshot;
     }
 
     /// <summary>

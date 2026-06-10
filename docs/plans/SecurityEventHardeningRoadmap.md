@@ -1,8 +1,18 @@
 # Security Event Hardening Roadmap
 
-**Status:** Future  
-**Date:** 2026-06-06  
+**Status:** Partially Implemented  
+**Date:** 2026-06-07  
 **Scope:** Follow-up hardening for AuditCore security-event integrity, privacy, queryability, and event pipelines
+
+## Implementation Status
+
+| Workstream | Status | Plan |
+|------------|--------|------|
+| 1. Security-Event Integrity | Proposed | [SecurityEventIntegrity.md](SecurityEventIntegrity.md) |
+| 2. Hash-Only Source Metadata | **Implemented** | Done in BreakGlassSecurityEvents |
+| 3. Query And Export Surface | Proposed | [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md) |
+| 4. Fail-Closed Pipeline Variants | Proposed (optional) | [SecurityEventApiVariants.md](SecurityEventApiVariants.md) |
+| 5. Severity Policy And Alert Integration | **Implemented** | Done — severity stored/queryable, alerts via structured logging |
 
 ## Context
 
@@ -21,6 +31,8 @@ Break-glass recovery raises the bar for these events. The first break-glass impl
 
 ### 1. Security-Event Integrity
 
+**Status:** Proposed — see [SecurityEventIntegrity.md](SecurityEventIntegrity.md)
+
 Design a tamper-evidence model for `SecurityEvents`.
 
 Options to evaluate:
@@ -37,6 +49,8 @@ Acceptance criteria:
 - Existing `RecordEventAsync` still fails closed when durable integrity is required.
 
 ### 2. Hash-Only Source Metadata
+
+**Status:** Implemented in BreakGlassSecurityEvents
 
 Move security-event source metadata toward privacy-preserving fields.
 
@@ -55,6 +69,8 @@ Acceptance criteria:
 
 ### 3. Query And Export Surface
 
+**Status:** Proposed — see [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md)
+
 Add first-class querying for security operations.
 
 Candidate changes:
@@ -72,6 +88,8 @@ Acceptance criteria:
 
 ### 4. Fail-Closed Pipeline Variants
 
+**Status:** Proposed (optional) — see [SecurityEventApiVariants.md](SecurityEventApiVariants.md)
+
 If security-event retry, buffering, or fanout is added later, preserve a fail-closed option for critical paths.
 
 Candidate changes:
@@ -88,6 +106,8 @@ Acceptance criteria:
 - Tests prove persistence failures propagate to callers on the fail-closed path.
 
 ### 5. Severity Policy And Alert Integration
+
+**Status:** Implemented — severity stored/queryable, alerts via structured logging
 
 Clarify ownership between AuditCore, MillWorks.Security, and product applications.
 

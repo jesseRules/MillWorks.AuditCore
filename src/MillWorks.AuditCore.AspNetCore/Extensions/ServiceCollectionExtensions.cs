@@ -65,22 +65,28 @@ public static class ServiceCollectionExtensions
 
             // Default deferred request-audit dispatcher. Consumers can replace IRequestAuditDispatcher
             // with an external implementation (for example, a Hangfire-like job bridge).
+            // Registered as concrete type first, then forwarded to interfaces.
             services.TryAddSingleton<InProcessRequestAuditDispatcher>();
             services.TryAddSingleton<IRequestAuditDispatcher>(static sp =>
                 sp.GetRequiredService<InProcessRequestAuditDispatcher>());
-            services.AddSingleton<IHostedService>(static sp =>
-                sp.GetRequiredService<InProcessRequestAuditDispatcher>());
+            // Wrapper class enables IHostedService to be registered with ImplementationType set,
+            // allowing UseRequestAuditDispatcher to target it for removal by type. Factory-based
+            // registrations in .NET 10 don't set ImplementationType, so the wrapper is necessary.
+            services.TryAddSingleton<InProcessRequestAuditDispatcherHostedService>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton(
+                typeof(IHostedService), typeof(InProcessRequestAuditDispatcherHostedService)));
 
             // Register middleware - CRITICAL: Must be scoped for per-request isolation
             services.TryAddScoped<AuditContextMiddleware>();
             services.TryAddEnumerable(
                 ServiceDescriptor.Singleton<IHostedService, PassThroughRedactorStartupWarningService>());
+            services.TryAddEnumerable(
+                ServiceDescriptor.Singleton<IHostedService, AuditProviderTypeMapFreezeService>());
 
-            // Create and configure builder. Capture a baseline snapshot so the options-pipeline
-            // replay can distinguish consumer-set fluent values from untouched defaults, letting
-            // IConfiguration binding persist for properties the consumer did not fluent-set.
+            // Create and configure builder. AuditOptions.ExplicitlySetProperties tracks which
+            // properties the consumer sets, letting IConfiguration binding persist for properties
+            // that weren't fluent-set.
             var auditOptions = new AuditOptions();
-            var baselineAuditOptions = new AuditOptions();
             var builder = new MillWorksAuditBuilder(services, auditOptions);
 
             // Allow consumer to configure the builder
@@ -92,32 +98,37 @@ public static class ServiceCollectionExtensions
             services.TryAddEnumerable(
                 ServiceDescriptor.Singleton<IValidateOptions<AuditOptions>, AuditOptionsValidator>());
 
+            // Overlay fluent-set properties onto config-bound values. Uses ExplicitlySetProperties
+            // to distinguish "set to default" from "not set", so setting Environment = "Production"
+            // explicitly wins over config "Environment": "Development".
             services.AddOptions<AuditOptions>()
                 .BindConfiguration("Audit")
                 .Configure(opts =>
                 {
-                    if (auditOptions.Enabled != baselineAuditOptions.Enabled)
+                    var explicitlySet = auditOptions.ExplicitlySetProperties;
+
+                    if (explicitlySet.Contains(nameof(AuditOptions.Enabled)))
                         opts.Enabled = auditOptions.Enabled;
 
-                    if (auditOptions.ApplicationName != baselineAuditOptions.ApplicationName)
+                    if (explicitlySet.Contains(nameof(AuditOptions.ApplicationName)))
                         opts.ApplicationName = auditOptions.ApplicationName;
 
-                    if (auditOptions.Environment != baselineAuditOptions.Environment)
+                    if (explicitlySet.Contains(nameof(AuditOptions.Environment)))
                         opts.Environment = auditOptions.Environment;
 
-                    if (auditOptions.HmacKey != baselineAuditOptions.HmacKey)
+                    if (explicitlySet.Contains(nameof(AuditOptions.HmacKey)))
                         opts.HmacKey = auditOptions.HmacKey;
 
-                    if (auditOptions.EnableDigitalSignatures != baselineAuditOptions.EnableDigitalSignatures)
+                    if (explicitlySet.Contains(nameof(AuditOptions.EnableDigitalSignatures)))
                         opts.EnableDigitalSignatures = auditOptions.EnableDigitalSignatures;
 
-                    if (auditOptions.AllowPassThroughRedactor != baselineAuditOptions.AllowPassThroughRedactor)
+                    if (explicitlySet.Contains(nameof(AuditOptions.AllowPassThroughRedactor)))
                         opts.AllowPassThroughRedactor = auditOptions.AllowPassThroughRedactor;
 
-                    if (auditOptions.FailureMode != baselineAuditOptions.FailureMode)
+                    if (explicitlySet.Contains(nameof(AuditOptions.FailureMode)))
                         opts.FailureMode = auditOptions.FailureMode;
 
-                    if (auditOptions.DefaultCustomFields.Count > 0)
+                    if (explicitlySet.Contains(nameof(AuditOptions.DefaultCustomFields)))
                         opts.DefaultCustomFields = new Dictionary<string, object>(auditOptions.DefaultCustomFields);
                 })
                 .ValidateOnStart();

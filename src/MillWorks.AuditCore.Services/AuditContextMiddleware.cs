@@ -28,17 +28,6 @@ public sealed class AuditContextMiddleware(
     private const string _correlationIdHeader = "X-Correlation-Id";
     private const int _maxCorrelationIdLength = 128;
 
-    private static readonly string[] _excludedPaths =
-    [
-        "/health",
-        "/metrics",
-        "/_framework",
-        "/swagger",
-        "/hangfire",
-        "/cdn",
-        "/test"
-    ];
-
     /// <summary>
     /// Invoke the middleware to populate audit context and create audit scope if needed.
     /// </summary>
@@ -143,7 +132,9 @@ public sealed class AuditContextMiddleware(
     }
 
     /// <summary>
-    /// Populate audit context from HTTP context
+    /// Populate audit context from HTTP context including user identity.
+    /// IMPORTANT: Place UseMillWorksAudit() after UseAuthentication() in the pipeline
+    /// to ensure context.User is populated when this runs.
     /// </summary>
     /// <param name="context"></param>
     private void PopulateAuditContext(HttpContext context)
@@ -233,14 +224,36 @@ public sealed class AuditContextMiddleware(
             return false;
         }
 
-        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
-            return _excludedPaths.All(excluded => !path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase));
-        if (options.Value.ExcludedReadPaths.Any(excludedReadPath =>
-                path.StartsWith(excludedReadPath, StringComparison.OrdinalIgnoreCase)))
+        if (IsExcludedPath(path, options.Value.ExcludedPaths))
+            return false;
+
+        if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
+            IsExcludedPath(path, options.Value.ExcludedReadPaths))
         {
             return false;
         }
 
-        return _excludedPaths.All(excluded => !path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase));
+        return true;
+    }
+
+    private static bool IsExcludedPath(string path, IEnumerable<string> excludedPrefixes)
+    {
+        foreach (var excluded in excludedPrefixes)
+        {
+            if (string.IsNullOrEmpty(excluded))
+                continue;
+
+            if (path.Equals(excluded, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase) &&
+                path.Length > excluded.Length &&
+                path[excluded.Length] == '/')
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

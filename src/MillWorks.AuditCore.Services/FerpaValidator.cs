@@ -34,10 +34,14 @@ public sealed class FerpaValidator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.FERPA;
 
     /// <summary>
-    /// Validates a list of audit events against FERPA compliance standards.
+    /// Validates audit events against FERPA compliance standards.
     /// </summary>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // --- Configuration meta-rules (validate the system is set up correctly) ---
@@ -55,7 +59,7 @@ public sealed class FerpaValidator : IComplianceValidator
         AddDisclosureLoggingRule(results, events);
         AddAnnualNotificationRule(results, events);
         AddRetentionComplianceRule(results, events);
-        AddIntegrityControlsRule(results, events);
+        AddIntegrityControlsRule(results, context);
         AddDeIdentificationRule(results, events);
         AddSecurityIncidentTrackingRule(results, events);
         AddLoginMonitoringRule(results, events);
@@ -462,13 +466,13 @@ public sealed class FerpaValidator : IComplianceValidator
     }
 
     /// <summary>
-    /// Rule 9: Integrity Controls
+    /// Rule 9: Integrity Controls (server-side counts)
     /// Severity depends on whether tamper detection is enabled in SecurityOptions.
     /// </summary>
-    private void AddIntegrityControlsRule(List<AuditValidationResult> results, List<AuditEventEntity> events)
+    private void AddIntegrityControlsRule(List<AuditValidationResult> results, ComplianceValidationContext context)
     {
-        var hasIntegrityControls = events.Any(static e => e.AuditIntegrity != null);
-        var eventsWithoutIntegrity = events.Count(static e => e.AuditIntegrity == null);
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var protectedCount = context.TotalEventCount - context.UnprotectedEventCount;
         var tamperDetectionEnabled = _securityOptions?.EnableTamperDetection == true;
 
         // Determine severity based on configuration:
@@ -481,7 +485,7 @@ public sealed class FerpaValidator : IComplianceValidator
         if (tamperDetectionEnabled)
         {
             failSeverity = ValidationSeverity.Critical;
-            failMessage = $"CRITICAL: Tamper detection is enabled but {eventsWithoutIntegrity} event(s) lack integrity records — education records must be protected from unauthorized alteration";
+            failMessage = $"CRITICAL: Tamper detection is enabled but {context.UnprotectedEventCount} event(s) lack integrity records — education records must be protected from unauthorized alteration";
             failRecommendations =
             [
                 "IMMEDIATE: Investigate why events are missing integrity records when tamper detection is enabled",
@@ -504,17 +508,21 @@ public sealed class FerpaValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Integrity Controls",
-            Passed = hasIntegrityControls,
-            Message = hasIntegrityControls
-                ? $"Integrity controls are in place ({events.Count - eventsWithoutIntegrity} of {events.Count} events protected)"
-                : failMessage,
-            Severity = hasIntegrityControls ? ValidationSeverity.Info : failSeverity,
+            Passed = allProtected || (!tamperDetectionEnabled && context.TotalEventCount == 0),
+            Message = allProtected
+                ? $"All {context.TotalEventCount} events have integrity protection"
+                : context.TotalEventCount == 0
+                    ? "No events to verify"
+                    : failMessage,
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : failSeverity,
             ComplianceStandard = "FERPA",
             Category = "Operational",
             RegulationReference = "20 U.S.C. §1232g",
-            TotalCount = events.Count,
-            FailedCount = hasIntegrityControls ? 0 : eventsWithoutIntegrity,
-            Recommendations = hasIntegrityControls
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? ["Ensure all audit events maintain integrity protection"]
                 : failRecommendations
         });

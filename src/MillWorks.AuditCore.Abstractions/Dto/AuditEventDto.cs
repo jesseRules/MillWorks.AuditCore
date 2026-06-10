@@ -23,7 +23,7 @@ public sealed class AuditEventDto
     /// </summary>
     [JsonPropertyName("inserted_date")]
     [DisplayName("Inserted Date")]
-    public DateTimeOffset? InsertedDate { get; set; } = DateTimeOffset.Now;
+    public DateTimeOffset? InsertedDate { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>
     ///     Last Updated Date

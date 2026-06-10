@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.Services.Validators;
 
 namespace MillWorks.AuditCore.Tests.Validators;
@@ -36,7 +37,7 @@ public class Iso27001ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var loggingResult = results.FirstOrDefault(static r => r.RuleName.Contains("Event Logging"));
@@ -63,7 +64,7 @@ public class Iso27001ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var protectionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Log Protection"));
@@ -89,7 +90,7 @@ public class Iso27001ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var securityResult = results.FirstOrDefault(static r => r.RuleName.Contains("Security Event Reporting"));

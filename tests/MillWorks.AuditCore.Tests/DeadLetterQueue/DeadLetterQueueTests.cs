@@ -67,9 +67,9 @@ public class InMemoryAuditDeadLetterQueueTests
             null!, // AuditDbContext
             Mock.Of<IAuditContext>(),
             new PassThroughAuditFieldRedactor(),
-            null, // ITamperDetectionService
-            null, // IntegrityWriteBatcher
-            null  // IOptions<SecurityOptions>
+            null!, // ITamperDetectionService
+            null!, // IntegrityWriteBatcher
+            null!  // IOptions<SecurityOptions>
         );
 
         // Setup the service scope chain

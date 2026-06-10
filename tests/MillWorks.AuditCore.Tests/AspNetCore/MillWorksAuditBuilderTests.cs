@@ -2,11 +2,13 @@ using Mapster;
 using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Providers.Base;
 using MillWorks.AuditCore.AspNetCore.Configuration;
+using MillWorks.AuditCore.AspNetCore.Services;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Interceptors;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
@@ -153,6 +155,65 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
+    public void UseRequestAuditDispatcher_DoesNotRemoveUnrelatedHostedServices()
+    {
+        // Regression: UseRequestAuditDispatcher previously removed ALL IHostedService registrations
+        // with an ImplementationFactory, which silently killed IntegrityWriteBatcher and any
+        // consumer-registered hosted services. After the fix, only the InProcessRequestAuditDispatcher
+        // IHostedService is removed (targeted by ImplementationType).
+
+        // Register InProcessRequestAuditDispatcher as it would be in AddMillWorksAudit.
+        // Wrapper class enables ImplementationType to be set for IHostedService removal.
+        _services.TryAddSingleton<InProcessRequestAuditDispatcher>();
+        _services.TryAddSingleton<IRequestAuditDispatcher>(static sp =>
+            sp.GetRequiredService<InProcessRequestAuditDispatcher>());
+        _services.TryAddSingleton<InProcessRequestAuditDispatcherHostedService>();
+        _services.TryAddEnumerable(ServiceDescriptor.Singleton(
+            typeof(Microsoft.Extensions.Hosting.IHostedService),
+            typeof(InProcessRequestAuditDispatcherHostedService)));
+
+        _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
+        _builder.UseSecurity(static security =>
+        {
+            security.EnableTamperDetection = true;
+            security.EnableBatchedIntegrityWrites = true;
+        });
+
+        // Count hosted services registered before the dispatcher swap
+        var hostedServicesBefore = _services.Count(static s =>
+            s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService));
+
+        // Should have multiple: IntegrityWriteBatcher, IntegrityReconciliationService,
+        // DatabaseInitializationService, InProcessRequestAuditDispatcherHostedService
+        Assert.That(hostedServicesBefore, Is.GreaterThanOrEqualTo(4),
+            "Multiple hosted services should be registered before dispatcher swap");
+
+        // Verify the dispatcher's hosted service wrapper is registered before swap
+        var dispatcherBeforeSwap = _services.Any(static s =>
+            s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+            s.ImplementationType == typeof(InProcessRequestAuditDispatcherHostedService));
+        Assert.That(dispatcherBeforeSwap, Is.True,
+            "InProcessRequestAuditDispatcherHostedService should be registered before swap");
+
+        // Swap the dispatcher
+        _builder.UseRequestAuditDispatcher<TestRequestAuditDispatcher>();
+
+        // Count hosted services after - should only lose InProcessRequestAuditDispatcher
+        var hostedServicesAfter = _services.Count(static s =>
+            s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService));
+
+        Assert.That(hostedServicesAfter, Is.EqualTo(hostedServicesBefore - 1),
+            "Only one hosted service should be removed");
+
+        // Verify the dispatcher's hosted service wrapper is removed
+        var dispatcherHostedService = _services.Any(static s =>
+            s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
+            s.ImplementationType == typeof(InProcessRequestAuditDispatcherHostedService));
+        Assert.That(dispatcherHostedService, Is.False,
+            "InProcessRequestAuditDispatcherHostedService should be removed");
+    }
+
+    [Test]
     public void UseEntityFramework_MigrateOnStartup_RegistersDatabaseInitService()
     {
         _builder.UseEntityFramework(static ef =>
@@ -286,7 +347,7 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
-    public void UseCompliance_RegistersValidatorsForEachStandard()
+    public void UseCompliance_RegistersAllValidatorsViaTryAddEnumerable()
     {
         _builder.UseCompliance(static compliance =>
         {
@@ -295,12 +356,19 @@ public class MillWorksAuditBuilderTests
             compliance.Standards.Add(ComplianceStandard.HIPAA);
         });
 
-        // Validators are now produced by a single IEnumerable<IComplianceValidator> factory
-        // that reads IOptions<ComplianceOptions>.Value.Standards at resolve time.
+        // All validators are registered via TryAddEnumerable.
+        // They short-circuit at runtime if their standard isn't in EnabledStandards.
         using var provider = _services.BuildServiceProvider();
         var validators = provider.GetRequiredService<IEnumerable<IComplianceValidator>>().ToList();
 
-        Assert.That(validators, Has.Count.EqualTo(3));
+        // All 7 built-in validators are registered
+        Assert.That(validators, Has.Count.EqualTo(7));
+
+        // Verify the configured standards are represented
+        var standardsCovered = validators.Select(static v => v.Standard).ToHashSet();
+        Assert.That(standardsCovered, Does.Contain(ComplianceStandard.GDPR));
+        Assert.That(standardsCovered, Does.Contain(ComplianceStandard.SOC2));
+        Assert.That(standardsCovered, Does.Contain(ComplianceStandard.HIPAA));
     }
 
     [Test]

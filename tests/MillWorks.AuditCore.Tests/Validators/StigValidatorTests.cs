@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -44,7 +45,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-12"));
@@ -63,7 +64,7 @@ public class StigValidatorTests
         var events = new List<AuditEventEntity>();
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-12"));
@@ -92,7 +93,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName == "Content of Audit Records (V-222576 / AU-3)");
@@ -118,7 +119,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName == "Content of Audit Records (V-222576 / AU-3)");
@@ -145,7 +146,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName == "Content of Audit Records (V-222576 / AU-3)");
@@ -171,7 +172,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName == "Content of Audit Records (V-222576 / AU-3)");
@@ -202,7 +203,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-3(1)"));
@@ -231,7 +232,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-3(1)"));
@@ -262,7 +263,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-3(1)"));
@@ -290,7 +291,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-8"));
@@ -316,7 +317,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-8"));
@@ -346,7 +347,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-9)"));
@@ -373,7 +374,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-9)"));
@@ -402,7 +403,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-9(2)"));
@@ -428,7 +429,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-9(2)"));
@@ -454,7 +455,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-9(2)"));
@@ -483,7 +484,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-11"));
@@ -509,7 +510,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-11"));
@@ -539,7 +540,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-12(1)"));
@@ -566,7 +567,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-12(1)"));
@@ -619,7 +620,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-2)"));
@@ -653,7 +654,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-2)"));
@@ -680,7 +681,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-2)"));
@@ -709,7 +710,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-2(3)"));
@@ -735,7 +736,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AU-2(3)"));
@@ -763,7 +764,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("Privileged Function Execution"));
@@ -789,7 +790,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("Privileged Function Execution"));
@@ -815,7 +816,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("Privileged Function Execution"));
@@ -844,7 +845,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-2"));
@@ -872,7 +873,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-2"));
@@ -898,7 +899,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-2"));
@@ -933,7 +934,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-7"));
@@ -959,7 +960,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-7"));
@@ -987,7 +988,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-8"));
@@ -1013,7 +1014,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-8"));
@@ -1039,7 +1040,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-8"));
@@ -1068,7 +1069,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-17"));
@@ -1095,7 +1096,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-17"));
@@ -1121,7 +1122,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-17"));
@@ -1148,7 +1149,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("AC-17"));
@@ -1177,7 +1178,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("SI-4"));
@@ -1203,7 +1204,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("SI-4"));
@@ -1231,7 +1232,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("IA-5"));
@@ -1257,7 +1258,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("IA-5"));
@@ -1283,7 +1284,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var result = results.FirstOrDefault(static r => r.RuleName.Contains("IA-5"));
@@ -1459,7 +1460,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - should have all 17 controls
         Assert.That(results.Count, Is.GreaterThanOrEqualTo(17));
@@ -1495,7 +1496,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         Assert.That(results.All(static r => r.ComplianceStandard == "DISA STIG"), Is.True);
@@ -1613,7 +1614,7 @@ public class StigValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - all controls should pass
         var failedResults = results.Where(static r => !r.Passed).ToList();

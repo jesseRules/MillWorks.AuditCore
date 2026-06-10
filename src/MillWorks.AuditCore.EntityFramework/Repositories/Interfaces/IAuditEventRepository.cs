@@ -198,4 +198,20 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
     IAsyncEnumerable<AuditEventEntity> StreamByDateAsync(
         System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>> predicate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets date range boundaries for events in the specified period (server-side aggregation).
+    /// Returns null if no events exist in the range.
+    /// </summary>
+    Task<(DateTimeOffset? OldestDate, DateTimeOffset? NewestDate)?> GetDateRangeBoundariesAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts events in the date range that lack integrity protection (server-side).
+    /// Used for compliance integrity checks without materializing navigation properties.
+    /// </summary>
+    Task<(int TotalEvents, int UnprotectedEvents)> GetIntegrityStatusCountsAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
+        CancellationToken cancellationToken = default);
 }

@@ -14,49 +14,54 @@ public sealed class Iso27001Validator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.ISO27001;
 
     /// <summary>
-    /// Validates a list of audit events against ISO 27001 compliance standards.
+    /// Validates audit events against ISO 27001 compliance standards.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // A.12.4.1 - Event logging
-        var hasEventLogging = events.Any();
+        var hasEventLogging = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Event Logging (A.12.4.1)",
             Passed = hasEventLogging,
             Message = hasEventLogging
-                ? $"Found {events.Count} logged events"
+                ? $"Found {context.TotalEventCount} logged events"
                 : "No events logged - event logging must be implemented",
             Severity = hasEventLogging ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "ISO 27001",
             Category = "Logging and Monitoring",
             RegulationReference = "ISO/IEC 27001:2013 A.12.4.1",
-            TotalCount = events.Count,
+            TotalCount = context.TotalEventCount,
             FailedCount = hasEventLogging ? 0 : 1
         });
 
-        // A.12.4.2 - Protection of log information
-        var hasIntegrityProtection = events.Any(static e =>
-            e.AuditIntegrity != null);
+        // A.12.4.2 - Protection of log information (server-side counts)
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
 
         results.Add(new AuditValidationResult
         {
             RuleName = "Log Protection (A.12.4.2)",
-            Passed = hasIntegrityProtection,
-            Message = hasIntegrityProtection
-                ? "Log information is protected with integrity controls"
-                : "Log information lacks integrity protection",
-            Severity = hasIntegrityProtection ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} events are protected with integrity controls"
+                : context.TotalEventCount == 0
+                    ? "No events to verify"
+                    : $"{context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.High,
             ComplianceStandard = "ISO 27001",
             Category = "Log Protection",
             RegulationReference = "ISO/IEC 27001:2013 A.12.4.2",
-            TotalCount = events.Count,
-            FailedCount = events.Count(static e => e.AuditIntegrity == null),
-            Recommendations = hasIntegrityProtection
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? []
                 : ["Enable tamper detection to protect log integrity"]
         });

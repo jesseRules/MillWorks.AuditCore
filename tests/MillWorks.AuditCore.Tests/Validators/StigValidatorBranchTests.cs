@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -37,7 +38,7 @@ public class StigValidatorBranchTests
             new() { EventType = "Role.Elevate", InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Auditable Events");
         Assert.That(result!.Passed, Is.True);
@@ -57,7 +58,7 @@ public class StigValidatorBranchTests
             new() { EventType = "Permission.Changed", InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Auditable Events");
         Assert.That(result!.Passed, Is.True);
@@ -76,7 +77,7 @@ public class StigValidatorBranchTests
             new() { EventType = "Sudo.Execute", InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Auditable Events");
         Assert.That(result!.Passed, Is.True);
@@ -97,7 +98,7 @@ public class StigValidatorBranchTests
             new() { EventType = "Policy.Updated", InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Auditable Events");
         Assert.That(result!.Passed, Is.True);

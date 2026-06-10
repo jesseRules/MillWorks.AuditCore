@@ -86,9 +86,10 @@ public sealed class AuditLogEntity: AppendOnlyEntity
     /// <summary>
     /// Correlation ID linking this log entry to the originating request's AuditEvent.
     /// Matches AuditEventEntity.CorrelationId for cross-table joins.
+    /// Supports W3C traceparent (55 chars) and other tracing formats up to 128 chars.
     /// </summary>
-    [MaxLength(36)]
-    [Column("CorrelationId", TypeName = "nvarchar(36)")]
+    [MaxLength(128)]
+    [Column("CorrelationId", TypeName = "nvarchar(128)")]
     public string? CorrelationId { get; set; }
 
     /// <summary>

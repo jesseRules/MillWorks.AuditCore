@@ -739,18 +739,16 @@ public class AuditSaveChangesInterceptorTests
     /// in partial auditing that is worse than none.
     /// </summary>
     [Test]
-    public void SavingChanges_Sync_DoesNotCreateAuditLogs()
+    public void SavingChanges_Sync_WithAuditableEntities_ThrowsNotSupportedException()
     {
         // Arrange
         var entity = new TestEntity { Name = "SyncTest" };
         _dbContext.TestEntities.Add(entity);
 
-        // Act
-        _dbContext.SaveChanges();
-
-        // Assert — no audit logs; callers must use SaveChangesAsync
-        var auditLogs = _dbContext.AuditLogs.AsNoTracking().ToList();
-        Assert.That(auditLogs, Has.Count.EqualTo(0));
+        // Act & Assert — sync SaveChanges with auditable entities throws
+        var ex = Assert.Throws<NotSupportedException>(() => _dbContext.SaveChanges());
+        Assert.That(ex!.Message, Does.Contain("Synchronous SaveChanges is not supported"));
+        Assert.That(ex.Message, Does.Contain("TestEntity"));
     }
 
     /// <summary>

@@ -24,10 +24,26 @@ public sealed class AuditOptions
     /// </summary>
     private string _environment = "Production";
 
+    private bool _enabled = true;
+
+    /// <summary>
+    /// Tracks which properties were explicitly set via the fluent builder.
+    /// Used by the options merge logic to distinguish "set to default" from "not set".
+    /// </summary>
+    internal HashSet<string> ExplicitlySetProperties { get; } = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Enable or disable audit logging
     /// </summary>
-    public bool Enabled { get; set; } = true;
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            _enabled = value;
+            ExplicitlySetProperties.Add(nameof(Enabled));
+        }
+    }
 
     /// <summary>
     /// Application name for audit logs
@@ -46,6 +62,7 @@ public sealed class AuditOptions
             // Sanitize - remove potentially problematic characters
             _applicationName = System.Text.RegularExpressions.Regex.Replace(
                 value, @"[^\w\s\-\.]", "").Trim();
+            ExplicitlySetProperties.Add(nameof(ApplicationName));
         }
     }
 
@@ -64,13 +81,24 @@ public sealed class AuditOptions
                 throw new ArgumentException("Environment cannot exceed 50 characters", nameof(value));
 
             _environment = value;
+            ExplicitlySetProperties.Add(nameof(Environment));
         }
     }
+
+    private bool _enableDigitalSignatures;
 
     /// <summary>
     /// Enable digital signatures for audit events
     /// </summary>
-    public bool EnableDigitalSignatures { get; set; }
+    public bool EnableDigitalSignatures
+    {
+        get => _enableDigitalSignatures;
+        set
+        {
+            _enableDigitalSignatures = value;
+            ExplicitlySetProperties.Add(nameof(EnableDigitalSignatures));
+        }
+    }
 
     /// <summary>
     /// HMAC key for signing audit events
@@ -78,15 +106,31 @@ public sealed class AuditOptions
     public string? HmacKey
     {
         get => _hmacKey;
-        set => _hmacKey = value;
+        set
+        {
+            _hmacKey = value;
+            ExplicitlySetProperties.Add(nameof(HmacKey));
+        }
     }
+
+    private bool _allowPassThroughRedactor;
 
     /// <summary>
     /// When true, allows the pass-through (no-op) redactor in Production.
     /// Defaults to false. Set to true only if you explicitly accept that
     /// sensitive data (PHI/PII) will be persisted unredacted in audit storage.
     /// </summary>
-    public bool AllowPassThroughRedactor { get; set; }
+    public bool AllowPassThroughRedactor
+    {
+        get => _allowPassThroughRedactor;
+        set
+        {
+            _allowPassThroughRedactor = value;
+            ExplicitlySetProperties.Add(nameof(AllowPassThroughRedactor));
+        }
+    }
+
+    private AuditFailureMode _failureMode = AuditFailureMode.Permissive;
 
     /// <summary>
     /// Controls how the EF audit interceptor responds to failures building audit
@@ -95,12 +139,30 @@ public sealed class AuditOptions
     /// behavior. Fail-closed modes rethrow and roll back the business transaction
     /// when the policy considers the save regulated.
     /// </summary>
-    public AuditFailureMode FailureMode { get; set; } = AuditFailureMode.Permissive;
+    public AuditFailureMode FailureMode
+    {
+        get => _failureMode;
+        set
+        {
+            _failureMode = value;
+            ExplicitlySetProperties.Add(nameof(FailureMode));
+        }
+    }
+
+    private Dictionary<string, object> _defaultCustomFields = new();
 
     /// <summary>
     /// Default custom fields to include in every audit event
     /// </summary>
-    public Dictionary<string, object> DefaultCustomFields { get; set; } = new();
+    public Dictionary<string, object> DefaultCustomFields
+    {
+        get => _defaultCustomFields;
+        set
+        {
+            _defaultCustomFields = value;
+            ExplicitlySetProperties.Add(nameof(DefaultCustomFields));
+        }
+    }
 
     /// <summary>
     /// Validates the configuration

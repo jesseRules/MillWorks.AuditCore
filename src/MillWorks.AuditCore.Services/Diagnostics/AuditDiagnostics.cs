@@ -22,6 +22,8 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     private long _integrityReconciliationFailureCount;
     private long _integrityPermanentFailureCount;
     private long _interceptorAuditFailureCount;
+    private long _syncSaveChangesBlockedCount;
+    private long _disconnectedUpdateFallbackCount;
     private long _requestDispatcherEnqueueTimeoutCount;
     private long _requestDispatcherChannelClosedCount;
     private long _requestDispatcherDlqRoutedCount;
@@ -83,6 +85,14 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
     /// <inheritdoc />
     public long InterceptorAuditFailureCount =>
         Interlocked.Read(ref _interceptorAuditFailureCount);
+
+    /// <inheritdoc />
+    public long SyncSaveChangesBlockedCount =>
+        Interlocked.Read(ref _syncSaveChangesBlockedCount);
+
+    /// <inheritdoc />
+    public long DisconnectedUpdateFallbackCount =>
+        Interlocked.Read(ref _disconnectedUpdateFallbackCount);
 
     /// <inheritdoc />
     public long RequestDispatcherEnqueueTimeoutCount =>
@@ -151,6 +161,12 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
             case AuditDiagnosticCounter.InterceptorAuditFailure:
                 Interlocked.Increment(ref _interceptorAuditFailureCount);
                 break;
+            case AuditDiagnosticCounter.SyncSaveChangesBlocked:
+                Interlocked.Increment(ref _syncSaveChangesBlockedCount);
+                break;
+            case AuditDiagnosticCounter.DisconnectedUpdateFallback:
+                Interlocked.Increment(ref _disconnectedUpdateFallbackCount);
+                break;
             case AuditDiagnosticCounter.RequestDispatcherEnqueueTimeout:
                 Interlocked.Increment(ref _requestDispatcherEnqueueTimeoutCount);
                 break;
@@ -189,6 +205,8 @@ public sealed class AuditDiagnostics : IAuditDiagnostics
         Interlocked.Exchange(ref _integrityReconciliationFailureCount, 0);
         Interlocked.Exchange(ref _integrityPermanentFailureCount, 0);
         Interlocked.Exchange(ref _interceptorAuditFailureCount, 0);
+        Interlocked.Exchange(ref _syncSaveChangesBlockedCount, 0);
+        Interlocked.Exchange(ref _disconnectedUpdateFallbackCount, 0);
         Interlocked.Exchange(ref _requestDispatcherEnqueueTimeoutCount, 0);
         Interlocked.Exchange(ref _requestDispatcherChannelClosedCount, 0);
         Interlocked.Exchange(ref _requestDispatcherDlqRoutedCount, 0);

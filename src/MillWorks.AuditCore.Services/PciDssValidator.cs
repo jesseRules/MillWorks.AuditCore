@@ -14,16 +14,18 @@ public sealed class PciDssValidator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.PCI_DSS;
 
     /// <summary>
-    /// Validates a list of audit events against PCI DSS compliance standards.
+    /// Validates audit events against PCI DSS compliance standards.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // Requirement 10.2 - Audit Logs for All System Components
-        var hasAuditLogs = events.Any();
+        var hasAuditLogs = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Logs Implementation (Req 10.2)",
@@ -291,24 +293,27 @@ public sealed class PciDssValidator : IComplianceValidator
             ]
         });
 
-        // Requirement 10.4 - Protect Audit Logs
-        var hasIntegrityProtection = events.Any(static e => e.AuditIntegrity != null);
-        var eventsWithoutIntegrity = events.Count(static e => e.AuditIntegrity == null);
+        // Requirement 10.4 - Protect Audit Logs (server-side counts)
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
 
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Log Protection (Req 10.4)",
-            Passed = hasIntegrityProtection,
-            Message = hasIntegrityProtection
-                ? $"Audit logs are protected from unauthorized modifications ({events.Count - eventsWithoutIntegrity} events protected)"
-                : "CRITICAL: Audit logs must be protected from destruction and unauthorized modifications",
-            Severity = hasIntegrityProtection ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} audit logs are protected from unauthorized modifications"
+                : context.TotalEventCount == 0
+                    ? "No events to verify"
+                    : $"CRITICAL: {context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.Critical,
             ComplianceStandard = "PCI DSS",
             Category = "Requirement 10 - Track and Monitor Access",
             RegulationReference = "PCI DSS v4.0 Requirement 10.4",
-            TotalCount = events.Count,
-            FailedCount = eventsWithoutIntegrity,
-            Recommendations = hasIntegrityProtection
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? []
                 :
                 [
@@ -319,10 +324,9 @@ public sealed class PciDssValidator : IComplianceValidator
                 ]
         });
 
-        // Requirement 10.5 - Retain Audit Log History
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Requirement 10.5 - Retain Audit Log History (server-side oldest date)
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         // PCI DSS requires minimum 1 year retention, with 3 months immediately available

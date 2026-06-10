@@ -16,14 +16,17 @@ public sealed class GdprValidator : IComplianceValidator
     /// <summary>
     /// Validates a list of audit events against GDPR compliance standards.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        // Short-circuit if this standard is not enabled
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // Article 30 - Records of processing activities
-        var hasProcessingRecords = events.Any();
+        var hasProcessingRecords = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Records of Processing (Article 30)",
@@ -153,9 +156,9 @@ public sealed class GdprValidator : IComplianceValidator
         });
 
         // Article 5(1)(e) - Data Retention Compliance
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Use server-side oldest date, not sample (sample is recency-biased)
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         // GDPR doesn't specify a maximum, but data should not be kept longer than necessary
@@ -262,22 +265,30 @@ public sealed class GdprValidator : IComplianceValidator
             FailedCount = 0
         });
 
-        // Overall security - Audit log integrity
-        var hasIntegrityProtection = events.Any(static e => e.AuditIntegrity != null);
+        // Overall security - Audit log integrity (server-side counts)
+        // All events must have integrity protection when tamper detection is enabled
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var hasAnyProtection = context.TotalEventCount > context.UnprotectedEventCount;
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Log Integrity Protection",
-            Passed = hasIntegrityProtection,
-            Message = hasIntegrityProtection
-                ? "Audit logs are protected with integrity controls (tamper detection)"
-                : "Audit logs lack integrity protection - implement tamper detection",
-            Severity = hasIntegrityProtection ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} audit events are protected with integrity controls"
+                : context.TotalEventCount == 0
+                    ? "No events to verify - insufficient data"
+                    : hasAnyProtection
+                        ? $"{context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection"
+                        : "No audit logs have integrity protection - implement tamper detection",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.High,
             ComplianceStandard = "GDPR",
             Category = "Security Measures",
             RegulationReference = "GDPR Article 32",
-            TotalCount = events.Count,
-            FailedCount = events.Count(static e => e.AuditIntegrity == null),
-            Recommendations = hasIntegrityProtection
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? []
                 :
                 [

@@ -160,60 +160,37 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
     public virtual DbSet<AuditOutboxEntity> AuditOutbox { get; set; } = null!;
 
     /// <summary>
-    /// Saves changes with automatic bypass detection for audit entities
+    /// Saves changes with concurrency token preparation and audit interception.
+    /// The interceptor's GetAuditableEntries filters audit entity types per-entry,
+    /// so mixed batches (business + audit entities) are handled correctly.
     /// </summary>
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareConcurrencyTokens();
+        return await base.SaveChangesAsync(cancellationToken);
+    }
 
-        // Detect if we're saving audit entities to prevent infinite loops
-        var savingAuditEntities = ChangeTracker.Entries()
-            .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity
-                or AuditOutboxEntity);
-
-        if (!savingAuditEntities)
-            return await base.SaveChangesAsync(cancellationToken);
-
-        // Temporarily bypass the interceptor
-        var previousBypassState = _bypassAuditInterceptorStorage.Value;
-        try
-        {
-            _bypassAuditInterceptorStorage.Value = true;
-            return await base.SaveChangesAsync(cancellationToken);
-        }
-        finally
-        {
-            _bypassAuditInterceptorStorage.Value = previousBypassState;
-        }
+    /// <inheritdoc cref="SaveChangesAsync(CancellationToken)"/>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        PrepareConcurrencyTokens();
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <summary>
-    /// Saves changes synchronously with automatic bypass detection
+    /// Saves changes synchronously with concurrency token preparation.
     /// </summary>
     public override int SaveChanges()
     {
         PrepareConcurrencyTokens();
+        return base.SaveChanges();
+    }
 
-        // Detect if we're saving audit entities
-        var savingAuditEntities = ChangeTracker.Entries()
-            .Any(static e => e.Entity is AuditEventEntity or AuditIntegrityEntity or AuditArchiveRecordEntity
-                or AuditLogEntity or AuditSecurityEventEntity or AuditIntegrityWorkItemEntity
-                or AuditOutboxEntity);
-
-        if (!savingAuditEntities)
-            return base.SaveChanges();
-
-        var previousBypassState = _bypassAuditInterceptorStorage.Value;
-        try
-        {
-            _bypassAuditInterceptorStorage.Value = true;
-            return base.SaveChanges();
-        }
-        finally
-        {
-            _bypassAuditInterceptorStorage.Value = previousBypassState;
-        }
+    /// <inheritdoc cref="SaveChanges()"/>
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        PrepareConcurrencyTokens();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     /// <summary>
@@ -534,6 +511,7 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
             {
                 // Convert DateTimeOffset properties to string for SQLite compatibility.
                 // SQLite cannot ORDER BY or compare DateTimeOffset natively.
+                // Uses InvariantCulture to ensure consistent round-trip parsing.
                 if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
                 {
                     property.SetColumnType("TEXT");
@@ -541,14 +519,15 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset,
-                                string>(static v => v.ToString("O"), static v => DateTimeOffset.Parse(v)));
+                                string>(static v => v.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                                static v => DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture)));
                     }
                     else
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset?,
-                                string?>(static v => v.HasValue ? v.Value.ToString("O") : null,
-                                static v => v != null ? DateTimeOffset.Parse(v) : null));
+                                string?>(static v => v.HasValue ? v.Value.ToString("O", System.Globalization.CultureInfo.InvariantCulture) : null,
+                                static v => v != null ? DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture) : null));
                     }
                 }
 
