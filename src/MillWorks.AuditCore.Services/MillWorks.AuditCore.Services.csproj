@@ -29,8 +29,8 @@
       DefaultAzureCredential to Azure.Core, resolving the ambiguity.
     -->
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Mapster" Version="10.0.7" />
-    <PackageReference Include="Mapster.DependencyInjection" Version="10.0.7" />
+    <PackageReference Include="Mapster" Version="10.0.8" />
+    <PackageReference Include="Mapster.DependencyInjection" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
       <PrivateAssets>all</PrivateAssets>
