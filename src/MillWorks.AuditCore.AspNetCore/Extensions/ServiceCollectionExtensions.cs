@@ -80,8 +80,10 @@ public static class ServiceCollectionExtensions
             services.TryAddScoped<AuditContextMiddleware>();
             services.TryAddEnumerable(
                 ServiceDescriptor.Singleton<IHostedService, PassThroughRedactorStartupWarningService>());
-            services.TryAddEnumerable(
-                ServiceDescriptor.Singleton<IHostedService, AuditProviderTypeMapFreezeService>());
+            // AuditProviderTypeMap may not be registered (RegisterProviders is optional).
+            // The freeze service resolves it via IServiceProvider at startup to handle the optional case.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton(
+                typeof(IHostedService), typeof(AuditProviderTypeMapFreezeService)));
 
             // Create and configure builder. AuditOptions.ExplicitlySetProperties tracks which
             // properties the consumer sets, letting IConfiguration binding persist for properties

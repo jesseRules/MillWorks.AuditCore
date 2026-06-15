@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.8.5</Version>
-        <AssemblyVersion>1.8.5.0</AssemblyVersion>
-        <FileVersion>1.8.5.0</FileVersion>
+        <Version>1.8.9</Version>
+        <AssemblyVersion>1.8.9.0</AssemblyVersion>
+        <FileVersion>1.8.9.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
