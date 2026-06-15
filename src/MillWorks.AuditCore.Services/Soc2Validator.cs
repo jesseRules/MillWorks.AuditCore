@@ -14,16 +14,18 @@ public sealed class Soc2Validator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.SOC2;
 
     /// <summary>
-    /// Validates a list of audit events against SOC2 compliance standards.
+    /// Validates audit events against SOC2 compliance standards.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // CC6.1 - Logical and Physical Access Controls
-        var hasAccessControls = events.Any();
+        var hasAccessControls = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Access Control Logging (CC6.1)",
@@ -344,24 +346,27 @@ public sealed class Soc2Validator : IComplianceValidator
                 ]
         });
 
-        // Audit Log Integrity
-        var hasIntegrityProtection = events.Any(static e => e.AuditIntegrity != null);
-        var eventsWithoutIntegrity = events.Count(static e => e.AuditIntegrity == null);
+        // Audit Log Integrity (server-side counts)
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
 
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Log Integrity Protection",
-            Passed = hasIntegrityProtection,
-            Message = hasIntegrityProtection
-                ? $"Audit logs have integrity protection ({events.Count - eventsWithoutIntegrity} events protected)"
-                : "Audit logs should be protected from tampering to ensure integrity",
-            Severity = hasIntegrityProtection ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} audit logs have integrity protection"
+                : context.TotalEventCount == 0
+                    ? "No events to verify"
+                    : $"{context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.High,
             ComplianceStandard = "SOC 2",
             Category = "Common Criteria - System Operations",
             RegulationReference = "CC7.2",
-            TotalCount = events.Count,
-            FailedCount = eventsWithoutIntegrity,
-            Recommendations = hasIntegrityProtection
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? []
                 :
                 [

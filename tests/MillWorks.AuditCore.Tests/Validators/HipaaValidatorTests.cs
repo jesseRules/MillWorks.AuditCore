@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -42,7 +43,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var auditControlsResult = results.FirstOrDefault(static r => r.RuleName == "Audit Controls (§164.312(b))");
@@ -61,7 +62,7 @@ public class HipaaValidatorTests
         var events = new List<AuditEventEntity>();
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var auditControlsResult = results.FirstOrDefault(static r => r.RuleName == "Audit Controls (§164.312(b))");
@@ -88,7 +89,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var reviewResult =
@@ -116,7 +117,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var phiResult = results.FirstOrDefault(static r => r.RuleName.Contains("PHI Access Logging"));
@@ -142,7 +143,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var phiResult = results.FirstOrDefault(static r => r.RuleName.Contains("PHI Access Logging"));
@@ -169,7 +170,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName.Contains("Unique User Identification"));
@@ -195,7 +196,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName.Contains("Unique User Identification"));
@@ -223,7 +224,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var integrityResult = results.FirstOrDefault(static r => r.RuleName == "Integrity Controls (§164.312(c)(1))");
@@ -250,7 +251,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var integrityResult = results.FirstOrDefault(static r => r.RuleName == "Integrity Controls (§164.312(c)(1))");
@@ -283,7 +284,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var loginResult = results.FirstOrDefault(static r => r.RuleName.Contains("Log-in Monitoring"));
@@ -309,7 +310,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Documentation Retention"));
@@ -335,7 +336,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - hasRetentionPolicy will be true (>0 days), but meetsRetention will be false
         var retentionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Documentation Retention"));
@@ -369,7 +370,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - HIPAA doesn't have a specific "Privileged User Actions" rule
         // It's covered under general audit controls, so let's verify audit controls pass
@@ -396,7 +397,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - Check for user identification which is part of detail requirements
         var userIdResult = results.FirstOrDefault(static r => r.RuleName.Contains("Unique User Identification"));
@@ -480,7 +481,7 @@ public class HipaaValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         Assert.That(results.Count, Is.GreaterThan(10));

@@ -15,7 +15,7 @@ public interface IAuditProvider
     /// <summary>
     /// Creates an audit event for the specified action and entity
     /// </summary>
-    Task<AuditEvent> CreateAuditEventAsync(string action, object? entity, object? oldValues = null);
+    Task<AuditEvent> CreateAuditEventAsync(string action, object entity, object? oldValues = null);
 
     /// <summary>
     /// Determines if the action should be audited for the given entity

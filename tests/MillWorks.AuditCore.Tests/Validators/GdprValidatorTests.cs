@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -42,7 +43,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var processingResult = results.FirstOrDefault(static r => r.RuleName == "Records of Processing (Article 30)");
@@ -75,7 +76,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var consentResult = results.FirstOrDefault(static r => r.RuleName == "User Consent Tracking (Article 7)");
@@ -102,7 +103,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var consentResult = results.FirstOrDefault(static r => r.RuleName == "User Consent Tracking (Article 7)");
@@ -129,7 +130,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var accessResult = results.FirstOrDefault(static r => r.RuleName == "Data Access Logging (Article 15)");
@@ -161,7 +162,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var erasureResult = results.FirstOrDefault(static r => r.RuleName == "Right to Erasure Tracking (Article 17)");
@@ -187,7 +188,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var portabilityResult =
@@ -214,7 +215,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName == "Data Retention Compliance (Article 5)");
@@ -241,7 +242,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName == "Data Retention Compliance (Article 5)");
@@ -267,7 +268,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName == "User Identification (Article 32)");
@@ -293,7 +294,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName == "User Identification (Article 32)");
@@ -320,7 +321,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var breachResult = results.FirstOrDefault(static r => r.RuleName == "Security Breach Tracking (Article 33)");
@@ -350,7 +351,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var integrityResult = results.FirstOrDefault(static r => r.RuleName == "Audit Log Integrity Protection");
@@ -377,7 +378,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var integrityResult = results.FirstOrDefault(static r => r.RuleName == "Audit Log Integrity Protection");
@@ -520,7 +521,7 @@ public class GdprValidatorTests
         var events = new List<AuditEventEntity>();
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var processingResult = results.FirstOrDefault(static r => r.RuleName == "Records of Processing (Article 30)");
@@ -547,7 +548,7 @@ public class GdprValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert - Should have all major GDPR article validations
         Assert.That(results.Count, Is.GreaterThan(5));

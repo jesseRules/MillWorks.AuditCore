@@ -64,7 +64,7 @@ public sealed class ArchiveCreationBackgroundService(
                     logger.LogWarning("Scheduled archival completed with issues: {Message}", result.Message);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
                 logger.LogError(ex, "Error during scheduled archive creation cycle");
             }

@@ -2,10 +2,12 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 
 namespace MillWorks.AuditCore.Tests.Integration;
@@ -19,6 +21,12 @@ namespace MillWorks.AuditCore.Tests.Integration;
 [Category("Integration")]
 public class ComplianceIntegrationTests : SqliteIntegrationFixture
 {
+    private static IOptions<ComplianceOptions> CreateAllStandardsOptions() =>
+        Microsoft.Extensions.Options.Options.Create(new ComplianceOptions
+        {
+            Standards = Enum.GetValues<ComplianceStandard>().ToList()
+        });
+
     private static AuditEventEntity CreateAuditEvent(
         Guid? userId = null,
         string eventType = "User.Login",
@@ -53,7 +61,8 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
             eventRepo,
             Enumerable.Empty<IComplianceValidator>(),
             NullLogger<AuditComplianceService>.Instance,
-            config);
+            config,
+            CreateAllStandardsOptions());
 
         var userId = Guid.NewGuid();
         for (int i = 0; i < 5; i++)
@@ -103,7 +112,8 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
             eventRepo,
             Enumerable.Empty<IComplianceValidator>(),
             NullLogger<AuditComplianceService>.Instance,
-            config);
+            config,
+            CreateAllStandardsOptions());
 
         // Act
         var result = await service.AnonymizeUserDataAsync(userId);
@@ -140,7 +150,7 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
         var mockValidator = new Mock<IComplianceValidator>();
         mockValidator.Setup(static v => v.Standard).Returns(ComplianceStandard.SOC2);
         mockValidator
-            .Setup(static v => v.ValidateAsync(It.IsAny<List<AuditEventEntity>>()))
+            .Setup(static v => v.ValidateAsync(It.IsAny<ComplianceValidationContext>()))
             .ReturnsAsync(new List<AuditValidationResult>
             {
                 new()
@@ -158,7 +168,8 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
             eventRepo,
             new[] { mockValidator.Object },
             NullLogger<AuditComplianceService>.Instance,
-            config);
+            config,
+            CreateAllStandardsOptions());
 
         // Seed events
         var startDate = DateTimeOffset.UtcNow.AddDays(-7);
@@ -205,7 +216,8 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
             eventRepo,
             Enumerable.Empty<IComplianceValidator>(),
             NullLogger<AuditComplianceService>.Instance,
-            config);
+            config,
+            CreateAllStandardsOptions());
 
         // Seed events older than 30 days
         for (int i = 0; i < 3; i++)
@@ -246,7 +258,8 @@ public class ComplianceIntegrationTests : SqliteIntegrationFixture
             eventRepo,
             Enumerable.Empty<IComplianceValidator>(),
             NullLogger<AuditComplianceService>.Instance,
-            config);
+            config,
+            CreateAllStandardsOptions());
 
         // Seed old events (older than 30 days)
         for (int i = 0; i < 5; i++)

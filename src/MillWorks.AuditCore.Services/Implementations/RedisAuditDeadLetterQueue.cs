@@ -6,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Database.Options;
+using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Models;
 using MillWorks.AuditCore.Services.Interfaces;
@@ -219,8 +220,12 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
                     return false;
                 }
 
+                // Resolve the undecorated AuditLogger directly, NOT IAuditLogger.
+                // IAuditLogger may be decorated by ResilientAuditLogger, which catches
+                // failures and routes back to DLQ without throwing — causing reprocessing
+                // to report success when the event is actually still in DLQ.
                 using var scope = _serviceScopeFactory.CreateScope();
-                var auditLogger = scope.ServiceProvider.GetService<IAuditLogger>();
+                var auditLogger = scope.ServiceProvider.GetService<AuditLogger>();
 
                 if (auditLogger != null && evt.OriginalEvent != null)
                 {

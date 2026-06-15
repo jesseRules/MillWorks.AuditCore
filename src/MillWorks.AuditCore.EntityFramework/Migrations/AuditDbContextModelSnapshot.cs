@@ -18,7 +18,7 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("audit")
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -222,8 +222,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasJsonPropertyName("calling_method_name");
 
                     b.Property<string>("CorrelationId")
-                        .HasMaxLength(36)
-                        .HasColumnType("nvarchar(36)")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("CorrelationId")
                         .HasJsonPropertyName("correlation_id");
 
@@ -566,8 +566,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasColumnName("AdditionalData");
 
                     b.Property<string>("CorrelationId")
-                        .HasMaxLength(36)
-                        .HasColumnType("nvarchar(36)")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("CorrelationId");
 
                     b.Property<DateTimeOffset>("CreatedAt")
@@ -592,6 +592,10 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("EntityType");
+
+                    b.Property<Guid?>("EnvelopeId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EnvelopeId");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
@@ -631,6 +635,10 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                     b.HasIndex(new[] { "CreatedAt", "EntityName" }, "IX_AuditLogs_Date_Entity");
 
                     b.HasIndex(new[] { "EntityName", "EntityId" }, "IX_AuditLogs_Entity");
+
+                    b.HasIndex(new[] { "EnvelopeId", "PropertyName" }, "IX_AuditLogs_Envelope_Property")
+                        .IsUnique()
+                        .HasFilter("[EnvelopeId] IS NOT NULL AND [PropertyName] IS NOT NULL");
 
                     b.ToTable("AuditLogs", "audit", t =>
                         {

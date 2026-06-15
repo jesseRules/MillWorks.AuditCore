@@ -1,9 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Validators;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
@@ -35,6 +37,11 @@ public class AuditComplianceServiceTests
     /// Configuration for retention policies.
     /// </summary>
     private IConfiguration _configuration;
+
+    /// <summary>
+    /// Compliance options with enabled standards.
+    /// </summary>
+    private Mock<IOptions<ComplianceOptions>> _mockComplianceOptions;
 
     /// <summary>
     /// Compliance service under test.
@@ -76,6 +83,14 @@ public class AuditComplianceServiceTests
             new PciDssValidator()
         };
 
+        // Setup compliance options with all standards enabled
+        _mockComplianceOptions = new Mock<IOptions<ComplianceOptions>>();
+        _mockComplianceOptions.Setup(static x => x.Value).Returns(new ComplianceOptions
+        {
+            Standards = [ComplianceStandard.GDPR, ComplianceStandard.SOC2, ComplianceStandard.HIPAA,
+                ComplianceStandard.ISO27001, ComplianceStandard.FERPA, ComplianceStandard.PCI_DSS]
+        });
+
         // Setup transaction mock for methods that use transactions
         _mockAuditEventRepository
             .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
@@ -86,6 +101,7 @@ public class AuditComplianceServiceTests
             validators,
             _mockLogger.Object,
             _configuration,
+            _mockComplianceOptions.Object,
             _mockAuditArchivalService.Object);
     }
 
@@ -248,6 +264,18 @@ public class AuditComplianceServiceTests
                 It.IsAny<System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(3);
+
+        // Integrity status: all events have integrity protection (3 total, 0 unprotected)
+        _mockAuditEventRepository
+            .Setup(x => x.GetIntegrityStatusCountsAsync(startDate, endDate, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((3, 0));
+
+        // Date boundaries for retention checking (tuple: OldestDate, NewestDate)
+        _mockAuditEventRepository
+            .Setup(x => x.GetDateRangeBoundariesAsync(startDate, endDate, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((
+                OldestDate: events.Min(e => e.InsertedDate) ?? DateTimeOffset.UtcNow.AddDays(-10),
+                NewestDate: events.Max(e => e.InsertedDate) ?? DateTimeOffset.UtcNow));
 
         // Act
         var result = await _complianceService.GenerateComplianceReportAsync(

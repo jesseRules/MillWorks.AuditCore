@@ -37,9 +37,10 @@ public class InMemoryAuditDeadLetterQueueTests
     private Mock<IServiceProvider> _mockScopedServiceProvider;
 
     /// <summary>
-    /// Mock audit logger
+    /// Mock audit logger - now uses concrete AuditLogger type since DLQ resolves
+    /// the undecorated logger directly to avoid ResilientAuditLogger masking failures.
     /// </summary>
-    private Mock<IAuditLogger> _mockAuditLogger;
+    private Mock<AuditLogger> _mockAuditLogger;
 
     /// <summary>
     /// Dead letter queue instance
@@ -56,11 +57,24 @@ public class InMemoryAuditDeadLetterQueueTests
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockServiceScope = new Mock<IServiceScope>();
         _mockScopedServiceProvider = new Mock<IServiceProvider>();
-        _mockAuditLogger = new Mock<IAuditLogger>();
+
+        // AuditLogger has a primary constructor with many parameters; use a factory
+        // overload or pass CallBase = false to create a mock that doesn't call the ctor.
+        _mockAuditLogger = new Mock<AuditLogger>(MockBehavior.Loose,
+            Mock.Of<ILogger<AuditLogger>>(),
+            Mock.Of<IAuditEventFactory>(),
+            null!, // IAuditEventRepository
+            null!, // AuditDbContext
+            Mock.Of<IAuditContext>(),
+            new PassThroughAuditFieldRedactor(),
+            null!, // ITamperDetectionService
+            null!, // IntegrityWriteBatcher
+            null!  // IOptions<SecurityOptions>
+        );
 
         // Setup the service scope chain
         _mockServiceScope.Setup(static x => x.ServiceProvider).Returns(_mockScopedServiceProvider.Object);
-        _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(IAuditLogger)))
+        _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(AuditLogger)))
             .Returns(_mockAuditLogger.Object);
 
         // Mock IServiceScopeFactory instead of CreateScope extension method

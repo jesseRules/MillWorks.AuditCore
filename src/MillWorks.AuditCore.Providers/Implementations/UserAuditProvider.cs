@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Globalization;
 using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -22,9 +23,9 @@ public sealed class UserAuditProvider(
     : BaseAuditProvider(httpContextAccessor, eventFactory, loggerFactory)
 {
     /// <summary>
-    /// List of sensitive properties that should be excluded from audit logs
+    /// User-specific sensitive properties to exclude from audit logs, in addition to base defaults.
     /// </summary>
-    private static readonly HashSet<string> _sensitiveProperties = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> UserSensitiveProperties = new(StringComparer.OrdinalIgnoreCase)
     {
         "PasswordHash",
         "SecurityStamp",
@@ -34,6 +35,17 @@ public sealed class UserAuditProvider(
         "LastLoginIpAddress",
         "ExternalLoginProviderKey"
     };
+
+    /// <summary>
+    /// Combined set of base + user-specific sensitive properties, cached for performance.
+    /// </summary>
+    private static readonly IReadOnlySet<string> CombinedSensitiveProperties =
+        new HashSet<string>(
+            UserSensitiveProperties,
+            StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
+    protected override IReadOnlySet<string> SensitiveProperties => CombinedSensitiveProperties;
 
     /// <summary>
     /// Entity type that this provider handles
@@ -104,6 +116,104 @@ public sealed class UserAuditProvider(
                 if (entityDict.TryGetValue("SsoUserOnly", out var ssoUserOnly))
                     auditEvent.CustomFields["SsoUserOnly"] = ssoUserOnly;
                 break;
+
+            default:
+                // Handle POCO entities from EF interceptor (entry.Entity is always the real object)
+                if (entity != null)
+                    EnrichFromPoco(auditEvent, entity);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Enriches audit event from a POCO entity using reflection.
+    /// Cached property lookup for performance.
+    /// </summary>
+    private static void EnrichFromPoco(AuditEvent auditEvent, object entity)
+    {
+        var type = entity.GetType();
+        var properties = GetScalarProperties(type);
+
+        foreach (var prop in properties)
+        {
+            try
+            {
+                var value = prop.GetValue(entity);
+                if (value == null) continue;
+
+                switch (prop.Name)
+                {
+                    case "Id":
+                        if (value is Guid)
+                            auditEvent.CustomFields["UserId"] = value;
+                        else
+                            auditEvent.CustomFields["AspNetUserId"] = value;
+                        break;
+                    case "AspNetUserId":
+                        auditEvent.CustomFields["AspNetUserId"] = value;
+                        break;
+                    case "Email":
+                        auditEvent.CustomFields["Email"] = value;
+                        break;
+                    case "UserName":
+                        auditEvent.CustomFields["UserName"] = value;
+                        break;
+                    case "IsActive":
+                        auditEvent.CustomFields["IsActive"] = value;
+                        break;
+                    case "TwoFactorEnabled":
+                        auditEvent.CustomFields["TwoFactorEnabled"] = value;
+                        break;
+                    case "FirstName" or "LastName":
+                        // Build FullName if we have both
+                        BuildFullName(auditEvent, properties, entity);
+                        break;
+                    case "Title":
+                        auditEvent.CustomFields["Title"] = value;
+                        break;
+                    case "RefreshToken":
+                        auditEvent.CustomFields["HasRefreshToken"] = !string.IsNullOrEmpty(value.ToString());
+                        break;
+                    case "MustChangePassword":
+                        auditEvent.CustomFields["MustChangePassword"] = value;
+                        break;
+                    case "SsoUserOnly":
+                        auditEvent.CustomFields["SsoUserOnly"] = value;
+                        break;
+                }
+            }
+            catch (TargetException)
+            {
+                // Skip properties that can't be accessed
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds FullName from FirstName and LastName properties if both exist.
+    /// </summary>
+    private static void BuildFullName(AuditEvent auditEvent, PropertyInfo[] properties, object entity)
+    {
+        if (auditEvent.CustomFields.ContainsKey("FullName"))
+            return;
+
+        var firstNameProp = Array.Find(properties, static p => p.Name == "FirstName");
+        var lastNameProp = Array.Find(properties, static p => p.Name == "LastName");
+
+        if (firstNameProp == null || lastNameProp == null)
+            return;
+
+        try
+        {
+            var firstName = firstNameProp.GetValue(entity)?.ToString() ?? "";
+            var lastName = lastNameProp.GetValue(entity)?.ToString() ?? "";
+            var fullName = $"{firstName} {lastName}".Trim();
+            if (!string.IsNullOrEmpty(fullName))
+                auditEvent.CustomFields["FullName"] = fullName;
+        }
+        catch (TargetException)
+        {
+            // Skip if properties can't be accessed
         }
     }
 
@@ -128,7 +238,7 @@ public sealed class UserAuditProvider(
 
         foreach (var property in properties)
         {
-            if (_sensitiveProperties.Contains(property.Name))
+            if (SensitiveProperties.Contains(property.Name))
                 continue;
 
             try
@@ -199,7 +309,7 @@ public sealed class UserAuditProvider(
         {
             string str when str.Contains("@") => MaskEmail(str),
             string { Length: > 4 } str => $"{str.Substring(0, 2)}***",
-            DateTimeOffset dt => dt.ToString("yyyy-MM"),
+            DateTimeOffset dt => dt.ToString("yyyy-MM", CultureInfo.InvariantCulture),
             _ => "***"
         };
     }

@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -42,7 +43,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var accessResult = results.FirstOrDefault(static r => r.RuleName == "Access Control Logging (CC6.1)");
@@ -61,7 +62,7 @@ public class Soc2ValidatorTests
         var events = new List<AuditEventEntity>();
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var accessResult = results.FirstOrDefault(static r => r.RuleName == "Access Control Logging (CC6.1)");
@@ -94,7 +95,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var authResult = results.FirstOrDefault(static r => r.RuleName == "Authentication Logging (CC6.2)");
@@ -126,7 +127,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var accountResult = results.FirstOrDefault(static r => r.RuleName == "Account Management Logging (CC6.3)");
@@ -152,7 +153,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName == "User Identification (CC6.6)");
@@ -178,7 +179,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var userIdResult = results.FirstOrDefault(static r => r.RuleName == "User Identification (CC6.6)");
@@ -205,7 +206,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var securityResult = results.FirstOrDefault(static r => r.RuleName == "Security Event Detection (CC7.2)");
@@ -231,7 +232,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var evalResult = results.FirstOrDefault(static r => r.RuleName == "Security Event Evaluation (CC7.3)");
@@ -257,7 +258,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var evalResult = results.FirstOrDefault(static r => r.RuleName == "Security Event Evaluation (CC7.3)");
@@ -284,7 +285,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var changeResult = results.FirstOrDefault(static r => r.RuleName == "Change Management Logging (CC8.1)");
@@ -310,7 +311,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var privResult = results.FirstOrDefault(static r => r.RuleName == "Privileged Access Monitoring (CC6.7)");
@@ -340,7 +341,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var integrityResult = results.FirstOrDefault(static r => r.RuleName == "Audit Log Integrity Protection");
@@ -366,7 +367,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName == "Audit Log Retention");
@@ -392,7 +393,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName == "Audit Log Retention");
@@ -469,7 +470,7 @@ public class Soc2ValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         Assert.That(results.Count, Is.GreaterThan(8));

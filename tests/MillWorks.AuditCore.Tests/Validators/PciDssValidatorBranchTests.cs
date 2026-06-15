@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -28,7 +29,7 @@ public class PciDssValidatorBranchTests
     [Test]
     public async Task ValidateAsync_WithEmptyEvents_FailsAuditLogsImplementation()
     {
-        var results = await _validator.ValidateAsync([]);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         var result = FindResult(results, "Audit Logs Implementation");
         Assert.That(result, Is.Not.Null);
@@ -40,7 +41,7 @@ public class PciDssValidatorBranchTests
     [Test]
     public async Task ValidateAsync_WithEmptyEvents_FailsAuditLogInitialization()
     {
-        var results = await _validator.ValidateAsync([]);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         var result = FindResult(results, "Audit Log Initialization");
         Assert.That(result, Is.Not.Null);
@@ -59,7 +60,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Cardholder Data Access");
         Assert.That(result, Is.Not.Null);
@@ -77,7 +78,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Cardholder Data Access");
         Assert.That(result!.Passed, Is.True);
@@ -95,7 +96,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "regularuser" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Privileged User Actions");
         Assert.That(result, Is.Not.Null);
@@ -114,7 +115,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = user }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Privileged User Actions");
         Assert.That(result!.Passed, Is.True);
@@ -132,7 +133,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Audit.Query", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Trail Access");
         Assert.That(result, Is.Not.Null);
@@ -147,7 +148,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Log.Export", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Audit Trail Access")!.Passed, Is.True);
     }
 
@@ -159,7 +160,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Trail Access");
         Assert.That(result!.Passed, Is.False);
@@ -181,7 +182,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Invalid Access Attempts");
         Assert.That(result, Is.Not.Null);
@@ -198,7 +199,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Invalid Access Attempts");
         Assert.That(result!.Passed, Is.True);
@@ -220,7 +221,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Authentication Changes")!.Passed, Is.True);
     }
 
@@ -232,7 +233,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Authentication Changes");
         Assert.That(result!.Passed, Is.False);
@@ -252,7 +253,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Object.Change", Action = action, InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "System Object Changes")!.Passed, Is.True);
     }
 
@@ -265,7 +266,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "System Object Changes")!.Passed, Is.True);
     }
 
@@ -277,7 +278,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", Action = "Modified", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "System Object Changes");
         Assert.That(result!.Passed, Is.False);
@@ -296,7 +297,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow, User = null }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Log Detail Requirements");
         Assert.That(result!.Passed, Is.False);
@@ -312,7 +313,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = null, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Log Detail Requirements");
         Assert.That(result!.Passed, Is.False);
@@ -327,7 +328,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow, User = "   " }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Audit Log Detail Requirements")!.Passed, Is.False);
     }
 
@@ -343,7 +344,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-5), User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Time Synchronization")!.Passed, Is.True);
     }
 
@@ -355,7 +356,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-30), User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Time Synchronization");
         Assert.That(result!.Passed, Is.False);
@@ -374,7 +375,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow, User = "user1", AuditIntegrity = null }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Log Protection");
         Assert.That(result!.Passed, Is.False);
@@ -394,7 +395,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-200), User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Audit Log Retention");
         Assert.That(result!.Passed, Is.False);
@@ -414,7 +415,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddMinutes(-10), User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Regular Log Review")!.Passed, Is.True);
     }
 
@@ -426,7 +427,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-7), User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(FindResult(results, "Regular Log Review")!.Passed, Is.False);
     }
 
@@ -444,7 +445,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "system" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Security Control Failure Detection");
         Assert.That(result!.Passed, Is.True);
@@ -459,7 +460,7 @@ public class PciDssValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = FindResult(results, "Security Control Failure Detection");
         Assert.That(result!.Passed, Is.True);

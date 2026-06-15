@@ -350,10 +350,23 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         // Get total count before applying paging
         int totalCount = await query.CountAsync();
 
-        // Apply ordering if specified
+        // Apply ordering — required for deterministic paging
         if (orderBy != null)
         {
             query = orderBy(query);
+        }
+        else
+        {
+            // Fall back to ordering by primary key for deterministic results
+            var keyProperty = Context.Model.FindEntityType(typeof(T))?.FindPrimaryKey()?.Properties.FirstOrDefault();
+            if (keyProperty != null)
+            {
+                var parameter = Expression.Parameter(typeof(T), "e");
+                var property = Expression.Property(parameter, keyProperty.Name);
+                var converted = Expression.Convert(property, typeof(object));
+                var lambda = Expression.Lambda<Func<T, object>>(converted, parameter);
+                query = query.OrderBy(lambda);
+            }
         }
 
         // Apply paging

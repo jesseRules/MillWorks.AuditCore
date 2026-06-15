@@ -54,6 +54,12 @@ public sealed class AuditArchivalService(
     private const int _pipePauseBytes = 4 * 1024 * 1024;
 
     /// <summary>
+    /// Timeout for awaiting the upload task in the failure cleanup path. If the upload
+    /// hasn't completed or failed within this window, proceed with blob cleanup anyway.
+    /// </summary>
+    private static readonly TimeSpan _uploadCleanupTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// How often the JSON writer's internal buffer is flushed to the gzip stream during
     /// event streaming. Keeps the writer's own buffer bounded independent of event count.
     /// </summary>
@@ -145,6 +151,7 @@ public sealed class AuditArchivalService(
 
         AuditArchiveRecordEntity? archiveRecord = null;
         BlobClient? blobClient = null;
+        Task? uploadTask = null;
         var blobWriteStarted = false;
 
         try
@@ -165,6 +172,7 @@ public sealed class AuditArchivalService(
 
             if (eventCount == 0)
             {
+                result.Success = true;
                 result.Message = "No events to archive";
                 await archiveRecordRepository.UpdateStatusAsync(result.ArchiveId,
                     MillWorksArchiveStatus.Completed, "No events found to archive", cancellationToken);
@@ -208,7 +216,7 @@ public sealed class AuditArchivalService(
 
             // Start upload consumer first so the producer has somewhere to drain into.
             await using var readerStream = pipe.Reader.AsStream();
-            var uploadTask = blobClient.UploadAsync(readerStream, overwrite: true, cancellationToken);
+            uploadTask = blobClient.UploadAsync(readerStream, overwrite: true, cancellationToken);
 
             try
             {
@@ -419,8 +427,23 @@ public sealed class AuditArchivalService(
 
             // If we started a blob write, a partial or fully-committed blob may exist.
             // Delete it so subsequent retries don't see a half-written payload.
+            // IMPORTANT: Await the upload task first (with a timeout) so the delete doesn't
+            // race against a still-running commit — otherwise a partial blob can survive.
             if (blobWriteStarted && blobClient is not null)
             {
+                if (uploadTask is not null)
+                {
+                    try
+                    {
+                        using var cts = new CancellationTokenSource(_uploadCleanupTimeout);
+                        await uploadTask.WaitAsync(cts.Token);
+                    }
+                    catch
+                    {
+                        // Upload failed or timed out — safe to proceed with cleanup.
+                    }
+                }
+
                 try
                 {
                     await blobClient.DeleteIfExistsAsync(cancellationToken: CancellationToken.None);

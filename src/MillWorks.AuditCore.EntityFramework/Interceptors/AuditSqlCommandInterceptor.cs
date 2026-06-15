@@ -152,7 +152,7 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
         DbCommand command,
         CommandErrorEventData eventData)
     {
-        RecordFailure(eventData, "reader");
+        RecordFailure(eventData, eventData.ExecuteMethod.ToString().ToLowerInvariant());
         base.CommandFailed(command, eventData);
     }
 
@@ -161,7 +161,7 @@ public sealed class AuditSqlCommandInterceptor : DbCommandInterceptor
         CommandErrorEventData eventData,
         CancellationToken cancellationToken = default)
     {
-        RecordFailure(eventData, "reader");
+        RecordFailure(eventData, eventData.ExecuteMethod.ToString().ToLowerInvariant());
         return base.CommandFailedAsync(command, eventData, cancellationToken);
     }
 

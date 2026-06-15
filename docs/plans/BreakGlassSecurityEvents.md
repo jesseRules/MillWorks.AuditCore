@@ -1,6 +1,6 @@
 # Break-Glass Security Events
 
-**Status:** Proposed  
+**Status:** Implemented  
 **Date:** 2026-06-06  
 **Consumer:** MillWorks.Identity network-policy break-glass recovery  
 **Scope:** MillWorks.AuditCore security-event model, normalized investigation fields, and fail-closed recording path

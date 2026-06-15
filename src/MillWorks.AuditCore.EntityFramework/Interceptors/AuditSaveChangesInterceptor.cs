@@ -82,7 +82,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         typeof(AuditIntegrityEntity),
         typeof(AuditLogEntity),
         typeof(AuditArchiveRecordEntity),
-        typeof(AuditSecurityEventEntity)
+        typeof(AuditSecurityEventEntity),
+        typeof(AuditOutboxEntity),
+        typeof(AuditIntegrityWorkItemEntity)
     ];
 
     private static readonly ConcurrentDictionary<Type, bool> _noAuditTypeCache = new();
@@ -161,9 +163,30 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         _scopeFactory = scopeFactory;
     }
 
-    // NOTE: No sync SavingChanges override. The sync path lacks provider dispatch
-    // (CaptureForProviderDispatch + SavedChanges), so it would silently produce
-    // partial audit records. Letting it fall through to base makes the gap obvious.
+    /// <summary>
+    /// Sync SaveChanges is not supported for audited contexts. The interceptor requires
+    /// async I/O (sink publish, provider dispatch). Sync saves on contexts with auditable
+    /// entities throw to prevent silent audit gaps.
+    /// </summary>
+    public override InterceptionResult<int> SavingChanges(
+        DbContextEventData eventData,
+        InterceptionResult<int> result)
+    {
+        if (ShouldBypass(eventData))
+            return base.SavingChanges(eventData, result);
+
+        var entries = GetAuditableEntries(eventData.Context);
+        if (entries is { Count: > 0 })
+        {
+            _diagnostics?.Increment(AuditDiagnosticCounter.SyncSaveChangesBlocked);
+
+            throw new NotSupportedException(
+                $"Synchronous SaveChanges is not supported when auditable entities are being saved. " +
+                $"Use SaveChangesAsync instead. Entities: {string.Join(", ", entries.Select(e => e.Entity.GetType().Name).Distinct().Take(5))}");
+        }
+
+        return base.SavingChanges(eventData, result);
+    }
 
     /// <summary>
     /// Intercepts SaveChangesAsync to audit entity changes
@@ -385,7 +408,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
     }
 
-    private static void AddComplianceSecurityEvent(
+    private void AddComplianceSecurityEvent(
         DbContext context,
         string entityTypeName,
         string? userId,
@@ -409,12 +432,23 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             details["errorType"] = errorType;
         }
 
+        var securityEventEntity = context.Model.FindEntityType(typeof(AuditSecurityEventEntity));
+        if (securityEventEntity is null)
+        {
+            _logger.LogWarning(
+                "Cannot add compliance security event: AuditSecurityEventEntity is not in the " +
+                "consumer context's model. Entity: {EntityType}, User: {UserId}, Reason: {Reason}. " +
+                "Consider deriving from AuditDbContext for full compliance event tracking.",
+                entityTypeName, userId ?? "unknown", reason);
+            return;
+        }
+
         context.Set<AuditSecurityEventEntity>().Add(new AuditSecurityEventEntity
         {
             EventType = SecurityEventType.ComplianceViolation,
             Severity = SecurityEventSeverity.High,
-            Message = Truncate(message, 500) ?? message,
-            DetailsJson = Truncate(JsonSerializer.Serialize(details, _snapshotSerializerOptions), 4000),
+            Message = TruncateSafe(message, 500) ?? message,
+            DetailsJson = TruncateSafe(JsonSerializer.Serialize(details, _snapshotSerializerOptions), 4000),
             DetectedAt = DateTimeOffset.UtcNow,
             DetectedBy = nameof(AuditSaveChangesInterceptor),
             IpAddress = contextSource?.CurrentIpAddress,
@@ -550,7 +584,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var entityType = entry.Entity.GetType();
         var entityName = entityType.Name;
         var action = MapAction(entry.State);
-        var entityId = GetPrimaryKeyValue(entry);
+        var (entityId, entityIdString) = GetPrimaryKeyValue(entry);
         var ferpaAttr = GetFERPAAttribute(entityType);
 
         _logger.LogDebug(
@@ -568,8 +602,12 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             // One change record per modified property for granular tracking; the
             // writer fans these out into one AuditLogEntity row per change.
             var changes = new List<AuditEnvelopePropertyChange>();
+            var hasAnyModifiedProperty = false;
+
             foreach (var prop in entry.Properties.Where(static p => p.IsModified))
             {
+                hasAnyModifiedProperty = true;
+
                 var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
                 if (meta.IsNoAudit)
                     continue;
@@ -585,35 +623,52 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
                 changes.Add(new AuditEnvelopePropertyChange(
                     prop.Metadata.Name,
-                    Truncate(maskedOld, 4000),
-                    Truncate(maskedNew, 4000)));
+                    TruncateSafe(maskedOld, 4000),
+                    TruncateSafe(maskedNew, 4000)));
             }
 
-            if (changes.Count == 0)
-                return null;
-
-            var description = ferpaAttr is not null
-                ? $"[FERPA] Updated {entityName}"
-                : $"Updated {entityName}";
-
-            var additionalData = ferpaAttr is not null
-                ? BuildFerpaAdditionalData(ferpaAttr, entityName, action)
-                : null;
-
-            return new AuditEnvelope
+            if (changes.Count > 0)
             {
-                Kind = AuditEnvelopeKind.EntityChange,
-                EntityName = entityName,
-                EntityId = entityId,
-                Action = action,
-                UserId = userId,
-                CorrelationId = correlationId,
-                IpAddress = ipAddress,
-                UserAgent = userAgent,
-                Description = description,
-                PropertyChanges = changes,
-                AdditionalData = additionalData,
-            };
+                var description = ferpaAttr is not null
+                    ? $"[FERPA] Updated {entityName}"
+                    : $"Updated {entityName}";
+
+                var additionalData = ferpaAttr is not null
+                    ? BuildFerpaAdditionalData(ferpaAttr, entityName, action)
+                    : null;
+
+                return new AuditEnvelope
+                {
+                    EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, changes, additionalData),
+                    Kind = AuditEnvelopeKind.EntityChange,
+                    EntityName = entityName,
+                    EntityId = entityId,
+                    EntityIdString = entityIdString,
+                    Action = action,
+                    UserId = userId,
+                    CorrelationId = correlationId,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent,
+                    Description = description,
+                    PropertyChanges = changes,
+                    AdditionalData = additionalData,
+                };
+            }
+
+            // Modified entity with no detectable property changes. This can occur when:
+            // 1. State was manually set to Modified but values didn't change
+            // 2. Disconnected update via Update() where EF seeds OriginalValue=CurrentValue
+            // Both cases are indistinguishable here. Log and count for visibility, but don't
+            // create a potentially misleading audit record.
+            if (hasAnyModifiedProperty)
+            {
+                _diagnostics?.Increment(AuditDiagnosticCounter.DisconnectedUpdateFallback);
+                _logger.LogDebug(
+                    "Modified entity {EntityName} has properties marked as modified but no value " +
+                    "changes detected (possible disconnected update pattern). No audit record created.",
+                    entityName);
+            }
+            return null;
         }
 
         // Added / Deleted: snapshot the property values into AdditionalData.
@@ -640,7 +695,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         string? snapshotJson = null;
         try
         {
-            snapshotJson = Truncate(JsonSerializer.Serialize(snapshot, _snapshotSerializerOptions), 4000);
+            snapshotJson = TruncateSafe(JsonSerializer.Serialize(snapshot, _snapshotSerializerOptions), 4000);
         }
         catch (Exception ex)
         {
@@ -687,9 +742,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         return new AuditEnvelope
         {
+            EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, null, snapshotJson),
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = entityName,
             EntityId = entityId,
+            EntityIdString = entityIdString,
             Action = action,
             UserId = userId,
             CorrelationId = correlationId,
@@ -773,11 +830,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (context is not IAuditProviderDispatchSource dispatchSource)
             return;
 
+        // Claim dispatches before the guard check to prevent stale entries from leaking
+        // to the next save if we hit re-entrancy.
+        var dispatches = dispatchSource.PendingProviderDispatches;
+        dispatchSource.PendingProviderDispatches = null;
+
         // Re-entrancy guard — prevents infinite recursion if a provider triggers another save
         if (dispatchSource.IsDispatchingProviders) return;
 
-        var dispatches = dispatchSource.PendingProviderDispatches;
-        dispatchSource.PendingProviderDispatches = null;
         if (dispatches == null || dispatches.Count == 0) return;
 
         if (dispatchSource.ScopedServiceProvider == null) return;
@@ -812,19 +872,33 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     };
 
     /// <summary>
-    /// Extracts the primary key value as a Guid from the entry.
+    /// Extracts the primary key value from the entry. Returns a Guid when possible,
+    /// or a string representation for non-Guid keys (int, long, composite).
     /// </summary>
-    private static Guid? GetPrimaryKeyValue(EntityEntry entry)
+    private static (Guid? GuidId, string? StringId) GetPrimaryKeyValue(EntityEntry entry)
     {
-        var keyProperty = entry.Properties
-            .FirstOrDefault(static p => p.Metadata.IsPrimaryKey());
+        var keyProperties = entry.Properties
+            .Where(static p => p.Metadata.IsPrimaryKey())
+            .ToList();
 
-        return keyProperty?.CurrentValue switch
+        if (keyProperties.Count == 0)
+            return (null, null);
+
+        if (keyProperties.Count == 1)
         {
-            Guid guid => guid,
-            string s when Guid.TryParse(s, out var parsed) => parsed,
-            _ => null
-        };
+            var value = keyProperties[0].CurrentValue;
+            return value switch
+            {
+                Guid guid => (guid, null),
+                string s when Guid.TryParse(s, out var parsed) => (parsed, null),
+                null => (null, null),
+                _ => (null, value.ToString())
+            };
+        }
+
+        // Composite key: serialize all values as JSON array
+        var compositeValues = keyProperties.Select(p => p.CurrentValue).ToArray();
+        return (null, JsonSerializer.Serialize(compositeValues));
     }
 
     /// <summary>
@@ -864,11 +938,17 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     }
 
     /// <summary>
-    /// Truncates a string to the specified maximum length
+    /// Truncates a string to the specified maximum length without splitting surrogate pairs.
     /// </summary>
-    private static string? Truncate(string? value, int maxLength)
+    private static string? TruncateSafe(string? value, int maxLength)
     {
         if (value == null || value.Length <= maxLength) return value;
-        return value[..maxLength];
+        if (maxLength <= 0) return string.Empty;
+
+        var truncated = value[..maxLength];
+        if (char.IsHighSurrogate(truncated[^1]))
+            truncated = truncated[..^1];
+
+        return truncated;
     }
 }

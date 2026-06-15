@@ -72,6 +72,9 @@ public class FileBasedAuditDeadLetterQueueTests
         _mockServiceScope.Setup(static x => x.ServiceProvider).Returns(_mockScopedServiceProvider.Object);
         _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(IAuditLogger)))
             .Returns(_mockAuditLogger.Object);
+        // DLQ reprocessing resolves AuditLogger directly to bypass decorators
+        _mockScopedServiceProvider.Setup(x => x.GetService(typeof(AuditLogger)))
+            .Returns(new TestableAuditLogger(_mockAuditLogger.Object));
 
         var mockScopeFactory = new Mock<IServiceScopeFactory>();
         mockScopeFactory.Setup(static x => x.CreateScope()).Returns(_mockServiceScope.Object);
@@ -738,8 +741,11 @@ public class FileBasedAuditDeadLetterQueueTests
         var events = await _deadLetterQueue.GetFailedEventsAsync();
         var deadLetterId = events[0].Id;
 
-        // Setup service scope to return null for IAuditLogger
+        // Setup service scope to return null for both AuditLogger and IAuditLogger
+        // (DLQ resolves AuditLogger directly to bypass decorators)
         _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(IAuditLogger)))
+            .Returns(null!);
+        _mockScopedServiceProvider.Setup(static x => x.GetService(typeof(AuditLogger)))
             .Returns(null!);
 
         // Act
@@ -776,5 +782,15 @@ public class FileBasedAuditDeadLetterQueueTests
                 _mockServiceProvider.Object,
                 new PassThroughAuditFieldRedactor());
         }, Throws.Exception);
+    }
+
+    /// <summary>
+    /// Test double for AuditLogger that delegates to a mock IAuditLogger.
+    /// Required because DLQ reprocessing resolves AuditLogger directly to bypass decorators.
+    /// </summary>
+    private sealed class TestableAuditLogger(IAuditLogger innerLogger) : AuditLogger(null!, null!, null!, null!, null!, null!)
+    {
+        public override Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+            => innerLogger.LogAsync(auditEvent, cancellationToken);
     }
 }

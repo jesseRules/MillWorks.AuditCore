@@ -89,6 +89,111 @@ Completed audit records can be archived to Azure Blob Storage with integrity ver
 ### Custom Providers
 Per-entity audit enrichment through the `IAuditProvider` interface. Register providers for specific entity types to control which actions are audited, add domain-specific metadata, and mask sensitive properties before they reach the audit log.
 
+### Field Redaction
+The `IAuditFieldRedactor` interface strips PHI/PII from audit payloads before persistence. The default `PassThroughAuditFieldRedactor` performs no redaction and **throws on startup in Production** unless explicitly opted in. Register a custom implementation for HIPAA/SOC2 compliance:
+
+```csharp
+audit.UseRedactor<MyAuditFieldRedactor>();
+```
+
+Or explicitly allow pass-through for development/testing:
+
+```csharp
+audit.Options.AllowPassThroughRedactor = true;
+```
+
+The interface:
+
+```csharp
+public interface IAuditFieldRedactor
+{
+    // Redact sensitive values from custom fields (JsonData, AdditionalData)
+    Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields);
+    
+    // Redact individual string values (IpAddress, UserAgent, etc.)
+    string? RedactValue(string fieldName, string? value);
+    
+    // Redact entity snapshots (Old/New values in AuditTarget)
+    AuditTarget? RedactTarget(AuditTarget? target);
+    
+    // Filter property names that reveal sensitive schema ("SSN", "Diagnosis")
+    List<string>? RedactPropertyNames(List<string>? propertyNames);
+    
+    // Redact natural keys that could be PHI (emails, SSNs as entity keys)
+    Dictionary<string, object?>? RedactKeyValues(Dictionary<string, object?>? keyValues);
+}
+```
+
+**Example production redactor:**
+
+```csharp
+public sealed class MyAuditFieldRedactor : IAuditFieldRedactor
+{
+    private const string Redacted = "[REDACTED]";
+    
+    private static readonly HashSet<string> SafeFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Id", "EntityId", "UserId", "CorrelationId", "TraceId",
+        "EntityType", "Action", "Timestamp", "HttpMethod", "StatusCode"
+    };
+    
+    private static readonly HashSet<string> SensitiveFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Name", "Email", "Phone", "Ssn", "DateOfBirth",
+        "Diagnosis", "MedicalRecordNumber", "Insurance",
+        "Password", "ApiKey", "Token", "ConnectionString"
+    };
+
+    public Dictionary<string, object?> RedactFields(Dictionary<string, object?> fields)
+    {
+        var result = new Dictionary<string, object?>(fields.Count);
+        foreach (var (key, value) in fields)
+        {
+            if (SafeFields.Contains(key))
+                result[key] = value;
+            else if (SensitiveFields.Contains(key))
+                result[key] = Redacted;
+            else
+                result[key] = Redacted; // Fail-safe: redact unknown fields
+        }
+        return result;
+    }
+
+    public string? RedactValue(string fieldName, string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        
+        return fieldName.ToUpperInvariant() switch
+        {
+            "IPADDRESS" => MaskIpAddress(value),      // "192.168.x.x"
+            "USERAGENT" => value.Length <= 50 ? value : value[..50] + "...",
+            _ => SafeFields.Contains(fieldName) ? value : Redacted
+        };
+    }
+
+    public AuditTarget? RedactTarget(AuditTarget? target)
+    {
+        if (target is null) return null;
+        return new AuditTarget
+        {
+            Type = target.Type,
+            Old = target.Old is not null ? Redacted : null,
+            New = target.New is not null ? Redacted : null
+        };
+    }
+
+    // ... implement remaining methods
+}
+```
+
+| Strategy | Behavior |
+|----------|----------|
+| **Safe fields** | Pass through: IDs, timestamps, counts, HTTP metadata |
+| **Sensitive fields** | Always redact: names, emails, PHI, credentials |
+| **Unknown fields** | Redact by default (fail-safe for HIPAA) |
+| **IP addresses** | Mask to `192.168.x.x` (preserves geo-debug info) |
+| **Entity snapshots** | Redact Old/New values entirely |
+
 ### Query and Reporting
 Multi-field text search, date-range filtering, entity trail reconstruction, user activity timelines, event type distribution, and top-user reports -- provided across `AuditQueryService`, `AuditSearchService`, and `AuditReportService`. Compliance reports can be generated per standard for any date range. Audit event data can be exported in JSON or CSV format. All query services use `AsNoTracking()` for read performance.
 
@@ -327,8 +432,9 @@ builder.Services.AddMillWorksAudit(audit =>
         ef.ConnectionString = "Server=...";
         ef.Schema = "audit";                // Default schema; built-in migrations are anchored to "audit"
         ef.MigrateOnStartup = true;         // Apply EF migrations on startup (default: false)
-        ef.EnsureDatabaseCreated = false;    // Use EnsureCreated for dev (default: true)
-        ef.MigrationTimeoutSeconds = 120;    // Default: 300
+        ef.EnsureDatabaseCreated = false;   // Use EnsureCreated for dev (default: true)
+        ef.CommandTimeoutSeconds = 30;      // Runtime query timeout (default: 30)
+        ef.MigrationTimeoutSeconds = 300;   // Migration-only timeout (default: 300)
     });
 
     // Security and tamper detection.
@@ -389,6 +495,13 @@ builder.Services.AddMillWorksAudit(audit =>
         middleware.EnqueueTimeout = TimeSpan.FromMilliseconds(100);     // Default: 100ms
         middleware.DrainTimeout = TimeSpan.FromSeconds(30);             // Default: 30s
     });
+
+    // Field redaction — strips PHI/PII before persistence (required for Production)
+    // Option A: Register a custom redactor (recommended for HIPAA/SOC2)
+    audit.UseRedactor<MyAuditFieldRedactor>();
+    
+    // Option B: Explicitly allow pass-through (dev/test only — throws in Production otherwise)
+    // audit.Options.AllowPassThroughRedactor = true;
 
     // Field-level encryption (Azure Key Vault)
     audit.UseFieldEncryption("https://my-vault.vault.azure.net/");
@@ -700,6 +813,76 @@ dotnet test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj \
 The bare prefix form (`AUDITCORE_RUN_ENDURANCE=1 dotnet test …`) depends on environment inheritance into the test host and has been observed not to propagate in some `dotnet test` / NUnit worker configurations. Prefer the `-e` form unless you have confirmed inheritance works locally.
 
 Without the opt-in variable the single test reports `Inconclusive` and does no work. Docker must be healthy — the run provisions its own database (`MillWorksAuditCoreSoakTests`) inside a dedicated SQL Server 2022 container, which is dropped on teardown. The test has a 15-minute cancellation budget; a typical run completes well inside that. Each invocation writes `notes.md` and `samples.csv` to `artifacts/phase6.5-soak/<UTC-timestamp>/`; the `artifacts/` directory is gitignored and is intended for local operator review.
+
+## Migration Guide
+
+### From pre-2026-06-10 builds
+
+**Breaking changes:**
+
+1. **Configuration section paths changed** — options now bind to nested subsections:
+
+   | Old Path | New Path |
+   |----------|----------|
+   | `Audit` (for EntityFrameworkOptions) | `Audit:EntityFramework` |
+   | `Audit` (for SecurityOptions) | `Audit:Security` |
+   | `Audit` (for ComplianceOptions) | `Audit:Compliance` |
+   | `Audit` (for ArchivalOptions) | `Audit:Archival` |
+   | `Audit` (for ResilienceOptions) | `Audit:Resilience` |
+
+   **Before:**
+   ```json
+   {
+     "Audit": {
+       "ConnectionString": "...",
+       "MigrationTimeoutSeconds": 120
+     }
+   }
+   ```
+
+   **After:**
+   ```json
+   {
+     "Audit": {
+       "ApplicationName": "MyApp",
+       "EntityFramework": {
+         "ConnectionString": "...",
+         "MigrationTimeoutSeconds": 120
+       }
+     }
+   }
+   ```
+
+   Fluent configuration is unchanged — this only affects `IConfiguration` binding.
+
+2. **PassThroughRedactor now throws** — if `PassThroughAuditFieldRedactor` is resolved without explicit opt-in, the startup service throws `InvalidOperationException`. This catches unintentional deployment of unredacted audit storage.
+
+   **Fix:** Either register a real redactor or explicitly opt in:
+   ```csharp
+   // Option A: Production redactor
+   audit.UseRedactor<MyAuditFieldRedactor>();
+   
+   // Option B: Explicit opt-in (dev/test only)
+   audit.Options.AllowPassThroughRedactor = true;
+   ```
+
+3. **CommandTimeout vs MigrationTimeout** — `EntityFrameworkOptions.CommandTimeoutSeconds` is now used for runtime queries (default 30s). Previously, `MigrationTimeoutSeconds` was incorrectly applied to both. Add `CommandTimeoutSeconds` explicitly if you need longer runtime query timeouts:
+   ```json
+   {
+     "Audit": {
+       "EntityFramework": {
+         "CommandTimeoutSeconds": 60,
+         "MigrationTimeoutSeconds": 300
+       }
+     }
+   }
+   ```
+
+**Non-breaking additions:**
+
+- `AuditProviderTypeMapFreezeService` — new hosted service that freezes the provider type map at startup for lock-free reads. Transparent to consumers.
+- `UseRequestAuditDispatcher<T>()` — internal fix for cleaner removal of the default dispatcher. Same API.
+- Compliance validators — changed to `TryAddEnumerable`, allowing consumers to register additional validators alongside built-ins.
 
 ## Production Readiness
 

@@ -14,16 +14,18 @@ public sealed class HipaaValidator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.HIPAA;
 
     /// <summary>
-    /// Validates a list of audit events against HIPAA compliance standards.
+    /// Validates audit events against HIPAA compliance standards.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // §164.312(b) - Audit Controls (REQUIRED)
-        var hasAuditControls = events.Any();
+        var hasAuditControls = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Controls (§164.312(b))",
@@ -168,24 +170,30 @@ public sealed class HipaaValidator : IComplianceValidator
                 ]
         });
 
-        // §164.312(c)(1) - Integrity Controls
-        var hasIntegrityControls = events.Any(static e => e.AuditIntegrity != null);
-        var eventsWithoutIntegrity = events.Count(static e => e.AuditIntegrity == null);
+        // §164.312(c)(1) - Integrity Controls (server-side counts)
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var protectedCount = context.TotalEventCount - context.UnprotectedEventCount;
 
         results.Add(new AuditValidationResult
         {
             RuleName = "Integrity Controls (§164.312(c)(1))",
-            Passed = hasIntegrityControls,
-            Message = hasIntegrityControls
-                ? $"Integrity controls are in place ({events.Count - eventsWithoutIntegrity} events protected)"
-                : "CRITICAL: Audit logs lack integrity protection - must be tamper-evident and prevent unauthorized alterations",
-            Severity = hasIntegrityControls ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} audit events have integrity protection"
+                : context.TotalEventCount == 0
+                    ? "No events to verify - insufficient data"
+                    : protectedCount > 0
+                        ? $"{context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection"
+                        : "CRITICAL: Audit logs lack integrity protection - must be tamper-evident",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.Critical,
             ComplianceStandard = "HIPAA",
             Category = "Technical Safeguards - Integrity",
             RegulationReference = "45 CFR §164.312(c)(1)",
-            TotalCount = events.Count,
-            FailedCount = eventsWithoutIntegrity,
-            Recommendations = hasIntegrityControls
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? ["Ensure all audit logs maintain integrity protection"]
                 :
                 [
@@ -200,17 +208,17 @@ public sealed class HipaaValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Authentication Mechanism (§164.312(c)(2))",
-            Passed = hasIntegrityControls, // Using same check as integrity
-            Message = hasIntegrityControls
+            Passed = allProtected,
+            Message = allProtected
                 ? "Electronic signatures/authentication mechanisms are in place"
                 : "Consider implementing mechanisms to authenticate ePHI has not been altered",
-            Severity = hasIntegrityControls ? ValidationSeverity.Info : ValidationSeverity.Medium,
+            Severity = allProtected ? ValidationSeverity.Info : ValidationSeverity.Medium,
             ComplianceStandard = "HIPAA",
             Category = "Technical Safeguards - Integrity",
             RegulationReference = "45 CFR §164.312(c)(2) (Addressable)",
-            TotalCount = events.Count,
+            TotalCount = context.TotalEventCount,
             FailedCount = 0,
-            Recommendations = hasIntegrityControls
+            Recommendations = allProtected
                 ? []
                 :
                 [

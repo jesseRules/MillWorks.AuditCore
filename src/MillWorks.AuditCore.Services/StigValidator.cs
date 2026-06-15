@@ -14,16 +14,18 @@ public sealed class StigValidator : IComplianceValidator
     public ComplianceStandard Standard => ComplianceStandard.STIG;
 
     /// <summary>
-    /// Validates a list of audit events against DISA STIG compliance controls.
+    /// Validates audit events against DISA STIG compliance controls.
     /// </summary>
-    /// <param name="events"></param>
-    /// <returns></returns>
-    public async Task<List<AuditValidationResult>> ValidateAsync(List<AuditEventEntity> events)
+    public async Task<List<AuditValidationResult>> ValidateAsync(ComplianceValidationContext context)
     {
+        if (!context.EnabledStandards.Contains(Standard))
+            return await Task.FromResult(new List<AuditValidationResult>());
+
+        var events = context.Events;
         var results = new List<AuditValidationResult>();
 
         // V-222582 / AU-12 - Audit Generation
-        var hasAuditGeneration = events.Any();
+        var hasAuditGeneration = context.TotalEventCount > 0;
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Generation (V-222582 / AU-12)",
@@ -142,24 +144,27 @@ public sealed class StigValidator : IComplianceValidator
                 ]
         });
 
-        // V-222579 / AU-9 - Protection of Audit Information
-        var hasIntegrityProtection = events.Any(static e => e.AuditIntegrity != null);
-        var eventsWithoutIntegrity = events.Count(static e => e.AuditIntegrity == null);
+        // V-222579 / AU-9 - Protection of Audit Information (server-side counts)
+        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
 
         results.Add(new AuditValidationResult
         {
             RuleName = "Protection of Audit Information (V-222579 / AU-9)",
-            Passed = hasIntegrityProtection,
-            Message = hasIntegrityProtection
-                ? $"Audit information is protected with integrity controls ({events.Count - eventsWithoutIntegrity} events with tamper detection)"
-                : "FINDING: Audit information must be protected from unauthorized modification and deletion",
-            Severity = hasIntegrityProtection ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = allProtected,
+            Message = allProtected
+                ? $"All {context.TotalEventCount} audit records are protected with integrity controls"
+                : context.TotalEventCount == 0
+                    ? "No events to verify"
+                    : $"FINDING: {context.UnprotectedEventCount} of {context.TotalEventCount} events lack integrity protection",
+            Severity = allProtected ? ValidationSeverity.Info
+                : context.TotalEventCount == 0 ? ValidationSeverity.Low
+                : ValidationSeverity.Critical,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-9 / V-222579",
-            TotalCount = events.Count,
-            FailedCount = eventsWithoutIntegrity,
-            Recommendations = hasIntegrityProtection
+            TotalCount = context.TotalEventCount,
+            FailedCount = context.UnprotectedEventCount,
+            Recommendations = allProtected
                 ? []
                 :
                 [

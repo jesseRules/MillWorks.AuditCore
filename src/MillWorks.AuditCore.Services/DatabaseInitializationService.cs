@@ -82,6 +82,9 @@ public sealed class DatabaseInitializationService : IHostedService
                         _logger.LogDebug("Pending migration: {Migration}", migration);
                     }
 
+                    // Set migration-specific timeout (may be longer than runtime command timeout)
+                    context.Database.SetCommandTimeout(TimeSpan.FromSeconds(options.MigrationTimeoutSeconds));
+
                     await context.Database.MigrateAsync(cancellationToken);
                     _logger.LogInformation("Database migrations completed successfully");
                 }

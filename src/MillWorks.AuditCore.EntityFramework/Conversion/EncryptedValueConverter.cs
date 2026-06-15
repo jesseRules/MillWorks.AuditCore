@@ -7,6 +7,18 @@ namespace MillWorks.AuditCore.EntityFramework.Conversion;
 /// Value converter that transparently encrypts data to the database provider and decrypts from it.
 /// The change tracker only ever sees plaintext, preventing dirty-context loops.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>WARNING: Encrypted properties are NOT queryable.</b> AES-GCM encryption uses a random nonce,
+/// so the same plaintext encrypts to different ciphertext each time. EF Core applies value converters
+/// to query parameters, so <c>Where(e => e.Ssn == value)</c> compares against a freshly encrypted
+/// ciphertext that can never equal the stored one — zero rows, no error.
+/// </para>
+/// <para>
+/// For equality lookups on encrypted fields, add a deterministic HMAC shadow column indexed for search,
+/// or query by a non-encrypted identifier and filter in memory after decryption.
+/// </para>
+/// </remarks>
 public sealed class EncryptedValueConverter : ValueConverter<string, string>
 {
     /// <summary>

@@ -47,6 +47,7 @@ public sealed class AuditEvent
     [Range(0, int.MaxValue)]
     [Display(Name = "Duration (ms)")]
     [JsonPropertyName("duration")]
+    [JsonInclude]
     public int? Duration { get; private set; }
 
     /// <summary>
@@ -209,12 +210,14 @@ public sealed class AuditEvent
 
     /// <summary>
     /// Calculates and sets the Duration property based on StartDate and EndDate.
+    /// Clamps to [0, int.MaxValue] to satisfy the Range attribute and handle EndDate &lt; StartDate.
     /// </summary>
     public void CalculateDuration()
     {
         if (EndDate.HasValue)
         {
-            Duration = (int)(EndDate.Value - StartDate).TotalMilliseconds;
+            long ms = (long)(EndDate.Value - StartDate).TotalMilliseconds;
+            Duration = (int)Math.Clamp(ms, 0, int.MaxValue);
         }
     }
 }

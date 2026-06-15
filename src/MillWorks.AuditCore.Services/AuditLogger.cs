@@ -215,8 +215,100 @@ public class AuditLogger(
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            logger.LogDebug("Duplicate key in batch. Treating as success (idempotent replay).");
-            return BatchAuditResult.Duplicate(auditEvents.Count);
+            // A duplicate key in an atomic batch means at least one event already exists,
+            // but others may be new. Query for existing EventIds in one round-trip, then
+            // insert only the new events. This is O(1) queries instead of O(n) per-event.
+            logger.LogDebug(
+                "Duplicate key in batch of {Count} events. Querying for existing EventIds.",
+                auditEvents.Count);
+
+            // Detach any entities that were added to the change tracker before the exception
+            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+            }
+
+            // Single query to find which EventIds already exist
+            var allEventIds = auditEvents.Select(e => e.EventId).ToList();
+            var existingIds = await auditEventRepository.GetExistingEventIdsAsync(allEventIds, cancellationToken);
+
+            var newEvents = auditEvents.Where(e => !existingIds.Contains(e.EventId)).ToList();
+            var duplicateCount = existingIds.Count;
+
+            if (newEvents.Count == 0)
+            {
+                logger.LogDebug("All {Count} events in batch were duplicates", auditEvents.Count);
+                return BatchAuditResult.Duplicate(auditEvents.Count);
+            }
+
+            // Insert new events — if this batch also fails with duplicate key, fall back to per-event
+            try
+            {
+                var newEntities = newEvents.Select(ConvertToEntity).ToList();
+                foreach (var e in newEntities)
+                    e.IntegrityStatus = IntegrityStatus.Completed;
+
+                if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
+                {
+                    await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                    {
+                        await auditEventRepository.AddRangeAsync(newEntities, cancellationToken);
+                        await auditEventRepository.SaveChangesAsync(cancellationToken);
+
+                        var dtos = newEntities.Select(static e => new AuditIntegrityDto
+                        {
+                            EventId = e.EventId,
+                            InsertedDate = e.InsertedDate,
+                            LastUpdatedDate = e.LastUpdatedDate,
+                            JsonData = e.JsonData,
+                            EventType = e.EventType,
+                            User = e.User,
+                            UserId = e.UserId
+                        }).ToList();
+
+                        await tamperDetectionService.CreateIntegrityRecordBatchAsync(dtos, cancellationToken);
+                    }, cancellationToken);
+                }
+                else
+                {
+                    await auditEventRepository.AddRangeAsync(newEntities, cancellationToken);
+                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+                }
+
+                logger.LogDebug(
+                    "Batch fallback complete: {NewCount} new, {DuplicateCount} duplicates",
+                    newEvents.Count, duplicateCount);
+                return BatchAuditResult.Succeeded(auditEvents.Count);
+            }
+            catch (DbUpdateException retryEx) when (DuplicateKeyDetector.IsDuplicateKey(retryEx))
+            {
+                // Race condition: another process inserted between our query and insert.
+                // Fall back to per-event writes for the remaining new events.
+                foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+                {
+                    if (entry.State == EntityState.Added)
+                        entry.State = EntityState.Detached;
+                }
+
+                foreach (var auditEvent in newEvents)
+                {
+                    bool wasDuplicate = await TryLogSingleEventAsync(auditEvent, cancellationToken);
+                    if (wasDuplicate)
+                        duplicateCount++;
+                }
+
+                if (duplicateCount == auditEvents.Count)
+                {
+                    logger.LogDebug("All {Count} events in batch were duplicates after retry", auditEvents.Count);
+                    return BatchAuditResult.Duplicate(auditEvents.Count);
+                }
+
+                logger.LogDebug(
+                    "Batch fallback complete after retry: {NewCount} new, {DuplicateCount} duplicates",
+                    auditEvents.Count - duplicateCount, duplicateCount);
+                return BatchAuditResult.Succeeded(auditEvents.Count);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -227,6 +319,58 @@ public class AuditLogger(
         {
             logger.LogError(ex, "Failed to log batch of {Count} audit events", auditEvents.Count);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to log a single audit event, returning true if it was a duplicate.
+    /// Does not throw on duplicate key; throws on other errors.
+    /// </summary>
+    private async Task<bool> TryLogSingleEventAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var entity = ConvertToEntity(auditEvent);
+
+            if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
+            {
+                entity.IntegrityStatus = IntegrityStatus.Completed;
+                await auditEventRepository.ExecuteInTransactionAsync(async () =>
+                {
+                    await auditEventRepository.AddAsync(entity, cancellationToken);
+                    await auditEventRepository.SaveChangesAsync(cancellationToken);
+
+                    var dto = new AuditIntegrityDto
+                    {
+                        EventId = entity.EventId,
+                        InsertedDate = entity.InsertedDate,
+                        LastUpdatedDate = entity.LastUpdatedDate,
+                        JsonData = entity.JsonData,
+                        EventType = entity.EventType,
+                        User = entity.User,
+                        UserId = entity.UserId
+                    };
+                    await tamperDetectionService.CreateIntegrityRecordAsync(dto, cancellationToken);
+                }, cancellationToken);
+            }
+            else
+            {
+                entity.IntegrityStatus = IntegrityStatus.Completed;
+                await auditEventRepository.AddAsync(entity, cancellationToken);
+                await auditEventRepository.SaveChangesAsync(cancellationToken);
+            }
+
+            return false; // Not a duplicate
+        }
+        catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+        {
+            // Detach the entity that failed so it doesn't pollute subsequent inserts
+            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+            }
+            return true; // Was a duplicate
         }
     }
 
@@ -277,6 +421,8 @@ public class AuditLogger(
         }
         catch (Exception ex)
         {
+            // Remove the scope we just added — LogAsync failed so the operation isn't valid
+            _activeOperations.TryRemove(operationId, out _);
             logger.LogError(ex, "Failed to begin audit operation {OperationType}", operationType);
             throw;
         }

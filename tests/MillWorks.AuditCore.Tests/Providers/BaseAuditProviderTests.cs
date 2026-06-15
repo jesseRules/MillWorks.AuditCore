@@ -55,8 +55,9 @@ public class BaseAuditProviderTests
         var entity = new SampleEntity { Id = 1, Name = "Widget" };
         var expectedEvent = new AuditEvent { EventType = "TestEntity.Create" };
 
+        // Entity is sanitized to a Dictionary before passing to CreateEntityEvent
         _mockEventFactory
-            .Setup(f => f.CreateEntityEvent("TestEntity", "Create", entity, null))
+            .Setup(f => f.CreateEntityEvent("TestEntity", "Create", It.IsAny<Dictionary<string, object?>>(), null))
             .Returns(expectedEvent);
 
         var httpContext = new DefaultHttpContext();
@@ -179,8 +180,9 @@ public class BaseAuditProviderTests
         var newEntity = new SampleEntity { Id = 1, Name = "NewName", Price = 19.99m };
         var expectedEvent = new AuditEvent { EventType = "TestEntity.Update" };
 
+        // Entity is sanitized to a Dictionary before passing to CreateEntityEvent
         _mockEventFactory
-            .Setup(f => f.CreateEntityEvent("TestEntity", "Update", newEntity, oldValues))
+            .Setup(f => f.CreateEntityEvent("TestEntity", "Update", It.IsAny<Dictionary<string, object?>>(), It.IsAny<Dictionary<string, object?>>()))
             .Returns(expectedEvent);
         _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 
@@ -205,8 +207,9 @@ public class BaseAuditProviderTests
         var entity = new SampleEntity { Id = 1 };
         var expectedEvent = new AuditEvent { EventType = "TestEntity.Create" };
 
+        // Entity is sanitized to a Dictionary before passing to CreateEntityEvent
         _mockEventFactory
-            .Setup(f => f.CreateEntityEvent("TestEntity", "Create", entity, null))
+            .Setup(f => f.CreateEntityEvent("TestEntity", "Create", It.IsAny<Dictionary<string, object?>>(), null))
             .Returns(expectedEvent);
         _mockHttpContextAccessor.Setup(static h => h.HttpContext).Returns(static () => null!);
 

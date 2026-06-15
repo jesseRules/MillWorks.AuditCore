@@ -13,14 +13,20 @@ public class DuplicateKeyDetectorTests
 {
     // DuplicateKeyDetector is internal, so we test it through TamperDetectionService's
     // retry behavior. But we can also test it directly via InternalsVisibleTo or reflection.
-    // Since it's static with a single public method, reflection is simplest.
 
-    private static readonly System.Reflection.MethodInfo IsDuplicateKeyMethod =
+    private static readonly System.Reflection.MethodInfo IsDuplicateKeyDbUpdateMethod =
         typeof(MillWorks.AuditCore.Services.DuplicateKeyDetector)
-            .GetMethod("IsDuplicateKey", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+            .GetMethod("IsDuplicateKey", [typeof(DbUpdateException)])!;
+
+    private static readonly System.Reflection.MethodInfo IsDuplicateKeyExceptionMethod =
+        typeof(MillWorks.AuditCore.Services.DuplicateKeyDetector)
+            .GetMethod("IsDuplicateKey", [typeof(Exception)])!;
 
     private static bool IsDuplicateKey(DbUpdateException ex)
-        => (bool)IsDuplicateKeyMethod.Invoke(null, [ex])!;
+        => (bool)IsDuplicateKeyDbUpdateMethod.Invoke(null, [ex])!;
+
+    private static bool IsDuplicateKey(Exception? ex)
+        => (bool)IsDuplicateKeyExceptionMethod.Invoke(null, [ex])!;
 
     #region SQL Server — Error Numbers 2627 and 2601
 
@@ -130,6 +136,53 @@ public class DuplicateKeyDetectorTests
         var dbEx = new DbUpdateException("Error", innerEx);
 
         Assert.That(IsDuplicateKey(dbEx), Is.False);
+    }
+
+    #endregion
+
+    #region Direct Provider Exceptions (ExecuteSqlRawAsync path)
+
+    [Test]
+    public void IsDuplicateKey_RawSqlException2627_ReturnsTrue()
+    {
+        var sqlEx = CreateSqlException(2627);
+        if (sqlEx == null)
+        {
+            Assert.Ignore("Cannot create SqlException via reflection in this runtime version");
+            return;
+        }
+
+        // Raw provider exception without DbUpdateException wrapper
+        Assert.That(IsDuplicateKey((Exception)sqlEx), Is.True);
+    }
+
+    [Test]
+    public void IsDuplicateKey_RawSqliteUniqueConstraint_ReturnsTrue()
+    {
+        // Raw SQLite exception without DbUpdateException wrapper
+        var ex = new Exception("UNIQUE constraint failed: table.column");
+        Assert.That(IsDuplicateKey(ex), Is.True);
+    }
+
+    [Test]
+    public void IsDuplicateKey_RawPostgresUniqueViolation_ReturnsTrue()
+    {
+        // Raw PostgresException without DbUpdateException wrapper
+        var ex = new PostgresException("23505");
+        Assert.That(IsDuplicateKey((Exception)ex), Is.True);
+    }
+
+    [Test]
+    public void IsDuplicateKey_NullException_ReturnsFalse()
+    {
+        Assert.That(IsDuplicateKey((Exception?)null), Is.False);
+    }
+
+    [Test]
+    public void IsDuplicateKey_GenericException_ReturnsFalse()
+    {
+        var ex = new InvalidOperationException("Something unrelated");
+        Assert.That(IsDuplicateKey(ex), Is.False);
     }
 
     #endregion

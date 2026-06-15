@@ -153,6 +153,21 @@ public sealed class AuditEventRepository(AuditDbContext context)
             .AnyAsync(ae => ae.EventId == auditEventEventId, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken = default)
+    {
+        var idList = eventIds.ToList();
+        if (idList.Count == 0)
+            return [];
+
+        var existing = await DbSet.AsNoTracking()
+            .Where(ae => idList.Contains(ae.EventId))
+            .Select(ae => ae.EventId)
+            .ToListAsync(cancellationToken);
+
+        return [..existing];
+    }
+
     /// <summary>
     /// Gets distinct event types from audit events.
     /// </summary>
@@ -278,5 +293,43 @@ public sealed class AuditEventRepository(AuditDbContext context)
             .Where(predicate)
             .OrderBy(static ae => ae.InsertedDate)
             .AsAsyncEnumerable();
+    }
+
+    /// <inheritdoc />
+    public async Task<(DateTimeOffset? OldestDate, DateTimeOffset? NewestDate)?> GetDateRangeBoundariesAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await DbSet.AsNoTracking()
+            .Where(ae => ae.InsertedDate >= startDate && ae.InsertedDate <= endDate && ae.InsertedDate.HasValue)
+            .GroupBy(static _ => 1)
+            .Select(static g => new
+            {
+                Oldest = g.Min(static e => e.InsertedDate),
+                Newest = g.Max(static e => e.InsertedDate)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (result is null)
+            return null;
+
+        return (result.Oldest, result.Newest);
+    }
+
+    /// <inheritdoc />
+    public async Task<(int TotalEvents, int UnprotectedEvents)> GetIntegrityStatusCountsAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
+        CancellationToken cancellationToken = default)
+    {
+        var total = await DbSet.AsNoTracking()
+            .Where(ae => ae.InsertedDate >= startDate && ae.InsertedDate <= endDate)
+            .CountAsync(cancellationToken);
+
+        var unprotected = await DbSet.AsNoTracking()
+            .Where(ae => ae.InsertedDate >= startDate && ae.InsertedDate <= endDate)
+            .Where(ae => ae.AuditIntegrity == null)
+            .CountAsync(cancellationToken);
+
+        return (total, unprotected);
     }
 }

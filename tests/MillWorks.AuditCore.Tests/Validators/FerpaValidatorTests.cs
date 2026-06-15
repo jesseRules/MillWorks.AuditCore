@@ -48,7 +48,7 @@ public class FerpaValidatorTests
     [Test]
     public async Task EntityConfiguration_WithFerpaEntities_Passes()
     {
-        var results = await _validator.ValidateAsync(CreateEvents());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(CreateEvents()));
         var rule = FindRule(results, "FERPA Entity Configuration");
 
         Assert.That(rule.Passed, Is.True);
@@ -61,7 +61,7 @@ public class FerpaValidatorTests
     {
         _scannerMock.Setup(static s => s.GetFerpaEntities()).Returns(new List<Type>());
 
-        var results = await _validator.ValidateAsync(CreateEvents());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(CreateEvents()));
         var rule = FindRule(results, "FERPA Entity Configuration");
 
         Assert.That(rule.Passed, Is.False);
@@ -74,7 +74,7 @@ public class FerpaValidatorTests
     [Test]
     public async Task SensitiveDataProtection_WithFerpaProperties_Passes()
     {
-        var results = await _validator.ValidateAsync(CreateEvents());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(CreateEvents()));
         var rule = FindRule(results, "FERPA Sensitive Data Protection");
 
         Assert.That(rule.Passed, Is.True);
@@ -87,7 +87,7 @@ public class FerpaValidatorTests
         _scannerMock.Setup(static s => s.GetSensitiveProperties(ComplianceStandard.FERPA))
             .Returns(new List<SensitivePropertyInfo>());
 
-        var results = await _validator.ValidateAsync(CreateEvents());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(CreateEvents()));
         var rule = FindRule(results, "FERPA Sensitive Data Protection");
 
         Assert.That(rule.Passed, Is.False);
@@ -100,7 +100,7 @@ public class FerpaValidatorTests
     public async Task EducationRecordsAccess_WithStudentEvents_Passes()
     {
         var events = CreateEvents(("Student.DataAccess", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Education Records Access Logging");
 
         Assert.That(rule.Passed, Is.True);
@@ -111,7 +111,7 @@ public class FerpaValidatorTests
     public async Task EducationRecordsAccess_WithEnrollmentEvents_Passes()
     {
         var events = CreateEvents(("Enrollment.Created", "registrar"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Education Records Access Logging");
 
         Assert.That(rule.Passed, Is.True);
@@ -121,7 +121,7 @@ public class FerpaValidatorTests
     public async Task EducationRecordsAccess_WithTranscriptEvents_Passes()
     {
         var events = CreateEvents(("Transcript.Requested", "student"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Education Records Access Logging");
 
         Assert.That(rule.Passed, Is.True);
@@ -131,7 +131,7 @@ public class FerpaValidatorTests
     public async Task EducationRecordsAccess_WithGradeEvents_Passes()
     {
         var events = CreateEvents(("Grade.Updated", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Education Records Access Logging").Passed, Is.True);
     }
@@ -140,7 +140,7 @@ public class FerpaValidatorTests
     public async Task EducationRecordsAccess_WithNoRelevantEvents_Fails()
     {
         var events = CreateEvents(("User.Login", "user"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Education Records Access Logging");
 
         Assert.That(rule.Passed, Is.False);
@@ -153,7 +153,7 @@ public class FerpaValidatorTests
     public async Task UniqueUserIdentification_AllEventsHaveUser_Passes()
     {
         var events = CreateEvents(("Test", "user1"), ("Test", "user2"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Unique User Identification").Passed, Is.True);
     }
@@ -167,7 +167,7 @@ public class FerpaValidatorTests
             new() { EventType = "Test", User = null, InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Unique User Identification");
 
         Assert.That(rule.Passed, Is.False);
@@ -183,7 +183,7 @@ public class FerpaValidatorTests
             new() { EventType = "Test", User = "  ", InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Unique User Identification").Passed, Is.False);
     }
@@ -194,7 +194,7 @@ public class FerpaValidatorTests
     public async Task ConsentTracking_WithConsentEvents_Passes()
     {
         var events = CreateEvents(("Consent.Granted", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Prior Written Consent Tracking").Passed, Is.True);
     }
@@ -203,7 +203,7 @@ public class FerpaValidatorTests
     public async Task ConsentTracking_WithParentConsentEvents_Passes()
     {
         var events = CreateEvents(("ParentConsent.Recorded", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Prior Written Consent Tracking").Passed, Is.True);
     }
@@ -212,7 +212,7 @@ public class FerpaValidatorTests
     public async Task ConsentTracking_WithAuthorizationEvents_Passes()
     {
         var events = CreateEvents(("Authorization.Updated", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Prior Written Consent Tracking").Passed, Is.True);
     }
@@ -221,7 +221,7 @@ public class FerpaValidatorTests
     public async Task ConsentTracking_WithNoConsentEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Prior Written Consent Tracking");
 
         Assert.That(rule.Passed, Is.False);
@@ -234,7 +234,7 @@ public class FerpaValidatorTests
     public async Task DirectoryOptOut_WithOptOutEvents_Passes()
     {
         var events = CreateEvents(("DirectoryOptOut.Requested", "student"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Directory Information Opt-Out").Passed, Is.True);
     }
@@ -243,7 +243,7 @@ public class FerpaValidatorTests
     public async Task DirectoryOptOut_WithNoOptOutEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Directory Information Opt-Out");
 
         Assert.That(rule.Passed, Is.False);
@@ -256,7 +256,7 @@ public class FerpaValidatorTests
     public async Task LegitimateInterest_WithJustificationEvents_Passes()
     {
         var events = CreateEvents(("LegitimateInterest.Documented", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Legitimate Educational Interest").Passed, Is.True);
     }
@@ -265,7 +265,7 @@ public class FerpaValidatorTests
     public async Task LegitimateInterest_WithAccessJustification_Passes()
     {
         var events = CreateEvents(("AccessJustification.Recorded", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Legitimate Educational Interest").Passed, Is.True);
     }
@@ -274,7 +274,7 @@ public class FerpaValidatorTests
     public async Task LegitimateInterest_WithNoJustificationEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Legitimate Educational Interest");
 
         Assert.That(rule.Passed, Is.False);
@@ -287,7 +287,7 @@ public class FerpaValidatorTests
     public async Task DisclosureLogging_WithDisclosureEvents_Passes()
     {
         var events = CreateEvents(("Disclosure.ThirdParty", "registrar"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Disclosure Logging").Passed, Is.True);
     }
@@ -296,7 +296,7 @@ public class FerpaValidatorTests
     public async Task DisclosureLogging_WithDataSharingEvents_Passes()
     {
         var events = CreateEvents(("DataSharing.External", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Disclosure Logging").Passed, Is.True);
     }
@@ -305,7 +305,7 @@ public class FerpaValidatorTests
     public async Task DisclosureLogging_WithNoDisclosureEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Disclosure Logging").Passed, Is.False);
     }
@@ -316,7 +316,7 @@ public class FerpaValidatorTests
     public async Task AnnualNotification_WithNotificationEvents_Passes()
     {
         var events = CreateEvents(("AnnualNotice.Sent", "system"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Annual Notification").Passed, Is.True);
     }
@@ -325,7 +325,7 @@ public class FerpaValidatorTests
     public async Task AnnualNotification_WithFerpaNotificationEvents_Passes()
     {
         var events = CreateEvents(("FerpaNotification.Sent", "system"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Annual Notification").Passed, Is.True);
     }
@@ -334,7 +334,7 @@ public class FerpaValidatorTests
     public async Task AnnualNotification_WithNoNotificationEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Annual Notification");
 
         Assert.That(rule.Passed, Is.False);
@@ -352,7 +352,7 @@ public class FerpaValidatorTests
             new() { EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Retention Compliance");
 
         Assert.That(rule.Passed, Is.True);
@@ -368,7 +368,7 @@ public class FerpaValidatorTests
             new() { EventType = "Test", User = "user", InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Retention Compliance");
 
         Assert.That(rule.Passed, Is.True);
@@ -379,7 +379,7 @@ public class FerpaValidatorTests
     [Test]
     public async Task Retention_EmptyEvents_Fails()
     {
-        var results = await _validator.ValidateAsync(new List<AuditEventEntity>());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(new List<AuditEventEntity>()));
         var rule = FindRule(results, "Retention Compliance");
 
         Assert.That(rule.Passed, Is.False);
@@ -400,7 +400,7 @@ public class FerpaValidatorTests
             }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Integrity Controls").Passed, Is.True);
     }
@@ -412,7 +412,7 @@ public class FerpaValidatorTests
         var validator = new FerpaValidator(_scannerMock.Object, securityOptions);
 
         var events = CreateEvents(("Test", "user"));
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Integrity Controls");
 
         Assert.That(rule.Passed, Is.False);
@@ -427,7 +427,7 @@ public class FerpaValidatorTests
         var validator = new FerpaValidator(_scannerMock.Object, securityOptions);
 
         var events = CreateEvents(("Test", "user"));
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Integrity Controls");
 
         Assert.That(rule.Passed, Is.False);
@@ -442,7 +442,7 @@ public class FerpaValidatorTests
         var validator = new FerpaValidator(_scannerMock.Object);
 
         var events = CreateEvents(("Test", "user"));
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Integrity Controls");
 
         Assert.That(rule.Passed, Is.False);
@@ -455,7 +455,7 @@ public class FerpaValidatorTests
     public async Task DeIdentification_NoResearchEvents_PassesNotApplicable()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "De-identification for Research");
 
         Assert.That(rule.Passed, Is.True);
@@ -471,7 +471,7 @@ public class FerpaValidatorTests
             new() { EventType = "DeIdentified.DataSet", User = "system", InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "De-identification for Research");
 
         Assert.That(rule.Passed, Is.True);
@@ -481,7 +481,7 @@ public class FerpaValidatorTests
     public async Task DeIdentification_ResearchWithoutDeIdentification_Fails()
     {
         var events = CreateEvents(("Research.DataExport", "researcher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "De-identification for Research");
 
         Assert.That(rule.Passed, Is.False);
@@ -494,7 +494,7 @@ public class FerpaValidatorTests
     public async Task SecurityIncident_WithIncidentEvents_PassesWithCount()
     {
         var events = CreateEvents(("Security.Breach", "admin"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Security Incident Tracking");
 
         Assert.That(rule.Passed, Is.True);
@@ -505,7 +505,7 @@ public class FerpaValidatorTests
     public async Task SecurityIncident_WithNoIncidents_StillPasses()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Security Incident Tracking");
 
         // Security incident tracking always passes — having no incidents is acceptable
@@ -519,7 +519,7 @@ public class FerpaValidatorTests
     public async Task LoginMonitoring_WithLoginEvents_Passes()
     {
         var events = CreateEvents(("User.Login", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Login/Authentication Monitoring").Passed, Is.True);
     }
@@ -528,7 +528,7 @@ public class FerpaValidatorTests
     public async Task LoginMonitoring_WithAuthenticationEvents_Passes()
     {
         var events = CreateEvents(("Authentication.Success", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(FindRule(results, "Login/Authentication Monitoring").Passed, Is.True);
     }
@@ -542,7 +542,7 @@ public class FerpaValidatorTests
             new() { EventType = "User.LoginFailed", User = "hacker", InsertedDate = DateTimeOffset.UtcNow }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Login/Authentication Monitoring");
 
         Assert.That(rule.Passed, Is.True);
@@ -553,7 +553,7 @@ public class FerpaValidatorTests
     public async Task LoginMonitoring_WithNoLoginEvents_Fails()
     {
         var events = CreateEvents(("Student.Read", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var rule = FindRule(results, "Login/Authentication Monitoring");
 
         Assert.That(rule.Passed, Is.False);
@@ -565,7 +565,7 @@ public class FerpaValidatorTests
     [Test]
     public async Task ValidateAsync_EmptyEventList_AllRulesReturnResults()
     {
-        var results = await _validator.ValidateAsync(new List<AuditEventEntity>());
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(new List<AuditEventEntity>()));
 
         // Should have all 14 rules (2 config + 12 operational)
         Assert.That(results.Count, Is.EqualTo(14));
@@ -578,7 +578,7 @@ public class FerpaValidatorTests
     public async Task ValidateAsync_AllResultsHaveComplianceStandard()
     {
         var events = CreateEvents(("Student.DataAccess", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(results.All(static r => r.ComplianceStandard == "FERPA"), Is.True);
     }
@@ -587,7 +587,7 @@ public class FerpaValidatorTests
     public async Task ValidateAsync_AllResultsHaveRegulationReference()
     {
         var events = CreateEvents(("Student.DataAccess", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(results.All(static r => !string.IsNullOrEmpty(r.RegulationReference)), Is.True);
     }
@@ -596,7 +596,7 @@ public class FerpaValidatorTests
     public async Task ValidateAsync_AllResultsHaveCategory()
     {
         var events = CreateEvents(("Student.DataAccess", "teacher"));
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(results.All(static r =>
             r.Category == "Configuration" || r.Category == "Operational"), Is.True);
@@ -618,7 +618,7 @@ public class FerpaValidatorTests
             new() { EventType = "Security.Alert", User = "system", InsertedDate = DateTimeOffset.UtcNow },
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         Assert.That(results.Count, Is.EqualTo(14));
         Assert.That(results.Count(static r => r.Category == "Configuration"), Is.EqualTo(2));

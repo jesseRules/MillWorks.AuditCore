@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -28,7 +29,7 @@ public class Iso27001ValidatorBranchTests
     [Test]
     public async Task ValidateAsync_WithEmptyEvents_FailsEventLogging()
     {
-        var results = await _validator.ValidateAsync([]);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         var result = Find(results, "Event Logging");
         Assert.That(result, Is.Not.Null);
@@ -48,7 +49,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow, User = "user", AuditIntegrity = null }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Log Protection");
         Assert.That(result, Is.Not.Null);
@@ -69,7 +70,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Security Event Reporting");
         Assert.That(result!.Passed, Is.False);
@@ -87,7 +88,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Security Event Reporting")!.Passed, Is.True);
     }
 
@@ -105,7 +106,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = eventType, InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "User Access Management")!.Passed, Is.True);
     }
 
@@ -117,7 +118,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Data.Export", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "User Access Management");
         Assert.That(result!.Passed, Is.False);
@@ -136,7 +137,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Admin.Config", InsertedDate = DateTimeOffset.UtcNow, User = "user1" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Administrator Activity")!.Passed, Is.True);
     }
 
@@ -148,7 +149,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "admin" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Administrator Activity")!.Passed, Is.True);
     }
 
@@ -160,7 +161,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Data.Read", InsertedDate = DateTimeOffset.UtcNow, User = "regularuser" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Administrator Activity");
         Assert.That(result!.Passed, Is.False);
@@ -180,7 +181,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Test2", InsertedDate = DateTimeOffset.UtcNow, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         Assert.That(Find(results, "Clock Synchronization")!.Passed, Is.True);
     }
 
@@ -193,7 +194,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Test2", InsertedDate = null, User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Clock Synchronization");
         Assert.That(result!.Passed, Is.False);
@@ -213,7 +214,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-120), User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Log Retention");
         Assert.That(result!.Passed, Is.True);
@@ -228,7 +229,7 @@ public class Iso27001ValidatorBranchTests
             new() { EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-30), User = "user" }
         };
 
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var result = Find(results, "Log Retention");
         Assert.That(result!.Passed, Is.False);
@@ -239,7 +240,7 @@ public class Iso27001ValidatorBranchTests
     [Test]
     public async Task ValidateAsync_WithEmptyEvents_RetentionIsZeroDays()
     {
-        var results = await _validator.ValidateAsync([]);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         var result = Find(results, "Log Retention");
         Assert.That(result!.Passed, Is.False);

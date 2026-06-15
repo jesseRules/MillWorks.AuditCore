@@ -34,7 +34,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
     [TestCaseSource(nameof(ValidatorSource))]
     public async Task ValidateAsync_EmptyEvents_DoesNotThrow(IComplianceValidator validator)
     {
-        var results = await validator.ValidateAsync([]);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         results.Should().NotBeNull();
         results.Should().NotBeEmpty("each validator should produce results even with no events");
@@ -44,7 +44,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
     [TestCaseSource(nameof(ValidatorSource))]
     public async Task ValidateAsync_EmptyEvents_HasFailures(IComplianceValidator validator)
     {
-        var results = await validator.ValidateAsync([]);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents([]));
 
         // With no events, critical rules should fail
         results.Should().Contain(r => !r.Passed,
@@ -67,7 +67,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         results.Should().NotBeNull();
         // The validator should produce results without throwing
     }
@@ -86,7 +86,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Validators that have user identification rules should fail them
         var userRules = results.Where(r =>
@@ -116,7 +116,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var act = () => validator.ValidateAsync(events);
+        var act = () => validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         await act.Should().NotThrowAsync();
     }
 
@@ -136,7 +136,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Having an unknown event type shouldn't cause any validation to crash
         results.Should().NotBeNull();
@@ -163,7 +163,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var act = () => validator.ValidateAsync(events);
+        var act = () => validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         await act.Should().NotThrowAsync();
     }
 
@@ -184,7 +184,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         results.Should().AllSatisfy(r =>
             r.ComplianceStandard.Should().NotBeNullOrEmpty(
@@ -207,7 +207,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         results.Should().AllSatisfy(r =>
             Enum.IsDefined(typeof(ValidationSeverity), r.Severity).Should().BeTrue(
@@ -222,7 +222,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
     {
         var events = new List<AuditEventEntity>(); // Empty = guaranteed failures
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         var failures = results.Where(r => !r.Passed).ToList();
 
         if (failures.Count != 0)
@@ -282,7 +282,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
         var allResults = new Dictionary<ComplianceStandard, List<AuditValidationResult>>();
         foreach (var validator in AllValidators)
         {
-            allResults[validator.Standard] = await validator.ValidateAsync(events);
+            allResults[validator.Standard] = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
         }
 
         // Each validator should only reference its own standard
@@ -317,7 +317,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var integrityRules = results.Where(r =>
             r.RuleName.Contains("Integrity", StringComparison.OrdinalIgnoreCase) ||
@@ -346,7 +346,7 @@ public sealed class ComplianceValidatorEdgeCaseTests
             }
         };
 
-        var results = await validator.ValidateAsync(events);
+        var results = await validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         var integrityRules = results.Where(r =>
             r.RuleName.Contains("Integrity", StringComparison.OrdinalIgnoreCase) ||

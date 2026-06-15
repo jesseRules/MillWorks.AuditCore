@@ -137,6 +137,12 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
     Task<bool> EventExistsAsync(Guid auditEventEventId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the subset of the given EventIds that already exist in the database.
+    /// Used for batch duplicate detection without per-event queries.
+    /// </summary>
+    Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a list of distinct event types from audit events.
     /// </summary>
     /// <param name="cancellationToken"></param>
@@ -191,5 +197,21 @@ public interface IAuditEventRepository : IRepository<AuditEventEntity>
     /// </summary>
     IAsyncEnumerable<AuditEventEntity> StreamByDateAsync(
         System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>> predicate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets date range boundaries for events in the specified period (server-side aggregation).
+    /// Returns null if no events exist in the range.
+    /// </summary>
+    Task<(DateTimeOffset? OldestDate, DateTimeOffset? NewestDate)?> GetDateRangeBoundariesAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts events in the date range that lack integrity protection (server-side).
+    /// Used for compliance integrity checks without materializing navigation properties.
+    /// </summary>
+    Task<(int TotalEvents, int UnprotectedEvents)> GetIntegrityStatusCountsAsync(
+        DateTimeOffset startDate, DateTimeOffset endDate,
         CancellationToken cancellationToken = default);
 }

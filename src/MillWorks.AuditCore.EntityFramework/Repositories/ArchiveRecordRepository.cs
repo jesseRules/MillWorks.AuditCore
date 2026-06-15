@@ -253,15 +253,10 @@ public sealed class ArchiveRecordRepository(AuditDbContext context)
     {
         var cutoffDate = DateTimeOffset.UtcNow.AddDays(-retentionDays);
 
-        // Use raw SQL for bulk delete to avoid EF Core translation issues with
-        // enum conversions and DateTimeOffset comparisons on some providers
-        return await Context.Database.ExecuteSqlAsync(
-            $"""
-             DELETE FROM "ArchiveRecord"
-             WHERE "CreatedAt" < {cutoffDate}
-               AND "Status" != {(int)MillWorksArchiveStatus.InProgress}
-             """,
-            cancellationToken);
+        // Use ExecuteDeleteAsync for proper schema qualification on SQL Server
+        return await Context.Set<AuditArchiveRecordEntity>()
+            .Where(ar => ar.CreatedAt < cutoffDate && ar.Status != MillWorksArchiveStatus.InProgress)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     /// <summary>

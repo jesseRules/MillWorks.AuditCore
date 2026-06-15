@@ -15,7 +15,7 @@ internal static class AuditEventRedactionHelper
     /// </summary>
     internal static AuditEvent RedactEvent(IAuditFieldRedactor redactor, AuditEvent original)
     {
-        return new AuditEvent
+        var redacted = new AuditEvent
         {
             EventId = original.EventId,
             EventType = original.EventType,
@@ -43,5 +43,9 @@ internal static class AuditEventRedactionHelper
             ChangedProperties = redactor.RedactPropertyNames(original.ChangedProperties) ?? [],
             UserEmail = redactor.RedactValue("UserEmail", original.UserEmail),
         };
+
+        // Duration has a private setter; recalculate from StartDate/EndDate
+        redacted.CalculateDuration();
+        return redacted;
     }
 }

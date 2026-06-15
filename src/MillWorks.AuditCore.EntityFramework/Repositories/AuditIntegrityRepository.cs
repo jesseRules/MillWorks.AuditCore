@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
@@ -59,12 +60,16 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
 
     /// <summary>
     /// Validates the integrity chain by checking hash linkage between consecutive records.
+    /// Returns a result that distinguishes "no data" from "valid" and validates boundary
+    /// sequence numbers against the requested range (#6).
     /// </summary>
     /// <param name="startSequence"></param>
     /// <param name="endSequence"></param>
     /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<bool> ValidateIntegrityChainAsync(long startSequence, long endSequence,
+    /// <returns>A result containing validity status and details about any issues found.</returns>
+    public async Task<ChainValidationResult> ValidateIntegrityChainWithDetailsAsync(
+        long startSequence,
+        long endSequence,
         CancellationToken cancellationToken = default)
     {
         var records = await DbSet.AsNoTracking()
@@ -72,8 +77,34 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             .OrderBy(static ai => ai.SequenceNumber)
             .ToListAsync(cancellationToken);
 
-        if (!records.Any())
-            return true; // Empty chain is valid
+        if (records.Count == 0)
+        {
+            return new ChainValidationResult
+            {
+                IsValid = false,
+                IsEmpty = true,
+                Message = $"No records found in range [{startSequence}, {endSequence}]"
+            };
+        }
+
+        // #6: Validate boundary sequence numbers against the requested range
+        if (records[0].SequenceNumber != startSequence)
+        {
+            return new ChainValidationResult
+            {
+                IsValid = false,
+                Message = $"First record sequence {records[0].SequenceNumber} does not match requested start {startSequence} (possible truncation)"
+            };
+        }
+
+        if (records[^1].SequenceNumber != endSequence)
+        {
+            return new ChainValidationResult
+            {
+                IsValid = false,
+                Message = $"Last record sequence {records[^1].SequenceNumber} does not match requested end {endSequence} (possible truncation)"
+            };
+        }
 
         // Validate chain linkage
         for (int i = 1; i < records.Count; i++)
@@ -84,17 +115,45 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             // Check if current record's PreviousEventHash matches previous record's EventHash
             if (current.PreviousEventHash != previous.EventHash)
             {
-                return false;
+                return new ChainValidationResult
+                {
+                    IsValid = false,
+                    Message = $"Chain broken at sequence {current.SequenceNumber}: PreviousEventHash does not match"
+                };
             }
 
             // Verify sequence continuity
             if (current.SequenceNumber != previous.SequenceNumber + 1)
             {
-                return false;
+                return new ChainValidationResult
+                {
+                    IsValid = false,
+                    Message = $"Sequence gap between {previous.SequenceNumber} and {current.SequenceNumber}"
+                };
             }
         }
 
-        return true;
+        return new ChainValidationResult
+        {
+            IsValid = true,
+            RecordCount = records.Count
+        };
+    }
+
+    /// <summary>
+    /// Validates the integrity chain by checking hash linkage between consecutive records.
+    /// Legacy method - use <see cref="ValidateIntegrityChainWithDetailsAsync"/> for boundary validation.
+    /// </summary>
+    /// <param name="startSequence"></param>
+    /// <param name="endSequence"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<bool> ValidateIntegrityChainAsync(long startSequence, long endSequence,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await ValidateIntegrityChainWithDetailsAsync(startSequence, endSequence, cancellationToken);
+        // For backward compatibility, treat empty as valid (callers may depend on this)
+        return result.IsValid || result.IsEmpty;
     }
 
     /// <summary>

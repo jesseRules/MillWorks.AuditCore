@@ -1,4 +1,5 @@
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Services.Validators.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Validators;
 
@@ -42,7 +43,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var auditResult = results.FirstOrDefault(static r => r.RuleName.Contains("Audit Logs Implementation"));
@@ -69,7 +70,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var chdResult = results.FirstOrDefault(static r => r.RuleName.Contains("Cardholder Data Access"));
@@ -95,7 +96,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var privResult = results.FirstOrDefault(static r => r.RuleName.Contains("Privileged User Actions"));
@@ -121,7 +122,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var detailsResult = results.FirstOrDefault(static r => r.RuleName.Contains("Audit Log Detail Requirements"));
@@ -148,7 +149,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var protectionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Audit Log Protection"));
@@ -174,7 +175,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Audit Log Retention"));
@@ -200,7 +201,7 @@ public class PciDssValidatorTests
         };
 
         // Act
-        var results = await _validator.ValidateAsync(events);
+        var results = await _validator.ValidateAsync(ComplianceValidationContext.FromEvents(events));
 
         // Assert
         var retentionResult = results.FirstOrDefault(static r => r.RuleName.Contains("Audit Log Retention"));

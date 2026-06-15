@@ -16,8 +16,17 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(Action), Name = "IX_AuditLogs_Action")]
 [Index(nameof(CreatedAt), nameof(EntityName), Name = "IX_AuditLogs_Date_Entity")]
 [Index(nameof(CorrelationId), Name = "IX_AuditLogs_CorrelationId")]
+[Index(nameof(EnvelopeId), nameof(PropertyName), Name = "IX_AuditLogs_Envelope_Property", IsUnique = true)]
 public sealed class AuditLogEntity: AppendOnlyEntity
 {
+    /// <summary>
+    /// Source envelope ID for idempotent replay. Combined with PropertyName, this unique index
+    /// prevents duplicate rows when an outbox drainer crashes after SaveChanges but before
+    /// marking the outbox row complete, then replays the same envelope.
+    /// </summary>
+    [Column("EnvelopeId", TypeName = "uniqueidentifier")]
+    public Guid? EnvelopeId { get; set; }
+
     /// <summary>
     /// Entity name (type)
     /// </summary>
@@ -77,9 +86,10 @@ public sealed class AuditLogEntity: AppendOnlyEntity
     /// <summary>
     /// Correlation ID linking this log entry to the originating request's AuditEvent.
     /// Matches AuditEventEntity.CorrelationId for cross-table joins.
+    /// Supports W3C traceparent (55 chars) and other tracing formats up to 128 chars.
     /// </summary>
-    [MaxLength(36)]
-    [Column("CorrelationId", TypeName = "nvarchar(36)")]
+    [MaxLength(128)]
+    [Column("CorrelationId", TypeName = "nvarchar(128)")]
     public string? CorrelationId { get; set; }
 
     /// <summary>
