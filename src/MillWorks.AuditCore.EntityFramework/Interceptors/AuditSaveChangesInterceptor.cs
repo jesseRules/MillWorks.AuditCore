@@ -531,7 +531,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     await sink.PublishBatchAsync(envelopes, cancellationToken);
             }
         }
-        catch (AuditOutboxAtomicityException)
+        catch (Exception ex) when (ContainsAuditOutboxAtomicityException(ex))
         {
             // A transactional-outbox atomicity violation is a fatal configuration/contract
             // error, not a transient audit-write failure. It must propagate regardless of
@@ -577,6 +577,18 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 correlationId);
             // Permissive: log and swallow.
         }
+    }
+
+    private static bool ContainsAuditOutboxAtomicityException(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is AuditOutboxAtomicityException)
+                return true;
+        }
+
+        return exception is AggregateException aggregate &&
+               aggregate.InnerExceptions.Any(ContainsAuditOutboxAtomicityException);
     }
 
     /// <summary>

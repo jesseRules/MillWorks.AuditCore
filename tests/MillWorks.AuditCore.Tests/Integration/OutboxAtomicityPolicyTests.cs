@@ -123,6 +123,84 @@ public sealed class OutboxAtomicityPolicyTests
             "Business write must not commit when the outbox row cannot be written atomically");
     }
 
+    [Test]
+    public async Task MappedContext_DuplicateIdempotencyKeys_StagesOnlyOneOutboxRow()
+    {
+        var key = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        await using var ctx = NewMappedContext(interceptor: null);
+        await ctx.Database.EnsureCreatedAsync();
+
+        await using var scope = _sinkServices.CreateAsyncScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAuditOutboxWriter>();
+
+        using (accessor.SetCurrent(ctx))
+        {
+            var written = await writer.WriteBatchAsync(
+                [
+                    ("{\"a\":1}", 1, key),
+                    ("{\"a\":2}", 1, key)
+                ]);
+
+            Assert.That(written, Is.EqualTo(1));
+
+            var replayWritten = await writer.WriteBatchAsync([("{\"a\":3}", 1, key)]);
+            Assert.That(replayWritten, Is.Zero,
+                "A retry while the first outbox row remains Added in the change tracker must be idempotent");
+        }
+
+        Assert.That(ctx.ChangeTracker.Entries<AuditOutboxEntity>()
+            .Count(static e => e.State == EntityState.Added), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task MappedContext_PersistedDuplicateIdempotencyKey_IsTreatedAsSuccess()
+    {
+        var key = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        await using var ctx = NewMappedContext(interceptor: null);
+        await ctx.Database.EnsureCreatedAsync();
+        ctx.AuditOutbox.Add(new AuditOutboxEntity
+        {
+            EnvelopeJson = "{\"existing\":true}",
+            EnvelopeVersion = 1,
+            IdempotencyKey = key
+        });
+        await ctx.SaveChangesAsync();
+
+        await using var scope = _sinkServices.CreateAsyncScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAuditOutboxWriter>();
+
+        using (accessor.SetCurrent(ctx))
+        {
+            var written = await writer.WriteBatchAsync([("{\"replay\":true}", 1, key)]);
+            Assert.That(written, Is.Zero);
+        }
+
+        Assert.That(await ctx.AuditOutbox.CountAsync(o => o.IdempotencyKey == key), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task MappedContext_SchemaMismatch_FailsClosed()
+    {
+        await using var ctx = NewMismatchedMappedContext();
+        await ctx.Database.EnsureCreatedAsync();
+
+        await using var scope = _sinkServices.CreateAsyncScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAuditOutboxWriter>();
+
+        using (accessor.SetCurrent(ctx))
+        {
+            var ex = Assert.ThrowsAsync<AuditOutboxAtomicityException>(
+                async () => await writer.WriteBatchAsync([("{\"a\":1}", 1, Guid.NewGuid())]));
+
+            Assert.That(ex!.Message, Does.Contain("mapped to schema"));
+        }
+    }
+
     // ── Harness ──────────────────────────────────────────────────────────────
 
     private ServiceProvider BuildSinkServices()
@@ -160,6 +238,14 @@ public sealed class OutboxAtomicityPolicyTests
         return new BareConsumerDbContext(builder.Options);
     }
 
+    private MismatchedMappedConsumerDbContext NewMismatchedMappedContext()
+    {
+        var builder = new DbContextOptionsBuilder<MismatchedMappedConsumerDbContext>()
+            .UseSqlite(_connection)
+            .ConfigureWarnings(static w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+        return new MismatchedMappedConsumerDbContext(builder.Options);
+    }
+
     // ── Test fixture types ─────────────────────────────────────────────────────
 
     /// <summary>Consumer context that maps AuditOutboxEntity (inherited from AuditDbContext).</summary>
@@ -182,6 +268,25 @@ public sealed class OutboxAtomicityPolicyTests
         }
 
         public DbSet<BusinessRecord> BusinessRecords { get; set; } = null!;
+    }
+
+    /// <summary>Consumer context that maps AuditOutboxEntity to a schema the drainer is not configured to read.</summary>
+    private sealed class MismatchedMappedConsumerDbContext : DbContext
+    {
+        public MismatchedMappedConsumerDbContext(DbContextOptions<MismatchedMappedConsumerDbContext> options)
+            : base(options)
+        {
+        }
+
+        public DbSet<AuditOutboxEntity> AuditOutbox { get; set; } = null!;
+        public DbSet<BusinessRecord> BusinessRecords { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AuditOutboxEntity>().ToTable("AuditOutbox", "other");
+            modelBuilder.Entity<BusinessRecord>().HasKey(static e => e.Id);
+            base.OnModelCreating(modelBuilder);
+        }
     }
 
     private sealed class BusinessRecord

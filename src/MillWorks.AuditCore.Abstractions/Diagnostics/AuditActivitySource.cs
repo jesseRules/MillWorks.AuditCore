@@ -159,6 +159,21 @@ public static class AuditActivitySource
         /// Tag key for the outbox row identifier.
         /// </summary>
         public const string OutboxRowId = "outbox.row.id";
+
+        /// <summary>
+        /// Tag key for the outbox write mode.
+        /// </summary>
+        public const string OutboxWriteMode = "audit.outbox.write_mode";
+
+        /// <summary>
+        /// Tag key for the number of outbox rows accepted for persistence.
+        /// </summary>
+        public const string OutboxRowsAccepted = "audit.outbox.accepted";
+
+        /// <summary>
+        /// Tag key for the number of duplicate outbox rows skipped.
+        /// </summary>
+        public const string OutboxDuplicates = "audit.outbox.duplicates";
     }
 
     /// <summary>

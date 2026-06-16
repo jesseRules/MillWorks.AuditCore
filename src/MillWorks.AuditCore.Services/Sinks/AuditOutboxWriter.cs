@@ -87,16 +87,17 @@ internal sealed class AuditOutboxWriter(
         // atomically with the business write; how we get there depends on the consumer context.
         int written;
         string writeMode;
-        if (consumerCtx.Model.FindEntityType(typeof(AuditOutboxEntity)) is not null)
+        if (consumerCtx.Model.FindEntityType(typeof(AuditOutboxEntity)) is { } outboxEntityType)
         {
             // (1) Mapped entity: stage on the change tracker; EF saves it in the same unit.
-            written = AddViaChangeTracker(consumerCtx, rows);
+            ValidateMappedOutboxSchema(outboxEntityType.GetSchema());
+            written = await AddViaChangeTrackerAsync(consumerCtx, rows, cancellationToken);
             writeMode = "change-tracker";
         }
         else if (consumerCtx.Database.CurrentTransaction is not null)
         {
             // (2) Unmapped but an explicit transaction is open: raw SQL enlists in it.
-            written = await WriteViaRawSqlAsync(rows, cancellationToken);
+            written = await WriteViaRawSqlAsync(consumerCtx, rows, cancellationToken);
             writeMode = "raw-sql";
         }
         else
@@ -112,10 +113,10 @@ internal sealed class AuditOutboxWriter(
                 "around the save.");
         }
 
-        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
-        activity?.SetTag("audit.outbox.write_mode", writeMode);
-        activity?.SetTag("audit.outbox.inserted", written);
-        activity?.SetTag("audit.outbox.duplicates", rows.Count - written);
+        activity?.SetTag(AuditActivitySource.Tags.Outcome, "accepted");
+        activity?.SetTag(AuditActivitySource.Tags.OutboxWriteMode, writeMode);
+        activity?.SetTag(AuditActivitySource.Tags.OutboxRowsAccepted, written);
+        activity?.SetTag(AuditActivitySource.Tags.OutboxDuplicates, rows.Count - written);
 
         return written;
     }
@@ -123,32 +124,85 @@ internal sealed class AuditOutboxWriter(
     /// <summary>
     /// (1) Stages outbox rows on the consumer context's change tracker. EF persists them in
     /// the same <c>SaveChangesAsync</c> unit as the business write — atomic without an explicit
-    /// transaction. Returns the number of rows staged (all of them). Duplicate suppression is
-    /// delegated to the unique <c>IdempotencyKey</c> index, which in practice never trips on the
-    /// write path: envelope IDs are deterministic and distinct per change within a single save.
+    /// transaction. Duplicate idempotency keys are treated as success before save by checking
+    /// already-tracked rows, duplicate keys inside the incoming batch, and persisted rows.
     /// </summary>
-    private static int AddViaChangeTracker(
+    private static async Task<int> AddViaChangeTrackerAsync(
         DbContext consumerCtx,
-        IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows)
+        IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows,
+        CancellationToken cancellationToken)
     {
         var createdAt = DateTimeOffset.UtcNow;
         var set = consumerCtx.Set<AuditOutboxEntity>();
+        var candidateKeys = rows
+            .Select(static r => r.idempotencyKey)
+            .Distinct()
+            .ToList();
+
+        var duplicateKeys = consumerCtx.ChangeTracker
+            .Entries<AuditOutboxEntity>()
+            .Where(static e => e.State is not EntityState.Detached and not EntityState.Deleted)
+            .Select(static e => e.Entity.IdempotencyKey)
+            .ToHashSet();
+
+        if (candidateKeys.Count > 0)
+        {
+            var persistedKeys = await set
+                .AsNoTracking()
+                .Where(e => candidateKeys.Contains(e.IdempotencyKey))
+                .Select(static e => e.IdempotencyKey)
+                .ToListAsync(cancellationToken);
+
+            duplicateKeys.UnionWith(persistedKeys);
+        }
+
+        var stagedKeys = new HashSet<Guid>();
+        var outboxRows = new List<AuditOutboxEntity>(rows.Count);
 
         foreach (var (envelopeJson, envelopeVersion, idempotencyKey) in rows)
         {
-            set.Add(new AuditOutboxEntity
-            {
-                Id = Guid.NewGuid(),
-                EnvelopeJson = envelopeJson,
-                EnvelopeVersion = envelopeVersion,
-                Status = AuditOutboxStatus.Pending,
-                CreatedAt = createdAt,
-                AttemptCount = 0,
-                IdempotencyKey = idempotencyKey,
-            });
+            if (duplicateKeys.Contains(idempotencyKey) || !stagedKeys.Add(idempotencyKey))
+                continue;
+
+            outboxRows.Add(CreateOutboxEntity(
+                envelopeJson,
+                envelopeVersion,
+                idempotencyKey,
+                createdAt));
         }
 
-        return rows.Count;
+        if (outboxRows.Count > 0)
+            set.AddRange(outboxRows);
+
+        return outboxRows.Count;
+    }
+
+    private void ValidateMappedOutboxSchema(string? mappedSchema)
+    {
+        var effectiveSchema = string.IsNullOrWhiteSpace(mappedSchema) ? "dbo" : mappedSchema;
+        if (!string.Equals(effectiveSchema, _schema, StringComparison.Ordinal))
+        {
+            throw new AuditOutboxAtomicityException(
+                $"AuditSinkMode.TransactionalOutbox cannot use the mapped AuditOutboxEntity because " +
+                $"it is mapped to schema '{effectiveSchema}' while the outbox drainer is configured " +
+                $"for schema '{_schema}'. Configure EntityFrameworkOptions.Schema to match the " +
+                "consumer DbContext mapping, or map AuditOutboxEntity to the configured audit schema.");
+        }
+    }
+
+    private static AuditOutboxEntity CreateOutboxEntity(
+        string envelopeJson,
+        int envelopeVersion,
+        Guid idempotencyKey,
+        DateTimeOffset createdAt)
+    {
+        return new AuditOutboxEntity
+            {
+                EnvelopeJson = envelopeJson,
+                EnvelopeVersion = envelopeVersion,
+                CreatedAt = createdAt,
+                IdempotencyKey = idempotencyKey,
+            };
     }
 
     /// <summary>
@@ -157,6 +211,7 @@ internal sealed class AuditOutboxWriter(
     /// transaction is active so the inserts commit atomically with the business write.
     /// </summary>
     private async Task<int> WriteViaRawSqlAsync(
+        DbContext consumerCtx,
         IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows,
         CancellationToken cancellationToken)
     {
@@ -165,17 +220,17 @@ internal sealed class AuditOutboxWriter(
         var chunks = Chunk(rows, QueryLimits.MaxOutboxBatchSize);
         foreach (var chunk in chunks)
         {
-            totalInserted += await WriteChunkAsync(chunk, cancellationToken);
+            totalInserted += await WriteChunkAsync(consumerCtx, chunk, cancellationToken);
         }
 
         return totalInserted;
     }
 
     private async Task<int> WriteChunkAsync(
+        DbContext consumerCtx,
         IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows,
         CancellationToken cancellationToken)
     {
-        var consumerCtx = accessor.Current;
         var createdAt = DateTimeOffset.UtcNow;
 
         var parameters = new List<object>();
@@ -228,16 +283,16 @@ WHERE NOT EXISTS (
             // ExecuteSqlRawAsync throws provider exceptions directly (SqlException, etc.),
             // not DbUpdateException, so we catch the base Exception type.
             logger.LogDebug(ex, "Duplicate key conflict in batch insert, falling back to individual inserts");
-            return await WriteIndividuallyAsync(rows, createdAt, cancellationToken);
+            return await WriteIndividuallyAsync(consumerCtx, rows, createdAt, cancellationToken);
         }
     }
 
     private async Task<int> WriteIndividuallyAsync(
+        DbContext consumerCtx,
         IReadOnlyList<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)> rows,
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
-        var consumerCtx = accessor.Current;
         var inserted = 0;
 
         foreach (var (envelopeJson, envelopeVersion, idempotencyKey) in rows)
