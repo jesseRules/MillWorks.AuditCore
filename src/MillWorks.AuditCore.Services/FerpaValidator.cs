@@ -58,7 +58,7 @@ public sealed class FerpaValidator : IComplianceValidator
         AddLegitimateEducationalInterestRule(results, events);
         AddDisclosureLoggingRule(results, events);
         AddAnnualNotificationRule(results, events);
-        AddRetentionComplianceRule(results, events);
+        AddRetentionComplianceRule(results, context);
         AddIntegrityControlsRule(results, context);
         AddDeIdentificationRule(results, events);
         AddSecurityIncidentTrackingRule(results, events);
@@ -185,11 +185,15 @@ public sealed class FerpaValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Unique User Identification (§99.31(a))",
-            Passed = hasUserIdentification,
-            Message = hasUserIdentification
-                ? "All audit events include unique user identification"
-                : $"CRITICAL: {eventsWithoutUser} event(s) lack user identification — FERPA requires accountability for all access to education records",
-            Severity = hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = events.Count > 0 && hasUserIdentification,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate unique user identification"
+                : hasUserIdentification
+                    ? "All audit events include unique user identification"
+                    : $"CRITICAL: {eventsWithoutUser} event(s) lack user identification — FERPA requires accountability for all access to education records",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "FERPA",
             Category = "Operational",
             RegulationReference = "20 U.S.C. §1232g; 34 CFR §99.31(a)",
@@ -390,9 +394,9 @@ public sealed class FerpaValidator : IComplianceValidator
     /// Rule 8: Retention Compliance (34 CFR §99.32(a)(2))
     /// Inverted logic: verifies records ARE being retained, not that old records exist.
     /// </summary>
-    private static void AddRetentionComplianceRule(List<AuditValidationResult> results, List<AuditEventEntity> events)
+    private static void AddRetentionComplianceRule(List<AuditValidationResult> results, ComplianceValidationContext context)
     {
-        if (events.Count == 0)
+        if (context.TotalEventCount == 0)
         {
             results.Add(new AuditValidationResult
             {
@@ -414,11 +418,9 @@ public sealed class FerpaValidator : IComplianceValidator
             return;
         }
 
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var newestEvent = events.MaxBy(static e => e.InsertedDate);
-
-        var oldestDate = oldestEvent?.InsertedDate ?? DateTimeOffset.UtcNow;
-        var newestDate = newestEvent?.InsertedDate ?? DateTimeOffset.UtcNow;
+        // Use the server-side oldest/newest event dates, not the recency-biased 5,000-row sample.
+        var oldestDate = context.OldestEventDate ?? DateTimeOffset.UtcNow;
+        var newestDate = context.NewestEventDate ?? DateTimeOffset.UtcNow;
         var spanDays = (newestDate - oldestDate).Days;
         var ageDays = (DateTimeOffset.UtcNow - oldestDate).Days;
 
@@ -436,7 +438,7 @@ public sealed class FerpaValidator : IComplianceValidator
                 ComplianceStandard = "FERPA",
                 Category = "Operational",
                 RegulationReference = "34 CFR §99.32(a)(2)",
-                TotalCount = events.Count,
+                TotalCount = context.TotalEventCount,
                 FailedCount = 0,
                 Recommendations = ["Continue maintaining long-term retention for FERPA disclosure records"]
             });
@@ -448,12 +450,12 @@ public sealed class FerpaValidator : IComplianceValidator
             {
                 RuleName = "Retention Compliance (§99.32(a)(2))",
                 Passed = true,
-                Message = $"System has been operational for {ageDays} days — retention compliance will be fully verifiable after 5 years. Current data spans {spanDays} days across {events.Count} events.",
+                Message = $"System has been operational for {ageDays} days — retention compliance will be fully verifiable after 5 years. Current data spans {spanDays} days across {context.TotalEventCount} events.",
                 Severity = ValidationSeverity.Info,
                 ComplianceStandard = "FERPA",
                 Category = "Operational",
                 RegulationReference = "34 CFR §99.32(a)(2)",
-                TotalCount = events.Count,
+                TotalCount = context.TotalEventCount,
                 FailedCount = 0,
                 Recommendations =
                 [

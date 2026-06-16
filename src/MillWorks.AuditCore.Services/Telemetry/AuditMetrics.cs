@@ -27,6 +27,9 @@ public static class AuditMetrics
         public const string RetryAttempts = "audit.outbox.retry_attempts";
         public const string DlqRouted = "audit.outbox.dlq_routed";
         public const string LeasesRecovered = "audit.outbox.drainer.leases_recovered";
+        public const string OutboxPendingCount = "audit.outbox.pending_count";
+        public const string OutboxInFlightCount = "audit.outbox.inflight_count";
+        public const string OutboxOldestPendingAge = "audit.outbox.oldest_pending_age_seconds";
     }
 
     #endregion

@@ -124,7 +124,8 @@ public sealed class AuditService(
             var (events, totalCount) = await auditEventRepository.GetByOffsetAsync(
                 offset: offset,
                 limit: limit,
-                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate));
+                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate),
+                cancellationToken: cancellationToken);
 
             var eventsList = events.ToList();
             int totalPages = (int)Math.Ceiling((double)totalCount / limit);
@@ -210,7 +211,8 @@ public sealed class AuditService(
                 offset: request.Offset,
                 limit: request.Limit,
                 predicate: predicate,
-                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate));
+                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate),
+                cancellationToken: cancellationToken);
 
             var eventsList = events.ToList();
             int totalPages = (int)Math.Ceiling((double)totalCount / request.Limit);

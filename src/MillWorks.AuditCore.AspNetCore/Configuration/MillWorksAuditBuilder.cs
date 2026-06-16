@@ -255,6 +255,10 @@ public sealed class MillWorksAuditBuilder
         // EnsureDatabaseCreated inside StartAsync. Registered unconditionally.
         Services.AddHostedService<DatabaseInitializationService>();
 
+        // Owns the outbox queue-depth gauges; the drainer pushes sampled values into it.
+        // Singleton so the gauges live for the host lifetime and are disposed on shutdown.
+        Services.AddSingleton<MillWorks.AuditCore.Services.Telemetry.AuditOutboxQueueObserver>();
+
         // AuditOutboxDrainer self-gates on AuditSinkMode.TransactionalOutbox inside ExecuteAsync.
         // Registered unconditionally — no-op when Immediate mode is active.
         Services.AddHostedService<AuditOutboxDrainer>();

@@ -246,11 +246,15 @@ public sealed class PciDssValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Audit Log Detail Requirements (Req 10.3)",
-            Passed = hasUserIdentification && hasTimestamps,
-            Message = (hasUserIdentification && hasTimestamps)
-                ? "All audit logs include required details (user ID, timestamp, event type)"
-                : $"Audit logs missing required details: {eventsWithoutUser} without user ID, {eventsWithoutTimestamp} without timestamp",
-            Severity = (hasUserIdentification && hasTimestamps) ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = events.Count > 0 && hasUserIdentification && hasTimestamps,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate audit log detail requirements"
+                : (hasUserIdentification && hasTimestamps)
+                    ? "All audit logs include required details (user ID, timestamp, event type)"
+                    : $"Audit logs missing required details: {eventsWithoutUser} without user ID, {eventsWithoutTimestamp} without timestamp",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : (hasUserIdentification && hasTimestamps) ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "PCI DSS",
             Category = "Requirement 10 - Track and Monitor Access",
             RegulationReference = "PCI DSS v4.0 Requirement 10.3",

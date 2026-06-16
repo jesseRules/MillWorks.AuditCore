@@ -155,6 +155,16 @@ public sealed class SecurityOptions
     /// Only applies under TransactionalOutbox sink mode.
     /// </summary>
     public TimeSpan OutboxDrainerLeaseRecoveryInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Interval between outbox queue-depth samples that feed the observability gauges
+    /// (<c>audit.outbox.pending_count</c>, <c>audit.outbox.inflight_count</c>,
+    /// <c>audit.outbox.oldest_pending_age_seconds</c>). The drainer runs three cheap,
+    /// index-backed aggregate queries per sample, so this is decoupled from the (typically
+    /// sub-second) poll interval to bound database load. Default 10s.
+    /// Only applies under TransactionalOutbox sink mode.
+    /// </summary>
+    public TimeSpan OutboxQueueDepthSampleInterval { get; set; } = TimeSpan.FromSeconds(10);
 }
 
 /// <summary>
@@ -257,6 +267,13 @@ internal sealed class SecurityOptionsValidator : IValidateOptions<SecurityOption
             {
                 failures.Add(
                     $"{nameof(SecurityOptions.OutboxDrainerLeaseRecoveryInterval)} must be > 0 when " +
+                    $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
+            }
+
+            if (options.OutboxQueueDepthSampleInterval <= TimeSpan.Zero)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.OutboxQueueDepthSampleInterval)} must be > 0 when " +
                     $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
             }
         }

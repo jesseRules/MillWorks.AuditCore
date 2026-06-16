@@ -23,6 +23,7 @@ using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Services.Sinks.Processing;
 using MillWorks.AuditCore.Services.Sinks.Writers;
+using MillWorks.AuditCore.Services.Telemetry;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -158,7 +159,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             drainerLogger,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
@@ -266,7 +268,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -324,7 +327,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         // First poll: should fail and set NextRetryAt
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -351,7 +355,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer2 = new AuditOutboxDrainer(
             sp2.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         _ = drainer2.StartAsync(cts2.Token);
@@ -428,7 +433,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -492,7 +498,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -551,7 +558,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);

@@ -141,11 +141,15 @@ public sealed class Iso27001Validator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Clock Synchronization (A.12.4.4)",
-            Passed = hasTimestamps,
-            Message = hasTimestamps
-                ? "All events have accurate timestamps"
-                : "Some events lack timestamps - clock synchronization required",
-            Severity = hasTimestamps ? ValidationSeverity.Info : ValidationSeverity.Medium,
+            Passed = events.Count > 0 && hasTimestamps,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate clock synchronization"
+                : hasTimestamps
+                    ? "All events have accurate timestamps"
+                    : "Some events lack timestamps - clock synchronization required",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : hasTimestamps ? ValidationSeverity.Info : ValidationSeverity.Medium,
             ComplianceStandard = "ISO 27001",
             Category = "System Management",
             RegulationReference = "ISO/IEC 27001:2013 A.12.4.4",
@@ -154,9 +158,9 @@ public sealed class Iso27001Validator : IComplianceValidator
         });
 
         // Log retention requirements
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Use the server-side oldest event date, not the recency-biased 5,000-row sample.
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         var meetsRetention = retentionDays >= 90; // Minimum 90 days recommended

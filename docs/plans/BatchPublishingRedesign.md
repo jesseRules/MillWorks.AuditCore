@@ -26,7 +26,7 @@
 - 11 test files updated, new unit tests for writers and outcomes
 
 **Slice C Deliverables (2026-05-19):**
-- Migration `20260519100000_AddIdempotencyConstraints`: adds `IdempotencyKey` column to `AuditOutbox` with unique index (nullable → backfill → NOT NULL pattern for existing data safety)
+- Migration `20260519100000_OutboxIdempotencyAndLeases` (a single migration covering both Slices C and D): adds `IdempotencyKey` column to `AuditOutbox` as `NOT NULL` with `defaultValue: Guid.Empty` — schema-only, greenfield, no data backfill — plus the unique index `UX_AuditOutbox_IdempotencyKey`
 - `AuditOutboxEntity.IdempotencyKey` property with `[Required]` attribute
 - `AuditDbContext` configures `UX_AuditOutbox_IdempotencyKey` unique index
 - `IAuditOutboxWriter` interface updated: accepts `Guid idempotencyKey`, returns insert count/success
@@ -37,20 +37,20 @@
 - `AuditEntityBatchWriter` catches `DbUpdateException` via `DuplicateKeyDetector`, returns `WriteOutcome.Duplicate`
 - `AuditEventBatchWriter` maps `IsDuplicate` flag to `WriteOutcome.Duplicate`
 - `AuditEventBatchWriter.MapToAuditEvent` sets `EventId = EnvelopeId` for replay stability (same envelope → same EventId → PK catches duplicates)
-- 22 new tests: `IdempotencyTests.cs` (18 unit tests), `IdempotencySqliteTests.cs` (6 integration tests proving constraint enforcement)
+- 24 new tests: `IdempotencyTests.cs` (18 unit tests), `IdempotencySqliteTests.cs` (6 integration tests proving constraint enforcement)
 - Note: Skipped redundant unique index on `AuditEvents.EventId` since it's already the PK
 
 **Slice D Deliverables (2026-05-19):**
-- Migration `20260519200000_AddLeaseColumns`: extends `AuditOutboxStatus` enum (InFlight=1, Completed→2, Failed→3), adds `LeaseOwner` NVARCHAR(100) and `LeaseExpiresAt` DATETIMEOFFSET columns, creates `IX_AuditOutbox_Claimable` covering index with INCLUDE columns (EnvelopeJson, EnvelopeVersion, IdempotencyKey, AttemptCount, LastError, CompletedAt)
+- Slice D ships in the same `20260519100000_OutboxIdempotencyAndLeases` migration: adds `LeaseOwner` NVARCHAR(100) and `LeaseExpiresAt` DATETIMEOFFSET columns, drops `IX_AuditOutbox_Status_NextRetryAt_CreatedAt`, and creates `IX_AuditOutbox_Claimable` on `(Status, NextRetryAt, LeaseExpiresAt, CreatedAt)` — a plain composite index, no INCLUDE columns. The `AuditOutboxStatus` enum (Pending=0, InFlight=1, Completed=2, Failed=3) is a code-only change in `AuditOutboxEntity`; the `Status` column remains an `int`, so the migration contains no enum-renumber or Failed-row update SQL (greenfield — no existing rows to migrate)
 - `AuditOutboxEntity.LeaseOwner` and `AuditOutboxEntity.LeaseExpiresAt` properties for row-level lease tracking
 - `AuditOutboxStatus` enum updated: Pending=0, InFlight=1, Completed=2, Failed=3
 - `SecurityOptions.OutboxDrainerLeaseDuration` (default 60s) and `OutboxDrainerLeaseRecoveryInterval` (default 5 min) with validation
 - `AuditOutboxDrainer.ClaimBatchAsync()`: provider-specific claim — SQL Server uses atomic `UPDATE...OUTPUT` for best performance; other providers use portable EF Core approach
 - `AuditOutboxDrainer.ApplyRowSuccess/ApplyRowRetry/ApplyRowFailureAsync()`: outcome application clears lease columns appropriately
-- `AuditOutboxDrainer.RecoverExpiredLeasesAsync()`: periodic sweep resets InFlight rows with expired leases to Pending (increments AttemptCount)
+- `AuditOutboxDrainer.RecoverExpiredLeasesAsync()`: periodic sweep resets InFlight rows with expired leases to Pending and clears the lease columns; `AttemptCount` is deliberately left unchanged so a crashed drainer doesn't burn a retry attempt
 - Unique lease owner ID per drainer instance: `{hostname}:{pid}:{guid-suffix}`
 - New metric: `audit.outbox.drainer.leases_recovered` counter for observability
-- 18 new tests in `LeaseClaimTests.cs` and `LeaseRecoveryMetricsTests.cs`: enum values, lease persistence, status transitions, lease recovery, claim query filtering, metrics verification
+- 18 new tests in `LeaseClaimTests.cs`: enum values, lease persistence, status transitions, lease recovery, claim query filtering, and the leases-recovered counter metadata; additional `leases_recovered` metric assertions live in `Telemetry/AuditMetricsTests.cs`
 
 **Slice E Deliverables (2026-05-19):**
 - `IAuditBatchProcessor` interface with supporting types: `ClaimedOutboxRow`, `BatchProcessingResult`, `RowOutcome`, `RowStatus` enum
@@ -337,7 +337,7 @@ ON [audit].[AuditOutbox] (IdempotencyKey);
 - [x] Unique constraint on `AuditOutbox.IdempotencyKey`
 - [x] Duplicate writes return success, not throw
 - [x] Drainer replay is safe (no duplicate audit records)
-- [ ] Metrics track duplicate counts — Deferred to Slice F
+- [x] Metrics track duplicate counts — `audit.envelopes.duplicate` counter delivered in Slice F
 
 ---
 
@@ -412,8 +412,13 @@ private async Task<List<AuditOutboxEntity>> ClaimBatchAsync(CancellationToken ct
 
 ```csharp
 // Periodic sweep: find InFlight rows with expired leases
-// Reset to Pending with incremented AttemptCount
+// Reset to Pending, clear lease columns
 ```
+
+> **As built:** recovery leaves `AttemptCount` unchanged (not incremented). A lease
+> expiring means the drainer crashed, not that the envelope failed to process, so
+> burning a retry attempt on a crash would be incorrect. Genuine processing
+> failures still increment `AttemptCount` via the normal retry path.
 
 ### 4.6 Update Drainer Query Index
 
@@ -431,7 +436,7 @@ INCLUDE (EnvelopeJson, EnvelopeVersion, IdempotencyKey);
 - [x] Lease columns populated during claim
 - [x] Expired leases recovered automatically
 - [x] No row processed by multiple drainers simultaneously
-- [ ] Metrics track InFlight count and lease recovery rate — Partial (lease recovery counter added; InFlight gauge deferred to Slice F)
+- [ ] Metrics track InFlight count and lease recovery rate — Partial (lease recovery counter `audit.outbox.drainer.leases_recovered` delivered; InFlight gauge still deferred — needs an `ObservableGauge` backed by an async DbContext query)
 
 ---
 
@@ -753,16 +758,21 @@ surface churn unless the new API materially unlocks consumer value.
 
 ### Database Migrations
 
-1. **Phase 3 Migration** (`AddIdempotencyKey`)
-   - Add `IdempotencyKey` column (nullable initially)
-   - Backfill from existing envelope JSON
-   - Add unique index
-   - Make column NOT NULL
+> **As built:** Phases 3 and 4 shipped as a single migration
+> `20260519100000_OutboxIdempotencyAndLeases` rather than the two separate
+> migrations originally planned below. Because AuditCore is greenfield (no
+> production rows to migrate), the plan's nullable-then-backfill-then-NOT-NULL
+> sequence and the Failed-row status-renumber `UPDATE` were unnecessary and were
+> not implemented.
 
-2. **Phase 4 Migration** (`AddLeaseColumns`)
-   - Add `LeaseOwner`, `LeaseExpiresAt` columns
-   - Update `Status` enum values (2→3 for Failed)
-   - Drop old index, create new covering index
+1. **`OutboxIdempotencyAndLeases` migration — idempotency (Phase 3)**
+   - Add `IdempotencyKey` column directly as `NOT NULL` with `defaultValue: Guid.Empty` (schema-only, no backfill)
+   - Add unique index `UX_AuditOutbox_IdempotencyKey`
+
+2. **`OutboxIdempotencyAndLeases` migration — leases (Phase 4)**
+   - Add `LeaseOwner` (NVARCHAR(100)), `LeaseExpiresAt` (DATETIMEOFFSET) columns
+   - `Status` enum renumber (Failed 2→3) is a code-only change in `AuditOutboxEntity`; the column stays an `int`, so no data-update SQL
+   - Drop `IX_AuditOutbox_Status_NextRetryAt_CreatedAt`, create `IX_AuditOutbox_Claimable` on `(Status, NextRetryAt, LeaseExpiresAt, CreatedAt)`
 
 ### Breaking Change Handling
 

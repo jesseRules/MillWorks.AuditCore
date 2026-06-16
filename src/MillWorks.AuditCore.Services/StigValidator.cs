@@ -61,11 +61,15 @@ public sealed class StigValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Content of Audit Records (V-222576 / AU-3)",
-            Passed = auditContentComplete,
-            Message = auditContentComplete
-                ? "All audit records contain required fields (user ID, timestamp, event type)"
-                : $"Audit records missing required content: {eventsWithoutUser} without user ID, {eventsWithoutTimestamp} without timestamp, {eventsWithoutEventType} without event type",
-            Severity = auditContentComplete ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = events.Count > 0 && auditContentComplete,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate audit record content"
+                : auditContentComplete
+                    ? "All audit records contain required fields (user ID, timestamp, event type)"
+                    : $"Audit records missing required content: {eventsWithoutUser} without user ID, {eventsWithoutTimestamp} without timestamp, {eventsWithoutEventType} without event type",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : auditContentComplete ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-3 / V-222576",
@@ -96,11 +100,15 @@ public sealed class StigValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Additional Audit Information (V-222577 / AU-3(1))",
-            Passed = additionalInfoComplete,
-            Message = additionalInfoComplete
-                ? "All audit records contain additional required information (source IP, component, action)"
-                : $"Audit records missing additional info: {eventsWithoutIp} without IP address, {eventsWithoutComponent} without component name",
-            Severity = additionalInfoComplete ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = events.Count > 0 && additionalInfoComplete,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate additional audit information"
+                : additionalInfoComplete
+                    ? "All audit records contain additional required information (source IP, component, action)"
+                    : $"Audit records missing additional info: {eventsWithoutIp} without IP address, {eventsWithoutComponent} without component name",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : additionalInfoComplete ? ValidationSeverity.Info : ValidationSeverity.High,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-3(1) / V-222577",
@@ -124,11 +132,15 @@ public sealed class StigValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Time Stamps (V-222578 / AU-8)",
-            Passed = allHaveTimestamps,
-            Message = allHaveTimestamps
-                ? "All audit records contain timestamps from a synchronized time source"
-                : $"FINDING: {eventsWithoutTs} audit records lack timestamps",
-            Severity = allHaveTimestamps ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = events.Count > 0 && allHaveTimestamps,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate audit record timestamps"
+                : allHaveTimestamps
+                    ? "All audit records contain timestamps from a synchronized time source"
+                    : $"FINDING: {eventsWithoutTs} audit records lack timestamps",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : allHaveTimestamps ? ValidationSeverity.Info : ValidationSeverity.High,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-8 / V-222578",
@@ -212,9 +224,9 @@ public sealed class StigValidator : IComplianceValidator
         });
 
         // V-222581 / AU-11 - Audit Record Retention
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Use the server-side oldest event date, not the recency-biased 5,000-row sample.
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         // DoD requires minimum 1 year; many environments require 5+ years
