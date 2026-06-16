@@ -157,11 +157,13 @@ public sealed class AuditOptions
     public Dictionary<string, object> DefaultCustomFields
     {
         get => _defaultCustomFields;
-        set
-        {
-            _defaultCustomFields = value;
-            ExplicitlySetProperties.Add(nameof(DefaultCustomFields));
-        }
+        // Coalesce a null assignment to an empty dictionary so the non-null invariant holds:
+        // Validate() reads .Count, and the options merge and AuditEventFactory enumerate this,
+        // all of which would NullReferenceException on a null. A null assignment means
+        // "no defaults". No ExplicitlySetProperties tracking either: unlike the scalar options,
+        // defaults merge per key (config base + builder overlay) rather than replace-wins, so
+        // the merge never needs a "was it set" flag. See the overlay in ServiceCollectionExtensions.
+        set => _defaultCustomFields = value ?? new();
     }
 
     /// <summary>

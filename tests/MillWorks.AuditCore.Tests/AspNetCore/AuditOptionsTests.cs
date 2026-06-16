@@ -85,6 +85,18 @@ public sealed class AuditOptionsTests
     }
 
     [Test]
+    public void DefaultCustomFields_NullAssignment_CoercesToEmpty()
+    {
+        var options = new AuditOptions();
+
+        options.DefaultCustomFields = null!;
+
+        Assert.That(options.DefaultCustomFields, Is.Not.Null);
+        Assert.That(options.DefaultCustomFields, Is.Empty);
+        Assert.DoesNotThrow(() => options.Validate());
+    }
+
+    [Test]
     public void FailureMode_DefaultsToPermissive()
     {
         var options = new AuditOptions();

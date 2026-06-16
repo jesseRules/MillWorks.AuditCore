@@ -94,6 +94,26 @@ public sealed class MillWorksAuditBuilder
     }
 
     /// <summary>
+    /// Adds a default custom field that is copied onto every generated audit event. Use this
+    /// for static tags — tenant, application, or compliance identifiers — that should appear
+    /// on every event. Fields added here overlay any supplied via configuration
+    /// (<c>Audit:DefaultCustomFields</c>) per key, and are themselves overridden by per-event
+    /// enrichment (context, request, entity) when they share a key. The total number of
+    /// default fields is validated at startup (max 50).
+    /// </summary>
+    /// <param name="key">Field name. Must not be null or whitespace.</param>
+    /// <param name="value">Field value. Must not be null.</param>
+    public void AddDefaultCustomField(string key, object value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("Default custom field key cannot be null or whitespace.", nameof(key));
+
+        ArgumentNullException.ThrowIfNull(value);
+
+        Options.DefaultCustomFields[key] = value;
+    }
+
+    /// <summary>
     /// Replaces the default in-process request audit dispatcher with a custom implementation.
     /// This allows consuming apps to bridge deferred request audits into their own job system.
     /// </summary>

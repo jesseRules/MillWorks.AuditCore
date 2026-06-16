@@ -33,7 +33,7 @@ public sealed class OptionsFlowTests
 
         var services = BuildServices(
             config: null,
-            configure: builder =>
+            configure: static builder =>
             {
                 builder.Options.HmacKey = fluentKey;
                 builder.Options.EnableDigitalSignatures = true;
@@ -83,7 +83,7 @@ public sealed class OptionsFlowTests
 
         var services = BuildServices(
             config: config,
-            configure: builder => builder.Options.HmacKey = fluentKey);
+            configure: static builder => builder.Options.HmacKey = fluentKey);
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
@@ -96,7 +96,7 @@ public sealed class OptionsFlowTests
     {
         var services = BuildServices(
             config: null,
-            configure: builder => builder.Options.FailureMode = AuditFailureMode.FailClosedForRegulated);
+            configure: static builder => builder.Options.FailureMode = AuditFailureMode.FailClosedForRegulated);
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
@@ -123,15 +123,78 @@ public sealed class OptionsFlowTests
     }
 
     [Test]
+    public void FluentDefaultCustomFields_FlowThroughOptionsPipeline()
+    {
+        // The natural way to add defaults is mutating the dictionary via its indexer,
+        // which goes through the getter and never trips the property setter. This must
+        // still reach IOptions<AuditOptions>.Value (regression: the prior merge gated on
+        // ExplicitlySetProperties, which only the setter populates, so these were dropped).
+        var services = BuildServices(
+            config: null,
+            configure: static builder =>
+            {
+                builder.Options.DefaultCustomFields["TenantTag"] = "north";
+                builder.Options.DefaultCustomFields["ComplianceTag"] = "HIPAA";
+            });
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(options.DefaultCustomFields["TenantTag"], Is.EqualTo("north"));
+        Assert.That(options.DefaultCustomFields["ComplianceTag"], Is.EqualTo("HIPAA"));
+    }
+
+    [Test]
+    public void AddDefaultCustomField_FlowsThroughOptionsPipeline()
+    {
+        var services = BuildServices(
+            config: null,
+            configure: static builder =>
+            {
+                builder.AddDefaultCustomField("TenantTag", "north");
+                builder.AddDefaultCustomField("ComplianceTag", "HIPAA");
+            });
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(options.DefaultCustomFields["TenantTag"], Is.EqualTo("north"));
+        Assert.That(options.DefaultCustomFields["ComplianceTag"], Is.EqualTo("HIPAA"));
+    }
+
+    [Test]
+    public void DefaultCustomFields_ConfigAndFluentCoexist()
+    {
+        // Config-bound defaults form the base; builder-provided fields overlay per key.
+        // Setting a field in code must not wipe defaults supplied via configuration.
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:DefaultCustomFields:FromConfig"] = "config-value"
+            })
+            .Build();
+
+        var services = BuildServices(
+            config: config,
+            configure: static builder => builder.Options.DefaultCustomFields["FromCode"] = "code-value");
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
+
+        Assert.That(options.DefaultCustomFields["FromConfig"], Is.EqualTo("config-value"));
+        Assert.That(options.DefaultCustomFields["FromCode"], Is.EqualTo("code-value"));
+    }
+
+    [Test]
     public async Task TamperDetectionService_HmacSignature_MatchesAcrossFluentAndConfigPaths()
     {
         const string sharedKey = "shared-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";
 
         var fluentServices = BuildServices(
             config: null,
-            configure: builder => builder.Options.HmacKey = sharedKey);
+            configure: static builder => builder.Options.HmacKey = sharedKey);
 
-        using var fluentProvider = fluentServices.BuildServiceProvider();
+        await using var fluentProvider = fluentServices.BuildServiceProvider();
         var fluentOptions = fluentProvider.GetRequiredService<IOptions<AuditOptions>>();
 
         var config = new ConfigurationBuilder()
@@ -143,7 +206,7 @@ public sealed class OptionsFlowTests
 
         var configServices = BuildServices(config: config, configure: null);
 
-        using var configProvider = configServices.BuildServiceProvider();
+        await using var configProvider = configServices.BuildServiceProvider();
         var configOptions = configProvider.GetRequiredService<IOptions<AuditOptions>>();
 
         var dto = new AuditIntegrityDto
@@ -183,7 +246,7 @@ public sealed class OptionsFlowTests
         using var provider = services.BuildServiceProvider();
         var validator = provider.GetRequiredService<IStartupValidator>();
 
-        var ex = Assert.Throws<OptionsValidationException>(() => validator.Validate());
+        var ex = Assert.Throws<OptionsValidationException>(validator.Validate);
         Assert.That(ex!.Message, Does.Contain(nameof(AuditOptions.HmacKey)));
     }
 
@@ -217,8 +280,8 @@ public sealed class OptionsFlowTests
             .ReturnsAsync((AuditIntegrityEntity?)null);
 
         mockIntegrityRepo
-            .Setup(x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
-            .Returns<Func<Task>, CancellationToken>((action, _) => action());
+            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
+            .Returns<Func<Task>, CancellationToken>(static (action, _) => action());
 
         mockIntegrityRepo
             .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))

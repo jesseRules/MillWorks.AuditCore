@@ -130,8 +130,14 @@ public static class ServiceCollectionExtensions
                     if (explicitlySet.Contains(nameof(AuditOptions.FailureMode)))
                         opts.FailureMode = auditOptions.FailureMode;
 
-                    if (explicitlySet.Contains(nameof(AuditOptions.DefaultCustomFields)))
-                        opts.DefaultCustomFields = new Dictionary<string, object>(auditOptions.DefaultCustomFields);
+                    // DefaultCustomFields overlays per key rather than replacing wholesale:
+                    // config-bound defaults form the base, builder-provided fields overlay on
+                    // top. Done unconditionally (not gated on ExplicitlySetProperties) because
+                    // the natural way to add fields — builder.Options.DefaultCustomFields["x"] = y —
+                    // mutates through the getter and never trips the setter that records the flag.
+                    // An untouched dictionary is empty, so the overlay is a no-op when unused.
+                    foreach (var field in auditOptions.DefaultCustomFields)
+                        opts.DefaultCustomFields[field.Key] = field.Value;
                 })
                 .ValidateOnStart();
         }
