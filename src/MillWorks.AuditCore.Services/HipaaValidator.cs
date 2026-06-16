@@ -175,7 +175,7 @@ public sealed class HipaaValidator : IComplianceValidator
         });
 
         // §164.312(c)(1) - Integrity Controls (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
         var protectedCount = context.TotalEventCount - context.UnprotectedEventCount;
 
         results.Add(new AuditValidationResult

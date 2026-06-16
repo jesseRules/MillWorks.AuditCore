@@ -400,7 +400,7 @@ public sealed class AuditReportService(
                 Week = calendar.GetWeekOfYear(d.DateTime, CalendarWeekRule.FirstFourDayWeek,
                     DayOfWeek.Monday)
             })
-            .Select(g => new AuditChartData
+            .Select(static g => new AuditChartData
             {
                 Date = GetFirstDayOfWeek(g.Key.Year, g.Key.Week),
                 Label = $"Week {g.Key.Week}, {g.Key.Year}",

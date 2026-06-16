@@ -183,8 +183,8 @@ Task<BatchPublishResult> PublishBatchAsync(
 **Acceptance Criteria:**
 - [x] `AuditEnvelope` has a stable `EnvelopeId` *(Slice A - completed 2026-05-19)*
 - [ ] `PublishBatchAsync` returns `BatchPublishResult` *(Slice G - deferred)*
-- [ ] Drainer uses outcomes to update only failed rows *(Slice E)*
-- [ ] Duplicate detection returns `Duplicate` status, not exception *(Slice C)*
+- [x] Drainer uses outcomes to update only failed rows *(Slice E - completed; `AuditBatchProcessor` + drainer `ApplyOutcomesAsync` route each row by `RowStatus`, no blind one-at-a-time fallback)*
+- [x] Duplicate detection returns `Duplicate` status, not exception *(Slice C - completed; `WriteOutcome.Duplicate` → `RowStatus.Duplicate` → drainer completes the row)*
 - [x] All existing tests updated and passing
 
 ---

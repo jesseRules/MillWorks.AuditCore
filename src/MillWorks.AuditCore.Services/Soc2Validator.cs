@@ -351,7 +351,7 @@ public sealed class Soc2Validator : IComplianceValidator
         });
 
         // Audit Log Integrity (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
 
         results.Add(new AuditValidationResult
         {

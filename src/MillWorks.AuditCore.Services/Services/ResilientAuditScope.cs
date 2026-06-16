@@ -30,19 +30,13 @@ public sealed class ResilientAuditScope(
     /// <param name="fieldName"></param>
     /// <param name="value"></param>
     /// <typeparam name="T"></typeparam>
-    public void SetCustomField<T>(string fieldName, T value)
-    {
-        innerScope.SetCustomField(fieldName, value);
-    }
+    public void SetCustomField<T>(string fieldName, T value) => innerScope.SetCustomField(fieldName, value);
 
     /// <summary>
     /// Sets the target object for the audit event
     /// </summary>
     /// <param name="target"></param>
-    public void SetTarget(object target)
-    {
-        innerScope.SetTarget(target);
-    }
+    public void SetTarget(object target) => innerScope.SetTarget(target);
 
     /// <summary>
     /// Saves the audit scope, with DLQ fallback on failure

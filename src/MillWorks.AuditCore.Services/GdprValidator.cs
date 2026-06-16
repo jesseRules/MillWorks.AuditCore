@@ -271,7 +271,7 @@ public sealed class GdprValidator : IComplianceValidator
 
         // Overall security - Audit log integrity (server-side counts)
         // All events must have integrity protection when tamper detection is enabled
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
         var hasAnyProtection = context.TotalEventCount > context.UnprotectedEventCount;
         results.Add(new AuditValidationResult
         {

@@ -29,6 +29,16 @@ public sealed class AuditMaintenanceBackgroundService : BackgroundService
     {
     }
 
+    /// <summary>
+    /// Constructor with additional parameters for testing and configuration overrides
+    /// </summary>
+    /// <param name="serviceProvider"></param>
+    /// <param name="logger"></param>
+    /// <param name="configuration"></param>
+    /// <param name="timeProvider"></param>
+    /// <param name="startupDelay"></param>
+    /// <param name="intervalOverride"></param>
+    /// <exception cref="ArgumentNullException"></exception>
     internal AuditMaintenanceBackgroundService(
         IServiceProvider serviceProvider,
         ILogger<AuditMaintenanceBackgroundService> logger,
@@ -105,6 +115,10 @@ public sealed class AuditMaintenanceBackgroundService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Executes a single cycle of audit maintenance tasks, including cleanup, archival, compliance checks, and tamper detection.
+    /// </summary>
+    /// <param name="stoppingToken"></param>
     private async Task ExecuteCycleAsync(CancellationToken stoppingToken)
     {
         using IServiceScope scope = _serviceProvider.CreateScope();
@@ -154,6 +168,10 @@ public sealed class AuditMaintenanceBackgroundService : BackgroundService
             stats.TryGetValue("DatabaseSizeKB", out var stat) ? (long)(stat ?? 0) / 1024 : 0);
     }
 
+    /// <summary>
+    /// Validates that all required services are registered in the DI container. This method is called at startup to fail fast if any dependencies are missing.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"></exception>
     private void ValidateRequiredServices()
     {
         try

@@ -70,6 +70,10 @@ public sealed class FerpaValidator : IComplianceValidator
 
     // ── Configuration Meta-Rules ──
 
+    /// <summary>
+    /// Rule 1: FERPA Entity Configuration (§99.31)
+    /// </summary>
+    /// <param name="results"></param>
     private void AddEntityConfigurationRule(List<AuditValidationResult> results)
     {
         var ferpaEntities = _scanner.GetFerpaEntities();
@@ -99,6 +103,10 @@ public sealed class FerpaValidator : IComplianceValidator
         });
     }
 
+    /// <summary>
+    /// Rule 2: Sensitive Data Protection (§99.31)
+    /// </summary>
+    /// <param name="results"></param>
     private void AddSensitiveDataProtectionRule(List<AuditValidationResult> results)
     {
         var sensitiveProperties = _scanner.GetSensitiveProperties(ComplianceStandard.FERPA);
@@ -473,7 +481,7 @@ public sealed class FerpaValidator : IComplianceValidator
     /// </summary>
     private void AddIntegrityControlsRule(List<AuditValidationResult> results, ComplianceValidationContext context)
     {
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
         var protectedCount = context.TotalEventCount - context.UnprotectedEventCount;
         var tamperDetectionEnabled = _securityOptions?.EnableTamperDetection == true;
 

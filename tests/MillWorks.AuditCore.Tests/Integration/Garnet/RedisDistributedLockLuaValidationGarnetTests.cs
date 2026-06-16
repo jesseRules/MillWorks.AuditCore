@@ -39,8 +39,7 @@ public sealed class RedisDistributedLockLuaValidationGarnetTests : GarnetTestBas
         }
 
         // Deliberately no "--lua": EVAL is disabled, so the lock-release script is unsupported.
-        _noLuaContainer = new ContainerBuilder()
-            .WithImage("ghcr.io/microsoft/garnet:latest")
+        _noLuaContainer = new ContainerBuilder("ghcr.io/microsoft/garnet:latest")
             .WithPortBinding(6379, assignRandomHostPort: true)
             .Build();
 

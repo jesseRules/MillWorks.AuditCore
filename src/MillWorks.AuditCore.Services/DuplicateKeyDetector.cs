@@ -14,10 +14,7 @@ internal static class DuplicateKeyDetector
     /// Returns true if the exception represents a duplicate key / unique constraint violation.
     /// Works for DbUpdateException from SaveChanges pipelines.
     /// </summary>
-    public static bool IsDuplicateKey(DbUpdateException ex)
-    {
-        return IsProviderDuplicateKey(ex.InnerException);
-    }
+    public static bool IsDuplicateKey(DbUpdateException ex) => IsProviderDuplicateKey(ex.InnerException);
 
     /// <summary>
     /// Returns true if the exception represents a duplicate key / unique constraint violation.
@@ -33,6 +30,11 @@ internal static class DuplicateKeyDetector
         };
     }
 
+    /// <summary>
+    /// Provider-specific duplicate key detection logic. Checks for known error codes and message patterns across SQL Server, SQLite, and PostgreSQL.
+    /// </summary>
+    /// <param name="ex"></param>
+    /// <returns></returns>
     private static bool IsProviderDuplicateKey(Exception? ex)
     {
         return ex switch

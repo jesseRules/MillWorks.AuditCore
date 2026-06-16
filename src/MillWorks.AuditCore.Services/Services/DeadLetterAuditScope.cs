@@ -37,19 +37,13 @@ public sealed class DeadLetterAuditScope(
     /// <param name="fieldName"></param>
     /// <param name="value"></param>
     /// <typeparam name="T"></typeparam>
-    public void SetCustomField<T>(string fieldName, T value)
-    {
-        Event.CustomFields[fieldName] = value;
-    }
+    public void SetCustomField<T>(string fieldName, T value) => Event.CustomFields[fieldName] = value;
 
     /// <summary>
     /// Sets the target object for the audit event
     /// </summary>
     /// <param name="target"></param>
-    public void SetTarget(object target)
-    {
-        Event.Target = new AuditTarget { New = target };
-    }
+    public void SetTarget(object target) => Event.Target = new AuditTarget { New = target };
 
     /// <summary>
     /// Saves the audit scope directly to the dead letter queue

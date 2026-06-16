@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -223,14 +224,13 @@ public class AuditLogger(
                 auditEvents.Count);
 
             // Detach any entities that were added to the change tracker before the exception
-            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            foreach (EntityEntry? entry in dbContext.ChangeTracker.Entries().ToList().Where(static entry => entry.State == EntityState.Added))
             {
-                if (entry.State == EntityState.Added)
-                    entry.State = EntityState.Detached;
+                entry.State = EntityState.Detached;
             }
 
             // Single query to find which EventIds already exist
-            var allEventIds = auditEvents.Select(e => e.EventId).ToList();
+            var allEventIds = auditEvents.Select(static e => e.EventId).ToList();
             var existingIds = await auditEventRepository.GetExistingEventIdsAsync(allEventIds, cancellationToken);
 
             var newEvents = auditEvents.Where(e => !existingIds.Contains(e.EventId)).ToList();
@@ -285,10 +285,9 @@ public class AuditLogger(
             {
                 // Race condition: another process inserted between our query and insert.
                 // Fall back to per-event writes for the remaining new events.
-                foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+                foreach (EntityEntry? entry in dbContext.ChangeTracker.Entries().ToList().Where(static entry => entry.State == EntityState.Added))
                 {
-                    if (entry.State == EntityState.Added)
-                        entry.State = EntityState.Detached;
+                    entry.State = EntityState.Detached;
                 }
 
                 foreach (var auditEvent in newEvents)
@@ -629,15 +628,7 @@ public class AuditLogger(
         if (value is null) return null;
 
         // Fast path: zero-allocation scan for control characters
-        bool hasControlChars = false;
-        for (int i = 0; i < value.Length; i++)
-        {
-            if (char.IsControl(value[i]))
-            {
-                hasControlChars = true;
-                break;
-            }
-        }
+        bool hasControlChars = value.Any(char.IsControl);
 
         if (!hasControlChars) return value;
 

@@ -476,7 +476,7 @@ public sealed class AuditSearchService(
     /// </summary>
     /// <param name="root"></param>
     /// <returns></returns>
-    private AuditEnvironmentResponse? ParseEnvironment(JsonElement root)
+    private static AuditEnvironmentResponse? ParseEnvironment(JsonElement root)
     {
         // Try to get Environment as a nested object first
         if (root.TryGetProperty("Environment", out JsonElement envElement) ||
@@ -504,12 +504,12 @@ public sealed class AuditSearchService(
     /// </summary>
     /// <param name="root"></param>
     /// <returns></returns>
-    private AuditTargetResponse? ParseTarget(JsonElement root)
+    private static AuditTargetResponse? ParseTarget(JsonElement root)
     {
         // Try to get Target as a nested object first
         if (!root.TryGetProperty("Target", out JsonElement targetElement) &&
             !root.TryGetProperty("target", out targetElement)) return null;
-        
+
         if (targetElement.ValueKind != JsonValueKind.Object)
             return null;
 
@@ -527,7 +527,7 @@ public sealed class AuditSearchService(
     /// </summary>
     /// <param name="root">The root JSON element</param>
     /// <returns>The parsed CustomFields dictionary, or null if not present</returns>
-    private Dictionary<string, object?>? ParseCustomFields(JsonElement root)
+    private static Dictionary<string, object?>? ParseCustomFields(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
             return null;
@@ -541,7 +541,7 @@ public sealed class AuditSearchService(
         if (customFieldsElement.ValueKind != JsonValueKind.Object)
             return null;
 
-        Dictionary<string, object?> customFields = new Dictionary<string, object?>();
+        var customFields = new Dictionary<string, object?>();
 
         foreach (JsonProperty property in customFieldsElement.EnumerateObject())
         {
@@ -595,14 +595,14 @@ public sealed class AuditSearchService(
     private T? GetFieldValue<T>(Dictionary<string, object?> fields, string primaryKey, string alternateKey)
         where T : class
     {
-        if (fields.TryGetValue(primaryKey, out object? value) && value is T typedValue)
+        if (fields.TryGetValue(primaryKey, out var value) && value is T typedValue)
             return typedValue;
 
-        if (fields.TryGetValue(alternateKey, out object? altValue) && altValue is T typedAltValue)
+        if (fields.TryGetValue(alternateKey, out var altValue) && altValue is T typedAltValue)
             return typedAltValue;
 
         // Try to deserialize if it's a JSON string
-        if (fields.TryGetValue(primaryKey, out object? jsonValue) && jsonValue is string jsonStr)
+        if (fields.TryGetValue(primaryKey, out var jsonValue) && jsonValue is string jsonStr)
         {
             try
             {
@@ -616,7 +616,7 @@ public sealed class AuditSearchService(
             }
         }
 
-        if (fields.TryGetValue(alternateKey, out object? altJsonValue) && altJsonValue is string altJsonStr)
+        if (fields.TryGetValue(alternateKey, out var altJsonValue) && altJsonValue is string altJsonStr)
         {
             try
             {

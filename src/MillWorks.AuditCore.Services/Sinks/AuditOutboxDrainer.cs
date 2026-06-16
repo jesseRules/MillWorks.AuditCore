@@ -404,9 +404,9 @@ public sealed class AuditOutboxDrainer(
         var updatedCount = await auditCtx.AuditOutbox
             .Where(o => candidateIds.Contains(o.Id) && o.Status == AuditOutboxStatus.Pending)
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(o => o.Status, AuditOutboxStatus.InFlight)
-                .SetProperty(o => o.LeaseOwner, _leaseOwnerId)
-                .SetProperty(o => o.LeaseExpiresAt, leaseExpiry), ct);
+                .SetProperty(static o => o.Status, AuditOutboxStatus.InFlight)
+                .SetProperty(static o => o.LeaseOwner, _leaseOwnerId)
+                .SetProperty(static o => o.LeaseExpiresAt, leaseExpiry), ct);
 
         if (updatedCount == 0)
             return [];
@@ -484,13 +484,13 @@ public sealed class AuditOutboxDrainer(
         AuditDbContext auditCtx, DateTimeOffset now, CancellationToken ct)
     {
         var pending = await auditCtx.AuditOutbox
-            .CountAsync(o => o.Status == AuditOutboxStatus.Pending, ct);
+            .CountAsync(static o => o.Status == AuditOutboxStatus.Pending, ct);
 
         var inFlight = await auditCtx.AuditOutbox
-            .CountAsync(o => o.Status == AuditOutboxStatus.InFlight, ct);
+            .CountAsync(static o => o.Status == AuditOutboxStatus.InFlight, ct);
 
         var oldestPendingCreatedAt = await auditCtx.AuditOutbox
-            .Where(o => o.Status == AuditOutboxStatus.Pending)
+            .Where(static o => o.Status == AuditOutboxStatus.Pending)
             .OrderBy(static o => o.CreatedAt)
             .Select(static o => (DateTimeOffset?)o.CreatedAt)
             .FirstOrDefaultAsync(ct);

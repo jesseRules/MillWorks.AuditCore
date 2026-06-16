@@ -9,7 +9,7 @@ namespace MillWorks.AuditCore.Abstractions.Responses;
 public sealed class AuditEnvironmentResponse
 {
     /// <summary>
-    ///     User Name
+    ///     Username
     /// </summary>
     [JsonPropertyName("user_name")]
     [DisplayName("User Name")]

@@ -31,8 +31,7 @@ public sealed class GarnetContainerFixture
     {
         try
         {
-            _container = new ContainerBuilder()
-                .WithImage("ghcr.io/microsoft/garnet:latest")
+            _container = new ContainerBuilder("ghcr.io/microsoft/garnet:latest")
                 // RedisDistributedLockService releases the lock via a Lua script (EVAL); Garnet
                 // ships with Lua scripting disabled by default, so enable it.
                 .WithCommand("--lua")

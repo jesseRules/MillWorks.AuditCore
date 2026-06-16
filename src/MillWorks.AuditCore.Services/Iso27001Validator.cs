@@ -42,7 +42,7 @@ public sealed class Iso27001Validator : IComplianceValidator
         });
 
         // A.12.4.2 - Protection of log information (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
 
         results.Add(new AuditValidationResult
         {

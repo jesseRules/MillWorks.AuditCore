@@ -842,9 +842,19 @@ public sealed class TamperDetectionService : ITamperDetectionService
         return Convert.ToBase64String(hash.GetHashAndReset());
     }
 
+    /// <summary>
+    /// Overload that computes event hash directly from an AuditIntegrityDto, for convenience.
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
     private static string ComputeEventHash(AuditIntegrityDto e) =>
         ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
 
+    /// <summary>
+    /// Overload that computes event hash directly from an AuditEventEntity, for convenience.
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
     private static string ComputeEventHash(AuditEventEntity e) =>
         ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
 
@@ -904,9 +914,19 @@ public sealed class TamperDetectionService : ITamperDetectionService
         return Convert.ToBase64String(hash.GetHashAndReset());
     }
 
+    /// <summary>
+    /// Overload that computes checksum directly from an AuditIntegrityDto, for convenience.
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
     private static string ComputeChecksum(AuditIntegrityDto e) =>
         ComputeChecksum(e.EventId, e.EventType, e.UserId);
 
+    /// <summary>
+    /// Overload that computes checksum directly from an AuditEventEntity, for convenience.
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
     private static string ComputeChecksum(AuditEventEntity e) =>
         ComputeChecksum(e.EventId, e.EventType, e.UserId);
 
@@ -995,7 +1015,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         var normalizedPath = Path.GetFullPath(keyPath);
 
-        return _signingKeyCache.GetOrAdd(normalizedPath, path => new Lazy<RSAParameters>(() =>
+        return _signingKeyCache.GetOrAdd(normalizedPath, static path => new Lazy<RSAParameters>(() =>
         {
             if (!File.Exists(path))
             {
@@ -1025,7 +1045,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         var normalizedPath = Path.GetFullPath(publicKeyPath);
 
-        return _verifyKeyCache.GetOrAdd(normalizedPath, path => new Lazy<RSAParameters>(() =>
+        return _verifyKeyCache.GetOrAdd(normalizedPath, static path => new Lazy<RSAParameters>(() =>
         {
             if (!File.Exists(path))
             {

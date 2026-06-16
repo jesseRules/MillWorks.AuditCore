@@ -298,7 +298,7 @@ public sealed class PciDssValidator : IComplianceValidator
         });
 
         // Requirement 10.4 - Protect Audit Logs (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
 
         results.Add(new AuditValidationResult
         {

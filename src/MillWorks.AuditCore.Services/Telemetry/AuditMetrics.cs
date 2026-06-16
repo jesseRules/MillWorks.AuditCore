@@ -12,6 +12,9 @@ public static class AuditMetrics
     public const string MeterName = "MillWorks.AuditCore";
     public const string MeterVersion = "1.0.0";
 
+    /// <summary>
+    /// Shared meter for all audit metrics. Using a static readonly field ensures it's initialized once and shared across the application, and allows for proper disposal if needed.
+    /// </summary>
     private static readonly Meter _meter = new(MeterName, MeterVersion);
 
     #region Metric Names

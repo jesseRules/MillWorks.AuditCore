@@ -146,42 +146,36 @@ public sealed class AuditContextMiddleware(
         auditContext.RequestPath = context.Request.Path.ToString();
         auditContext.RequestMethod = context.Request.Method;
 
-        if (context.User.Identity?.IsAuthenticated == true)
+        if (context.User.Identity?.IsAuthenticated != true) return;
+        Claim? userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+        Claim? emailClaim = context.User.FindFirst(ClaimTypes.Email);
+        Claim? nameClaim = context.User.FindFirst(ClaimTypes.Name);
+
+        auditContext.AspNetUserId = userIdClaim?.Value;
+        auditContext.UserEmail = emailClaim?.Value ?? context.User.Identity.Name;
+        auditContext.UserFullName = nameClaim?.Value;
+
+        Claim? appUserIdClaim = context.User.FindFirst("AppUserId");
+        if (appUserIdClaim != null && Guid.TryParse(appUserIdClaim.Value, out Guid appUserId))
         {
-            Claim? userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
-            Claim? emailClaim = context.User.FindFirst(ClaimTypes.Email);
-            Claim? nameClaim = context.User.FindFirst(ClaimTypes.Name);
-
-            auditContext.AspNetUserId = userIdClaim?.Value;
-            auditContext.UserEmail = emailClaim?.Value ?? context.User.Identity.Name;
-            auditContext.UserFullName = nameClaim?.Value;
-
-            Claim? appUserIdClaim = context.User.FindFirst("AppUserId");
-            if (appUserIdClaim != null && Guid.TryParse(appUserIdClaim.Value, out Guid appUserId))
-            {
-                auditContext.UserId = appUserId;
-            }
-
-            Claim? tenantIdClaim = context.User.FindFirst("TenantId");
-            if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out Guid tenantId))
-            {
-                auditContext.TenantId = tenantId;
-            }
-
-            logger.LogDebug("Audit context populated for authenticated user {UserId}", auditContext.AspNetUserId);
+            auditContext.UserId = appUserId;
         }
+
+        Claim? tenantIdClaim = context.User.FindFirst("TenantId");
+        if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out Guid tenantId))
+        {
+            auditContext.TenantId = tenantId;
+        }
+
+        logger.LogDebug("Audit context populated for authenticated user {UserId}", auditContext.AspNetUserId);
     }
 
     private string ResolveCorrelationId(HttpContext context)
     {
         if (context.Request.Headers.TryGetValue(_correlationIdHeader, out var headerValues))
         {
-            foreach (var rawValue in headerValues)
+            foreach (string? candidate in from rawValue in headerValues where !string.IsNullOrWhiteSpace(rawValue) select rawValue?.Trim())
             {
-                if (string.IsNullOrWhiteSpace(rawValue))
-                    continue;
-
-                var candidate = rawValue.Trim();
                 if (IsSafeCorrelationId(candidate))
                     return candidate;
 
