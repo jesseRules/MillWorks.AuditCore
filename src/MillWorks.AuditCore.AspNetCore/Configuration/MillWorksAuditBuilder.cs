@@ -361,7 +361,12 @@ public sealed class MillWorksAuditBuilder
                     "calling AddMillWorksAudit, or set " +
                     $"{nameof(SecurityOptions.UseRedisLocking)} = false to use the in-memory lock.");
 
-            return ActivatorUtilities.CreateInstance<RedisDistributedLockService>(sp, multiplexer);
+            // Constructed explicitly (not via ActivatorUtilities) because the constructor has two
+            // bool parameters — positional resolution would bind the flag to the wrong one.
+            return new RedisDistributedLockService(
+                multiplexer,
+                sp.GetRequiredService<ILogger<RedisDistributedLockService>>(),
+                failFastOnMissingScripting: options.FailFastOnMissingLockScripting);
         });
     }
 

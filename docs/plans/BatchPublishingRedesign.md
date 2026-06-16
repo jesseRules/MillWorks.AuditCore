@@ -436,7 +436,7 @@ INCLUDE (EnvelopeJson, EnvelopeVersion, IdempotencyKey);
 - [x] Lease columns populated during claim
 - [x] Expired leases recovered automatically
 - [x] No row processed by multiple drainers simultaneously
-- [ ] Metrics track InFlight count and lease recovery rate — Partial (lease recovery counter `audit.outbox.drainer.leases_recovered` delivered; InFlight gauge still deferred — needs an `ObservableGauge` backed by an async DbContext query)
+- [x] Metrics track InFlight count and lease recovery rate — lease recovery counter `audit.outbox.drainer.leases_recovered` plus the `audit.outbox.inflight_count` gauge (`AuditOutboxQueueObserver`, 2026-06-16)
 
 ---
 
@@ -641,21 +641,31 @@ foreach (var outcome in outcomes)
 }
 ```
 
-### 6.3 Add Queue Depth Observable
+### 6.3 Add Queue Depth Observable ✅ *(implemented 2026-06-16)*
 
-**File:** `MillWorks.AuditCore.Services/Sinks/AuditOutboxDrainer.cs`
+**Files:** `MillWorks.AuditCore.Services/Telemetry/AuditOutboxQueueObserver.cs`,
+`MillWorks.AuditCore.Services/Sinks/AuditOutboxDrainer.cs`
+
+The naive sketch below blocks the metrics-collection thread inside the gauge callback
+(`GetAwaiter().GetResult()` on a non-thread-safe `DbContext`) and was **not** used.
 
 ```csharp
-// Register on startup
+// NOT IMPLEMENTED — illustrative of the hazard, do not copy.
 AuditMetrics.Meter.CreateObservableGauge(
     "audit.outbox.pending_count",
     () => _outboxRepository.GetPendingCountAsync().GetAwaiter().GetResult());
-
-AuditMetrics.Meter.CreateObservableGauge(
-    "audit.outbox.oldest_pending_age_seconds",
-    () => _outboxRepository.GetOldestPendingAgeAsync().GetAwaiter().GetResult()
-           .TotalSeconds);
 ```
+
+**As built — push/cache model:** `AuditOutboxQueueObserver` (singleton) owns three
+`ObservableGauge<long>` instruments and reads only cached fields via `Interlocked`:
+`audit.outbox.pending_count`, `audit.outbox.inflight_count`, and
+`audit.outbox.oldest_pending_age_seconds`. The drainer samples the outbox on its own
+cadence (`SecurityOptions.OutboxQueueDepthSampleInterval`, default 10s) via the internal
+`AuditOutboxDrainer.ComputeQueueDepthAsync` (three index-backed aggregate queries) and
+pushes the result into the observer with `Update(...)`. Sampling runs outside the leader
+lock in its own scope, so every instance keeps its gauges fresh and a sampling failure
+never trips the drain circuit breaker. Because each instance reports the global depth
+independently, aggregate these gauges with `max`/`mean`, never `sum`.
 
 ### 6.4 Add Row Age Histogram
 
@@ -691,8 +701,8 @@ private static string ClassifyError(Exception ex) => ex switch
 - [x] Retry count metric — `audit.outbox.retry_attempts` with `envelope_kind` and `error_type` tags
 - [x] DLQ routing counter — `audit.outbox.dlq_routed`
 - [x] Lease recovery counter — `audit.outbox.drainer.leases_recovered`
-- [ ] Queue depth gauge (pending + inflight) — Deferred: requires async query from DbContext during metric callback
-- [ ] Oldest pending row age gauge — Deferred: requires async query from DbContext during metric callback
+- [x] Queue depth gauge (pending + inflight) — `audit.outbox.pending_count` / `audit.outbox.inflight_count` via `AuditOutboxQueueObserver` (push/cache model, no DbContext in callback) *(2026-06-16)*
+- [x] Oldest pending row age gauge — `audit.outbox.oldest_pending_age_seconds` via the same observer *(2026-06-16)*
 - [x] Row age histogram at drain time — `audit.outbox.row_age_seconds` with `envelope_kind` tag
 - [x] Error classification tags — `error_type` tag with deadlock/timeout/constraint/serialization/unknown values
 

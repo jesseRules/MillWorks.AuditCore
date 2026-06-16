@@ -36,15 +36,15 @@ The following applied to `RedisJobQueue`, which no longer exists. No further act
 
 ### 4. Distributed lock has no renewal or fencing token (Low — efficiency only; see Verification)
 
-`RedisDistributedLockService.cs:58-120` (acquire), `:150-193` (release)
+`RedisDistributedLockService.cs:128-190` (acquire), `:220-263` (release/Dispose)
 
-Release is correct (token-checked Lua compare-and-delete, `:158-168`). But if the holder's
+Release is correct (token-checked Lua compare-and-delete, `:228-235`). But if the holder's
 work outlasts `expiry`, the key lapses, a second holder acquires, and the overlap is only
-noticed post-hoc as a `"was already released or expired"` warning at Dispose (`:170-175`).
+noticed post-hoc as a `"was already released or expired"` warning at Dispose (`:242-245`).
 No fencing token is returned (`IAuditDistributedLockService.AcquireLockAsync` yields a bare
 `IDisposable`), so downstream stores cannot reject a stale holder.
 
-The service is live: registered at `MillWorksAuditBuilder.cs:360`, used by two background
+The service is live: registered at `MillWorksAuditBuilder.cs:348`, used by two background
 services. Neither depends on the lock for **correctness** — both are guarded at the data
 layer (industry-standard: treat a TTL lock as an efficiency optimization only; a lapsed
 TTL lock can never be made safe for correctness via renewal — see Kleppmann, *How to do
@@ -118,18 +118,30 @@ Heavier options, recorded but **not** chosen: TTL auto-renewal/heartbeat on `Red
 (reduces overlap probability but is not a correctness mechanism); a fencing token from
 `AcquireLockAsync` (textbook, but the resource layer already provides the equivalent).
 
-### Operational note surfaced by the Garnet integration tests
+### Operational finding surfaced by the Garnet integration tests + startup validation added
 
 `RedisDistributedLockService` releases the lock with a Lua script (`ScriptEvaluate` /
 `EVAL`). **Garnet ships with Lua scripting disabled by default** — against a default Garnet,
 `EVAL` returns `ERR This instance has Lua scripting support disabled`, so every release in
-`RedisLock.Dispose` throws (the exception is caught and logged, see
-`RedisDistributedLockService.cs:183-188`) and the lock is only freed when its TTL expires.
-Acquire/PING/SET/GET are unaffected. Deployments using Garnet as the lock backend must start
-it with `--lua`; the test fixture does this (`GarnetContainerFixture`). Real Redis enables
-scripting by default, so this is Garnet-specific. (Not a correctness issue given #4, but a
-real availability degradation — worth a startup probe or doc on the lock service if Garnet
-becomes a supported backend.)
+`RedisLock.Dispose` throws (caught and logged) and the lock is only freed when its TTL
+expires. Acquire/PING/SET/GET are unaffected. Real Redis enables scripting by default, so
+this is Garnet-specific.
+
+**Resolved (2026-06-16):** `RedisDistributedLockService` now performs a startup probe
+(`ValidateScriptingSupport`) that runs a trivial `EVAL` when the backend is connected. If
+scripting is disabled it logs an actionable error (start Garnet with `--lua`) by default, or
+throws when scripting is required. The probe is skipped when the multiplexer is not yet
+connected, so it does not interfere with unit tests using a mocked multiplexer.
+
+Operators control fail-fast via a new option:
+`SecurityOptions.FailFastOnMissingLockScripting` (default false → log only). It is wired into
+the lock-service registration in `MillWorksAuditBuilder` (the service is now constructed
+explicitly rather than via `ActivatorUtilities`, because the constructor has two `bool`
+parameters and positional resolution would bind the flag to the wrong one). Coverage:
+`RedisDistributedLockLuaValidationGarnetTests` — against a no-`--lua` Garnet, direct
+construction throws on fail-fast / logs otherwise, and the flag flows end-to-end through the
+DI registration; plus a positive check in `RedisDistributedLockGarnetTests` (the `--lua`
+fixture passes validation).
 
 ## Implementation Outline
 

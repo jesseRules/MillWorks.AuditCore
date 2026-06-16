@@ -24,6 +24,19 @@ public sealed class RedisDistributedLockGarnetTests : GarnetTestBase
             useJitter: false);
 
     [Test]
+    public void Constructor_AgainstLuaEnabledGarnet_PassesScriptingValidation()
+    {
+        // The shared fixture starts Garnet with --lua, so the startup probe must succeed even
+        // when configured to fail fast on missing scripting support.
+        var construct = () => new RedisDistributedLockService(
+            Multiplexer,
+            NullLogger<RedisDistributedLockService>.Instance,
+            failFastOnMissingScripting: true);
+
+        construct.Should().NotThrow();
+    }
+
+    [Test]
     public async Task AcquireLock_WhileHeld_BlocksSecondAcquirer_ThenSucceedsAfterRelease()
     {
         var svc = NewFastFailLockService();

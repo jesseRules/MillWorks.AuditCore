@@ -35,6 +35,17 @@ public sealed class SecurityOptions
     public bool UseRedisLocking { get; set; } = false;
 
     /// <summary>
+    /// When true, <c>RedisDistributedLockService</c> throws at startup if the Redis backend
+    /// does not have Lua scripting (<c>EVAL</c>) enabled — the scripting that lock release
+    /// depends on. Some RESP-compatible servers (notably Garnet, which needs <c>--lua</c>)
+    /// ship with it disabled, in which case lock release fails and locks linger until their
+    /// expiry elapses. When false (default), the misconfiguration is logged as an error at
+    /// startup but does not prevent the host from starting. Only relevant when
+    /// <see cref="UseRedisLocking"/> is true.
+    /// </summary>
+    public bool FailFastOnMissingLockScripting { get; set; } = false;
+
+    /// <summary>
     /// Path to the private key PEM file for signing audit events.
     /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
     /// </summary>

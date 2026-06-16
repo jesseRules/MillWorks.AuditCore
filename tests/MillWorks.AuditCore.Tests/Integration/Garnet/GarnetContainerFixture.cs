@@ -94,7 +94,7 @@ public sealed class GarnetContainerFixture
     /// wedges with commands stuck in the backlog and does not recover, so each retry discards it
     /// and reconnects rather than reusing it.
     /// </summary>
-    private static async Task<ConnectionMultiplexer> ConnectWithRetryAsync(string endpoint)
+    internal static async Task<ConnectionMultiplexer> ConnectWithRetryAsync(string endpoint)
     {
         Exception? last = null;
         for (var attempt = 0; attempt < 40; attempt++)
