@@ -531,6 +531,15 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     await sink.PublishBatchAsync(envelopes, cancellationToken);
             }
         }
+        catch (AuditOutboxAtomicityException)
+        {
+            // A transactional-outbox atomicity violation is a fatal configuration/contract
+            // error, not a transient audit-write failure. It must propagate regardless of
+            // AuditFailureMode — swallowing it in permissive mode would let the business write
+            // commit with no durable audit row, the exact false-evidence outcome that the
+            // TransactionalOutbox sink mode exists to prevent.
+            throw;
+        }
         catch (Exception ex)
         {
             _diagnostics?.Increment(AuditDiagnosticCounter.InterceptorAuditFailure);

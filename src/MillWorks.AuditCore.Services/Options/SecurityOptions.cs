@@ -90,6 +90,14 @@ public sealed class SecurityOptions
     /// consumer's transaction). TransactionalOutbox is the opt-in posture for
     /// regulated / zero-loss-durability deployments where audit + business
     /// must succeed atomically.
+    /// <para>
+    /// TransactionalOutbox is atomic with consumer writes when either the consumer
+    /// context maps <c>AuditOutboxEntity</c> (so EF saves the outbox row in the same
+    /// <c>SaveChangesAsync</c> unit) or the application supplies an explicit
+    /// <c>DbContext</c> transaction used by the raw-SQL outbox writer. A bare context
+    /// without an active transaction is rejected — it cannot guarantee atomic commit,
+    /// and silently committing the audit row independently would create false evidence.
+    /// </para>
     /// </summary>
     public AuditSinkMode AuditSinkMode { get; set; } = AuditSinkMode.Immediate;
 

@@ -47,6 +47,11 @@ public sealed class AuditContextMiddleware(
                 dbContext.CurrentCorrelationId = auditContext.CorrelationId;
                 dbContext.CurrentIpAddress = auditContext.IpAddress;
                 dbContext.CurrentUserAgent = auditContext.UserAgent;
+                // Bridge the authenticated user onto the DbContext so the singleton
+                // interceptor can stamp UserId on audit envelopes and verify FERPA
+                // consent. Prefer the primary business identifier (AppUserId); fall
+                // back to the ASP.NET identity id when no AppUserId claim is present.
+                dbContext.CurrentUserId = auditContext.UserId?.ToString() ?? auditContext.AspNetUserId;
                 dbContext.ScopedServiceProvider = context.RequestServices;
             }
         }
