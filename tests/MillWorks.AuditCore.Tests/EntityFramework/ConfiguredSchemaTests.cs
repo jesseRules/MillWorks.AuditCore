@@ -81,6 +81,11 @@ public sealed class ConfiguredSchemaTests
         Assert.That(entityType.GetSchema(), Is.EqualTo(customSchema));
     }
 
+    /// <summary>
+    /// Creates a new <see cref="AuditDbContext"/> with the specified schema configured.
+    /// </summary>
+    /// <param name="schema"></param>
+    /// <returns></returns>
     private static AuditDbContext CreateContext(string? schema)
     {
         // Wire the schema-aware cache key factory so tests with different schemas get

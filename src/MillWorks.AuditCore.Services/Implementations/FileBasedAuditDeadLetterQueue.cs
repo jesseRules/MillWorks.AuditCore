@@ -301,8 +301,8 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
 
         // Read from index — no lock needed for ConcurrentDictionary reads
         var entries = _fileIndex.Values
-            .Where(e => !e.IsProcessed)
-            .OrderByDescending(e => e.FailedAt)
+            .Where(static e => !e.IsProcessed)
+            .OrderByDescending(static e => e.FailedAt)
             .Take(maxCount)
             .ToList();
 
@@ -360,13 +360,12 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
         await EnsureIndexBuiltAsync();
 
         DeadLetterAuditEvent? deadLetterEvent;
-        string filePath;
 
         // Phase 1: Read event under lock
         await _writeLock.WaitAsync();
         try
         {
-            filePath = GetFilePathForEvent(deadLetterId);
+            var filePath = GetFilePathForEvent(deadLetterId);
             if (!File.Exists(filePath))
             {
                 _logger.LogWarning("Dead letter event {Id} not found", deadLetterId);

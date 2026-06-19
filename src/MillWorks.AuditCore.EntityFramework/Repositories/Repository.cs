@@ -387,7 +387,8 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         int offset,
         int limit,
         Expression<Func<T, bool>>? predicate = null,
-        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null)
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        CancellationToken cancellationToken = default)
     {
         if (offset < 0) throw new ArgumentException("Offset cannot be negative", nameof(offset));
         if (limit < 1) throw new ArgumentException("Limit must be greater than 0", nameof(limit));
@@ -399,7 +400,7 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
             query = query.Where(predicate);
         }
 
-        int totalCount = await query.CountAsync();
+        int totalCount = await query.CountAsync(cancellationToken);
 
         if (orderBy != null)
         {
@@ -413,7 +414,7 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         List<T> items = await query
             .Skip(offset)
             .Take(limit)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (items, totalCount);
     }

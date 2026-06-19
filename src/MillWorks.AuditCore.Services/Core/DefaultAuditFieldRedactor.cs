@@ -53,6 +53,9 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
         // sensitive metadata (e.g., column names like "Diagnosis" or "SSN")
     };
 
+    /// <summary>
+    /// Set of field names that are allowed to pass through without redaction. Initialized with the base safe fields and can be extended via constructor options.
+    /// </summary>
     private readonly HashSet<string> _safeFields;
 
     /// <summary>
@@ -128,7 +131,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
             return propertyNames;
 
         return propertyNames
-            .Select(name => _sensitivePropertyNames.Contains(name)
+            .Select(static name => _sensitivePropertyNames.Contains(name)
                 ? "[REDACTED_PROP]"
                 : name)
             .ToList();

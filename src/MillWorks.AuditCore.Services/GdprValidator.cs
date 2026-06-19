@@ -198,11 +198,15 @@ public sealed class GdprValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "User Identification (Article 32)",
-            Passed = hasUserInformation,
-            Message = hasUserInformation
-                ? "All audit events include user identification"
-                : "Some events lack user identification - required for security and accountability",
-            Severity = hasUserInformation ? ValidationSeverity.Info : ValidationSeverity.High,
+            Passed = events.Count > 0 && hasUserInformation,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate user identification"
+                : hasUserInformation
+                    ? "All audit events include user identification"
+                    : "Some events lack user identification - required for security and accountability",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : hasUserInformation ? ValidationSeverity.Info : ValidationSeverity.High,
             ComplianceStandard = "GDPR",
             Category = "Security Measures",
             RegulationReference = "GDPR Article 32",
@@ -267,7 +271,7 @@ public sealed class GdprValidator : IComplianceValidator
 
         // Overall security - Audit log integrity (server-side counts)
         // All events must have integrity protection when tamper detection is enabled
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
         var hasAnyProtection = context.TotalEventCount > context.UnprotectedEventCount;
         results.Add(new AuditValidationResult
         {

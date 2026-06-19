@@ -8,20 +8,18 @@ namespace MillWorks.AuditCore.Services.Compliance;
 /// Default <see cref="IConsentVerificationService"/> implementation backed by <see cref="IMemoryCache"/>.
 /// Thread-safe. All reads are synchronous (cache-only, no DB fallback).
 /// </summary>
-public sealed class ConsentVerificationService : IConsentVerificationService
+public sealed class ConsentVerificationService(IMemoryCache cache) : IConsentVerificationService
 {
-    private readonly IMemoryCache _cache;
+    /// <summary>
+    /// In-memory cache for storing consent records. The presence of a cache entry indicates active consent.
+    /// </summary>
+    private readonly IMemoryCache _cache = cache ?? throw new ArgumentNullException(nameof(cache));
 
     /// <summary>
     /// Cache key prefix for FERPA consent entries.
     /// Format: "ferpa:consent:{userId}:{entityType}:{scope}"
     /// </summary>
     private const string _cacheKeyPrefix = "ferpa:consent:";
-
-    public ConsentVerificationService(IMemoryCache cache)
-    {
-        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-    }
 
     /// <inheritdoc />
     public ConsentStatus HasActiveConsent(string userId, string entityType, string? scope = null)
@@ -31,10 +29,8 @@ public sealed class ConsentVerificationService : IConsentVerificationService
     }
 
     /// <inheritdoc />
-    public Task<ConsentStatus> HasActiveConsentAsync(string userId, string entityType, string? scope = null)
-    {
-        return Task.FromResult(HasActiveConsent(userId, entityType, scope));
-    }
+    public Task<ConsentStatus> HasActiveConsentAsync(string userId, string entityType, string? scope = null) =>
+        Task.FromResult(HasActiveConsent(userId, entityType, scope));
 
     /// <inheritdoc />
     public Task RecordConsentAsync(string userId, string entityType, string? scope, DateTimeOffset expiresAt)
@@ -67,8 +63,6 @@ public sealed class ConsentVerificationService : IConsentVerificationService
     /// <summary>
     /// Builds a deterministic cache key for a consent record.
     /// </summary>
-    private static string BuildCacheKey(string userId, string entityType, string? scope)
-    {
-        return $"{_cacheKeyPrefix}{userId}:{entityType}:{scope ?? "*"}";
-    }
+    private static string BuildCacheKey(string userId, string entityType, string? scope) =>
+        $"{_cacheKeyPrefix}{userId}:{entityType}:{scope ?? "*"}";
 }

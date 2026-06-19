@@ -1,11 +1,14 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Abstractions.Services;
+using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
@@ -24,11 +27,13 @@ public class AuditContextMiddlewareTests
     private Mock<IAuditEventFactory> _mockAuditEventFactory = null!;
     private DefaultHttpContext _httpContext = null!;
     private AuditContextMiddleware _middleware = null!;
+    private readonly List<ServiceProvider> _providers = [];
 
     [SetUp]
     public void Setup()
     {
         _auditContext = new AuditContext();
+        _providers.Clear();
         _mockLogger = new Mock<ILogger<AuditContextMiddleware>>();
         _mockRequestAuditDispatcher = new Mock<IRequestAuditDispatcher>();
         _mockAuditEventFactory = new Mock<IAuditEventFactory>();
@@ -52,6 +57,31 @@ public class AuditContextMiddlewareTests
     public void TearDown()
     {
         _auditContext.Clear();
+        foreach (var p in _providers)
+            p.Dispose();
+        _providers.Clear();
+    }
+
+    /// <summary>
+    /// Builds a request service provider containing a real <see cref="AuditDbContext"/>
+    /// (InMemory) so the middleware's <c>RequestServices.GetService&lt;AuditDbContext&gt;()</c>
+    /// resolves a context whose request-scoped properties we can assert against.
+    /// </summary>
+    private AuditDbContext RegisterAuditDbContextInRequestServices()
+    {
+        var services = new ServiceCollection();
+        services.AddDbContext<AuditDbContext>(o =>
+            o.UseInMemoryDatabase($"MiddlewareBridge_{Guid.NewGuid()}")
+                .ConfigureWarnings(static w =>
+                {
+                    w.Ignore(InMemoryEventId.TransactionIgnoredWarning);
+                    w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                }));
+
+        var provider = services.BuildServiceProvider();
+        _providers.Add(provider);
+        _httpContext.RequestServices = provider;
+        return provider.GetRequiredService<AuditDbContext>();
     }
 
     private AuditContextMiddleware CreateMiddleware(AuditMiddlewareOptions? options = null)
@@ -164,6 +194,58 @@ public class AuditContextMiddlewareTests
         Assert.That(capturedAspNetUserId, Is.Null);
         Assert.That(capturedUserEmail, Is.Null);
         Assert.That(capturedUserId, Is.Null);
+    }
+
+    [Test]
+    public async Task InvokeAsync_AuthenticatedWithAppUserId_BridgesCurrentUserIdToDbContext()
+    {
+        // The interceptor reads AuditDbContext.CurrentUserId for FERPA consent
+        // verification and to stamp UserId on audit envelopes. The middleware must
+        // bridge the authenticated principal onto the context — prefer AppUserId.
+        var appUserId = Guid.NewGuid();
+        var dbContext = RegisterAuditDbContextInRequestServices();
+
+        _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "aspnet-user-1"),
+                new Claim("AppUserId", appUserId.ToString())
+            ],
+            "TestAuthType"));
+        _httpContext.Request.Path = "/api/test";
+
+        await _middleware.InvokeAsync(_httpContext, static _ => Task.CompletedTask);
+
+        Assert.That(dbContext.CurrentUserId, Is.EqualTo(appUserId.ToString()));
+    }
+
+    [Test]
+    public async Task InvokeAsync_AuthenticatedWithoutAppUserId_BridgesAspNetUserIdToDbContext()
+    {
+        // No AppUserId claim — fall back to the ASP.NET identity id so the
+        // authenticated user is still visible to consent enforcement.
+        var dbContext = RegisterAuditDbContextInRequestServices();
+
+        _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "aspnet-user-1")],
+            "TestAuthType"));
+        _httpContext.Request.Path = "/api/test";
+
+        await _middleware.InvokeAsync(_httpContext, static _ => Task.CompletedTask);
+
+        Assert.That(dbContext.CurrentUserId, Is.EqualTo("aspnet-user-1"));
+    }
+
+    [Test]
+    public async Task InvokeAsync_AnonymousUser_LeavesDbContextCurrentUserIdNull()
+    {
+        var dbContext = RegisterAuditDbContextInRequestServices();
+
+        _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        _httpContext.Request.Path = "/api/test";
+
+        await _middleware.InvokeAsync(_httpContext, static _ => Task.CompletedTask);
+
+        Assert.That(dbContext.CurrentUserId, Is.Null);
     }
 
     [Test]

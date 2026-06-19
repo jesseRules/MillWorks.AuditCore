@@ -181,12 +181,14 @@ public interface IRepository<T> where T : class
     /// <param name="limit">Maximum number of rows to return</param>
     /// <param name="predicate">Optional filter predicate</param>
     /// <param name="orderBy">Optional ordering function</param>
+    /// <param name="cancellationToken">Token to cancel the count and materialization queries</param>
     /// <returns>Tuple of matching items and total count</returns>
     Task<(IEnumerable<T> Items, int TotalCount)> GetByOffsetAsync(
         int offset,
         int limit,
         Expression<Func<T, bool>>? predicate = null,
-        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null);
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets a queryable for building complex queries

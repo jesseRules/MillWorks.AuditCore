@@ -284,11 +284,16 @@ public sealed class FieldEncryptionService(
     }
 
     /// <inheritdoc />
-    public bool IsEncrypted(string? value)
-    {
-        return !string.IsNullOrEmpty(value) && value.StartsWith(_encryptionPrefix, StringComparison.Ordinal);
-    }
+    public bool IsEncrypted(string? value) => !string.IsNullOrEmpty(value) && value.StartsWith(_encryptionPrefix, StringComparison.Ordinal);
 
+    /// <summary>
+    /// Encrypts the field with a specific key version, allowing for key rotation and multiple active keys.
+    /// </summary>
+    /// <param name="plainText"></param>
+    /// <param name="fieldName"></param>
+    /// <param name="keyVersion"></param>
+    /// <returns></returns>
+    /// <exception cref="FieldEncryptionException"></exception>
     private string EncryptFieldWithVersion(string plainText, string fieldName, string keyVersion)
     {
         byte[]? plainBytes = null;

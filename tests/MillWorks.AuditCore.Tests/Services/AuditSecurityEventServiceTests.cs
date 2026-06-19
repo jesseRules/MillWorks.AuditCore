@@ -149,17 +149,14 @@ public class AuditSecurityEventServiceTests
             Severity = SecurityEventSeverity.Critical,
             DetectedAt = DateTimeOffset.UtcNow.AddHours(-1)
         };
-        var lowEntity = new AuditSecurityEventEntity
-        {
-            Severity = SecurityEventSeverity.Low,
-            DetectedAt = DateTimeOffset.UtcNow.AddHours(-1)
-        };
 
-        _mockRepository.Setup(static r => r.GetByDateRangeAsync(
+        // The repository filters by severity server-side; the service must request Critical only.
+        _mockRepository.Setup(static r => r.GetBySeverityAndDateRangeAsync(
+                SecurityEventSeverity.Critical,
                 It.IsAny<DateTimeOffset>(),
                 It.IsAny<DateTimeOffset>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<AuditSecurityEventEntity> { criticalEntity, lowEntity });
+            .ReturnsAsync(new List<AuditSecurityEventEntity> { criticalEntity });
 
         var criticalDtos = new List<SecurityEventDto>
         {
@@ -174,6 +171,12 @@ public class AuditSecurityEventServiceTests
         var result = await _service.GetCriticalEventsAsync(24);
 
         Assert.That(result.Count(), Is.EqualTo(1));
+        // Prove the "critical only" guarantee comes from querying Critical severity, not chance.
+        _mockRepository.Verify(static r => r.GetBySeverityAndDateRangeAsync(
+            SecurityEventSeverity.Critical,
+            It.IsAny<DateTimeOffset>(),
+            It.IsAny<DateTimeOffset>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]

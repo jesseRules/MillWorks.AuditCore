@@ -115,11 +115,15 @@ public sealed class Soc2Validator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "User Identification (CC6.6)",
-            Passed = hasUserIdentification,
-            Message = hasUserIdentification
-                ? "All audit events include user identification"
-                : $"{eventsWithoutUser} events lack user identification - required for accountability",
-            Severity = hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = events.Count > 0 && hasUserIdentification,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate user identification"
+                : hasUserIdentification
+                    ? "All audit events include user identification"
+                    : $"{eventsWithoutUser} events lack user identification - required for accountability",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "SOC 2",
             Category = "Common Criteria - Logical and Physical Access",
             RegulationReference = "CC6.6",
@@ -315,9 +319,9 @@ public sealed class Soc2Validator : IComplianceValidator
         });
 
         // Audit Log Retention
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Use the server-side oldest event date, not the recency-biased 5,000-row sample.
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         // SOC 2 typically requires retention for audit period (usually 12 months)
@@ -347,7 +351,7 @@ public sealed class Soc2Validator : IComplianceValidator
         });
 
         // Audit Log Integrity (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
 
         results.Add(new AuditValidationResult
         {

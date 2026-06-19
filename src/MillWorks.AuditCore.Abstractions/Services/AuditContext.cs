@@ -70,42 +70,27 @@ public sealed class AuditContext: IAuditContext
     /// <summary>
     /// Set custom context data
     /// </summary>
-    public void SetData(string key, object value)
-    {
-        _contextData[key] = value;
-    }
+    public void SetData(string key, object value) => _contextData[key] = value;
 
     /// <summary>
     /// Get custom context data
     /// </summary>
-    public T? GetData<T>(string key)
-    {
-        return _contextData.TryGetValue(key, out var value) && value is T typed ? typed : default;
-    }
+    public T? GetData<T>(string key) => _contextData.TryGetValue(key, out var value) && value is T typed ? typed : default;
 
     /// <summary>
     /// Check if custom data exists for a key
     /// </summary>
-    public bool HasData(string key)
-    {
-        return _contextData.ContainsKey(key);
-    }
+    public bool HasData(string key) => _contextData.ContainsKey(key);
 
     /// <summary>
     /// Remove custom context data
     /// </summary>
-    public bool RemoveData(string key)
-    {
-        return _contextData.Remove(key);
-    }
+    public bool RemoveData(string key) => _contextData.Remove(key);
 
     /// <summary>
     /// Get all custom context data
     /// </summary>
-    public IDictionary<string, object> GetAllData()
-    {
-        return new Dictionary<string, object>(_contextData);
-    }
+    public IDictionary<string, object> GetAllData() => new Dictionary<string, object>(_contextData);
 
     /// <summary>
     /// Clear all context data

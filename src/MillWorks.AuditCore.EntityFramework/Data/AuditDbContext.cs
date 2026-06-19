@@ -511,7 +511,9 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
             {
                 // Convert DateTimeOffset properties to string for SQLite compatibility.
                 // SQLite cannot ORDER BY or compare DateTimeOffset natively.
-                // Uses InvariantCulture to ensure consistent round-trip parsing.
+                // Normalize to UTC before formatting so the lexicographic "O" string sorts
+                // chronologically even when consumers supply non-UTC offsets; InvariantCulture
+                // ensures consistent round-trip parsing.
                 if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
                 {
                     property.SetColumnType("TEXT");
@@ -519,14 +521,14 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset,
-                                string>(static v => v.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                                string>(static v => v.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
                                 static v => DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture)));
                     }
                     else
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset?,
-                                string?>(static v => v.HasValue ? v.Value.ToString("O", System.Globalization.CultureInfo.InvariantCulture) : null,
+                                string?>(static v => v.HasValue ? v.Value.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture) : null,
                                 static v => v != null ? DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture) : null));
                     }
                 }

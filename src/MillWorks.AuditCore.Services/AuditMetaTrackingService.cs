@@ -20,6 +20,7 @@ public sealed class AuditMetaTrackingService(
 
     private static readonly string[] _sensitiveTerms =
         ["executive", "security", "breach", "incident", "violation"];
+
     /// <summary>
     /// Log when someone queries audit logs (required for HIPAA, SOC2)
     /// </summary>
@@ -150,44 +151,25 @@ public sealed class AuditMetaTrackingService(
     /// </summary>
     /// <param name="purpose"></param>
     /// <returns></returns>
-    private static bool IsComplianceRelated(string? purpose)
-    {
-        if (string.IsNullOrEmpty(purpose)) return false;
-
-        foreach (string keyword in _complianceKeywords)
-        {
-            if (purpose.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
+    private static bool IsComplianceRelated(string? purpose) => !string.IsNullOrEmpty(purpose) &&
+                                                                _complianceKeywords.Any(keyword =>
+                                                                    purpose.Contains(keyword,
+                                                                        StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Returns true if the query type requires justification
     /// </summary>
     /// <param name="queryType"></param>
     /// <returns></returns>
-    private static bool RequiresJustification(string queryType)
-    {
-        return _sensitiveQueryTypes.Contains(queryType);
-    }
+    private static bool RequiresJustification(string queryType) => _sensitiveQueryTypes.Contains(queryType);
 
     /// <summary>
     /// Indicates if the query parameters suggest a sensitive query
     /// </summary>
     /// <param name="parameters"></param>
     /// <returns></returns>
-    private static bool IsSensitiveQuery(string? parameters)
-    {
-        if (string.IsNullOrEmpty(parameters)) return false;
-
-        foreach (string term in _sensitiveTerms)
-        {
-            if (parameters.Contains(term, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
+    private static bool IsSensitiveQuery(string? parameters) => !string.IsNullOrEmpty(parameters) &&
+                                                                _sensitiveTerms.Any(term =>
+                                                                    parameters.Contains(term,
+                                                                        StringComparison.OrdinalIgnoreCase));
 }

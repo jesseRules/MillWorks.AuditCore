@@ -705,6 +705,81 @@ public class AuditEventFactoryTests
     }
 
     /// <summary>
+    /// Verifies that AuditOptions.DefaultCustomFields are copied onto every generated event.
+    /// </summary>
+    [Test]
+    public void CreateEvent_AppliesDefaultCustomFields()
+    {
+        // Arrange
+        var options = new AuditOptions { ApplicationName = "TestApp" };
+        options.DefaultCustomFields["TenantTag"] = "north";
+        options.DefaultCustomFields["ComplianceTag"] = "HIPAA";
+        var factory = new AuditEventFactory(
+            _mockHttpContextAccessor.Object,
+            _auditContext,
+            Options.Create(options),
+            _mockLogger.Object);
+
+        // Act
+        var result = factory.CreateEvent("Test.Event");
+
+        // Assert
+        Assert.That(result.CustomFields["TenantTag"], Is.EqualTo("north"));
+        Assert.That(result.CustomFields["ComplianceTag"], Is.EqualTo("HIPAA"));
+    }
+
+    /// <summary>
+    /// Verifies that default custom fields flow through entity and operation events,
+    /// which both build on CreateEvent.
+    /// </summary>
+    [Test]
+    public void CreateEntityEvent_AndOperationEvent_IncludeDefaultCustomFields()
+    {
+        // Arrange
+        var options = new AuditOptions { ApplicationName = "TestApp" };
+        options.DefaultCustomFields["ComplianceTag"] = "FERPA";
+        var factory = new AuditEventFactory(
+            _mockHttpContextAccessor.Object,
+            _auditContext,
+            Options.Create(options),
+            _mockLogger.Object);
+
+        // Act
+        var entityEvent = factory.CreateEntityEvent("User", "Update", new { Id = 1 });
+        var operationEvent = factory.CreateOperationEvent("Batch", Guid.NewGuid(), "Started");
+
+        // Assert
+        Assert.That(entityEvent.CustomFields["ComplianceTag"], Is.EqualTo("FERPA"));
+        Assert.That(operationEvent.CustomFields["ComplianceTag"], Is.EqualTo("FERPA"));
+    }
+
+    /// <summary>
+    /// Verifies that per-event enrichment overrides a default custom field when they
+    /// share a key — defaults are a baseline, not an override of request-captured data.
+    /// </summary>
+    [Test]
+    public void CreateEvent_EnrichmentOverridesDefaultCustomFieldOnKeyCollision()
+    {
+        // Arrange — default for a key that context enrichment also populates
+        var options = new AuditOptions { ApplicationName = "TestApp" };
+        options.DefaultCustomFields["UserEmail"] = "default@example.com";
+        var factory = new AuditEventFactory(
+            _mockHttpContextAccessor.Object,
+            _auditContext,
+            Options.Create(options),
+            _mockLogger.Object);
+
+        _auditContext.UserId = Guid.NewGuid();
+        _auditContext.UserEmail = "context@example.com";
+
+        // Act
+        var result = factory.CreateEvent("Test.Event");
+
+        // Assert — request-specific value wins over the static default
+        Assert.That(result.CustomFields["UserEmail"], Is.EqualTo("context@example.com"));
+    }
+
+    /// <summary>
     /// Verifies that UserEmail fallback doesn't set the field when claim is missing.
     /// </summary>
     [Test]

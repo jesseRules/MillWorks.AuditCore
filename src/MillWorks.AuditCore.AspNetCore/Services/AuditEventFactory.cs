@@ -44,6 +44,11 @@ public sealed class AuditEventFactory(
             Target = target != null ? new AuditTarget { New = target } : null
         };
 
+        // Seed the configured default custom fields first so per-event enrichment
+        // (context, request, entity) overrides them when they share a key. Defaults
+        // are a baseline (tenant/application/compliance tags), not an override.
+        ApplyDefaultCustomFields(auditEvent);
+
         // Use AuditContext if available (populated by middleware)
         EnrichFromAuditContext(auditEvent);
         
@@ -95,6 +100,23 @@ public sealed class AuditEventFactory(
         auditEvent.CustomFields["Status"] = status;
 
         return auditEvent;
+    }
+
+    /// <summary>
+    /// Seed the event with the configured <see cref="AuditOptions.DefaultCustomFields"/>.
+    /// Called before context/request enrichment so request-specific values take
+    /// precedence over static defaults when they share a key.
+    /// </summary>
+    private void ApplyDefaultCustomFields(AuditEvent auditEvent)
+    {
+        var defaults = auditOptions.Value.DefaultCustomFields;
+        if (defaults.Count == 0)
+            return;
+
+        foreach (var field in defaults)
+        {
+            auditEvent.CustomFields[field.Key] = field.Value;
+        }
     }
 
     /// <summary>

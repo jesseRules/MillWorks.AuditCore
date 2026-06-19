@@ -127,6 +127,38 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
+    public void AddDefaultCustomField_SetsFieldOnOptions()
+    {
+        _builder.AddDefaultCustomField("TenantTag", "north");
+        _builder.AddDefaultCustomField("ComplianceTag", "HIPAA");
+
+        Assert.That(_options.DefaultCustomFields["TenantTag"], Is.EqualTo("north"));
+        Assert.That(_options.DefaultCustomFields["ComplianceTag"], Is.EqualTo("HIPAA"));
+    }
+
+    [Test]
+    public void AddDefaultCustomField_LastWriteWinsOnSameKey()
+    {
+        _builder.AddDefaultCustomField("TenantTag", "north");
+        _builder.AddDefaultCustomField("TenantTag", "south");
+
+        Assert.That(_options.DefaultCustomFields["TenantTag"], Is.EqualTo("south"));
+    }
+
+    [Test]
+    public void AddDefaultCustomField_NullOrWhitespaceKey_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => _builder.AddDefaultCustomField(null!, "v"));
+        Assert.Throws<ArgumentException>(() => _builder.AddDefaultCustomField("  ", "v"));
+    }
+
+    [Test]
+    public void AddDefaultCustomField_NullValue_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _builder.AddDefaultCustomField("key", null!));
+    }
+
+    [Test]
     public void UseMiddleware_RegistersMiddlewareOptionsConfiguration()
     {
         _builder.UseMiddleware(options =>

@@ -26,13 +26,15 @@ namespace MillWorks.AuditCore.Services.Sinks;
 public sealed class AuditOutboxDrainer(
     IServiceScopeFactory scopeFactory,
     ILogger<AuditOutboxDrainer> logger,
-    IOptions<SecurityOptions> options)
+    IOptions<SecurityOptions> options,
+    AuditOutboxQueueObserver queueObserver)
     : BackgroundService
 {
     private const string _leaderLockName = "AuditOutboxDrainer:Leader";
 
     private readonly string _leaseOwnerId = GenerateLeaseOwnerId();
     private DateTimeOffset _lastLeaseRecoveryTime = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastQueueSampleTime = DateTimeOffset.MinValue;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -75,6 +77,12 @@ public sealed class AuditOutboxDrainer(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Sample queue depth outside the leader lock so every instance keeps the
+            // gauges fresh — AcquireLockAsync throws on non-leaders, which would otherwise
+            // starve their gauges. Has its own scope and error handling so a sampling
+            // failure never trips the drain circuit breaker.
+            await SampleQueueDepthIfDueAsync(opts, stoppingToken);
+
             try
             {
                 await using var scope = scopeFactory.CreateAsyncScope();
@@ -396,9 +404,9 @@ public sealed class AuditOutboxDrainer(
         var updatedCount = await auditCtx.AuditOutbox
             .Where(o => candidateIds.Contains(o.Id) && o.Status == AuditOutboxStatus.Pending)
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(o => o.Status, AuditOutboxStatus.InFlight)
-                .SetProperty(o => o.LeaseOwner, _leaseOwnerId)
-                .SetProperty(o => o.LeaseExpiresAt, leaseExpiry), ct);
+                .SetProperty(static o => o.Status, AuditOutboxStatus.InFlight)
+                .SetProperty(static o => o.LeaseOwner, _leaseOwnerId)
+                .SetProperty(static o => o.LeaseExpiresAt, leaseExpiry), ct);
 
         if (updatedCount == 0)
             return [];
@@ -437,6 +445,61 @@ public sealed class AuditOutboxDrainer(
         await auditCtx.SaveChangesAsync(ct);
         AuditMetrics.LeasesRecovered.Add(expiredRows.Count);
         logger.LogInformation("Recovered {Count} outbox rows from expired leases", expiredRows.Count);
+    }
+
+    private async Task SampleQueueDepthIfDueAsync(SecurityOptions opts, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastQueueSampleTime < opts.OutboxQueueDepthSampleInterval)
+            return;
+
+        // Advance the timestamp before the query so a persistently failing sample backs
+        // off for the full interval instead of hammering the database every poll.
+        _lastQueueSampleTime = now;
+
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var auditCtx = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+
+            var (pending, inFlight, oldestAgeSeconds) = await ComputeQueueDepthAsync(auditCtx, now, ct);
+            queueObserver.Update(pending, inFlight, oldestAgeSeconds);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutdown — nothing to report.
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to sample outbox queue depth for metrics");
+        }
+    }
+
+    /// <summary>
+    /// Computes the queue-depth gauge values from the outbox table: pending row count,
+    /// in-flight row count, and the age (seconds) of the oldest pending row (0 if none).
+    /// All three queries are index-backed aggregates that track no entities.
+    /// </summary>
+    internal static async Task<(long Pending, long InFlight, long OldestPendingAgeSeconds)> ComputeQueueDepthAsync(
+        AuditDbContext auditCtx, DateTimeOffset now, CancellationToken ct)
+    {
+        var pending = await auditCtx.AuditOutbox
+            .CountAsync(static o => o.Status == AuditOutboxStatus.Pending, ct);
+
+        var inFlight = await auditCtx.AuditOutbox
+            .CountAsync(static o => o.Status == AuditOutboxStatus.InFlight, ct);
+
+        var oldestPendingCreatedAt = await auditCtx.AuditOutbox
+            .Where(static o => o.Status == AuditOutboxStatus.Pending)
+            .OrderBy(static o => o.CreatedAt)
+            .Select(static o => (DateTimeOffset?)o.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        var oldestAgeSeconds = oldestPendingCreatedAt is { } createdAt
+            ? (long)Math.Max(0, (now - createdAt).TotalSeconds)
+            : 0L;
+
+        return (pending, inFlight, oldestAgeSeconds);
     }
 
     private static TimeSpan GetBackoffWithJitter(int attemptIndex, SecurityOptions opts)

@@ -92,14 +92,10 @@ internal sealed class AuditEventBatchWriter(
                     var envelope = envelopeByEventIndex[i];
                     var auditEvent = auditEvents[i];
 
-                    if (failedEventIds.Contains(auditEvent.EventId))
-                    {
-                        outcomes.Add(WriteOutcome.Failed(envelope.EnvelopeId, errorMessage, isRetryable: true, batchResult.Exception));
-                    }
-                    else
-                    {
-                        outcomes.Add(WriteOutcome.Success(envelope.EnvelopeId));
-                    }
+                    outcomes.Add(failedEventIds.Contains(auditEvent.EventId)
+                        ? WriteOutcome.Failed(envelope.EnvelopeId, errorMessage, isRetryable: true,
+                            batchResult.Exception)
+                        : WriteOutcome.Success(envelope.EnvelopeId));
                 }
             }
         }

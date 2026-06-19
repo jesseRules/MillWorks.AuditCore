@@ -244,7 +244,8 @@ public class AuditServiceUnitTests
                 It.IsAny<int>(),
                 limit,
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
+                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync((entities.AsEnumerable(), totalCount));
 
         _mockMapper
@@ -299,7 +300,8 @@ public class AuditServiceUnitTests
                 It.IsAny<int>(),
                 request.Limit,
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
+                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync((entities.AsEnumerable(), 1));
 
         _mockMapper
@@ -339,7 +341,8 @@ public class AuditServiceUnitTests
                     It.IsAny<int>(),
                     It.IsAny<int>(),
                     It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                    It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>()))
+                    It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
+                    It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Enumerable.Empty<AuditEventEntity>(), 0));
 
             _mockMapper

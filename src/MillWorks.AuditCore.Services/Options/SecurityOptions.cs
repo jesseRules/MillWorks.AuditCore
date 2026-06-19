@@ -35,6 +35,17 @@ public sealed class SecurityOptions
     public bool UseRedisLocking { get; set; } = false;
 
     /// <summary>
+    /// When true, <c>RedisDistributedLockService</c> throws at startup if the Redis backend
+    /// does not have Lua scripting (<c>EVAL</c>) enabled — the scripting that lock release
+    /// depends on. Some RESP-compatible servers (notably Garnet, which needs <c>--lua</c>)
+    /// ship with it disabled, in which case lock release fails and locks linger until their
+    /// expiry elapses. When false (default), the misconfiguration is logged as an error at
+    /// startup but does not prevent the host from starting. Only relevant when
+    /// <see cref="UseRedisLocking"/> is true.
+    /// </summary>
+    public bool FailFastOnMissingLockScripting { get; set; } = false;
+
+    /// <summary>
     /// Path to the private key PEM file for signing audit events.
     /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
     /// </summary>
@@ -79,6 +90,14 @@ public sealed class SecurityOptions
     /// consumer's transaction). TransactionalOutbox is the opt-in posture for
     /// regulated / zero-loss-durability deployments where audit + business
     /// must succeed atomically.
+    /// <para>
+    /// TransactionalOutbox is atomic with consumer writes when either the consumer
+    /// context maps <c>AuditOutboxEntity</c> (so EF saves the outbox row in the same
+    /// <c>SaveChangesAsync</c> unit) or the application supplies an explicit
+    /// <c>DbContext</c> transaction used by the raw-SQL outbox writer. A bare context
+    /// without an active transaction is rejected — it cannot guarantee atomic commit,
+    /// and silently committing the audit row independently would create false evidence.
+    /// </para>
     /// </summary>
     public AuditSinkMode AuditSinkMode { get; set; } = AuditSinkMode.Immediate;
 
@@ -155,6 +174,16 @@ public sealed class SecurityOptions
     /// Only applies under TransactionalOutbox sink mode.
     /// </summary>
     public TimeSpan OutboxDrainerLeaseRecoveryInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Interval between outbox queue-depth samples that feed the observability gauges
+    /// (<c>audit.outbox.pending_count</c>, <c>audit.outbox.inflight_count</c>,
+    /// <c>audit.outbox.oldest_pending_age_seconds</c>). The drainer runs three cheap,
+    /// index-backed aggregate queries per sample, so this is decoupled from the (typically
+    /// sub-second) poll interval to bound database load. Default 10s.
+    /// Only applies under TransactionalOutbox sink mode.
+    /// </summary>
+    public TimeSpan OutboxQueueDepthSampleInterval { get; set; } = TimeSpan.FromSeconds(10);
 }
 
 /// <summary>
@@ -257,6 +286,13 @@ internal sealed class SecurityOptionsValidator : IValidateOptions<SecurityOption
             {
                 failures.Add(
                     $"{nameof(SecurityOptions.OutboxDrainerLeaseRecoveryInterval)} must be > 0 when " +
+                    $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
+            }
+
+            if (options.OutboxQueueDepthSampleInterval <= TimeSpan.Zero)
+            {
+                failures.Add(
+                    $"{nameof(SecurityOptions.OutboxQueueDepthSampleInterval)} must be > 0 when " +
                     $"{nameof(SecurityOptions.AuditSinkMode)} is {nameof(AuditSinkMode.TransactionalOutbox)}.");
             }
         }

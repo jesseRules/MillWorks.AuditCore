@@ -120,11 +120,15 @@ public sealed class HipaaValidator : IComplianceValidator
         results.Add(new AuditValidationResult
         {
             RuleName = "Unique User Identification (§164.312(a)(2)(i))",
-            Passed = hasUserIdentification,
-            Message = hasUserIdentification
-                ? "All audit events include unique user identification"
-                : $"CRITICAL: {eventsWithoutUser} events lack user identification - HIPAA requires unique user IDs for accountability",
-            Severity = hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
+            Passed = events.Count > 0 && hasUserIdentification,
+            Message = events.Count == 0
+                ? "No audit events in the period - insufficient data to evaluate unique user identification"
+                : hasUserIdentification
+                    ? "All audit events include unique user identification"
+                    : $"CRITICAL: {eventsWithoutUser} events lack user identification - HIPAA requires unique user IDs for accountability",
+            Severity = events.Count == 0
+                ? ValidationSeverity.Low
+                : hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
             ComplianceStandard = "HIPAA",
             Category = "Technical Safeguards - Access Control",
             RegulationReference = "45 CFR §164.312(a)(2)(i)",
@@ -171,7 +175,7 @@ public sealed class HipaaValidator : IComplianceValidator
         });
 
         // §164.312(c)(1) - Integrity Controls (server-side counts)
-        var allProtected = context.TotalEventCount > 0 && context.UnprotectedEventCount == 0;
+        var allProtected = context is { TotalEventCount: > 0, UnprotectedEventCount: 0 };
         var protectedCount = context.TotalEventCount - context.UnprotectedEventCount;
 
         results.Add(new AuditValidationResult
@@ -296,9 +300,9 @@ public sealed class HipaaValidator : IComplianceValidator
         });
 
         // §164.316(b)(1)(i) - Time Limit (Addressable) - Retention Requirements
-        var oldestEvent = events.MinBy(static e => e.InsertedDate);
-        var retentionDays = oldestEvent?.InsertedDate.HasValue == true
-            ? (DateTimeOffset.UtcNow - oldestEvent.InsertedDate.Value).Days
+        // Use the server-side oldest event date, not the recency-biased 5,000-row sample.
+        var retentionDays = context.OldestEventDate.HasValue
+            ? (DateTimeOffset.UtcNow - context.OldestEventDate.Value).Days
             : 0;
 
         // HIPAA requires 6 years for documentation, many entities apply this to audit logs

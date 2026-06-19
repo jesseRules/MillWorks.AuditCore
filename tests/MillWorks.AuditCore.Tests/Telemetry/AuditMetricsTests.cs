@@ -33,6 +33,9 @@ public sealed class AuditMetricsTests
             Assert.That(AuditMetrics.Names.RetryAttempts, Is.EqualTo("audit.outbox.retry_attempts"));
             Assert.That(AuditMetrics.Names.DlqRouted, Is.EqualTo("audit.outbox.dlq_routed"));
             Assert.That(AuditMetrics.Names.LeasesRecovered, Is.EqualTo("audit.outbox.drainer.leases_recovered"));
+            Assert.That(AuditMetrics.Names.OutboxPendingCount, Is.EqualTo("audit.outbox.pending_count"));
+            Assert.That(AuditMetrics.Names.OutboxInFlightCount, Is.EqualTo("audit.outbox.inflight_count"));
+            Assert.That(AuditMetrics.Names.OutboxOldestPendingAge, Is.EqualTo("audit.outbox.oldest_pending_age_seconds"));
         });
     }
 

@@ -162,7 +162,7 @@ public sealed class AuditEventRepository(AuditDbContext context)
 
         var existing = await DbSet.AsNoTracking()
             .Where(ae => idList.Contains(ae.EventId))
-            .Select(ae => ae.EventId)
+            .Select(static ae => ae.EventId)
             .ToListAsync(cancellationToken);
 
         return [..existing];
@@ -327,7 +327,7 @@ public sealed class AuditEventRepository(AuditDbContext context)
 
         var unprotected = await DbSet.AsNoTracking()
             .Where(ae => ae.InsertedDate >= startDate && ae.InsertedDate <= endDate)
-            .Where(ae => ae.AuditIntegrity == null)
+            .Where(static ae => ae.AuditIntegrity == null)
             .CountAsync(cancellationToken);
 
         return (total, unprotected);

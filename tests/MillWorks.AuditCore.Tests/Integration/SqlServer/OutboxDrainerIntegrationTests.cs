@@ -23,6 +23,7 @@ using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Sinks;
 using MillWorks.AuditCore.Services.Sinks.Processing;
 using MillWorks.AuditCore.Services.Sinks.Writers;
+using MillWorks.AuditCore.Services.Telemetry;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -82,9 +83,13 @@ public sealed class OutboxDrainerIntegrationTests
             writer,
             NullLogger<TransactionalOutboxSink>.Instance);
 
-        await using var consumerCtx = CreateConsumerContext();
-        await consumerCtx.Database.EnsureCreatedAsync();
+        // The mapped context creates the AuditOutbox table. The bare context below does NOT
+        // map AuditOutboxEntity, so the writer takes the raw-SQL escape-hatch path (policy
+        // case 2), which is only permitted when an explicit ambient transaction is open.
+        await using (var mapped = CreateConsumerContext())
+            await mapped.Database.EnsureCreatedAsync();
 
+        await using var consumerCtx = CreateBareConsumerContext();
         await using var transaction = await consumerCtx.Database.BeginTransactionAsync();
 
         using (accessor.SetCurrent(consumerCtx))
@@ -103,7 +108,7 @@ public sealed class OutboxDrainerIntegrationTests
             var countBefore = await consumerCtx.Database
                 .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox]")
                 .SingleAsync();
-            Assert.That(countBefore, Is.EqualTo(1), "Outbox row should exist before rollback");
+            Assert.That(countBefore, Is.EqualTo(1), "Raw-SQL outbox row should exist before rollback");
         }
 
         await transaction.RollbackAsync();
@@ -158,7 +163,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             drainerLogger,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
@@ -266,7 +272,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -324,7 +331,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         // First poll: should fail and set NextRetryAt
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -351,7 +359,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer2 = new AuditOutboxDrainer(
             sp2.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         _ = drainer2.StartAsync(cts2.Token);
@@ -428,7 +437,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -492,7 +502,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -551,7 +562,8 @@ public sealed class OutboxDrainerIntegrationTests
         var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts));
+            Options.Create(opts),
+            new AuditOutboxQueueObserver());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -576,6 +588,19 @@ public sealed class OutboxDrainerIntegrationTests
             .ReplaceService<IModelCacheKeyFactory, AuditModelCacheKeyFactory>()
             .Options;
         return new OutboxConsumerDbContext(options);
+    }
+
+    /// <summary>
+    /// A consumer context that does NOT map <see cref="AuditOutboxEntity"/>. Used to exercise
+    /// the raw-SQL outbox write path, which the hybrid policy permits only inside an explicit
+    /// transaction. The AuditOutbox table must already exist (created via the mapped context).
+    /// </summary>
+    private OutboxBareConsumerDbContext CreateBareConsumerContext()
+    {
+        var options = new DbContextOptionsBuilder<OutboxBareConsumerDbContext>()
+            .UseSqlServer(_connectionString)
+            .Options;
+        return new OutboxBareConsumerDbContext(options);
     }
 
     private static SecurityOptions CreateSecurityOptions() => new()
@@ -758,6 +783,18 @@ public sealed class OutboxDrainerIntegrationTests
                 e.HasIndex(x => x.CreatedAt);
                 e.HasIndex(x => new { x.Status, x.NextRetryAt, x.CreatedAt });
             });
+        }
+    }
+
+    /// <summary>
+    /// Bare consumer context with no audit entity mappings. Outbox writes through this context
+    /// take the raw-SQL path; the table is created out-of-band via <see cref="OutboxConsumerDbContext"/>.
+    /// </summary>
+    private sealed class OutboxBareConsumerDbContext : DbContext
+    {
+        public OutboxBareConsumerDbContext(DbContextOptions<OutboxBareConsumerDbContext> options)
+            : base(options)
+        {
         }
     }
 
