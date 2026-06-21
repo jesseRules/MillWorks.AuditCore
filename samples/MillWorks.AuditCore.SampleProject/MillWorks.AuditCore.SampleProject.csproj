@@ -20,7 +20,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.2.1" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.2" />
   </ItemGroup>
 
   <ItemGroup>
