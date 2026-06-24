@@ -598,15 +598,24 @@ For applications that already use an external background job system, replace the
 public sealed class BackgroundJobsRequestAuditDispatcher(
     IBackgroundJobClient jobs) : IRequestAuditDispatcher
 {
-    public ValueTask DispatchAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    public async ValueTask DispatchAsync(
+        AuditEvent auditEvent,
+        CancellationToken cancellationToken = default)
     {
-        jobs.Enqueue<DeferredRequestAuditJob>(job => job.RunAsync(auditEvent, CancellationToken.None));
-        return ValueTask.CompletedTask;
+        await jobs.EnqueueAsync<IDeferredRequestAuditJob>(
+            job => job.RunAsync(auditEvent, CancellationToken.None),
+            cancellationToken: cancellationToken);
     }
+}
+
+public interface IDeferredRequestAuditJob
+{
+    Task RunAsync(AuditEvent auditEvent, CancellationToken cancellationToken);
 }
 
 public sealed class DeferredRequestAuditJob(
     IRequestAuditProcessor processor)
+    : IDeferredRequestAuditJob
 {
     public Task RunAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
         => processor.ProcessAsync(auditEvent, cancellationToken);
@@ -620,6 +629,8 @@ builder.Services.AddMillWorksAudit(audit =>
 {
     audit.UseRequestAuditDispatcher<BackgroundJobsRequestAuditDispatcher>();
 });
+
+builder.Services.AddScoped<IDeferredRequestAuditJob, DeferredRequestAuditJob>();
 ```
 
 This keeps AuditCore independent of any specific job framework while allowing consumers to route deferred request audits through systems such as `MillWorks.BackgroundJobs`.
