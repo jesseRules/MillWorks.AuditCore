@@ -1,5 +1,3 @@
-using Mapster;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,16 +18,6 @@ namespace MillWorks.AuditCore.Tests.Integration;
 [Category("Integration")]
 public class SecurityEventIntegrationTests : SqliteIntegrationFixture
 {
-    private IMapper _mapper = null!;
-
-    [OneTimeSetUp]
-    public void SetupMapper()
-    {
-        var config = new TypeAdapterConfig();
-        new AuditMappingConfiguration().Register(config);
-        _mapper = new Mapper(config);
-    }
-
     [Test]
     public async Task RecordAndRetrieve_SecurityEvent_RoundTrip()
     {
@@ -44,7 +32,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         var dto = new SecurityEventDto
@@ -90,7 +78,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         // Seed events with mixed severities
@@ -147,7 +135,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         // Record an event first
@@ -192,7 +180,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         var tenantId = Guid.NewGuid();
@@ -256,7 +244,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         // Seed break-glass events with mixed severities
@@ -331,7 +319,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         var dto = new SecurityEventDto
@@ -375,13 +363,13 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         await context.Set<AuditSecurityEventEntity>().AddAsync(entity);
         await context.SaveChangesAsync();
 
-        // Act - read back via mapper
+        // Act - read back via the static mapper
         using var verifyContext = CreateContext();
         var persisted = await verifyContext.Set<AuditSecurityEventEntity>()
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == entity.Id);
 
-        var dto = _mapper.Map<SecurityEventDto>(persisted!);
+        var dto = persisted!.ToDto();
 
         // Assert
         Assert.That(dto.Details, Is.Not.Null);
@@ -409,7 +397,7 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         var service = new AuditSecurityEventService(
-            securityRepo, auditContext, _mapper,
+            securityRepo, auditContext,
             NullLogger<AuditSecurityEventService>.Instance, appConfig);
 
         var dto = new SecurityEventDto

@@ -1,6 +1,4 @@
-using MapsterMapper;
 using Microsoft.Extensions.Logging;
-using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Abstractions.Enums;
@@ -22,11 +20,6 @@ public class AuditQueryServiceTests
     private AuditDbContext _context;
 
     /// <summary>
-    /// Mock Mapper
-    /// </summary>
-    private Mock<IMapper> _mockMapper;
-
-    /// <summary>
     /// Mock Logger
     /// </summary>
     private Mock<ILogger<AuditQueryService>> _mockLogger;
@@ -45,12 +38,10 @@ public class AuditQueryServiceTests
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
         _context = new AuditDbContext(options);
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditQueryService>>();
 
         _queryService = new AuditQueryService(
             _context,
-            _mockMapper.Object,
             _mockLogger.Object);
     }
 
@@ -354,16 +345,6 @@ public class AuditQueryServiceTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        var eventDtos = events.Select(static e => new AuditEventDto
-        {
-            EventId = e.EventId,
-            EventType = e.EventType
-        }).ToList();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns(eventDtos.Take(50).ToList());
-
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: 50);
 
@@ -395,10 +376,6 @@ public class AuditQueryServiceTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns([]);
-
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 50, limit: 50);
 
@@ -414,28 +391,18 @@ public class AuditQueryServiceTests
     public async Task GetAuditEventsAsync_ParsesJsonDataCorrectly()
     {
         // Arrange
-        var eventDto = new AuditEventDto
-        {
-            EventId = Guid.NewGuid(),
-            JsonData = "{\"Key\":\"Value\"}"
-        };
-
         var events = new List<AuditEventEntity>
         {
             new()
             {
-                EventId = eventDto.EventId.Value,
-                JsonData = eventDto.JsonData,
+                EventId = Guid.NewGuid(),
+                JsonData = "{\"Key\":\"Value\"}",
                 InsertedDate = DateTimeOffset.UtcNow
             }
         };
 
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns([eventDto]);
 
         // Act
         var result = await _queryService.GetAuditEventsAsync();
@@ -452,28 +419,18 @@ public class AuditQueryServiceTests
     public async Task GetAuditEventsAsync_WithMalformedJson_LogsWarning()
     {
         // Arrange
-        var eventDto = new AuditEventDto
-        {
-            EventId = Guid.NewGuid(),
-            JsonData = "invalid json"
-        };
-
         var events = new List<AuditEventEntity>
         {
             new()
             {
-                EventId = eventDto.EventId.Value,
-                JsonData = eventDto.JsonData,
+                EventId = Guid.NewGuid(),
+                JsonData = "invalid json",
                 InsertedDate = DateTimeOffset.UtcNow
             }
         };
 
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns([eventDto]);
 
         // Act
         var unused = await _queryService.GetAuditEventsAsync();
@@ -510,16 +467,6 @@ public class AuditQueryServiceTests
 
         await _context.AuditEvents.AddAsync(auditEvent);
         await _context.SaveChangesAsync();
-
-        var eventDto = new AuditEventDto
-        {
-            EventId = eventId,
-            EventType = "Test.Event"
-        };
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns(eventDto);
 
         // Act
         var result = await _queryService.GetAuditEventByIdAsync(eventId);
@@ -572,16 +519,6 @@ public class AuditQueryServiceTests
 
         await _context.AuditEvents.AddAsync(auditEvent);
         await _context.SaveChangesAsync();
-
-        var eventDto = new AuditEventDto
-        {
-            EventId = eventId,
-            JsonData = jsonData
-        };
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns(eventDto);
 
         // Act
         var result = await _queryService.GetAuditEventByIdAsync(eventId);
@@ -876,13 +813,6 @@ public class AuditQueryServiceTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
-            {
-                EventId = e.EventId
-            }).ToList());
-
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: 5000);
 
@@ -904,13 +834,6 @@ public class AuditQueryServiceTests
 
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
-            {
-                EventId = e.EventId
-            }).ToList());
 
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: -1);
@@ -934,13 +857,6 @@ public class AuditQueryServiceTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
-            {
-                EventId = e.EventId
-            }).ToList());
-
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: 0);
 
@@ -963,13 +879,6 @@ public class AuditQueryServiceTests
 
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns(static (List<AuditEventEntity> src) => src.Select(static e => new AuditEventDto
-            {
-                EventId = e.EventId
-            }).ToList());
 
         // Act
         var result = await _queryService.GetAuditEventsAsync(offset: 0, limit: requestedLimit);

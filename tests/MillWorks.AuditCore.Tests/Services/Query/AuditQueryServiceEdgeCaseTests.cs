@@ -1,6 +1,4 @@
-using MapsterMapper;
 using Microsoft.Extensions.Logging;
-using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Query;
@@ -21,11 +19,6 @@ public class AuditQueryServiceEdgeCaseTests
     private AuditDbContext _context;
 
     /// <summary>
-    /// Mock mapper.
-    /// </summary>
-    private Mock<IMapper> _mockMapper;
-
-    /// <summary>
     /// Mock logger.
     /// </summary>
     private Mock<ILogger<AuditQueryService>> _mockLogger;
@@ -43,9 +36,8 @@ public class AuditQueryServiceEdgeCaseTests
     {
         var options = TestDbContextFactory.CreateInMemoryOptions();
         _context = new AuditDbContext(options);
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditQueryService>>();
-        _queryService = new AuditQueryService(_context, _mockMapper.Object, _mockLogger.Object);
+        _queryService = new AuditQueryService(_context, _mockLogger.Object);
     }
 
     /// <summary>
@@ -205,8 +197,8 @@ public class AuditQueryServiceEdgeCaseTests
 
     /// <summary>
     /// When the caller requests a page that is beyond all stored records the total item
-    /// count must still reflect reality, while the mapped items list is whatever the
-    /// mapper returns for an empty set of entities (here mocked as an empty list).
+    /// count must still reflect reality, while the mapped items list is empty because no
+    /// entities fall within the requested page.
     /// </summary>
     [Test]
     public async Task GetAuditEventsAsync_LargePageNumber_ReturnsEmptyItems()
@@ -223,12 +215,7 @@ public class AuditQueryServiceEdgeCaseTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        // Mapper returns an empty list because EF skips past all rows for offset 1000
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<List<AuditEventEntity>>()))
-            .Returns([]);
-
-        // Act — request well beyond the end of the data set
+        // Act — request well beyond the end of the data set; EF skips past all rows for offset 1000
         var result = await _queryService.GetAuditEventsAsync(offset: 1000, limit: 50);
 
         // Assert

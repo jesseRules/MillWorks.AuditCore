@@ -1,0 +1,59 @@
+# Local development database for the MillWorks.AuditCore sample project.
+#
+# This brings up SQL Server ONLY. The sample app itself still runs from your IDE
+# or `dotnet run` against this container. With EnsureDatabaseCreated=true (set in
+# appsettings.Development.json), the app creates the `AuditSample` database and the
+# `audit` schema on first startup, so no init script is needed here.
+#
+#   docker compose up -d     # start the database in the background
+#   dotnet run               # run the sample against it (from this folder)
+#   docker compose down      # stop it (add -v to also delete the data volume)
+#
+# Apple Silicon note: mcr.microsoft.com/mssql/server ships an amd64-only image, so
+# it runs under Rosetta emulation via `platform: linux/amd64`. SQL Server 2022 runs
+# cleanly this way. See the alternative images at the bottom of this file for the
+# 2025 engine or an ARM-native option.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: auditcore-sample-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Sample_Dev_Pass123!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - auditcore-sample-mssql:/var/opt/mssql
+    healthcheck:
+      # mssql-tools18 sqlcmd; -C trusts the container's self-signed certificate.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  auditcore-sample-mssql:
+
+# ---------------------------------------------------------------------------
+# Alternative database images
+#
+# To use one, swap the `image` (and `platform`) on the `sqlserver` service above.
+# All use the same SA password and port, so appsettings.Development.json is unchanged.
+#
+# SQL Server 2025 -- newest engine. On Docker Desktop / Apple Silicon it needs CU1
+# or later: the RTM image crashed on an AVX assertion under Rosetta, and CU1 fixed
+# it (`2025-latest` now carries the fix). OrbStack ran it even before CU1.
+#     image: mcr.microsoft.com/mssql/server:2025-latest
+#     platform: linux/amd64
+#
+# Azure SQL Edge -- ARM-native, so it boots fast on Apple Silicon WITHOUT Rosetta.
+# Caveats: Microsoft retired it on 2025-09-30 (no further updates), and it is a
+# SUBSET T-SQL engine, so it is not fully faithful to SQL Server. Use it only for
+# quick local loops, never as the engine you validate against.
+#     image: mcr.microsoft.com/azure-sql-edge:latest
+#     platform: linux/arm64/v8
+# ---------------------------------------------------------------------------

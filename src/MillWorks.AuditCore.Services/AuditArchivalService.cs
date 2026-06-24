@@ -9,7 +9,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,6 +19,7 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Mapping;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
 
 namespace MillWorks.AuditCore.Services.Core;
@@ -34,7 +34,6 @@ public sealed class AuditArchivalService(
     IAuditEventRepository auditEventRepository,
     IAuditIntegrityRepository auditIntegrityRepository,
     IArchiveRecordRepository archiveRecordRepository,
-    IMapper mapper,
     ILogger<AuditArchivalService> logger,
     IConfiguration configuration,
     ITamperDetectionService? tamperDetectionService = null,
@@ -274,7 +273,7 @@ public sealed class AuditArchivalService(
                             eventsHasher.AppendData(Encoding.UTF8.GetBytes(repr));
                             isFirstForHash = false;
 
-                            var dto = mapper.Map<AuditEventDto>(entity);
+                            var dto = entity.ToDto();
                             JsonSerializer.Serialize(jsonWriter, dto, _streamJsonOptions);
 
                             eventsWritten++;
@@ -294,7 +293,7 @@ public sealed class AuditArchivalService(
                                            .StreamByEventIdsAsync(eventIds, cancellationToken)
                                            .ConfigureAwait(false))
                         {
-                            var integrityDto = mapper.Map<AuditIntegrityDto>(integrity);
+                            var integrityDto = integrity.ToDto();
                             JsonSerializer.Serialize(jsonWriter, integrityDto, _streamJsonOptions);
 
                             integrityWritten++;
@@ -648,7 +647,7 @@ public sealed class AuditArchivalService(
                 {
                     var dto = pendingEvents.Dequeue();
                     dto.AuditIntegrity = null;
-                    var entity = mapper.Map<AuditEventEntity>(dto);
+                    var entity = dto.ToEntity();
                     entity.AuditIntegrity = null;
                     eventBatch.Add(entity);
                     totalEvents++;
@@ -663,7 +662,7 @@ public sealed class AuditArchivalService(
                 {
                     var dto = pendingIntegrity.Dequeue();
                     dto.AuditEvent = null;
-                    var entity = mapper.Map<AuditIntegrityEntity>(dto);
+                    var entity = dto.ToEntity();
                     entity.AuditEvent = null;
                     integrityBatch.Add(entity);
 
@@ -948,7 +947,7 @@ public sealed class AuditArchivalService(
     public async Task<List<ArchiveMetadata>> GetArchivesAsync(CancellationToken cancellationToken = default)
     {
         var archiveRecords = await archiveRecordRepository.GetAllOrderedAsync(cancellationToken);
-        return mapper.Map<List<ArchiveMetadata>>(archiveRecords);
+        return archiveRecords.Select(static x => x.ToMetadata()).ToList();
     }
 
     /// <summary>

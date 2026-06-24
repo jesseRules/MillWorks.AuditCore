@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
-using MapsterMapper;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -33,7 +32,6 @@ public sealed class AuditArchivalServicePerformanceTests
     private Mock<IArchiveRecordRepository> _mockArchiveRecordRepository = null!;
     private Mock<ITamperDetectionService> _mockTamperDetectionService = null!;
     private Mock<BlobServiceClient> _mockBlobServiceClient = null!;
-    private Mock<IMapper> _mockMapper = null!;
     private Mock<ILogger<AuditArchivalService>> _mockLogger = null!;
     private IConfiguration _configuration = null!;
 
@@ -48,7 +46,6 @@ public sealed class AuditArchivalServicePerformanceTests
         _mockArchiveRecordRepository = new Mock<IArchiveRecordRepository>();
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockBlobServiceClient = new Mock<BlobServiceClient>();
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditArchivalService>>();
 
         _lastUploadByteCount = 0;
@@ -112,9 +109,6 @@ public sealed class AuditArchivalServicePerformanceTests
         _mockArchiveRecordRepository
             .Setup(static x => x.GetAllOrderedAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditArchiveRecordEntity>());
-        _mockMapper
-            .Setup(static x => x.Map<List<ArchiveMetadata>>(It.IsAny<IEnumerable<AuditArchiveRecordEntity>>()))
-            .Returns(new List<ArchiveMetadata>());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
@@ -195,7 +189,6 @@ public sealed class AuditArchivalServicePerformanceTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             withTamperDetection ? _mockTamperDetectionService.Object : null,
@@ -303,20 +296,6 @@ public sealed class AuditArchivalServicePerformanceTests
         _mockTamperDetectionService
             .Setup(x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-
-        // Streaming archival maps one entity at a time.
-        _mockMapper
-            .Setup(x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate,
-                JsonData = e.JsonData
-            });
-        _mockMapper
-            .Setup(x => x.Map<AuditIntegrityDto>(It.IsAny<AuditIntegrityEntity>()))
-            .Returns((AuditIntegrityEntity i) => new AuditIntegrityDto());
 
         SetupBlobUploadCapture();
     }

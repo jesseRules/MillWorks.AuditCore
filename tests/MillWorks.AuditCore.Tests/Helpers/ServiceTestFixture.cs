@@ -1,4 +1,3 @@
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -15,7 +14,6 @@ public abstract class ServiceTestFixture
 {
     protected Mock<IAuditLogRepository> MockAuditLogRepository { get; private set; } = null!;
     protected Mock<IAuditEventRepository> MockAuditEventRepository { get; private set; } = null!;
-    protected Mock<IMapper> MockMapper { get; private set; } = null!;
     protected Mock<IAuditContext> MockAuditContext { get; private set; } = null!;
     protected AuditContext RealAuditContext { get; private set; } = null!;
     protected IConfiguration Configuration { get; private set; } = null!;
@@ -30,7 +28,6 @@ public abstract class ServiceTestFixture
     {
         MockAuditLogRepository = new Mock<IAuditLogRepository>();
         MockAuditEventRepository = new Mock<IAuditEventRepository>();
-        MockMapper = new Mock<IMapper>();
         MockAuditContext = new Mock<IAuditContext>();
         RealAuditContext = new AuditContext();
 

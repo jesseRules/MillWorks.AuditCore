@@ -1,5 +1,3 @@
-using Mapster;
-using MapsterMapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Requests;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -17,16 +15,6 @@ namespace MillWorks.AuditCore.Tests.Integration;
 [Category("Integration")]
 public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
 {
-    private IMapper _mapper = null!;
-
-    [OneTimeSetUp]
-    public void SetupMapper()
-    {
-        var config = new TypeAdapterConfig();
-        new AuditMappingConfiguration().Register(config);
-        _mapper = new Mapper(config);
-    }
-
     private static AuditEventEntity CreateAuditEvent(
         string eventType = "User.Login",
         string user = "alice@test.com",
@@ -65,7 +53,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
                 jsonData: """{"action":"password_reset","method":"email"}"""));
         await context.SaveChangesAsync();
 
-        var service = new AuditSearchService(context, _mapper, NullLogger<AuditSearchService>.Instance);
+        var service = new AuditSearchService(context, NullLogger<AuditSearchService>.Instance);
 
         // Act - search for "alice" which should match User field
         var result = await service.SearchAuditEventsAsync(new AuditSearchRequest
@@ -162,7 +150,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
                 entityId: Guid.NewGuid().ToString()));
         await context.SaveChangesAsync();
 
-        var service = new AuditQueryService(context, _mapper, NullLogger<AuditQueryService>.Instance);
+        var service = new AuditQueryService(context, NullLogger<AuditQueryService>.Instance);
 
         // Act
         var trail = (await service.GetEntityAuditTrailAsync("Order", entityId)).ToList();
@@ -189,7 +177,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
         }
         await context.SaveChangesAsync();
 
-        var service = new AuditSearchService(context, _mapper, NullLogger<AuditSearchService>.Instance);
+        var service = new AuditSearchService(context, NullLogger<AuditSearchService>.Instance);
 
         // Act - first page of 10
         var result = await service.SearchAuditEventsAsync(new AuditSearchRequest

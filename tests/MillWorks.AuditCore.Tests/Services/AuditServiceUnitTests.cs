@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using MapsterMapper;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Requests;
@@ -20,7 +19,6 @@ public class AuditServiceUnitTests
 {
     private Mock<IAuditLogRepository> _mockAuditLogRepository;
     private Mock<IAuditEventRepository> _mockAuditEventRepository;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditService>> _mockLogger;
     private AuditService _auditService;
 
@@ -29,13 +27,11 @@ public class AuditServiceUnitTests
     {
         _mockAuditLogRepository = new Mock<IAuditLogRepository>();
         _mockAuditEventRepository = new Mock<IAuditEventRepository>();
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditService>>();
 
         _auditService = new AuditService(
             _mockAuditLogRepository.Object,
             _mockAuditEventRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object);
     }
 
@@ -60,19 +56,9 @@ public class AuditServiceUnitTests
             new() { EntityName = entityName, EntityId = entityId }
         };
 
-        var dtos = new List<AuditLogDto>
-        {
-            new() { EntityName = entityName, EntityId = entityId },
-            new() { EntityName = entityName, EntityId = entityId }
-        };
-
         _mockAuditLogRepository
             .Setup(x => x.GetEntityAuditTrailAsync(entityName, entityId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(entities);
-
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditLogDto>>(It.IsAny<IEnumerable<AuditLogEntity>>()))
-            .Returns(dtos);
 
         // Act
         var result = await _auditService.GetEntityAuditTrailAsync(entityName, entityId);
@@ -101,10 +87,6 @@ public class AuditServiceUnitTests
             .Setup(x => x.GetEntityAuditTrailAsync(entityName, entityId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditLogEntity>());
 
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditLogDto>>(It.IsAny<IEnumerable<AuditLogEntity>>()))
-            .Returns(new List<AuditLogDto>());
-
         // Act
         var result = await _auditService.GetEntityAuditTrailAsync(entityName, entityId);
 
@@ -132,19 +114,9 @@ public class AuditServiceUnitTests
             new() { CreatedById = userId }
         };
 
-        var dtos = new List<AuditLogDto>
-        {
-            new() { CreatedById = userId },
-            new() { CreatedById = userId }
-        };
-
         _mockAuditLogRepository
             .Setup(x => x.GetUserActivityAsync(userId, It.IsAny<DateTimeOffset?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(entities);
-
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditLogDto>>(It.IsAny<IEnumerable<AuditLogEntity>>()))
-            .Returns(dtos);
 
         // Act
         var result = await _auditService.GetUserActivityAsync(userId);
@@ -235,10 +207,6 @@ public class AuditServiceUnitTests
             .Select(static _ => new AuditEventEntity { EventId = Guid.NewGuid() })
             .ToList();
 
-        var dtos = entities
-            .Select(static e => new AuditEventDto { EventId = e.EventId })
-            .ToList();
-
         _mockAuditEventRepository
             .Setup(static x => x.GetByOffsetAsync(
                 It.IsAny<int>(),
@@ -247,10 +215,6 @@ public class AuditServiceUnitTests
                 It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((entities.AsEnumerable(), totalCount));
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(dtos);
 
         // Act
         var result = await _auditService.GetAuditEvents(offset, limit);
@@ -290,11 +254,6 @@ public class AuditServiceUnitTests
             new() { EventId = Guid.NewGuid(), User = "alice@example.com", EventType = "User.Login" }
         };
 
-        var dtos = new List<AuditEventDto>
-        {
-            new() { User = "alice@example.com", EventType = "User.Login" }
-        };
-
         _mockAuditEventRepository
             .Setup(x => x.GetByOffsetAsync(
                 It.IsAny<int>(),
@@ -303,10 +262,6 @@ public class AuditServiceUnitTests
                 It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((entities.AsEnumerable(), 1));
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(dtos);
 
         // Act
         var result = await _auditService.SearchAuditEvents(request);
@@ -344,10 +299,6 @@ public class AuditServiceUnitTests
                     It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Enumerable.Empty<AuditEventEntity>(), 0));
-
-            _mockMapper
-                .Setup(static x => x.Map<List<AuditEventDto>>(It.IsAny<object>()))
-                .Returns(new List<AuditEventDto>());
 
             // Act — must not throw
             AuditEventsResponse? result = null;

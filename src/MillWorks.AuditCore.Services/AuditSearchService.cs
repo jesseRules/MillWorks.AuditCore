@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -8,6 +7,7 @@ using MillWorks.AuditCore.Abstractions.Responses;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.Services.Query;
 
@@ -15,11 +15,9 @@ namespace MillWorks.AuditCore.Services.Query;
 /// Audit search service for querying and retrieving audit events based on various criteria.
 /// </summary>
 /// <param name="context"></param>
-/// <param name="mapper"></param>
 /// <param name="logger"></param>
 public sealed class AuditSearchService(
     AuditDbContext context,
-    IMapper mapper,
     ILogger<AuditSearchService> logger)
     : IAuditSearchService
 {
@@ -265,7 +263,7 @@ public sealed class AuditSearchService(
     /// <returns></returns>
     private List<AuditEventDto> MapAndEnrichAuditEvents(List<AuditEventEntity> events)
     {
-        List<AuditEventDto> dtos = mapper.Map<List<AuditEventDto>>(events);
+        List<AuditEventDto> dtos = events.Select(static x => x.ToDto()).ToList();
 
         foreach (AuditEventDto dto in dtos.Where(static d => !string.IsNullOrEmpty(d.JsonData)))
         {

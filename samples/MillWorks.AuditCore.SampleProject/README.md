@@ -5,27 +5,65 @@ A working ASP.NET Core Web API that demonstrates the full MillWorks.AuditCore fe
 ## Prerequisites
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
-- **SQL Server** -- any edition (LocalDB, Express, Developer, or a remote instance). Set the connection string in `appsettings.json`.
+- **SQL Server** -- either run the bundled Docker container (recommended, see below) or point the connection string at any edition (LocalDB, Express, Developer, or a remote instance).
+- **Docker** (recommended) -- to spin up SQL Server locally with the included `docker-compose.yml`.
 - **Redis** (optional) -- only required if you enable `UseRedisLocking` in the security configuration. The sample defaults to `UseRedisLocking = false`.
 - **Azure Storage** (optional) -- only required if you provide an `AzureStorage` connection string for archival.
 
 ## How to Run
 
-1. Set the `DefaultConnection` connection string in `appsettings.json` (or via environment variable / user secrets):
+### Option A -- Docker (recommended)
 
-   ```json
-   "ConnectionStrings": {
-     "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=AuditCoreSample;Trusted_Connection=True;"
-   }
-   ```
+A `docker-compose.yml` next to this README brings up SQL Server 2022 locally. The
+sample app itself still runs from your IDE or the CLI against that container.
 
-2. Run the project:
+1. Start the database and wait for it to pass its health check (run from this folder):
 
    ```shell
-   dotnet run --project samples/MillWorks.AuditCore.SampleProject
+   docker compose up -d --wait
    ```
 
-3. Open the Swagger UI at `https://localhost:<port>/swagger` to explore and test the API endpoints.
+   `--wait` blocks until the container's health check reports healthy (~30s on a
+   first boot under Rosetta), so the app doesn't race a still-starting SQL Server.
+
+2. Run the sample. The bundled launch profile runs in the **Development**
+   environment, and `appsettings.Development.json` already points `DefaultConnection`
+   at the container, so no further configuration is needed:
+
+   ```shell
+   dotnet run
+   ```
+
+3. Open the Swagger UI at `https://localhost:7115/swagger` to explore and test the API endpoints.
+
+4. When you're done, stop the database (add `-v` to also delete its data volume):
+
+   ```shell
+   docker compose down
+   ```
+
+**Apple Silicon:** the `mcr.microsoft.com/mssql/server` image is amd64-only and runs
+under Rosetta emulation (the compose file sets `platform: linux/amd64`). SQL Server
+2022 runs cleanly this way. The compose file also documents a SQL Server 2025 option
+and an ARM-native (but retired) Azure SQL Edge option if you prefer those.
+
+**Already using port 1433?** If another local SQL instance (e.g. a SQL Server or
+Azure SQL Edge container) is already bound to `1433`, `docker compose up` fails with
+`Bind for 0.0.0.0:1433 failed: port is already allocated`. Either stop that instance,
+or remap the host port in `docker-compose.yml` (e.g. `"14330:1433"`) and update the
+`Server=localhost,1433` portion of the connection string in `appsettings.Development.json`
+to match.
+
+### Option B -- Your own SQL Server
+
+Set the `DefaultConnection` connection string in `appsettings.json` (or via
+environment variable / user secrets), then run `dotnet run`:
+
+```json
+"ConnectionStrings": {
+  "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=AuditCoreSample;Trusted_Connection=True;Encrypt=False"
+}
+```
 
 The sample is configured with `EnsureDatabaseCreated = true`, so the audit schema tables are created automatically on first run. No manual migrations are needed.
 
@@ -55,9 +93,9 @@ Exposes the MillWorks.AuditCore query, compliance, tamper detection, and archiva
 | **Query** | `GET /events`, `GET /events/{id}`, `GET /events/by-date`, `GET /events/by-user/{username}` |
 | **Entity trails** | `GET /trail/{entityName}/{entityId}` |
 | **Activity** | `GET /activity/user/{userId}`, `GET /activity/recent` |
-| **Search** | `POST /search`, `GET /search/entity/{entityType}`, `GET /distinct/users`, `GET /distinct/event-types` |
+| **Search** | `POST /search`, `GET /search/entity/{entityType}`, `GET /security`, `GET /distinct/users`, `GET /distinct/event-types` |
 | **Reporting** | `GET /summary`, `GET /chart-data`, `GET /activity/summary`, `GET /distribution/event-types`, `GET /top-users` |
-| **Tamper detection** | `GET /integrity/verify/{eventId}`, `POST /integrity/verify-chain`, `GET /integrity/verify-sequence`, `GET /integrity/detect-tampering`, `GET /integrity/export-proof/{eventId}` |
+| **Tamper detection** | `GET /integrity/verify/{eventId}`, `POST /integrity/verify-chain`, `GET /integrity/verify-sequence`, `GET /integrity/detect-tampering`, `GET /integrity/export-proof/{eventId}`, `GET /chain/status` |
 | **Compliance** | `POST /compliance/report`, `POST /compliance/anonymize/{userId}`, `GET /compliance/export/{userId}`, `GET /compliance/validate-retention` |
 | **Archival** | `POST /archive`, `POST /archive/restore/{archiveId}`, `GET /archives`, `GET /archive/validate/{archiveId}` |
 

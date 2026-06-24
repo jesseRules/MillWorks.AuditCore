@@ -1,5 +1,3 @@
-using Mapster;
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -273,62 +271,6 @@ public class MillWorksAuditBuilderTests
         // inside StartAsync when MigrateOnStartup and EnsureDatabaseCreated are both false.
         Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)), Is.True);
-    }
-
-    // Unique POCO types for the Mapster regression test — declared as nested types
-    // so their names don't collide with other test fixtures in the assembly.
-    private sealed class FakeConsumerSource
-    {
-        public int Value { get; set; }
-    }
-
-    private sealed class FakeConsumerDest
-    {
-        // Named differently from Value so convention-based mapping cannot satisfy it.
-        public int MappedValue { get; set; }
-    }
-
-    private sealed class FakeConsumerMapping : IRegister
-    {
-        public void Register(TypeAdapterConfig config)
-        {
-            config.NewConfig<FakeConsumerSource, FakeConsumerDest>()
-                .Map(dest => dest.MappedValue, src => src.Value * 2);
-        }
-    }
-
-    [Test]
-    public void UseEntityFramework_Mapster_PreservesConsumerRegistrationsOnGlobalSettings()
-    {
-        // Regression: AuditCore's ConfigureMapster previously constructed a fresh
-        // TypeAdapterConfig, applied only AuditMappingConfiguration to it, and registered
-        // it via Services.AddSingleton(config). Consumer pipelines register their Mapster
-        // configs against TypeAdapterConfig.GlobalSettings and expose IMapper from that
-        // instance — AuditCore's fresh config won last-writer-wins on IMapper resolution,
-        // silently dropping every other library's mapping rules. Structurally the same
-        // shape as the 1.5.4 IConnectionMultiplexer bug.
-        //
-        // After the fix: ConfigureMapster uses TypeAdapterConfig.GlobalSettings (shared
-        // with the consumer) and registers via TryAddSingleton so consumer-owned
-        // registrations win.
-        TypeAdapterConfig.GlobalSettings.Apply(new FakeConsumerMapping());
-
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
-
-        using var provider = _services.BuildServiceProvider();
-        var mapper = provider.GetRequiredService<IMapper>();
-
-        var source = new FakeConsumerSource { Value = 21 };
-        var dest = mapper.Map<FakeConsumerDest>(source);
-
-        // With the fix: the FakeConsumerMapping rule applies → MappedValue = 42.
-        // Without the fix: IMapper is backed by the fresh AuditCore config that never saw
-        // the consumer mapping → MappedValue stays at its default 0 (no convention match
-        // between Value and MappedValue).
-        Assert.That(dest.MappedValue, Is.EqualTo(42));
     }
 
     [Test]

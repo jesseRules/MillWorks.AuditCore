@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using MapsterMapper;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Requests;
@@ -7,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Responses;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.Services.Core;
 
@@ -15,12 +15,10 @@ namespace MillWorks.AuditCore.Services.Core;
 /// </summary>
 /// <param name="auditLogRepository"></param>
 /// <param name="auditEventRepository"></param>
-/// <param name="mapper"></param>
 /// <param name="logger"></param>
 public sealed class AuditService(
     IAuditLogRepository auditLogRepository,
     IAuditEventRepository auditEventRepository,
-    IMapper mapper,
     ILogger<AuditService> logger)
     : IAuditService
 {
@@ -37,7 +35,7 @@ public sealed class AuditService(
         IEnumerable<AuditLogEntity> auditLogs =
             await auditLogRepository.GetEntityAuditTrailAsync(entityName, entityId,
                 cancellationToken: cancellationToken);
-        return mapper.Map<IEnumerable<AuditLogDto>>(auditLogs);
+        return auditLogs.Select(static x => x.ToDto()).ToList();
     }
 
     /// <summary>
@@ -53,7 +51,7 @@ public sealed class AuditService(
     {
         IEnumerable<AuditLogEntity> auditLogs =
             await auditLogRepository.GetUserActivityAsync(userId, fromDate, Math.Max(take, 1), cancellationToken);
-        return mapper.Map<IEnumerable<AuditLogDto>>(auditLogs);
+        return auditLogs.Select(static x => x.ToDto()).ToList();
     }
 
 
@@ -92,7 +90,7 @@ public sealed class AuditService(
                 return null;
             }
 
-            AuditEventDto result = mapper.Map<AuditEventDto>(auditEvent);
+            AuditEventDto result = auditEvent.ToDto();
             result.Data = TryParseJsonData(auditEvent.JsonData, auditEvent.EventId);
 
             logger.LogDebug("Successfully retrieved audit event {EventId}", eventId);
@@ -130,7 +128,7 @@ public sealed class AuditService(
             var eventsList = events.ToList();
             int totalPages = (int)Math.Ceiling((double)totalCount / limit);
 
-            List<AuditEventDto> mapped = mapper.Map<List<AuditEventDto>>(eventsList);
+            List<AuditEventDto> mapped = eventsList.Select(static x => x.ToDto()).ToList();
             foreach (var dto in mapped)
             {
                 dto.Data = TryParseJsonData(dto.JsonData, dto.EventId);
@@ -217,7 +215,7 @@ public sealed class AuditService(
             var eventsList = events.ToList();
             int totalPages = (int)Math.Ceiling((double)totalCount / request.Limit);
 
-            List<AuditEventDto> mapped = mapper.Map<List<AuditEventDto>>(eventsList);
+            List<AuditEventDto> mapped = eventsList.Select(static x => x.ToDto()).ToList();
             foreach (var dto in mapped)
             {
                 dto.Data = TryParseJsonData(dto.JsonData, dto.EventId);

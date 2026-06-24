@@ -1,31 +1,18 @@
-using Mapster;
-using MapsterMapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Core;
-using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
 /// <summary>
 /// End-to-end integration tests for AuditService using SQLite.
-/// Validates: Service -> Mapster DTO mapping -> Repository -> EF Core -> SQLite
+/// Validates: Service -> static DTO mapping -> Repository -> EF Core -> SQLite
 /// </summary>
 [TestFixture]
 [Category("Integration")]
 public class AuditServiceIntegrationTests : SqliteIntegrationFixture
 {
-    private IMapper _mapper = null!;
-
-    [OneTimeSetUp]
-    public void SetupMapper()
-    {
-        var config = new TypeAdapterConfig();
-        new AuditMappingConfiguration().Register(config);
-        _mapper = new Mapper(config);
-    }
-
     [Test]
     public async Task GetAuditEventById_SeedOneEvent_ReturnsCorrectDto()
     {
@@ -33,7 +20,7 @@ public class AuditServiceIntegrationTests : SqliteIntegrationFixture
         using var context = CreateContext();
         var eventRepo = new AuditEventRepository(context);
         var logRepo = new AuditLogRepository(context);
-        var service = new AuditService(logRepo, eventRepo, _mapper, NullLogger<AuditService>.Instance);
+        var service = new AuditService(logRepo, eventRepo, NullLogger<AuditService>.Instance);
 
         var eventId = Guid.NewGuid();
         await context.AuditEvents.AddAsync(new AuditEventEntity
@@ -66,7 +53,7 @@ public class AuditServiceIntegrationTests : SqliteIntegrationFixture
         using var context = CreateContext();
         var eventRepo = new AuditEventRepository(context);
         var logRepo = new AuditLogRepository(context);
-        var service = new AuditService(logRepo, eventRepo, _mapper, NullLogger<AuditService>.Instance);
+        var service = new AuditService(logRepo, eventRepo, NullLogger<AuditService>.Instance);
 
         for (int i = 0; i < 25; i++)
         {
@@ -96,7 +83,7 @@ public class AuditServiceIntegrationTests : SqliteIntegrationFixture
         using var context = CreateContext();
         var eventRepo = new AuditEventRepository(context);
         var logRepo = new AuditLogRepository(context);
-        var service = new AuditService(logRepo, eventRepo, _mapper, NullLogger<AuditService>.Instance);
+        var service = new AuditService(logRepo, eventRepo, NullLogger<AuditService>.Instance);
 
         // Act
         var dto = await service.GetAuditEventById(Guid.NewGuid());

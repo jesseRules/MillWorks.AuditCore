@@ -1,5 +1,3 @@
-using Mapster;
-using MapsterMapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Services.Query;
@@ -14,16 +12,6 @@ namespace MillWorks.AuditCore.Tests.Integration;
 [Category("Integration")]
 public class AuditQueryServiceIntegrationTests : SqliteIntegrationFixture
 {
-    private IMapper _mapper = null!;
-
-    [OneTimeSetUp]
-    public void SetupMapper()
-    {
-        var config = new TypeAdapterConfig();
-        new MillWorks.AuditCore.Services.Mapping.AuditMappingConfiguration().Register(config);
-        _mapper = new Mapper(config);
-    }
-
     [Test]
     public async Task GetAuditEventsAsync_Pagination_ReturnsCorrectPageAndMetadata()
     {
@@ -40,7 +28,7 @@ public class AuditQueryServiceIntegrationTests : SqliteIntegrationFixture
         }
         await context.SaveChangesAsync();
 
-        var service = new AuditQueryService(context, _mapper, NullLogger<AuditQueryService>.Instance);
+        var service = new AuditQueryService(context, NullLogger<AuditQueryService>.Instance);
 
         // Act — first page of 10
         var response = await service.GetAuditEventsAsync(offset: 0, limit: 10);
@@ -66,7 +54,7 @@ public class AuditQueryServiceIntegrationTests : SqliteIntegrationFixture
             new AuditEventEntity { EventId = Guid.NewGuid(), EntityType = "Order", EntityId = otherId.ToString(), EventType = "Order.Created", InsertedDate = DateTimeOffset.UtcNow });
         await context.SaveChangesAsync();
 
-        var service = new AuditQueryService(context, _mapper, NullLogger<AuditQueryService>.Instance);
+        var service = new AuditQueryService(context, NullLogger<AuditQueryService>.Instance);
 
         // Act
         var trail = (await service.GetEntityAuditTrailAsync("Order", entityId)).ToList();
@@ -86,7 +74,7 @@ public class AuditQueryServiceIntegrationTests : SqliteIntegrationFixture
             new AuditEventEntity { EventId = Guid.NewGuid(), EventType = "Mid.Event", InsertedDate = DateTimeOffset.UtcNow.AddHours(-1) });
         await context.SaveChangesAsync();
 
-        var service = new AuditQueryService(context, _mapper, NullLogger<AuditQueryService>.Instance);
+        var service = new AuditQueryService(context, NullLogger<AuditQueryService>.Instance);
 
         // Act
         var results = (await service.GetRecentActivityAsync(hours: 24)).ToList();

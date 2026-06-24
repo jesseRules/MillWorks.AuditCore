@@ -1,7 +1,4 @@
-using Mapster;
-using MapsterMapper;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Services.Mapping;
@@ -12,19 +9,6 @@ namespace MillWorks.AuditCore.Tests.Mapping;
 [Category("Unit")]
 public class AuditMappingTests
 {
-    /// <summary>
-    /// Mapper instance configured with AuditMappingConfiguration for testing all mappings between entities and DTOs.
-    /// </summary>
-    private IMapper _mapper;
-
-    [SetUp]
-    public void Setup()
-    {
-        var config = new TypeAdapterConfig();
-        config.Apply(new AuditMappingConfiguration());
-        _mapper = new Mapper(config);
-    }
-
     [Test]
     public void AuditEventEntity_MapsTo_AuditEventDto()
     {
@@ -39,7 +23,7 @@ public class AuditMappingTests
             EntityId = "entity-123"
         };
 
-        var dto = _mapper.Map<AuditEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.EventId, Is.EqualTo(entity.EventId));
         Assert.That(dto.EventType, Is.EqualTo("User.Login"));
@@ -47,6 +31,7 @@ public class AuditMappingTests
         Assert.That(dto.UserEnvName, Is.EqualTo("Production"));
         Assert.That(dto.InsertedDate, Is.EqualTo(entity.InsertedDate));
         Assert.That(dto.JsonData, Is.EqualTo("{\"key\":\"value\"}"));
+        Assert.That(dto.EntityId, Is.EqualTo("entity-123"));
     }
 
     [Test]
@@ -60,10 +45,23 @@ public class AuditMappingTests
             InsertedDate = DateTimeOffset.UtcNow
         };
 
-        var entity = _mapper.Map<AuditEventEntity>(dto);
+        var entity = dto.ToEntity();
 
+        Assert.That(entity.EventId, Is.EqualTo(dto.EventId));
         Assert.That(entity.EventType, Is.EqualTo("Data.Export"));
         Assert.That(entity.User, Is.EqualTo("user@example.com"));
+    }
+
+    [Test]
+    public void AuditEventDto_ToEntity_NullEventId_PreservesGeneratedKey()
+    {
+        var dto = new AuditEventDto { EventType = "Data.Export", EventId = null };
+
+        var entity = dto.ToEntity();
+
+        // EventId has no source value, so the entity's constructor-generated key is preserved
+        // (not overwritten with Guid.Empty).
+        Assert.That(entity.EventId, Is.Not.EqualTo(Guid.Empty));
     }
 
     [Test]
@@ -75,10 +73,35 @@ public class AuditMappingTests
             JsonData = "{\"test\":true}"
         };
 
-        var dto = _mapper.Map<AuditEventDto>(entity);
+        var dto = entity.ToDto();
 
-        // Data (parsed response) should be ignored per mapping config
+        // Data (parsed response) is never populated by the mapping.
         Assert.That(dto.Data, Is.Null);
+    }
+
+    [Test]
+    public void AuditEventEntity_ToDto_MapsIntegrityNavigationOneLevel()
+    {
+        var entity = new AuditEventEntity
+        {
+            EventId = Guid.NewGuid(),
+            AuditIntegrity = new AuditIntegrityEntity
+            {
+                EventId = Guid.NewGuid(),
+                EventHash = new string('A', 44),
+                Checksum = new string('C', 44),
+                SequenceNumber = 7
+            }
+        };
+        // Simulate EF relationship-fixup back-reference (would otherwise be a cycle).
+        entity.AuditIntegrity.AuditEvent = entity;
+
+        var dto = entity.ToDto();
+
+        Assert.That(dto.AuditIntegrity, Is.Not.Null);
+        Assert.That(dto.AuditIntegrity!.SequenceNumber, Is.EqualTo(7));
+        // The cycle is broken: the nested integrity DTO does not carry the event back-reference.
+        Assert.That(dto.AuditIntegrity.AuditEvent, Is.Null);
     }
 
     [Test]
@@ -99,7 +122,7 @@ public class AuditMappingTests
             CreatedById = Guid.NewGuid()
         };
 
-        var dto = _mapper.Map<AuditLogDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.EntityName, Is.EqualTo("Customer"));
         Assert.That(dto.EntityId, Is.EqualTo(entity.EntityId));
@@ -108,6 +131,9 @@ public class AuditMappingTests
         Assert.That(dto.OldValue, Is.EqualTo("old@test.com"));
         Assert.That(dto.NewValue, Is.EqualTo("new@test.com"));
         Assert.That(dto.CorrelationId, Is.EqualTo("corr-123"));
+        Assert.That(dto.IpAddress, Is.EqualTo("10.0.0.1"));
+        Assert.That(dto.CreatedAt, Is.EqualTo(entity.CreatedAt));
+        Assert.That(dto.CreatedById, Is.EqualTo(entity.CreatedById));
     }
 
     [Test]
@@ -122,9 +148,10 @@ public class AuditMappingTests
             CreatedById = Guid.NewGuid()
         };
 
-        var entity = _mapper.Map<AuditLogEntity>(dto);
+        var entity = dto.ToEntity();
 
         Assert.That(entity.EntityName, Is.EqualTo("Order"));
+        Assert.That(entity.EntityId, Is.EqualTo(dto.EntityId));
         Assert.That(entity.Action, Is.EqualTo(AuditAction.Created));
     }
 
@@ -134,17 +161,43 @@ public class AuditMappingTests
         var entity = new AuditIntegrityEntity
         {
             EventId = Guid.NewGuid(),
-            EventHash = new string('A', 64),
-            PreviousEventHash = new string('B', 64),
+            EventHash = new string('A', 44),
+            PreviousEventHash = new string('B', 44),
             Checksum = new string('C', 44),
             TrustedTimestamp = DateTimeOffset.UtcNow,
             SequenceNumber = 42,
             AlgorithmVersion = 1
         };
 
-        var dto = _mapper.Map<AuditIntegrityDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.EventId, Is.EqualTo(entity.EventId));
+        Assert.That(dto.EventHash, Is.EqualTo(entity.EventHash));
+        Assert.That(dto.PreviousEventHash, Is.EqualTo(entity.PreviousEventHash));
+        Assert.That(dto.Checksum, Is.EqualTo(entity.Checksum));
+        Assert.That(dto.SequenceNumber, Is.EqualTo(42));
+        Assert.That(dto.AlgorithmVersion, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void AuditIntegrityDto_MapsTo_AuditIntegrityEntity_DefaultsPreservedWhenNull()
+    {
+        var dto = new AuditIntegrityDto
+        {
+            EventId = Guid.NewGuid(),
+            EventHash = new string('A', 44),
+            Checksum = new string('C', 44),
+            SequenceNumber = 5,
+            TrustedTimestamp = DateTimeOffset.UtcNow
+            // AlgorithmVersion left null
+        };
+
+        var entity = dto.ToEntity();
+
+        Assert.That(entity.EventId, Is.EqualTo(dto.EventId));
+        Assert.That(entity.EventHash, Is.EqualTo(dto.EventHash));
+        // Null source preserves the entity's initializer default of 1.
+        Assert.That(entity.AlgorithmVersion, Is.EqualTo(1));
     }
 
     [Test]
@@ -161,12 +214,13 @@ public class AuditMappingTests
             IpAddress = "192.168.1.1"
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.EventType, Is.EqualTo(SecurityEventType.UnauthorizedAccess));
         Assert.That(dto.Severity, Is.EqualTo(SecurityEventSeverity.High));
         Assert.That(dto.Message, Is.EqualTo("Access denied"));
         Assert.That(dto.Status, Is.EqualTo(SecurityEventStatus.Open));
+        Assert.That(dto.IpAddress, Is.EqualTo("192.168.1.1"));
     }
 
     [Test]
@@ -179,12 +233,12 @@ public class AuditMappingTests
             Message = "Tamper detected"
         };
 
-        var entity = _mapper.Map<AuditSecurityEventEntity>(dto);
+        var entity = dto.ToEntity();
 
         Assert.That(entity.EventType, Is.EqualTo(SecurityEventType.AuditTamperAlert));
         Assert.That(entity.Severity, Is.EqualTo(SecurityEventSeverity.Critical));
         Assert.That(entity.Message, Is.EqualTo("Tamper detected"));
-        // DetailsJson should be ignored per mapping config
+        // DetailsJson is intentionally not set by the mapping (the recording path owns it).
         Assert.That(entity.DetailsJson, Is.Null);
     }
 
@@ -199,7 +253,7 @@ public class AuditMappingTests
             DetailsJson = """{"GrantId":"grant-123","PolicyAfterHash":"abc456","GrantTtlSeconds":3600}"""
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.Details, Is.Not.Null);
         Assert.That(dto.Details, Has.Count.EqualTo(3));
@@ -219,7 +273,7 @@ public class AuditMappingTests
             DetailsJson = null
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.Details, Is.Not.Null);
         Assert.That(dto.Details, Is.Empty);
@@ -236,7 +290,7 @@ public class AuditMappingTests
             DetailsJson = "this is not valid json {"
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.Details, Is.Not.Null);
         Assert.That(dto.Details, Is.Empty);
@@ -253,7 +307,7 @@ public class AuditMappingTests
             DetailsJson = ""
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.Details, Is.Not.Null);
         Assert.That(dto.Details, Is.Empty);
@@ -270,7 +324,7 @@ public class AuditMappingTests
             DetailsJson = """{"Policy":{"AllowedCountries":["US","CA"],"MaxGrants":5},"ChangedBy":"admin"}"""
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.Details, Has.Count.EqualTo(2));
         Assert.That(dto.Details["ChangedBy"], Is.EqualTo("admin"));
@@ -302,7 +356,7 @@ public class AuditMappingTests
             UserAgentHash = "sha256useragent"
         };
 
-        var dto = _mapper.Map<SecurityEventDto>(entity);
+        var dto = entity.ToDto();
 
         Assert.That(dto.TenantId, Is.EqualTo(tenantId));
         Assert.That(dto.ActorUserId, Is.EqualTo(actorUserId));
@@ -329,7 +383,7 @@ public class AuditMappingTests
             Operation = "MfaBypass"
         };
 
-        var entity = _mapper.Map<AuditSecurityEventEntity>(dto);
+        var entity = dto.ToEntity();
 
         Assert.That(entity.TenantId, Is.EqualTo(tenantId));
         Assert.That(entity.ActorUserId, Is.EqualTo(actorUserId));
@@ -355,22 +409,12 @@ public class AuditMappingTests
             Message = $"Test {eventType}"
         };
 
-        var entity = _mapper.Map<AuditSecurityEventEntity>(dto);
+        var entity = dto.ToEntity();
 
         Assert.That(entity.EventType, Is.EqualTo(eventType));
 
-        var roundTripped = _mapper.Map<SecurityEventDto>(entity);
+        var roundTripped = entity.ToDto();
         Assert.That(roundTripped.EventType, Is.EqualTo(eventType));
-    }
-
-    [Test]
-    public void AllMappings_DoNotThrow()
-    {
-        // Verify the entire configuration is valid
-        var config = new TypeAdapterConfig();
-        config.Apply(new AuditMappingConfiguration());
-
-        Assert.DoesNotThrow(() => config.Compile());
     }
 
     [Test]
@@ -386,62 +430,9 @@ public class AuditMappingTests
         };
 
         AuditEventDto? dto = null;
-        Assert.DoesNotThrow(() => dto = _mapper.Map<AuditEventDto>(entity));
+        Assert.DoesNotThrow(() => dto = entity.ToDto());
         Assert.That(dto, Is.Not.Null);
         Assert.That(dto!.EventType, Is.Null);
         Assert.That(dto.User, Is.Null);
-    }
-
-    [Test]
-    public void AuditEntry_MapsTo_AuditEventEntity_WithFormattedEventType()
-    {
-        var entry = new AuditEntry
-        {
-            EntityName = "Customer",
-            Action = "Created",
-            UserId = Guid.NewGuid(),
-            AspNetUserId = "aspnet-123",
-            KeyValues = new Dictionary<string, object?> { { "Id", Guid.NewGuid() } }
-        };
-
-        var entity = _mapper.Map<AuditEventEntity>(entry);
-
-        Assert.That(entity.EventType, Is.EqualTo("Customer.Created"));
-        Assert.That(entity.EntityType, Is.EqualTo("Customer"));
-        Assert.That(entity.Action, Is.EqualTo("Created"));
-        Assert.That(entity.UserId, Is.EqualTo(entry.UserId));
-        Assert.That(entity.AspNetUserId, Is.EqualTo("aspnet-123"));
-    }
-
-    [Test]
-    public void AuditEntry_MapsTo_AuditEventEntity_SetsInsertedDate()
-    {
-        var before = DateTimeOffset.UtcNow;
-
-        var entry = new AuditEntry
-        {
-            EntityName = "Order",
-            Action = "Updated"
-        };
-
-        var entity = _mapper.Map<AuditEventEntity>(entry);
-
-        Assert.That(entity.InsertedDate, Is.GreaterThanOrEqualTo(before));
-    }
-
-    [Test]
-    public void AuditEntry_MapsTo_AuditEventEntity_ExtractsEntityId()
-    {
-        var entityId = Guid.NewGuid();
-        var entry = new AuditEntry
-        {
-            EntityName = "Product",
-            Action = "Deleted",
-            KeyValues = new Dictionary<string, object?> { { "Id", entityId } }
-        };
-
-        var entity = _mapper.Map<AuditEventEntity>(entry);
-
-        Assert.That(entity.EntityId, Is.EqualTo(entityId.ToString()));
     }
 }

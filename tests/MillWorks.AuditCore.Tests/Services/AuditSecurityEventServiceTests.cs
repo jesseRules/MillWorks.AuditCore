@@ -1,4 +1,3 @@
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -17,7 +16,6 @@ public class AuditSecurityEventServiceTests
 {
     private Mock<ISecurityEventRepository> _mockRepository;
     private IAuditContext _auditContext;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditSecurityEventService>> _mockLogger;
     private IConfiguration _configuration;
     private IAuditSecurityEventService _service;
@@ -27,7 +25,6 @@ public class AuditSecurityEventServiceTests
     {
         _mockRepository = new Mock<ISecurityEventRepository>();
         _auditContext = new AuditContext();
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditSecurityEventService>>();
         _configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -39,7 +36,6 @@ public class AuditSecurityEventServiceTests
         _service = new AuditSecurityEventService(
             _mockRepository.Object,
             _auditContext,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration);
     }
@@ -55,17 +51,19 @@ public class AuditSecurityEventServiceTests
             Details = new Dictionary<string, object?> { { "Resource", "/admin" } }
         };
 
-        var entity = new AuditSecurityEventEntity();
-        var resultDto = new SecurityEventDto { Id = Guid.NewGuid(), Message = "Unauthorized access attempt" };
-
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(resultDto);
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         var result = await _service.RecordEventAsync(inputDto);
 
         Assert.That(result, Is.Not.Null);
         Assert.That(result.Message, Is.EqualTo("Unauthorized access attempt"));
-        _mockRepository.Verify(r => r.AddAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(captured, Is.Not.Null);
+        _mockRepository.Verify(
+            r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(static r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -79,19 +77,22 @@ public class AuditSecurityEventServiceTests
             Message = "Suspicious login"
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         _auditContext.UserEmail = "admin@example.com";
         _auditContext.IpAddress = "10.0.0.1";
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.DetectedAt, Is.Not.EqualTo(default(DateTimeOffset)));
-        Assert.That(entity.DetectedBy, Is.EqualTo("admin@example.com"));
-        Assert.That(entity.IpAddress, Is.EqualTo("10.0.0.1"));
-        Assert.That(entity.Status, Is.EqualTo(SecurityEventStatus.Open));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.DetectedAt, Is.Not.EqualTo(default(DateTimeOffset)));
+        Assert.That(captured.DetectedBy, Is.EqualTo("admin@example.com"));
+        Assert.That(captured.IpAddress, Is.EqualTo("10.0.0.1"));
+        Assert.That(captured.Status, Is.EqualTo(SecurityEventStatus.Open));
     }
 
     [Test]
@@ -104,13 +105,16 @@ public class AuditSecurityEventServiceTests
             Message = "Minor integrity check"
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.DetectedBy, Is.EqualTo("System"));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.DetectedBy, Is.EqualTo("System"));
     }
 
     [Test]
@@ -123,15 +127,17 @@ public class AuditSecurityEventServiceTests
             Message = "Audit tamper detected!"
         };
 
-        var entity = new AuditSecurityEventEntity { Severity = SecurityEventSeverity.Critical };
-        var resultDto = new SecurityEventDto { Severity = SecurityEventSeverity.Critical };
-
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(resultDto);
+        // SendAlertAsync is called internally for critical events - verify via logger
+        _mockLogger.Verify(static x => x.Log(
+                LogLevel.Critical,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Never);
 
         await _service.RecordEventAsync(inputDto);
 
-        // SendAlertAsync is called internally for critical events - verify via logger
         _mockLogger.Verify(static x => x.Log(
                 LogLevel.Critical,
                 It.IsAny<EventId>(),
@@ -158,19 +164,11 @@ public class AuditSecurityEventServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditSecurityEventEntity> { criticalEntity });
 
-        var criticalDtos = new List<SecurityEventDto>
-        {
-            new() { Severity = SecurityEventSeverity.Critical }
-        };
+        var result = (await _service.GetCriticalEventsAsync(24)).ToList();
 
-        _mockMapper.Setup(static m => m.Map<IEnumerable<SecurityEventDto>>(
-                It.Is<IEnumerable<AuditSecurityEventEntity>>(static e =>
-                    e.All(static x => x.Severity == SecurityEventSeverity.Critical))))
-            .Returns(criticalDtos);
-
-        var result = await _service.GetCriticalEventsAsync(24);
-
-        Assert.That(result.Count(), Is.EqualTo(1));
+        Assert.That(result.Count, Is.EqualTo(1));
+        // The DTO carries the severity through real mapping, proving "critical only".
+        Assert.That(result[0].Severity, Is.EqualTo(SecurityEventSeverity.Critical));
         // Prove the "critical only" guarantee comes from querying Critical severity, not chance.
         _mockRepository.Verify(static r => r.GetBySeverityAndDateRangeAsync(
             SecurityEventSeverity.Critical,
@@ -188,19 +186,20 @@ public class AuditSecurityEventServiceTests
             Status = SecurityEventStatus.Open,
             Message = "Test event"
         };
-        var resultDto = new SecurityEventDto
-        {
-            Status = SecurityEventStatus.Resolved,
-            Resolution = "Fixed"
-        };
 
         _mockRepository.Setup(r => r.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(resultDto);
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         var result = await _service.ResolveEventAsync(eventId, "Fixed", "admin@example.com");
 
         Assert.That(result, Is.Not.Null);
+        // The returned DTO reflects the resolved state via real mapping.
+        Assert.That(result!.Status, Is.EqualTo(SecurityEventStatus.Resolved));
+        Assert.That(result.Resolution, Is.EqualTo("Fixed"));
+        Assert.That(result.ResolvedBy, Is.EqualTo("admin@example.com"));
+        // The entity passed to the repository was mutated by the service.
         Assert.That(entity.Status, Is.EqualTo(SecurityEventStatus.Resolved));
         Assert.That(entity.Resolution, Is.EqualTo("Fixed"));
         Assert.That(entity.ResolvedBy, Is.EqualTo("admin@example.com"));
@@ -233,20 +232,16 @@ public class AuditSecurityEventServiceTests
             new() { Status = SecurityEventStatus.Open },
             new() { Status = SecurityEventStatus.Investigating }
         };
-        var openDtos = new List<SecurityEventDto>
-        {
-            new() { Status = SecurityEventStatus.Open },
-            new() { Status = SecurityEventStatus.Investigating }
-        };
 
         _mockRepository.Setup(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(openEntities);
-        _mockMapper.Setup(m => m.Map<IEnumerable<SecurityEventDto>>(openEntities))
-            .Returns(openDtos);
 
-        var result = await _service.GetOpenEventsAsync();
+        var result = (await _service.GetOpenEventsAsync()).ToList();
 
-        Assert.That(result.Count(), Is.EqualTo(2));
+        Assert.That(result.Count, Is.EqualTo(2));
+        // Real mapping preserves the status of each entity.
+        Assert.That(result[0].Status, Is.EqualTo(SecurityEventStatus.Open));
+        Assert.That(result[1].Status, Is.EqualTo(SecurityEventStatus.Investigating));
         _mockRepository.Verify(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -263,7 +258,6 @@ public class AuditSecurityEventServiceTests
         var service = new AuditSecurityEventService(
             _mockRepository.Object,
             _auditContext,
-            _mockMapper.Object,
             _mockLogger.Object,
             config);
 
@@ -321,15 +315,18 @@ public class AuditSecurityEventServiceTests
             }
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.DetailsJson, Is.Not.Null);
-        Assert.That(entity.DetailsJson, Does.Contain("UserId"));
-        Assert.That(entity.DetailsJson, Does.Contain("TargetRole"));
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.DetailsJson, Is.Not.Null);
+        Assert.That(captured.DetailsJson, Does.Contain("UserId"));
+        Assert.That(captured.DetailsJson, Does.Contain("TargetRole"));
     }
 
     [Test]
@@ -354,29 +351,24 @@ public class AuditSecurityEventServiceTests
             UserAgentHash = "def456hash"
         };
 
-        var entity = new AuditSecurityEventEntity
-        {
-            TenantId = tenantId,
-            ActorUserId = actorUserId,
-            SubjectUserId = subjectUserId,
-            CorrelationId = correlationId,
-            Operation = "NetworkPolicyOverride",
-            SourceIpHash = "abc123hash",
-            UserAgentHash = "def456hash"
-        };
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.TenantId, Is.EqualTo(tenantId));
-        Assert.That(entity.ActorUserId, Is.EqualTo(actorUserId));
-        Assert.That(entity.SubjectUserId, Is.EqualTo(subjectUserId));
-        Assert.That(entity.CorrelationId, Is.EqualTo(correlationId));
-        Assert.That(entity.Operation, Is.EqualTo("NetworkPolicyOverride"));
-        Assert.That(entity.SourceIpHash, Is.EqualTo("abc123hash"));
-        Assert.That(entity.UserAgentHash, Is.EqualTo("def456hash"));
-        _mockRepository.Verify(r => r.AddAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.TenantId, Is.EqualTo(tenantId));
+        Assert.That(captured.ActorUserId, Is.EqualTo(actorUserId));
+        Assert.That(captured.SubjectUserId, Is.EqualTo(subjectUserId));
+        Assert.That(captured.CorrelationId, Is.EqualTo(correlationId));
+        Assert.That(captured.Operation, Is.EqualTo("NetworkPolicyOverride"));
+        Assert.That(captured.SourceIpHash, Is.EqualTo("abc123hash"));
+        Assert.That(captured.UserAgentHash, Is.EqualTo("def456hash"));
+        _mockRepository.Verify(
+            r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -391,20 +383,20 @@ public class AuditSecurityEventServiceTests
             IpAddress = null
         };
 
-        var entity = new AuditSecurityEventEntity
-        {
-            SourceIpHash = "sha256hashofip"
-        };
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         _auditContext.IpAddress = "10.0.0.100";
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.IpAddress, Is.Null,
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.IpAddress, Is.Null,
             "When SourceIpHash is set and IpAddress is null, raw IP should not be stamped from auditContext");
-        Assert.That(entity.SourceIpHash, Is.EqualTo("sha256hashofip"));
+        Assert.That(captured.SourceIpHash, Is.EqualTo("sha256hashofip"));
     }
 
     [Test]
@@ -419,16 +411,16 @@ public class AuditSecurityEventServiceTests
             IpAddress = "192.168.1.1"
         };
 
-        var entity = new AuditSecurityEventEntity
-        {
-            SourceIpHash = "sha256hashofip"
-        };
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.IpAddress, Is.EqualTo("192.168.1.1"),
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.IpAddress, Is.EqualTo("192.168.1.1"),
             "When IpAddress is explicitly provided, it should be used regardless of SourceIpHash");
     }
 
@@ -442,15 +434,18 @@ public class AuditSecurityEventServiceTests
             Message = "Standard security event without hash"
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         _auditContext.IpAddress = "10.0.0.200";
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.IpAddress, Is.EqualTo("10.0.0.200"),
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.IpAddress, Is.EqualTo("10.0.0.200"),
             "When SourceIpHash is not set, IpAddress should be stamped from auditContext");
     }
 
@@ -464,9 +459,7 @@ public class AuditSecurityEventServiceTests
             Message = "Critical event that must persist"
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockRepository.Setup(r => r.AddAsync(entity, It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database connection failed"));
 
         Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
@@ -482,8 +475,6 @@ public class AuditSecurityEventServiceTests
             Message = "Critical event that must persist"
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
         _mockRepository.Setup(static r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Save failed"));
 
@@ -509,9 +500,9 @@ public class AuditSecurityEventServiceTests
             Message = $"Test {eventType}"
         };
 
-        var entity = new AuditSecurityEventEntity { EventType = eventType };
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto { EventType = eventType });
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         var result = await _service.RecordEventAsync(inputDto);
 
@@ -537,17 +528,20 @@ public class AuditSecurityEventServiceTests
             Details = largeDetails
         };
 
-        var entity = new AuditSecurityEventEntity();
-        _mockMapper.Setup(m => m.Map<AuditSecurityEventEntity>(inputDto)).Returns(entity);
-        _mockMapper.Setup(m => m.Map<SecurityEventDto>(entity)).Returns(new SecurityEventDto());
+        AuditSecurityEventEntity? captured = null;
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditSecurityEventEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
 
         await _service.RecordEventAsync(inputDto);
 
-        Assert.That(entity.DetailsJson, Is.Not.Null);
-        Assert.That(entity.DetailsJson!.Length, Is.LessThanOrEqualTo(4000),
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.DetailsJson, Is.Not.Null);
+        Assert.That(captured.DetailsJson!.Length, Is.LessThanOrEqualTo(4000),
             "DetailsJson should be truncated to max length");
 
-        var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(entity.DetailsJson);
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(captured.DetailsJson);
         Assert.That(parsed, Is.Not.Null, "Truncated DetailsJson must be valid JSON");
         Assert.That(parsed!.ContainsKey("_truncated"), Is.True);
         Assert.That(parsed.ContainsKey("_originalLength"), Is.True);
