@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
     <!--
       Azure.Identity is pinned above the 1.14.x version pulled in transitively by
       Azure.Security.KeyVault.Secrets 4.10.0. Azure.Core 1.53 defines its own
@@ -29,8 +29,6 @@
       DefaultAzureCredential to Azure.Core, resolving the ambiguity.
     -->
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Mapster" Version="10.0.8" />
-    <PackageReference Include="Mapster.DependencyInjection" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.9">
       <PrivateAssets>all</PrivateAssets>
@@ -39,7 +37,7 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
-    <PackageReference Include="StackExchange.Redis" Version="3.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="3.0.7" />
   </ItemGroup>
 
 </Project>

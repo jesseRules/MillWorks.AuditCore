@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.12] - 2026-06-24
+
+### Changed
+- **Replaced Mapster with explicit static mappers** — entity↔DTO mapping (`AuditEventEntity`/`AuditEventDto`, `AuditLogEntity`/`AuditLogDto`, `AuditIntegrityEntity`/`AuditIntegrityDto`, `AuditArchiveRecordEntity`→`ArchiveMetadata`, `AuditSecurityEventEntity`/`SecurityEventDto`) is now handled by hand-written static extension methods in `MillWorks.AuditCore.Services.Mapping` (`AuditEventMappings`, `AuditLogMappings`, `AuditIntegrityMappings`, `ArchiveMappings`, `AuditSecurityEventMappings`). The audit services (`AuditService`, `AuditQueryService`, `AuditSearchService`, `AuditSecurityEventService`, `AuditArchivalService`) no longer take an injected `IMapper`; mapping is an internal implementation detail. Output is 1:1 with the former Mapster configuration (including the `Status.ToString()`/`ArchiveHash` rules and the `Details`↔`DetailsJson` handling), verified by `AuditMappingTests` plus the full unit and SQLite/SQL Server integration suites.
+
+### Removed
+- **Mapster dependency** — dropped the `Mapster` and `Mapster.DependencyInjection` package references from `MillWorks.AuditCore.Services` (and the test project's `Mapster` reference). `AddMillWorksAudit` no longer registers an `IMapper` or applies `AuditMappingConfiguration` to `TypeAdapterConfig.GlobalSettings`, so AuditCore can no longer interfere with a consumer's own Mapster setup.
+- **`AuditEntry` DTO** — removed the unused `MillWorks.AuditCore.EntityFramework.Dto.AuditEntry` type; its only references were the deleted Mapster mapping configuration and its tests (the EF interceptor builds `AuditEventEntity` directly).
+
+### Added
+- **Sample project Docker setup** — `samples/MillWorks.AuditCore.SampleProject/docker-compose.yml` brings up SQL Server 2022 for local development (with documented SQL Server 2025 and Azure SQL Edge alternatives, and an Apple-Silicon/Rosetta note), alongside `appsettings.Development.json` (`EnsureDatabaseCreated`) and launch settings so the sample runs end-to-end against a containerized database.
+
 ## [1.8.2] - 2026-05-22
 
 ### Fixed

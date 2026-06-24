@@ -14,9 +14,7 @@ using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Mapping;
 using MillWorks.AuditCore.Services.Query;
-using Mapster;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
@@ -47,12 +45,6 @@ public class FullPipelineIntegrationTests : IDisposable
 
         // EF options
         services.AddSingleton(new EntityFrameworkOptions());
-
-        // Mapster (same as builder's ConfigureMapster)
-        var typeAdapterConfig = new TypeAdapterConfig();
-        typeAdapterConfig.Apply(new AuditMappingConfiguration());
-        services.AddSingleton(typeAdapterConfig);
-        services.AddMapster();
 
         // Interceptor
         services.AddSingleton<AuditSaveChangesInterceptor>();

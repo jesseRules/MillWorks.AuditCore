@@ -41,7 +41,7 @@ MillWorks.AuditCore.Services
   |  Dead letter queue (InMemory, FileSystem, Redis) + background processor,
   |  Query/Search/Report services, Archival service,
   |  Distributed locking (Redis, InMemory, Null fallback),
-  |  AuditContextMiddleware, Mapster mapping configuration, Options classes.
+  |  AuditContextMiddleware, static entity/DTO mappers (Services/Mapping), Options classes.
   |
   v
 MillWorks.AuditCore.AspNetCore

@@ -6,7 +6,6 @@ using System.Text.Json;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -31,7 +30,6 @@ public class AuditArchivalServiceCompressionTests
     private Mock<IArchiveRecordRepository> _mockArchiveRecordRepository;
     private Mock<ITamperDetectionService> _mockTamperDetectionService;
     private Mock<BlobServiceClient> _mockBlobServiceClient;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditArchivalService>> _mockLogger;
     private IConfiguration _configuration;
 
@@ -52,7 +50,6 @@ public class AuditArchivalServiceCompressionTests
         _mockArchiveRecordRepository = new Mock<IArchiveRecordRepository>();
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockBlobServiceClient = new Mock<BlobServiceClient>();
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditArchivalService>>();
 
         var configDict = new Dictionary<string, string>
@@ -88,7 +85,6 @@ public class AuditArchivalServiceCompressionTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             tamperDetection,
@@ -258,21 +254,6 @@ public class AuditArchivalServiceCompressionTests
             });
 
         SetupBlobDownload(compressed);
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventEntity>(It.IsAny<AuditEventDto>()))
-            .Returns(static (AuditEventDto dto) => new AuditEventEntity
-            {
-                EventId = dto.EventId ?? Guid.NewGuid(),
-                EventType = dto.EventType
-            });
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditIntegrityEntity>(It.IsAny<AuditIntegrityDto>()))
-            .Returns(static (AuditIntegrityDto dto) => new AuditIntegrityEntity
-            {
-                EventId = dto.EventId
-            });
 
         _mockAuditEventRepository
             .Setup(static x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
@@ -685,15 +666,6 @@ public class AuditArchivalServiceCompressionTests
             .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
                 ToAsyncEnumerable(entities, ct));
 
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
-
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -841,15 +813,6 @@ public class AuditArchivalServiceCompressionTests
             .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
                 ToAsyncEnumerable(entities, ct));
 
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
-
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -978,24 +941,6 @@ public class AuditArchivalServiceCompressionTests
             {
                 new() { EventId = eventId, EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
             });
-
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditEventDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditEventDto>
-            {
-                new() { EventId = eventId, EventType = "Test", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
-            });
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditEventEntity>>(It.IsAny<object>()))
-            .Returns(new List<AuditEventEntity>
-            {
-                new() { EventId = eventId, EventType = "Test" }
-            });
-
-        _mockMapper
-            .Setup(static x => x.Map<List<AuditIntegrityDto>>(It.IsAny<object>()))
-            .Returns(new List<AuditIntegrityDto>());
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetByEventIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))

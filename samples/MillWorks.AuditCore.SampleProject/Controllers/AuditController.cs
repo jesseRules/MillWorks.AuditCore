@@ -330,6 +330,55 @@ public class AuditController(
         return Ok(results);
     }
 
+    /// <summary>
+    /// Get security-related audit events (a filtered convenience query over search)
+    /// </summary>
+    [HttpGet("security")]
+    [ProducesResponseType(typeof(AuditEventsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSecurityEvents(
+        [FromQuery] string eventType = "Security",
+        [FromQuery] string? user = null,
+        [FromQuery] DateTimeOffset? startDate = null,
+        [FromQuery] DateTimeOffset? endDate = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = 50)
+    {
+        var request = new AuditSearchRequest
+        {
+            EventType = eventType,
+            User = user,
+            StartDate = startDate,
+            EndDate = endDate,
+            Offset = offset,
+            Limit = limit
+        };
+
+        var results = await auditService.SearchAuditEvents(request);
+        return Ok(results);
+    }
+
+    /// <summary>
+    /// Get audit chain integrity status: sequence check, recent tamper alerts, and archive count
+    /// </summary>
+    [HttpGet("chain/status")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChainStatus()
+    {
+        // Sequential awaits -- the audit DbContext is not thread-safe
+        var isHealthy = await tamperDetection.VerifySequenceIntegrityAsync();
+        var alerts = await tamperDetection.DetectTamperingAsync(24);
+        var archives = await archivalService.GetArchivesAsync();
+
+        return Ok(new
+        {
+            IsHealthy = isHealthy,
+            RecentAlertCount = alerts.Count,
+            RecentAlerts = alerts,
+            ArchiveCount = archives.Count,
+            CheckedAt = DateTimeOffset.UtcNow
+        });
+    }
+
     #endregion
 
     #region Tamper Detection Operations

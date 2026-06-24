@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MapsterMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -7,6 +6,7 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.Services.Core;
 
@@ -15,13 +15,11 @@ namespace MillWorks.AuditCore.Services.Core;
 /// </summary>
 /// <param name="securityEventRepository"></param>
 /// <param name="auditContext"></param>
-/// <param name="mapper"></param>
 /// <param name="logger"></param>
 /// <param name="configuration"></param>
 public sealed class AuditSecurityEventService(
     ISecurityEventRepository securityEventRepository,
     IAuditContext auditContext,
-    IMapper mapper,
     ILogger<AuditSecurityEventService> logger,
     IConfiguration configuration)
     : IAuditSecurityEventService
@@ -39,7 +37,7 @@ public sealed class AuditSecurityEventService(
         SecurityEventDto securityEvent,
         CancellationToken cancellationToken = default)
     {
-        var entity = mapper.Map<AuditSecurityEventEntity>(securityEvent);
+        var entity = securityEvent.ToEntity();
 
         // Set metadata - handle cases where context isn't available
         entity.DetectedAt = DateTimeOffset.UtcNow;
@@ -100,10 +98,10 @@ public sealed class AuditSecurityEventService(
         // Send alert for critical events
         if (entity.Severity == SecurityEventSeverity.Critical)
         {
-            await SendAlertAsync(mapper.Map<SecurityEventDto>(entity), cancellationToken);
+            await SendAlertAsync(entity.ToDto(), cancellationToken);
         }
 
-        return mapper.Map<SecurityEventDto>(entity);
+        return entity.ToDto();
     }
 
     /// <summary>
@@ -121,7 +119,7 @@ public sealed class AuditSecurityEventService(
         var events = await securityEventRepository.GetBySeverityAndDateRangeAsync(
             SecurityEventSeverity.Critical, since, DateTimeOffset.UtcNow, cancellationToken);
 
-        return mapper.Map<IEnumerable<SecurityEventDto>>(events);
+        return events.Select(static x => x.ToDto()).ToList();
     }
 
     /// <summary>
@@ -158,7 +156,7 @@ public sealed class AuditSecurityEventService(
             "Security event {EventId} resolved by {ResolvedBy}",
             eventId, resolvedBy);
 
-        return mapper.Map<SecurityEventDto>(entity);
+        return entity.ToDto();
     }
 
     /// <summary>
@@ -170,7 +168,7 @@ public sealed class AuditSecurityEventService(
         CancellationToken cancellationToken = default)
     {
         var events = await securityEventRepository.GetOpenEventsAsync(cancellationToken);
-        return mapper.Map<IEnumerable<SecurityEventDto>>(events);
+        return events.Select(static x => x.ToDto()).ToList();
     }
 
     /// <summary>

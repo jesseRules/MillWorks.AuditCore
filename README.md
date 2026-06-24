@@ -6,7 +6,7 @@
 [![NuGet](https://img.shields.io/nuget/v/MillWorks.AuditCore)](https://www.nuget.org/packages/MillWorks.AuditCore)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-purple)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-1%2C850%2B_passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2%2C000%2B_passing-brightgreen)](tests/)
 
 MillWorks.AuditCore is a comprehensive audit logging framework for .NET applications that enforces data integrity at the storage layer through cryptographic hash chains and HMAC signatures. Built for organizations operating under HIPAA, FERPA, SOC 2, GDPR, and NIST requirements, it provides tamper-evident logging, field-level encryption, and automated compliance validation -- capabilities that are typically spread across multiple commercial products. The library integrates with Entity Framework Core as a SaveChanges interceptor, capturing entity changes from DbContexts where the audit interceptor is registered without requiring per-save manual logging calls.
 
@@ -20,7 +20,7 @@ MillWorks.AuditCore is a comprehensive audit logging framework for .NET applicat
 | **Redis** (optional) | 6.0+ — required only for distributed locking and Redis dead letter queue |
 | **Azure Blob Storage** (optional) | Required only for archival |
 
-**Versioning policy:** This project follows [Semantic Versioning 2.0](https://semver.org/). The public API surface consists of the builder API (`AddMillWorksAudit`), the `IAuditProvider` contract, and all types in the `MillWorks.AuditCore.Abstractions` package.
+**Versioning policy:** This project follows [Semantic Versioning 2.0](https://semver.org/). The public API surface consists of the builder API (`AddMillWorksAudit`), the `IAuditProvider` contract in the `MillWorks.AuditCore.Providers` package, and all types in the `MillWorks.AuditCore.Abstractions` package.
 
 ## Packages
 
@@ -48,7 +48,7 @@ Integrity modes and sink modes:
 |---|---|
 | **Strict (Immediate sink)** | Audit envelope is published, persisted, and chain-extended on the audit-owned DbContext. Decoupled from consumer transaction. |
 | **Strict (TransactionalOutbox sink)** | Audit envelope is staged in the saving consumer's transaction via outbox row; chain-extension happens after commit via background drainer. |
-| **Batched (legacy IntegrityWriteBatcher)** | Existing high-throughput batched-integrity path. Independent of sink mode. |
+| **Batched (IntegrityWriteBatcher)** | High-throughput batched integrity-chain extension. Independent of sink mode. |
 
 ### Field-Level Encryption
 AES-256-GCM encryption for sensitive entity fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Encrypted fields are redacted in audit snapshots (recorded as `[ENCRYPTED]` or masked) to prevent sensitive values from appearing in the audit log. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.

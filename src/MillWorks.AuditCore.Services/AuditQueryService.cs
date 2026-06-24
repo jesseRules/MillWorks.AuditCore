@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Diagnostics;
@@ -10,6 +9,7 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Services.Interfaces;
+using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.Services.Query;
 
@@ -17,11 +17,9 @@ namespace MillWorks.AuditCore.Services.Query;
 /// Audit query service for retrieving and processing audit logs and events.
 /// </summary>
 /// <param name="context"></param>
-/// <param name="mapper"></param>
 /// <param name="logger"></param>
 public sealed class AuditQueryService(
     AuditDbContext context,
-    IMapper mapper,
     ILogger<AuditQueryService> logger)
     : IAuditQueryService
 {
@@ -139,7 +137,7 @@ public sealed class AuditQueryService(
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        List<AuditEventDto> items = mapper.Map<List<AuditEventDto>>(events);
+        List<AuditEventDto> items = events.Select(static x => x.ToDto()).ToList();
 
         // Parse JSON data for each event
         foreach (AuditEventDto item in items.Where(static item => !string.IsNullOrEmpty(item.JsonData)))
@@ -190,7 +188,7 @@ public sealed class AuditQueryService(
             return null;
         }
 
-        AuditEventDto dto = mapper.Map<AuditEventDto>(auditEvent);
+        AuditEventDto dto = auditEvent.ToDto();
 
         if (string.IsNullOrEmpty(dto.JsonData)) return dto;
         try

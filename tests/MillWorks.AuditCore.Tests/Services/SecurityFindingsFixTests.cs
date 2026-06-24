@@ -1,9 +1,6 @@
-using System.Linq.Expressions;
 using System.Text.Json;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Interfaces;
@@ -122,15 +119,11 @@ public class SecurityFindingsFixTests
         await context.SaveChangesAsync();
 
         var repository = new AuditEventRepository(context);
-        var mapper = new Mock<IMapper>();
-        mapper.Setup(m => m.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns(new AuditEventDto { EventId = eventId, JsonData = entity.JsonData });
 
         var logRepository = new Mock<IAuditLogRepository>();
         var service = new AuditService(
             logRepository.Object,
             repository,
-            mapper.Object,
             NullLogger<AuditService>.Instance);
 
         // Act - should not throw
@@ -165,20 +158,11 @@ public class SecurityFindingsFixTests
         await context.SaveChangesAsync();
 
         var repository = new AuditEventRepository(context);
-        var mapper = new Mock<IMapper>();
-        mapper.Setup(m => m.Map<List<AuditEventDto>>(It.IsAny<object>()))
-            .Returns((object source) =>
-            {
-                var entities = source as List<AuditEventEntity>;
-                return entities?.Select(e => new AuditEventDto { EventId = e.EventId, JsonData = e.JsonData }).ToList()
-                       ?? new List<AuditEventDto>();
-            });
 
         var logRepository = new Mock<IAuditLogRepository>();
         var service = new AuditService(
             logRepository.Object,
             repository,
-            mapper.Object,
             NullLogger<AuditService>.Instance);
 
         // Act - should not throw
@@ -206,22 +190,6 @@ public class SecurityFindingsFixTests
         await using var context = new AuditDbContext(options);
         var repository = new SecurityEventRepository(context);
 
-        var mapper = new Mock<IMapper>();
-        AuditSecurityEventEntity? capturedEntity = null;
-        mapper.Setup(m => m.Map<AuditSecurityEventEntity>(It.IsAny<SecurityEventDto>()))
-            .Returns((SecurityEventDto dto) =>
-            {
-                capturedEntity = new AuditSecurityEventEntity
-                {
-                    Message = dto.Message,
-                    EventType = dto.EventType,
-                    Severity = dto.Severity
-                };
-                return capturedEntity;
-            });
-        mapper.Setup(m => m.Map<SecurityEventDto>(It.IsAny<AuditSecurityEventEntity>()))
-            .Returns((AuditSecurityEventEntity e) => new SecurityEventDto { Message = e.Message });
-
         var auditContext = new Mock<IAuditContext>();
         auditContext.Setup(c => c.UserEmail).Returns("test@test.com");
 
@@ -230,7 +198,6 @@ public class SecurityFindingsFixTests
         var service = new AuditSecurityEventService(
             repository,
             auditContext.Object,
-            mapper.Object,
             NullLogger<AuditSecurityEventService>.Instance,
             config);
 
@@ -245,9 +212,9 @@ public class SecurityFindingsFixTests
         // Act
         await service.RecordEventAsync(dto);
 
-        // Assert
-        Assert.That(capturedEntity, Is.Not.Null);
-        Assert.That(capturedEntity!.Message.Length, Is.EqualTo(500));
+        // Assert - read the persisted entity back to observe the real truncation
+        var persisted = await context.SecurityEvents.SingleAsync();
+        Assert.That(persisted.Message.Length, Is.EqualTo(500));
     }
 
     [Test]
@@ -261,22 +228,6 @@ public class SecurityFindingsFixTests
         await using var context = new AuditDbContext(options);
         var repository = new SecurityEventRepository(context);
 
-        var mapper = new Mock<IMapper>();
-        AuditSecurityEventEntity? capturedEntity = null;
-        mapper.Setup(m => m.Map<AuditSecurityEventEntity>(It.IsAny<SecurityEventDto>()))
-            .Returns((SecurityEventDto dto) =>
-            {
-                capturedEntity = new AuditSecurityEventEntity
-                {
-                    Message = dto.Message,
-                    EventType = dto.EventType,
-                    Severity = dto.Severity
-                };
-                return capturedEntity;
-            });
-        mapper.Setup(m => m.Map<SecurityEventDto>(It.IsAny<AuditSecurityEventEntity>()))
-            .Returns((AuditSecurityEventEntity e) => new SecurityEventDto { Message = e.Message });
-
         var auditContext = new Mock<IAuditContext>();
         auditContext.Setup(c => c.UserEmail).Returns("test@test.com");
 
@@ -285,7 +236,6 @@ public class SecurityFindingsFixTests
         var service = new AuditSecurityEventService(
             repository,
             auditContext.Object,
-            mapper.Object,
             NullLogger<AuditSecurityEventService>.Instance,
             config);
 
@@ -307,12 +257,12 @@ public class SecurityFindingsFixTests
         // Act
         await service.RecordEventAsync(dto);
 
-        // Assert
-        Assert.That(capturedEntity, Is.Not.Null);
-        Assert.That(capturedEntity!.DetailsJson, Is.Not.Null);
+        // Assert - read the persisted entity back to observe the real size-guard summary
+        var persisted = await context.SecurityEvents.SingleAsync();
+        Assert.That(persisted.DetailsJson, Is.Not.Null);
 
         // Verify it's valid JSON (should not throw)
-        var parsed = JsonSerializer.Deserialize<Dictionary<string, object?>>(capturedEntity.DetailsJson!);
+        var parsed = JsonSerializer.Deserialize<Dictionary<string, object?>>(persisted.DetailsJson!);
         Assert.That(parsed, Is.Not.Null);
         Assert.That(parsed!.ContainsKey("_truncated"), Is.True);
         Assert.That(parsed["_truncated"]?.ToString(), Is.EqualTo("True"));

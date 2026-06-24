@@ -1,11 +1,9 @@
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
-using MapsterMapper;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -27,7 +25,6 @@ public class AuditArchivalServiceEdgeCaseTests
     private Mock<IArchiveRecordRepository> _mockArchiveRecordRepository;
     private Mock<ITamperDetectionService> _mockTamperDetectionService;
     private Mock<BlobServiceClient> _mockBlobServiceClient;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditArchivalService>> _mockLogger;
     private IConfiguration _configuration;
     private AuditArchivalService _archivalService;
@@ -40,7 +37,6 @@ public class AuditArchivalServiceEdgeCaseTests
         _mockArchiveRecordRepository   = new Mock<IArchiveRecordRepository>();
         _mockTamperDetectionService    = new Mock<ITamperDetectionService>();
         _mockBlobServiceClient         = new Mock<BlobServiceClient>();
-        _mockMapper                    = new Mock<IMapper>();
         _mockLogger                    = new Mock<ILogger<AuditArchivalService>>();
 
         var configDict = new Dictionary<string, string>
@@ -56,7 +52,6 @@ public class AuditArchivalServiceEdgeCaseTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             _mockTamperDetectionService.Object,
@@ -125,10 +120,6 @@ public class AuditArchivalServiceEdgeCaseTests
             .Setup(static x => x.GetAllOrderedAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditArchiveRecordEntity>());
 
-        _mockMapper
-            .Setup(static x => x.Map<List<ArchiveMetadata>>(It.IsAny<IEnumerable<AuditArchiveRecordEntity>>()))
-            .Returns(new List<ArchiveMetadata>());
-
         // Act
         var result = await _archivalService.GetArchivesAsync();
 
@@ -183,15 +174,6 @@ public class AuditArchivalServiceEdgeCaseTests
             })
             .ToList();
 
-        var eventDtos = eventEntities
-            .Select(static e => new AuditEventDto
-            {
-                EventId      = e.EventId,
-                EventType    = e.EventType,
-                InsertedDate = e.InsertedDate
-            })
-            .ToList();
-
         _mockAuditEventRepository
             .Setup(static x => x.CountAsync(
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
@@ -204,15 +186,6 @@ public class AuditArchivalServiceEdgeCaseTests
                 It.IsAny<CancellationToken>()))
             .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
                 ToAsyncEnumerable(eventEntities, ct));
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
 
         // All integrity checks pass
         _mockTamperDetectionService

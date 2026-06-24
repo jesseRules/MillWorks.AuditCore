@@ -39,8 +39,6 @@ using MillWorks.AuditCore.Services.Validators;
 using MillWorks.AuditCore.Services.Validators.Interfaces;
 using StackExchange.Redis;
 using Azure.Storage.Blobs;
-using Mapster;
-using MillWorks.AuditCore.Services.Mapping;
 
 namespace MillWorks.AuditCore.AspNetCore.Configuration;
 
@@ -149,9 +147,6 @@ public sealed class MillWorksAuditBuilder
 
         Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<EntityFrameworkOptions>, EntityFrameworkOptionsValidator>());
-
-        // Configure Mapster
-        ConfigureMapster();
 
         // Default audit failure policy. TryAdd lets consumers register a custom
         // IAuditFailurePolicy before AddMillWorksAudit to override regulated-entity detection.
@@ -282,25 +277,6 @@ public sealed class MillWorksAuditBuilder
         // AuditOutboxDrainer self-gates on AuditSinkMode.TransactionalOutbox inside ExecuteAsync.
         // Registered unconditionally — no-op when Immediate mode is active.
         Services.AddHostedService<AuditOutboxDrainer>();
-    }
-
-    /// <summary>
-    /// Configure Mapster type adapter. Applies <see cref="AuditMappingConfiguration"/> onto
-    /// <see cref="TypeAdapterConfig.GlobalSettings"/> — the same instance every other library's
-    /// <c>IRegister</c> targets — and registers the global config via <c>TryAddSingleton</c> so
-    /// a consumer-owned registration wins. A prior implementation created a fresh
-    /// <see cref="TypeAdapterConfig"/>, applied only AuditCore's mappings, and registered it
-    /// via <c>AddSingleton</c> — that won last-writer-wins for <c>IMapper</c> resolution and
-    /// silently dropped every consumer mapping not defined in AuditCore. This is structurally
-    /// the same shape as the <c>IConnectionMultiplexer</c> fix in UseSecurity.
-    /// </summary>
-    private void ConfigureMapster()
-    {
-        var config = TypeAdapterConfig.GlobalSettings;
-        config.Apply(new AuditMappingConfiguration());
-
-        Services.TryAddSingleton(config);
-        Services.AddMapster();
     }
 
     /// <summary>

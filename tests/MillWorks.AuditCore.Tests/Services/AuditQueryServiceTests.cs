@@ -1,4 +1,3 @@
-using MapsterMapper;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -15,7 +14,6 @@ namespace MillWorks.AuditCore.Tests.Services;
 public class AuditQueryServiceTests
 {
     private AuditDbContext _context;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditQueryService>> _mockLogger;
     private AuditQueryService _queryService;
 
@@ -28,10 +26,9 @@ public class AuditQueryServiceTests
         var options = TestDbContextFactory.CreateInMemoryOptions();
 
         _context = new AuditDbContext(options);
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditQueryService>>();
 
-        _queryService = new AuditQueryService(_context, _mockMapper.Object, _mockLogger.Object);
+        _queryService = new AuditQueryService(_context, _mockLogger.Object);
     }
 
     /// <summary>

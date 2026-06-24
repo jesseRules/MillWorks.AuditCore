@@ -1,12 +1,10 @@
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
-using MapsterMapper;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.EntityFramework.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
@@ -25,7 +23,6 @@ public class AuditArchivalServiceTests
     private Mock<IArchiveRecordRepository> _mockArchiveRecordRepository;
     private Mock<ITamperDetectionService> _mockTamperDetectionService;
     private Mock<BlobServiceClient> _mockBlobServiceClient;
-    private Mock<IMapper> _mockMapper;
     private Mock<ILogger<AuditArchivalService>> _mockLogger;
     private IConfiguration _configuration;
     private AuditArchivalService _archivalService;
@@ -41,7 +38,6 @@ public class AuditArchivalServiceTests
         _mockArchiveRecordRepository = new Mock<IArchiveRecordRepository>();
         _mockTamperDetectionService = new Mock<ITamperDetectionService>();
         _mockBlobServiceClient = new Mock<BlobServiceClient>();
-        _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<AuditArchivalService>>();
 
         var configDict = new Dictionary<string, string>
@@ -57,7 +53,6 @@ public class AuditArchivalServiceTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             _mockTamperDetectionService.Object,
@@ -109,10 +104,6 @@ public class AuditArchivalServiceTests
             .Setup(static x => x.GetAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditEventEntity>());
 
-        _mockMapper
-            .Setup(static x => x.Map<IEnumerable<AuditEventDto>>(It.IsAny<IEnumerable<AuditEventEntity>>()))
-            .Returns(new List<AuditEventDto>());
-
         // Act
         var result = await _archivalService.ArchiveAuditEventsAsync(archiveBefore);
 
@@ -146,25 +137,11 @@ public class AuditArchivalServiceTests
             }
         };
 
-        var eventDtos = new List<AuditEventDto>
-        {
-            new() { EventId = eventId, EventType = "User.Login", InsertedDate = events[0].InsertedDate }
-        };
-
         _mockAuditEventRepository
             .Setup(static x => x.CountAsync(
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(events.Count);
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
 
         _mockTamperDetectionService
             .Setup(static x => x.VerifyIntegrityAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -226,11 +203,6 @@ public class AuditArchivalServiceTests
             }
         };
 
-        var eventDtos = new List<AuditEventDto>
-        {
-            new() { EventId = eventId, EventType = "User.Login", InsertedDate = events[0].InsertedDate }
-        };
-
         _mockAuditEventRepository
             .Setup(static x => x.CountAsync(
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
@@ -243,15 +215,6 @@ public class AuditArchivalServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
                 ToAsyncEnumerable(events, ct));
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
 
         // Mock blob so archive reaches the integrity-verify loop. The blob failure path
         // is covered by a separate test; here we care about the tamper-check short-circuit.
@@ -432,25 +395,16 @@ public class AuditArchivalServiceTests
             .Setup(static x => x.GetAllOrderedAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(archiveRecords);
 
-        var archiveMetadataList = archiveRecords.Select(static r => new ArchiveMetadata
-        {
-            ArchiveId = r.ArchiveId,
-            EventCount = r.EventCount,
-            DateRangeStart = r.DateRangeStart,
-            DateRangeEnd = r.DateRangeEnd,
-            CreatedAt = r.CreatedAt
-        }).ToList();
-
-        _mockMapper
-            .Setup(static x => x.Map<List<ArchiveMetadata>>(It.IsAny<IEnumerable<AuditArchiveRecordEntity>>()))
-            .Returns(archiveMetadataList);
-
         // Act
         var result = await _archivalService.GetArchivesAsync();
 
-        // Assert
+        // Assert — real ToMetadata mapping carries the entity fields through to the metadata
         Assert.That(result, Is.Not.Null);
         Assert.That(result, Has.Count.EqualTo(2));
+        Assert.That(result[0].ArchiveId, Is.EqualTo(archiveRecords[0].ArchiveId));
+        Assert.That(result[0].EventCount, Is.EqualTo(100));
+        Assert.That(result[0].Status, Is.EqualTo(MillWorksArchiveStatus.Completed.ToString()));
+        Assert.That(result[1].EventCount, Is.EqualTo(200));
     }
 
     /// <summary>
@@ -544,7 +498,6 @@ public class AuditArchivalServiceTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             tamperDetectionService: null,
@@ -575,11 +528,6 @@ public class AuditArchivalServiceTests
             new() { EventId = eventId, EventType = "User.Login", InsertedDate = DateTimeOffset.UtcNow.AddDays(-100) }
         };
 
-        var eventDtos = new List<AuditEventDto>
-        {
-            new() { EventId = eventId, EventType = "User.Login", InsertedDate = events[0].InsertedDate }
-        };
-
         _mockAuditEventRepository
             .Setup(static x => x.CountAsync(
                 It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
@@ -592,15 +540,6 @@ public class AuditArchivalServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns((Expression<Func<AuditEventEntity, bool>> _, CancellationToken ct) =>
                 ToAsyncEnumerable(events, ct));
-
-        _mockMapper
-            .Setup(static x => x.Map<AuditEventDto>(It.IsAny<AuditEventEntity>()))
-            .Returns((AuditEventEntity e) => new AuditEventDto
-            {
-                EventId = e.EventId,
-                EventType = e.EventType,
-                InsertedDate = e.InsertedDate
-            });
 
         // Blob fails so we can verify the flow reached blob section (after skipping tamper check)
         _mockBlobServiceClient
@@ -757,7 +696,6 @@ public class AuditArchivalServiceTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             _mockTamperDetectionService.Object,
@@ -795,7 +733,6 @@ public class AuditArchivalServiceTests
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockArchiveRecordRepository.Object,
-            _mockMapper.Object,
             _mockLogger.Object,
             _configuration,
             _mockTamperDetectionService.Object,
