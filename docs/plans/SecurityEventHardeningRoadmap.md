@@ -1,17 +1,19 @@
 # Security Event Hardening Roadmap
 
-**Status:** Partially Implemented  
-**Date:** 2026-06-07  
+**Status:** Closed — implemented items kept, proposed items superseded  
+**Date:** 2026-06-07 (updated 2026-06-28)  
 **Scope:** Follow-up hardening for AuditCore security-event integrity, privacy, queryability, and event pipelines
+
+> **Direction (2026-06-28).** AuditCore does not duplicate the application security engine. **MillWorks.Security** owns the operational layer — SIEM fan-out, threat intelligence, the alert lifecycle (create/escalate/acknowledge/**resolve**), dedup/suppression, real-time monitoring, and query/export. AuditCore's role is the **append-only, tamper-evident record**: `AuditSecurityEventEntity` now implements `IAppendOnlyEntity` and is enforced immutable by `AppendOnlyInterceptor`, and the in-place `ResolveEventAsync` mutation was removed. The remaining "Proposed" workstreams (1, 3, 4) rebuilt slices of MillWorks.Security and are **superseded — not being built**.
 
 ## Implementation Status
 
 | Workstream | Status | Plan |
 |------------|--------|------|
-| 1. Security-Event Integrity | Proposed | [SecurityEventIntegrity.md](SecurityEventIntegrity.md) |
+| 1. Security-Event Integrity | **Superseded** | [SecurityEventIntegrity.md](SecurityEventIntegrity.md) |
 | 2. Hash-Only Source Metadata | **Implemented** | Done in BreakGlassSecurityEvents |
-| 3. Query And Export Surface | Proposed | [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md) |
-| 4. Fail-Closed Pipeline Variants | Proposed (optional) | [SecurityEventApiVariants.md](SecurityEventApiVariants.md) |
+| 3. Query And Export Surface | **Superseded** | [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md) |
+| 4. Fail-Closed Pipeline Variants | **Superseded** | [SecurityEventApiVariants.md](SecurityEventApiVariants.md) |
 | 5. Severity Policy And Alert Integration | **Implemented** | Done — severity stored/queryable, alerts via structured logging |
 
 ## Context
@@ -31,7 +33,7 @@ Break-glass recovery raises the bar for these events. The first break-glass impl
 
 ### 1. Security-Event Integrity
 
-**Status:** Proposed — see [SecurityEventIntegrity.md](SecurityEventIntegrity.md)
+**Status:** Superseded — see [SecurityEventIntegrity.md](SecurityEventIntegrity.md)
 
 Design a tamper-evidence model for `SecurityEvents`.
 
@@ -47,6 +49,8 @@ Acceptance criteria:
 - Verification can detect mutation, deletion, and sequence gaps.
 - Verification APIs/reporting distinguish audit-event integrity from security-event integrity.
 - Existing `RecordEventAsync` still fails closed when durable integrity is required.
+
+> **Superseded.** A separate security-event hash chain duplicates the audit-event chain. Immutability — the part actually needed — is now provided by `IAppendOnlyEntity` + `AppendOnlyInterceptor` on `AuditSecurityEventEntity`; tamper-evidence for related activity flows through the audit-event chain via `RelatedAuditEventId`. See the README's *Append-Only Enforcement* section.
 
 ### 2. Hash-Only Source Metadata
 
@@ -69,7 +73,7 @@ Acceptance criteria:
 
 ### 3. Query And Export Surface
 
-**Status:** Proposed — see [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md)
+**Status:** Superseded — see [SecurityEventQuerySurface.md](SecurityEventQuerySurface.md)
 
 Add first-class querying for security operations.
 
@@ -88,7 +92,7 @@ Acceptance criteria:
 
 ### 4. Fail-Closed Pipeline Variants
 
-**Status:** Proposed (optional) — see [SecurityEventApiVariants.md](SecurityEventApiVariants.md)
+**Status:** Superseded — see [SecurityEventApiVariants.md](SecurityEventApiVariants.md)
 
 If security-event retry, buffering, or fanout is added later, preserve a fail-closed option for critical paths.
 
@@ -128,5 +132,5 @@ Acceptance criteria:
 
 - Should `SecurityEventType` stay a closed enum, or should AuditCore support application-defined string event taxonomies?
 - Should security-event integrity share the audit-event chain or use an independent chain?
-- Should `SecurityEvents` become strictly append-only at the repository/API level, with resolution modeled as separate events instead of row updates?
+- ~~Should `SecurityEvents` become strictly append-only at the repository/API level, with resolution modeled as separate events instead of row updates?~~ **Resolved (2026-06-28): yes.** `AuditSecurityEventEntity` implements `IAppendOnlyEntity` and `ResolveEventAsync` was removed. Resolution/triage (`Open → Investigating → Resolved`) is owned by MillWorks.Security, not AuditCore.
 - Should normalized security-event fields be moved into a base event metadata object shared with audit events?

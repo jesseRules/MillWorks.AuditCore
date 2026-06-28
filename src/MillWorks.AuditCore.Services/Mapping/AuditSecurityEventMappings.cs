@@ -36,9 +36,6 @@ public static class AuditSecurityEventMappings
             UserAgentHash = entity.UserAgentHash,
             Operation = entity.Operation,
             Status = entity.Status,
-            ResolvedAt = entity.ResolvedAt,
-            ResolvedBy = entity.ResolvedBy,
-            Resolution = entity.Resolution,
         };
     }
 
@@ -68,9 +65,6 @@ public static class AuditSecurityEventMappings
             UserAgentHash = dto.UserAgentHash,
             Operation = dto.Operation,
             Status = dto.Status,
-            ResolvedAt = dto.ResolvedAt,
-            ResolvedBy = dto.ResolvedBy,
-            Resolution = dto.Resolution,
         };
     }
 

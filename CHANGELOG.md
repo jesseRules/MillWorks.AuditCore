@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-06-28
+
+### Removed
+- **Dead security-event resolution columns** — removed `ResolvedAt`, `ResolvedBy`, and `Resolution` from `AuditSecurityEventEntity`, `SecurityEventDto`, and the entity↔DTO mappings, with a schema-only migration (`SecurityEventAppendOnlyCleanup`) dropping those columns from the `SecurityEvents` table (no data backfill — greenfield). These fields became inert in 1.9.0 when `ResolveEventAsync` was removed: security events are append-only, and triage/resolution is owned by the application security layer (MillWorks.Security), not AuditCore. `Status` and `GetOpenEventsAsync` are intentionally retained. Note: removing public `SecurityEventDto` properties is technically a breaking change, but no AuditCore or MillWorks reader of these fields exists (verified 2026-06-28). A further optional cleanup of the `Status` lifecycle is tracked as Scope B in `docs/plans/SecurityEventAppendOnlyCleanup.md`.
+
+## [1.9.0] - 2026-06-28
+
+### Added
+- **Append-only immutability enforcement** — new `IAppendOnlyEntity` marker interface in `MillWorks.AuditCore.Abstractions` (dependency-free; the package still references only `OpenTelemetry.Api`) and `AppendOnlyInterceptor`, a sealed EF Core `SaveChanges` interceptor in `MillWorks.AuditCore.EntityFramework`. A marked entity that enters the `Modified` or `Deleted` state makes `SaveChanges`/`SaveChangesAsync` throw `InvalidOperationException` (the message names the offending entity type). The `AppendOnlyEntity` base class implements the marker, so `AuditLogs` and `AuditIntegrity` are enforced insert-only automatically; the interceptor is wired onto `AuditDbContext` by `UseEntityFramework`. `ExecuteUpdate`/`ExecuteDelete` and raw SQL bypass the change tracker and this guard by design (sanctioned retention pruning / GDPR/HIPAA erasure). Consumer entities can adopt the marker directly without taking an EF Core dependency.
+- **`AppendOnlyInterceptorTests`** — insert allowed; modify/delete throw with the entity type name in the message; unmarked entities are unaffected (opt-in); the `ExecuteDelete` change-tracker bypass is verified on a relational (SQLite) provider.
+
+### Changed
+- **Security events are now append-only** — `AuditSecurityEventEntity` implements `IAppendOnlyEntity` (directly, since it extends `AuditAggregateRoot`), so a recorded security event is an immutable fact: it can be inserted but never updated or deleted through the change tracker. `RecordEventAsync` is unchanged and remains fail-closed.
+
+### Removed
+- **BREAKING — `IAuditSecurityEventService.ResolveEventAsync`** — the in-place resolution mutation (`Status → Resolved` plus `ResolvedAt`/`ResolvedBy`/`Resolution`) was removed from both the interface and `AuditSecurityEventService`. Security-event triage and resolution lifecycle are owned by the application security layer (MillWorks.Security), not AuditCore. The `Status`/`ResolvedAt`/`ResolvedBy`/`Resolution` columns and DTO fields remain for now but are no longer written by AuditCore and may be removed in a future release.
+
 ## [1.8.12] - 2026-06-24
 
 ### Changed

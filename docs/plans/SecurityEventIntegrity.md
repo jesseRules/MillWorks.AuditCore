@@ -1,9 +1,11 @@
 # Security Event Integrity
 
-**Status:** Proposed  
-**Date:** 2026-06-07  
+**Status:** Superseded — not being built  
+**Date:** 2026-06-07 (superseded 2026-06-28)  
 **Scope:** Tamper-evidence model for SecurityEvents table  
 **Parent:** SecurityEventHardeningRoadmap.md (Workstream 1)
+
+> **Superseded.** AuditCore's `SecurityEvents` are now **append-only immutable records**: `AuditSecurityEventEntity` implements `IAppendOnlyEntity`, so modification or deletion through the change tracker is rejected by `AppendOnlyInterceptor`, and tamper-evidence for related activity already flows through the audit-event hash chain (`RelatedAuditEventId`). A second, independent hash chain for security events duplicates that infrastructure. Operational threat/tamper handling is owned by **MillWorks.Security**. This plan is retained for historical context only.
 
 ## Problem
 
@@ -64,7 +66,7 @@ public sealed class SecurityEventIntegrityEntity
 }
 ```
 
-### Hash Computation
+> **Append-only enforcement:** integrity records are written once and never changed, so `SecurityEventIntegrityEntity` should implement the `IAppendOnlyEntity` marker (`MillWorks.AuditCore.Abstractions.Interfaces`) and the owning `DbContext` should register `AppendOnlyInterceptor`. Any post-insert modification or deletion through the change tracker then throws, while sanctioned pruning via `ExecuteDelete`/`ExecuteUpdate` still passes. The custom `long` key and field set rule out deriving from `AppendOnlyEntity` (which is `Guid`-keyed), so implement the marker interface directly. This primitive already ships in AuditCore.
 
 Compute `EventHash` over canonical security-event fields:
 

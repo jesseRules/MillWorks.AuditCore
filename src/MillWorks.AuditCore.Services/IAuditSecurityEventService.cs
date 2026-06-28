@@ -28,20 +28,6 @@ public interface IAuditSecurityEventService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Resolves a security event by updating its status and adding resolution details.
-    /// </summary>
-    /// <param name="eventId"></param>
-    /// <param name="resolution"></param>
-    /// <param name="resolvedBy"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task<SecurityEventDto?> ResolveEventAsync(
-        Guid eventId,
-        string resolution,
-        string resolvedBy,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Gets all open security events.
     /// </summary>
     /// <param name="cancellationToken"></param>

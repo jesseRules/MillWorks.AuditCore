@@ -140,29 +140,6 @@ public sealed class SecurityEventDto
     [Display(Name = "Status")]
     [JsonPropertyName("status")]
     public SecurityEventStatus Status { get; set; }
-
-    /// <summary>
-    /// Timestamp when the security event was resolved, if applicable.
-    /// </summary>
-    [Display(Name = "Resolved At")]
-    [JsonPropertyName("resolved_at")]
-    public DateTimeOffset? ResolvedAt { get; set; }
-
-    /// <summary>
-    /// Identifier or name of the entity that resolved the security event.
-    /// </summary>
-    [MaxLength(255)]
-    [Display(Name = "Resolved By")]
-    [JsonPropertyName("resolved_by")]
-    public string? ResolvedBy { get; set; }
-
-    /// <summary>
-    /// Details describing how the security event was resolved.
-    /// </summary>
-    [MaxLength(1000)]
-    [Display(Name = "Resolution")]
-    [JsonPropertyName("resolution")]
-    public string? Resolution { get; set; }
 }
 
 /// <summary>

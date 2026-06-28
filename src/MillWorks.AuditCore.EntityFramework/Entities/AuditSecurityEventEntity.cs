@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Primitives;
 
 namespace MillWorks.AuditCore.EntityFramework.Entities;
@@ -10,6 +11,12 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 /// Entity representing a security event detected within the audit system.
 /// Security events are generated in response to suspicious activities, integrity violations,
 /// unauthorized access attempts, and other security-related incidents.
+/// <para>
+/// Append-only: a recorded security event is an immutable fact and is never updated or deleted
+/// through the EF change tracker (enforced by <c>AppendOnlyInterceptor</c> via <see cref="IAppendOnlyEntity"/>).
+/// Operational triage and alert resolution are owned by the application security layer
+/// (MillWorks.Security), not AuditCore.
+/// </para>
 /// </summary>
 [Table("SecurityEvents")]
 [Index(nameof(EventType), Name = "IX_SecurityEvents_EventType")]
@@ -21,7 +28,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(SubjectUserId), Name = "IX_SecurityEvents_SubjectUserId")]
 [Index(nameof(CorrelationId), Name = "IX_SecurityEvents_CorrelationId")]
 [Index(nameof(Operation), Name = "IX_SecurityEvents_Operation")]
-public class AuditSecurityEventEntity : AuditAggregateRoot
+public class AuditSecurityEventEntity : AuditAggregateRoot, IAppendOnlyEntity
 {
     /// <summary>
     /// Type of security event that was detected (e.g., "AuditTamperAlert", "UnauthorizedAccess").
@@ -132,26 +139,6 @@ public class AuditSecurityEventEntity : AuditAggregateRoot
     [Required]
     [Column("Status")]
     public SecurityEventStatus Status { get; set; }
-
-    /// <summary>
-    /// Timestamp indicating when the security event was resolved, if applicable.
-    /// </summary>
-    [Column("ResolvedAt")]
-    public DateTimeOffset? ResolvedAt { get; set; }
-
-    /// <summary>
-    /// Identifier or name of the user or system that resolved the security event.
-    /// </summary>
-    [MaxLength(256)]
-    [Column("ResolvedBy")]
-    public string? ResolvedBy { get; set; }
-
-    /// <summary>
-    /// Detailed description of the actions taken to resolve the security event and any findings from the investigation.
-    /// </summary>
-    [MaxLength(1000)]
-    [Column("Resolution")]
-    public string? Resolution { get; set; }
 
     /// <summary>
     /// Navigation property to the related audit event that triggered or is associated with this security event.

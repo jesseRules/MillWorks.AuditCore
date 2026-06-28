@@ -662,7 +662,15 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | `SecurityEvents` | Security-relevant events, tamper/compliance alerts, and break-glass access records | `Id`, `EventType`, `Severity`, `Message`, `DetailsJson`, `IpAddress`, `DetectedAt`, `Status`, `CorrelationId`, `TenantId`, `ActorUserId`, `SubjectUserId`, `SourceIpHash`, `UserAgentHash`, `Operation` |
 | `AuditOutbox` | Durable handoff for `TransactionalOutbox` sink | `Id`, `EnvelopeJson`, `Status`, `CreatedAt`, `CompletedAt`, `AttemptCount`, `LastError` |
 
-Append-only entities (`AuditIntegrity`, `SecurityEvents`) do not carry update/delete audit columns to avoid unnecessary storage overhead. `AuditEvents.IntegrityStatus` is the one field updated after initial insert — it transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
+`AuditLogs`, `AuditIntegrity`, and `SecurityEvents` are **insert-only** and enforced immutable by `AppendOnlyInterceptor` — see [Append-Only Enforcement](#append-only-enforcement). `AuditLogs` and `AuditIntegrity` derive from `AppendOnlyEntity` (carrying only `Id`, `CreatedAt`, `CreatedById`); `SecurityEvents` records are immutable facts — operational triage and resolution are owned by the application security layer (MillWorks.Security), not AuditCore. `AuditEvents` is the one store with a narrow, well-defined post-insert mutation: `IntegrityStatus` transitions from `Pending` to `Completed` (or `Failed`/`Reconciled`) when the integrity record is created in batched mode.
+
+### Append-Only Enforcement
+
+Insert-only entities implement the dependency-free `IAppendOnlyEntity` marker (`MillWorks.AuditCore.Abstractions.Interfaces`). The base class `AppendOnlyEntity` implements it, so `AuditLogs` and `AuditIntegrity` are covered automatically; entities that already extend another base — like `SecurityEvents` (`AuditSecurityEventEntity`) — implement the marker interface directly. Consumer entities can adopt it the same way without taking an EF Core dependency.
+
+When `AppendOnlyInterceptor` is registered on a `DbContext`, any marked entity that enters the `Modified` or `Deleted` state makes `SaveChanges`/`SaveChangesAsync` throw `InvalidOperationException`. AuditCore wires it onto its own `AuditDbContext` automatically via `UseEntityFramework`; consumers add it to their contexts the same way they add any EF Core interceptor.
+
+Sanctioned destruction — retention pruning, GDPR/HIPAA erasure — uses `ExecuteDelete`/`ExecuteUpdate`, which run directly against the database and bypass the change tracker (and therefore this guard) by design.
 
 ## Observability
 
