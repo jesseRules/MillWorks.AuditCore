@@ -92,7 +92,6 @@ public class AuditSecurityEventServiceTests
         Assert.That(captured!.DetectedAt, Is.Not.EqualTo(default(DateTimeOffset)));
         Assert.That(captured.DetectedBy, Is.EqualTo("admin@example.com"));
         Assert.That(captured.IpAddress, Is.EqualTo("10.0.0.1"));
-        Assert.That(captured.Status, Is.EqualTo(SecurityEventStatus.Open));
     }
 
     [Test]
@@ -178,71 +177,13 @@ public class AuditSecurityEventServiceTests
     }
 
     [Test]
-    public async Task ResolveEventAsync_ExistingEvent_MarksResolved()
+    public void AuditSecurityEventEntity_IsAppendOnly()
     {
-        var eventId = Guid.NewGuid();
-        var entity = new AuditSecurityEventEntity
-        {
-            Status = SecurityEventStatus.Open,
-            Message = "Test event"
-        };
-
-        _mockRepository.Setup(r => r.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(entity);
-        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditSecurityEventEntity e, CancellationToken _) => e);
-
-        var result = await _service.ResolveEventAsync(eventId, "Fixed", "admin@example.com");
-
-        Assert.That(result, Is.Not.Null);
-        // The returned DTO reflects the resolved state via real mapping.
-        Assert.That(result!.Status, Is.EqualTo(SecurityEventStatus.Resolved));
-        Assert.That(result.Resolution, Is.EqualTo("Fixed"));
-        Assert.That(result.ResolvedBy, Is.EqualTo("admin@example.com"));
-        // The entity passed to the repository was mutated by the service.
-        Assert.That(entity.Status, Is.EqualTo(SecurityEventStatus.Resolved));
-        Assert.That(entity.Resolution, Is.EqualTo("Fixed"));
-        Assert.That(entity.ResolvedBy, Is.EqualTo("admin@example.com"));
-        Assert.That(entity.ResolvedAt, Is.Not.Null);
-        _mockRepository.Verify(r => r.UpdateAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(static r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Test]
-    public async Task ResolveEventAsync_NonExistentEvent_ReturnsNull()
-    {
-        var eventId = Guid.NewGuid();
-
-        _mockRepository.Setup(r => r.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditSecurityEventEntity?)null);
-
-        var result = await _service.ResolveEventAsync(eventId, "Fixed", "admin");
-
-        Assert.That(result, Is.Null);
-        _mockRepository.Verify(
-            static r => r.UpdateAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    [Test]
-    public async Task GetOpenEventsAsync_DelegatesToRepository()
-    {
-        var openEntities = new List<AuditSecurityEventEntity>
-        {
-            new() { Status = SecurityEventStatus.Open },
-            new() { Status = SecurityEventStatus.Investigating }
-        };
-
-        _mockRepository.Setup(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(openEntities);
-
-        var result = (await _service.GetOpenEventsAsync()).ToList();
-
-        Assert.That(result.Count, Is.EqualTo(2));
-        // Real mapping preserves the status of each entity.
-        Assert.That(result[0].Status, Is.EqualTo(SecurityEventStatus.Open));
-        Assert.That(result[1].Status, Is.EqualTo(SecurityEventStatus.Investigating));
-        _mockRepository.Verify(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // Security events are immutable facts: recorded once, never updated or deleted.
+        // The marker makes AppendOnlyInterceptor reject any post-insert modification/deletion.
+        // Operational triage/resolution is owned by MillWorks.Security, not AuditCore — so the
+        // service exposes no ResolveEventAsync mutation path.
+        Assert.That(new AuditSecurityEventEntity(), Is.InstanceOf<IAppendOnlyEntity>());
     }
 
     [Test]

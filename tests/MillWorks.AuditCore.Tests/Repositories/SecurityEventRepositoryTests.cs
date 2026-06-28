@@ -42,9 +42,9 @@ public class SecurityEventRepositoryTests
     public async Task GetByEventTypeAsync_ReturnsMatchingEvents()
     {
         // Arrange
-        await SeedSecurityEvent(SecurityEventType.AuditTamperAlert, SecurityEventSeverity.High, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.UnauthorizedAccess, SecurityEventSeverity.Medium, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.AuditTamperAlert, SecurityEventSeverity.Critical, SecurityEventStatus.Investigating);
+        await SeedSecurityEvent(SecurityEventType.AuditTamperAlert, SecurityEventSeverity.High);
+        await SeedSecurityEvent(SecurityEventType.UnauthorizedAccess, SecurityEventSeverity.Medium);
+        await SeedSecurityEvent(SecurityEventType.AuditTamperAlert, SecurityEventSeverity.Critical);
 
         // Act
         var results = (await _repository.GetByEventTypeAsync(SecurityEventType.AuditTamperAlert)).ToList();
@@ -65,59 +65,15 @@ public class SecurityEventRepositoryTests
     public async Task GetBySeverityAsync_ReturnsMatchingEvents()
     {
         // Arrange
-        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.High, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Low, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.ChainBroken, SecurityEventSeverity.High, SecurityEventStatus.Resolved);
+        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.High);
+        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Low);
+        await SeedSecurityEvent(SecurityEventType.ChainBroken, SecurityEventSeverity.High);
 
         // Act
         var results = (await _repository.GetBySeverityAsync(SecurityEventSeverity.High)).ToList();
 
         // Assert
         Assert.That(results, Has.Count.EqualTo(2));
-    }
-
-    #endregion
-
-    #region GetOpenEventsAsync
-
-    /// <summary>
-    /// Verifies only Open and Investigating status events are returned.
-    /// </summary>
-    [Test]
-    public async Task GetOpenEventsAsync_ReturnsOpenAndInvestigatingOnly()
-    {
-        // Arrange
-        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.High, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Medium, SecurityEventStatus.Investigating);
-        await SeedSecurityEvent(SecurityEventType.ChainBroken, SecurityEventSeverity.Low, SecurityEventStatus.Resolved);
-        await SeedSecurityEvent(SecurityEventType.UnauthorizedAccess, SecurityEventSeverity.Critical, SecurityEventStatus.FalsePositive);
-
-        // Act
-        var results = (await _repository.GetOpenEventsAsync()).ToList();
-
-        // Assert
-        Assert.That(results, Has.Count.EqualTo(2));
-        Assert.That(results.All(static e =>
-            e.Status == SecurityEventStatus.Open || e.Status == SecurityEventStatus.Investigating), Is.True);
-    }
-
-    /// <summary>
-    /// Verifies open events are sorted by severity descending, then by date.
-    /// </summary>
-    [Test]
-    public async Task GetOpenEventsAsync_SortsBySeverityDescending()
-    {
-        // Arrange
-        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.Low, SecurityEventStatus.Open);
-        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Critical, SecurityEventStatus.Open);
-
-        // Act
-        var results = (await _repository.GetOpenEventsAsync()).ToList();
-
-        // Assert
-        Assert.That(results, Has.Count.EqualTo(2));
-        Assert.That(results[0].Severity, Is.EqualTo(SecurityEventSeverity.Critical));
-        Assert.That(results[1].Severity, Is.EqualTo(SecurityEventSeverity.Low));
     }
 
     #endregion
@@ -132,9 +88,9 @@ public class SecurityEventRepositoryTests
     {
         // Arrange
         var now = DateTimeOffset.UtcNow;
-        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.High, SecurityEventStatus.Open, now.AddDays(-5));
-        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Medium, SecurityEventStatus.Open, now.AddDays(-2));
-        await SeedSecurityEvent(SecurityEventType.ChainBroken, SecurityEventSeverity.Low, SecurityEventStatus.Open, now.AddDays(1));
+        await SeedSecurityEvent(SecurityEventType.SuspiciousActivity, SecurityEventSeverity.High, now.AddDays(-5));
+        await SeedSecurityEvent(SecurityEventType.IntegrityViolation, SecurityEventSeverity.Medium, now.AddDays(-2));
+        await SeedSecurityEvent(SecurityEventType.ChainBroken, SecurityEventSeverity.Low, now.AddDays(1));
 
         // Act
         var results = (await _repository.GetByDateRangeAsync(now.AddDays(-3), now)).ToList();
@@ -166,7 +122,6 @@ public class SecurityEventRepositoryTests
         {
             EventType = SecurityEventType.AuditTamperAlert,
             Severity = SecurityEventSeverity.High,
-            Status = SecurityEventStatus.Open,
             Message = "Tamper detected",
             DetectedAt = DateTimeOffset.UtcNow,
             RelatedAuditEventId = auditEvent.EventId
@@ -202,14 +157,12 @@ public class SecurityEventRepositoryTests
     private async Task SeedSecurityEvent(
         SecurityEventType eventType,
         SecurityEventSeverity severity,
-        SecurityEventStatus status,
         DateTimeOffset? detectedAt = null)
     {
         var entity = new AuditSecurityEventEntity
         {
             EventType = eventType,
             Severity = severity,
-            Status = status,
             Message = $"Test {eventType}",
             DetectedAt = detectedAt ?? DateTimeOffset.UtcNow
         };

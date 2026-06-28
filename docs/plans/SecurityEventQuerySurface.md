@@ -1,9 +1,11 @@
 # Security Event Query Surface
 
-**Status:** Proposed  
-**Date:** 2026-06-07  
+**Status:** Superseded — not being built  
+**Date:** 2026-06-07 (superseded 2026-06-28)  
 **Scope:** First-class querying for security-event normalized fields and pagination  
 **Parent:** SecurityEventHardeningRoadmap.md (Workstream 3)
+
+> **Superseded.** Security-event querying, filtering, and export are owned by **MillWorks.Security** (`ISecurityDataExportService`, alert querying, SIEM). Building a parallel query/export surface over AuditCore's `audit.SecurityEvents` duplicates that. AuditCore keeps only the minimal read paths it needs internally (`GetCriticalEventsAsync`, `GetBySeverity/DateRange`). This plan is retained for historical context only.
 
 ## Problem
 

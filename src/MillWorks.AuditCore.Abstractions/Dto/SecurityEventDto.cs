@@ -132,37 +132,6 @@ public sealed class SecurityEventDto
     [Display(Name = "Operation")]
     [JsonPropertyName("operation")]
     public string? Operation { get; set; }
-
-    /// <summary>
-    /// Current status of the security event (e.g., "Open", "Investigating", "Resolved").
-    /// </summary>
-    [Required]
-    [Display(Name = "Status")]
-    [JsonPropertyName("status")]
-    public SecurityEventStatus Status { get; set; }
-
-    /// <summary>
-    /// Timestamp when the security event was resolved, if applicable.
-    /// </summary>
-    [Display(Name = "Resolved At")]
-    [JsonPropertyName("resolved_at")]
-    public DateTimeOffset? ResolvedAt { get; set; }
-
-    /// <summary>
-    /// Identifier or name of the entity that resolved the security event.
-    /// </summary>
-    [MaxLength(255)]
-    [Display(Name = "Resolved By")]
-    [JsonPropertyName("resolved_by")]
-    public string? ResolvedBy { get; set; }
-
-    /// <summary>
-    /// Details describing how the security event was resolved.
-    /// </summary>
-    [MaxLength(1000)]
-    [Display(Name = "Resolution")]
-    [JsonPropertyName("resolution")]
-    public string? Resolution { get; set; }
 }
 
 /// <summary>
@@ -290,30 +259,4 @@ public enum SecurityEventSeverity
     /// Critical severity - severe impact or risk requiring immediate action.
     /// </summary>
     Critical
-}
-
-/// <summary>
-/// Enum representing the status states of a security event throughout its lifecycle.
-/// </summary>
-public enum SecurityEventStatus
-{
-    /// <summary>
-    /// Event is newly detected and awaiting investigation.
-    /// </summary>
-    Open,
-
-    /// <summary>
-    /// Event is currently being investigated.
-    /// </summary>
-    Investigating,
-
-    /// <summary>
-    /// Event has been investigated and resolved.
-    /// </summary>
-    Resolved,
-
-    /// <summary>
-    /// Event was determined to be a false positive.
-    /// </summary>
-    FalsePositive
 }

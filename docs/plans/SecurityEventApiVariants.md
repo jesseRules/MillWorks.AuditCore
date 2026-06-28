@@ -1,9 +1,11 @@
 # Security Event API Variants
 
-**Status:** Proposed  
-**Date:** 2026-06-07  
+**Status:** Superseded — not being built  
+**Date:** 2026-06-07 (superseded 2026-06-28)  
 **Scope:** Explicit API differentiation for fail-closed vs buffered security-event recording  
 **Parent:** SecurityEventHardeningRoadmap.md (Workstream 4)
+
+> **Superseded.** The batched/async/fail-open security-event pipeline (queue, retry, dead-letter, SIEM/alert fanout) is owned by **MillWorks.Security**, which already implements it. AuditCore's `RecordEventAsync` stays single-path and fail-closed for persisting the immutable record; it does not need buffered variants. This plan is retained for historical context only.
 
 ## Problem
 

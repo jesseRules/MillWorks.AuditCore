@@ -29,14 +29,6 @@ public interface ISecurityEventRepository : IRepository<AuditSecurityEventEntity
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all open security events.
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task<IEnumerable<AuditSecurityEventEntity>> GetOpenEventsAsync(
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Gets security events within a specified date range.
     /// </summary>
     /// <param name="startDate"></param>

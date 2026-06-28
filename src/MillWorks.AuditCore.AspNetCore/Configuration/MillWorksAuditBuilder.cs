@@ -179,6 +179,12 @@ public sealed class MillWorksAuditBuilder
         // SQL metrics interceptor for Azure SQL observability (throttling, deadlock, connection pool errors)
         Services.AddSingleton<AuditSqlCommandInterceptor>();
 
+        // Append-only guard: blocks change-tracker modification/deletion of IAppendOnlyEntity types.
+        // Stateless and parameterless, so a singleton is safe. Registered on AuditDbContext below;
+        // its only append-only entities (AuditIntegrityEntity, AuditLogEntity) are insert-only —
+        // status transitions live on AuditEventEntity (not append-only) and pruning uses ExecuteDelete.
+        Services.AddSingleton<AppendOnlyInterceptor>();
+
         // Configure DbContext with interceptor and circular dependency prevention
         Services.AddDbContext<AuditDbContext>(static (serviceProvider, options) =>
         {
@@ -204,7 +210,8 @@ public sealed class MillWorksAuditBuilder
 
             var saveChangesInterceptor = serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>();
             var sqlCommandInterceptor = serviceProvider.GetRequiredService<AuditSqlCommandInterceptor>();
-            options.AddInterceptors(saveChangesInterceptor, sqlCommandInterceptor);
+            var appendOnlyInterceptor = serviceProvider.GetRequiredService<AppendOnlyInterceptor>();
+            options.AddInterceptors(saveChangesInterceptor, sqlCommandInterceptor, appendOnlyInterceptor);
 
             options.EnableSensitiveDataLogging(false);
             options.EnableDetailedErrors(false);

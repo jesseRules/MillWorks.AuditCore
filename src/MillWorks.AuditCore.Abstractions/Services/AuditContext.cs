@@ -5,7 +5,7 @@ namespace MillWorks.AuditCore.Abstractions.Services;
 /// <summary>
 /// Provides context for the current audit operation, including user information and request details
 /// </summary>
-public sealed class AuditContext: IAuditContext
+public sealed class AuditContext : IAuditContext
 {
     /// <summary>
     /// Custom context data storage
@@ -75,7 +75,8 @@ public sealed class AuditContext: IAuditContext
     /// <summary>
     /// Get custom context data
     /// </summary>
-    public T? GetData<T>(string key) => _contextData.TryGetValue(key, out var value) && value is T typed ? typed : default;
+    public T? GetData<T>(string key) =>
+        _contextData.TryGetValue(key, out var value) && value is T typed ? typed : default;
 
     /// <summary>
     /// Check if custom data exists for a key

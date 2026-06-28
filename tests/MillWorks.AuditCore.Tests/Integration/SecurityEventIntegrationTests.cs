@@ -12,7 +12,8 @@ namespace MillWorks.AuditCore.Tests.Integration;
 
 /// <summary>
 /// Integration tests for AuditSecurityEventService verifying record, retrieve,
-/// filter by severity, and resolve operations against a real SQLite backend.
+/// and filter-by-severity operations against a real SQLite backend. Security events are
+/// append-only, so there is no resolve/update path.
 /// </summary>
 [TestFixture]
 [Category("Integration")]
@@ -54,7 +55,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         Assert.That(recorded, Is.Not.Null);
         Assert.That(recorded.EventType, Is.EqualTo(SecurityEventType.UnauthorizedAccess));
         Assert.That(recorded.Severity, Is.EqualTo(SecurityEventSeverity.High));
-        Assert.That(recorded.Status, Is.EqualTo(SecurityEventStatus.Open));
 
         // Verify persisted in database
         using var verifyContext = CreateContext();
@@ -88,32 +88,28 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
                 EventType = SecurityEventType.AuditTamperAlert,
                 Severity = SecurityEventSeverity.Critical,
                 Message = "Critical tamper alert",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             },
             new AuditSecurityEventEntity
             {
                 EventType = SecurityEventType.SuspiciousActivity,
                 Severity = SecurityEventSeverity.Low,
                 Message = "Low severity activity",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             },
             new AuditSecurityEventEntity
             {
                 EventType = SecurityEventType.IntegrityViolation,
                 Severity = SecurityEventSeverity.Critical,
                 Message = "Critical integrity violation",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             },
             new AuditSecurityEventEntity
             {
                 EventType = SecurityEventType.UnauthorizedAccess,
                 Severity = SecurityEventSeverity.Medium,
                 Message = "Medium unauthorized access",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             });
         await context.SaveChangesAsync();
 
@@ -123,51 +119,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
         // Assert - GetCriticalEventsAsync filters for Critical severity only
         Assert.That(criticalEvents, Has.Count.EqualTo(2));
         Assert.That(criticalEvents.All(static e => e.Severity == SecurityEventSeverity.Critical), Is.True);
-    }
-
-    [Test]
-    public async Task ResolveEvent_UpdatesStatus()
-    {
-        // Arrange
-        using var context = CreateContext();
-        var securityRepo = new SecurityEventRepository(context);
-        var auditContext = new AuditContext { UserEmail = "admin@test.com" };
-        var appConfig = new ConfigurationBuilder().AddInMemoryCollection().Build();
-
-        var service = new AuditSecurityEventService(
-            securityRepo, auditContext,
-            NullLogger<AuditSecurityEventService>.Instance, appConfig);
-
-        // Record an event first
-        var dto = new SecurityEventDto
-        {
-            EventType = SecurityEventType.SuspiciousActivity,
-            Severity = SecurityEventSeverity.Medium,
-            Message = "Suspicious login pattern detected"
-        };
-        var recorded = await service.RecordEventAsync(dto);
-
-        // Act
-        var resolved = await service.ResolveEventAsync(
-            recorded.Id,
-            "Verified as legitimate user behavior",
-            "security-admin@test.com");
-
-        // Assert
-        Assert.That(resolved, Is.Not.Null);
-        Assert.That(resolved!.Status, Is.EqualTo(SecurityEventStatus.Resolved));
-        Assert.That(resolved.Resolution, Is.EqualTo("Verified as legitimate user behavior"));
-        Assert.That(resolved.ResolvedBy, Is.EqualTo("security-admin@test.com"));
-
-        // Verify in database
-        using var verifyContext = CreateContext();
-        var persisted = await verifyContext.Set<AuditSecurityEventEntity>()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == recorded.Id);
-
-        Assert.That(persisted, Is.Not.Null);
-        Assert.That(persisted!.Status, Is.EqualTo(SecurityEventStatus.Resolved));
-        Assert.That(persisted.ResolvedAt, Is.Not.Null);
     }
 
     [Test]
@@ -255,7 +206,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
                 Severity = SecurityEventSeverity.Critical,
                 Message = "Break-glass granted",
                 DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open,
                 Operation = "NetworkPolicyOverride"
             },
             new AuditSecurityEventEntity
@@ -264,7 +214,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
                 Severity = SecurityEventSeverity.Critical,
                 Message = "Break-glass consumed",
                 DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open,
                 Operation = "AccessUsed"
             },
             new AuditSecurityEventEntity
@@ -273,7 +222,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
                 Severity = SecurityEventSeverity.Critical,
                 Message = "Policy changed",
                 DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open,
                 Operation = "PolicyUpdate"
             },
             new AuditSecurityEventEntity
@@ -281,16 +229,14 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
                 EventType = SecurityEventType.BreakGlassAttempt,
                 Severity = SecurityEventSeverity.Medium,
                 Message = "Break-glass attempt (not critical)",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             },
             new AuditSecurityEventEntity
             {
                 EventType = SecurityEventType.BreakGlassExpired,
                 Severity = SecurityEventSeverity.Low,
                 Message = "Grant expired (low severity)",
-                DetectedAt = DateTimeOffset.UtcNow,
-                Status = SecurityEventStatus.Open
+                DetectedAt = DateTimeOffset.UtcNow
             });
         await context.SaveChangesAsync();
 
@@ -357,7 +303,6 @@ public class SecurityEventIntegrationTests : SqliteIntegrationFixture
             Severity = SecurityEventSeverity.Critical,
             Message = "Test event",
             DetectedAt = DateTimeOffset.UtcNow,
-            Status = SecurityEventStatus.Open,
             DetailsJson = """{"BreakGlassGrantId":"grant-999","GrantTtlSeconds":7200}"""
         };
         await context.Set<AuditSecurityEventEntity>().AddAsync(entity);

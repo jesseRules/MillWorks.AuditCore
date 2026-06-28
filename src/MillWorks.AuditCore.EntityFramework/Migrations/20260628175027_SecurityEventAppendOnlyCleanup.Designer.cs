@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MillWorks.AuditCore.EntityFramework.Data;
 
@@ -11,9 +12,11 @@ using MillWorks.AuditCore.EntityFramework.Data;
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
     [DbContext(typeof(AuditDbContext))]
-    partial class AuditDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260628175027_SecurityEventAppendOnlyCleanup")]
+    partial class SecurityEventAppendOnlyCleanup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -792,6 +795,10 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasColumnType("nvarchar(64)")
                         .HasColumnName("SourceIpHash");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnName("Status");
+
                     b.Property<Guid?>("SubjectUserId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("SubjectUserId");
@@ -826,6 +833,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                     b.HasIndex(new[] { "Operation" }, "IX_SecurityEvents_Operation");
 
                     b.HasIndex(new[] { "Severity" }, "IX_SecurityEvents_Severity");
+
+                    b.HasIndex(new[] { "Status" }, "IX_SecurityEvents_Status");
 
                     b.HasIndex(new[] { "SubjectUserId" }, "IX_SecurityEvents_SubjectUserId");
 

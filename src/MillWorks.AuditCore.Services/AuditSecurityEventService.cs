@@ -42,7 +42,6 @@ public sealed class AuditSecurityEventService(
         // Set metadata - handle cases where context isn't available
         entity.DetectedAt = DateTimeOffset.UtcNow;
         entity.DetectedBy = auditContext.UserEmail ?? "System";
-        entity.Status = SecurityEventStatus.Open;
 
         // Privacy-preserving source metadata: if SourceIpHash is populated and IpAddress
         // is null on the incoming DTO, do not stamp raw IpAddress from auditContext.
@@ -119,55 +118,6 @@ public sealed class AuditSecurityEventService(
         var events = await securityEventRepository.GetBySeverityAndDateRangeAsync(
             SecurityEventSeverity.Critical, since, DateTimeOffset.UtcNow, cancellationToken);
 
-        return events.Select(static x => x.ToDto()).ToList();
-    }
-
-    /// <summary>
-    /// Resolves a security event by updating its status and adding resolution details.
-    /// </summary>
-    /// <param name="eventId"></param>
-    /// <param name="resolution"></param>
-    /// <param name="resolvedBy"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<SecurityEventDto?> ResolveEventAsync(
-        Guid eventId,
-        string resolution,
-        string resolvedBy,
-        CancellationToken cancellationToken = default)
-    {
-        var entity = await securityEventRepository.GetByIdAsync(eventId, cancellationToken);
-
-        if (entity == null)
-        {
-            logger.LogWarning("Security event {EventId} not found", eventId);
-            return null;
-        }
-
-        entity.Status = SecurityEventStatus.Resolved;
-        entity.ResolvedAt = DateTimeOffset.UtcNow;
-        entity.ResolvedBy = resolvedBy;
-        entity.Resolution = resolution;
-
-        await securityEventRepository.UpdateAsync(entity, cancellationToken);
-        await securityEventRepository.SaveChangesAsync(cancellationToken);
-
-        logger.LogInformation(
-            "Security event {EventId} resolved by {ResolvedBy}",
-            eventId, resolvedBy);
-
-        return entity.ToDto();
-    }
-
-    /// <summary>
-    /// Gets all open security events.
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<IEnumerable<SecurityEventDto>> GetOpenEventsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var events = await securityEventRepository.GetOpenEventsAsync(cancellationToken);
         return events.Select(static x => x.ToDto()).ToList();
     }
 
