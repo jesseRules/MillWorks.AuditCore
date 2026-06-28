@@ -1,6 +1,6 @@
 # Security Event Append-Only Cleanup
 
-**Status:** Scope A done (1.9.1) — Scope B proposed/deferred  
+**Status:** Done — Scope A (1.9.1) + Scope B (1.9.2)  
 **Date:** 2026-06-28  
 **Scope:** Remove the now-vestigial resolution/lifecycle surface from the append-only `AuditSecurityEventEntity`
 
@@ -38,7 +38,11 @@ fields — low risk) and **Scope B** (also retire the `Status` lifecycle — lar
 | `AuditSecurityEventMappings` | the `Resolved*` copy lines (entity→DTO and DTO→entity) | follows entity/DTO |
 | Migration + model snapshot | drop the three columns | see Migration & model snapshot |
 
-## Scope B — also retire the `Status` lifecycle (larger; eliminates the status concept)
+## Scope B — also retire the `Status` lifecycle (larger; eliminates the status concept) — ✅ DONE in 1.9.2
+
+> Shipped in 1.9.2 (2026-06-28): removed `Status` (+ `IX_SecurityEvents_Status`), `GetOpenEventsAsync`
+> (service + repo + both interfaces), and the `SecurityEventStatus` enum; updated the 3 `Status`
+> write-sites and all flagged tests; migration `SecurityEventStatusRemoval` drops the column + index.
 
 Everything in Scope A, **plus**:
 

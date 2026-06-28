@@ -92,7 +92,6 @@ public class AuditSecurityEventServiceTests
         Assert.That(captured!.DetectedAt, Is.Not.EqualTo(default(DateTimeOffset)));
         Assert.That(captured.DetectedBy, Is.EqualTo("admin@example.com"));
         Assert.That(captured.IpAddress, Is.EqualTo("10.0.0.1"));
-        Assert.That(captured.Status, Is.EqualTo(SecurityEventStatus.Open));
     }
 
     [Test]
@@ -185,27 +184,6 @@ public class AuditSecurityEventServiceTests
         // Operational triage/resolution is owned by MillWorks.Security, not AuditCore — so the
         // service exposes no ResolveEventAsync mutation path.
         Assert.That(new AuditSecurityEventEntity(), Is.InstanceOf<IAppendOnlyEntity>());
-    }
-
-    [Test]
-    public async Task GetOpenEventsAsync_DelegatesToRepository()
-    {
-        var openEntities = new List<AuditSecurityEventEntity>
-        {
-            new() { Status = SecurityEventStatus.Open },
-            new() { Status = SecurityEventStatus.Investigating }
-        };
-
-        _mockRepository.Setup(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(openEntities);
-
-        var result = (await _service.GetOpenEventsAsync()).ToList();
-
-        Assert.That(result.Count, Is.EqualTo(2));
-        // Real mapping preserves the status of each entity.
-        Assert.That(result[0].Status, Is.EqualTo(SecurityEventStatus.Open));
-        Assert.That(result[1].Status, Is.EqualTo(SecurityEventStatus.Investigating));
-        _mockRepository.Verify(static r => r.GetOpenEventsAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]

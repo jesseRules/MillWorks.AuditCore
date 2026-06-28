@@ -28,14 +28,6 @@ public interface IAuditSecurityEventService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all open security events.
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task<IEnumerable<SecurityEventDto>> GetOpenEventsAsync(
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Sends an alert for a high-severity security event.
     /// </summary>
     /// <param name="securityEvent"></param>

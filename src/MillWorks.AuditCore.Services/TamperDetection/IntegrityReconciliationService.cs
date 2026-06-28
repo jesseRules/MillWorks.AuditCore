@@ -144,7 +144,6 @@ public sealed class IntegrityReconciliationService(
                             Message = $"Integrity record creation permanently failed for event {workItem.EventId} after {workItem.AttemptCount} attempts.",
                             DetailsJson = workItem.LastError,
                             Severity = SecurityEventSeverity.High,
-                            Status = SecurityEventStatus.Open,
                             DetectedAt = DateTimeOffset.UtcNow,
                             DetectedBy = nameof(IntegrityReconciliationService),
                             RelatedAuditEventId = workItem.EventId

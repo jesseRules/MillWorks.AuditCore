@@ -35,7 +35,6 @@ public static class AuditSecurityEventMappings
             SourceIpHash = entity.SourceIpHash,
             UserAgentHash = entity.UserAgentHash,
             Operation = entity.Operation,
-            Status = entity.Status,
         };
     }
 
@@ -64,7 +63,6 @@ public static class AuditSecurityEventMappings
             SourceIpHash = dto.SourceIpHash,
             UserAgentHash = dto.UserAgentHash,
             Operation = dto.Operation,
-            Status = dto.Status,
         };
     }
 

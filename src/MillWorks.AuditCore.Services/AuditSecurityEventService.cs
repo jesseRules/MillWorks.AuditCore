@@ -42,7 +42,6 @@ public sealed class AuditSecurityEventService(
         // Set metadata - handle cases where context isn't available
         entity.DetectedAt = DateTimeOffset.UtcNow;
         entity.DetectedBy = auditContext.UserEmail ?? "System";
-        entity.Status = SecurityEventStatus.Open;
 
         // Privacy-preserving source metadata: if SourceIpHash is populated and IpAddress
         // is null on the incoming DTO, do not stamp raw IpAddress from auditContext.
@@ -119,18 +118,6 @@ public sealed class AuditSecurityEventService(
         var events = await securityEventRepository.GetBySeverityAndDateRangeAsync(
             SecurityEventSeverity.Critical, since, DateTimeOffset.UtcNow, cancellationToken);
 
-        return events.Select(static x => x.ToDto()).ToList();
-    }
-
-    /// <summary>
-    /// Gets all open security events.
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<IEnumerable<SecurityEventDto>> GetOpenEventsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        var events = await securityEventRepository.GetOpenEventsAsync(cancellationToken);
         return events.Select(static x => x.ToDto()).ToList();
     }
 

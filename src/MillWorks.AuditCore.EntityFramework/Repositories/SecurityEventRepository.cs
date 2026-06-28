@@ -48,23 +48,6 @@ public sealed class SecurityEventRepository(AuditDbContext context)
     }
 
     /// <summary>
-    /// Gets all open security events.
-    /// </summary>
-    /// <remarks>Returns all matching rows with no limit. For large datasets, prefer <see cref="Repository{T}.GetPagedAsync"/>.</remarks>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<IEnumerable<AuditSecurityEventEntity>> GetOpenEventsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AsNoTracking()
-            .Where(static e => e.Status == SecurityEventStatus.Open ||
-                               e.Status == SecurityEventStatus.Investigating)
-            .OrderByDescending(static e => e.Severity)
-            .ThenByDescending(static e => e.DetectedAt)
-            .ToListAsync(cancellationToken);
-    }
-
-    /// <summary>
     /// Gets security events within a specified date range.
     /// </summary>
     /// <remarks>Returns all matching rows with no limit. For large datasets, prefer <see cref="Repository{T}.GetPagedAsync"/>.</remarks>

@@ -195,7 +195,6 @@ public class FerpaEnforcementTests
         Assert.That(securityEvent, Is.Not.Null);
         Assert.That(securityEvent!.EventType, Is.EqualTo(SecurityEventType.ComplianceViolation));
         Assert.That(securityEvent.Severity, Is.EqualTo(SecurityEventSeverity.High));
-        Assert.That(securityEvent.Status, Is.EqualTo(SecurityEventStatus.Open));
         Assert.That(securityEvent.Message, Does.Contain("FERPA consent not found"));
         Assert.That(securityEvent.DetectedBy, Is.EqualTo(nameof(AuditSaveChangesInterceptor)));
 

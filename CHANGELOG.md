@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-06-28
+
+### Removed
+- **BREAKING — security-event `Status` lifecycle** — removed the `Status` property (and the `IX_SecurityEvents_Status` index) from `AuditSecurityEventEntity`, `Status` from `SecurityEventDto`, the `GetOpenEventsAsync` method (from `IAuditSecurityEventService`, `AuditSecurityEventService`, `ISecurityEventRepository`, and `SecurityEventRepository`), and the `SecurityEventStatus` enum. A schema-only migration (`SecurityEventStatusRemoval`) drops the `Status` column and index from the `SecurityEvents` table (no data backfill — greenfield). Security events are immutable facts with no in-AuditCore lifecycle; triage/resolution (`Open → Investigating → Resolved`) is owned by the application security layer (MillWorks.Security). Completes the cleanup begun in 1.9.1 (Scope B in `docs/plans/SecurityEventAppendOnlyCleanup.md`). No AuditCore or MillWorks consumer referenced these members (verified 2026-06-28).
+
 ## [1.9.1] - 2026-06-28
 
 ### Removed

@@ -22,7 +22,6 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(EventType), Name = "IX_SecurityEvents_EventType")]
 [Index(nameof(Severity), Name = "IX_SecurityEvents_Severity")]
 [Index(nameof(DetectedAt), Name = "IX_SecurityEvents_DetectedAt")]
-[Index(nameof(Status), Name = "IX_SecurityEvents_Status")]
 [Index(nameof(TenantId), Name = "IX_SecurityEvents_TenantId")]
 [Index(nameof(ActorUserId), Name = "IX_SecurityEvents_ActorUserId")]
 [Index(nameof(SubjectUserId), Name = "IX_SecurityEvents_SubjectUserId")]
@@ -132,13 +131,6 @@ public class AuditSecurityEventEntity : AuditAggregateRoot, IAppendOnlyEntity
     [MaxLength(100)]
     [Column("Operation")]
     public string? Operation { get; set; }
-
-    /// <summary>
-    /// Current status of the security event indicating its lifecycle state (e.g., "Open", "Investigating", "Resolved").
-    /// </summary>
-    [Required]
-    [Column("Status")]
-    public SecurityEventStatus Status { get; set; }
 
     /// <summary>
     /// Navigation property to the related audit event that triggered or is associated with this security event.

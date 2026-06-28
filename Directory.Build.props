@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.9.1</Version>
-        <AssemblyVersion>1.9.1.0</AssemblyVersion>
-        <FileVersion>1.9.1.0</FileVersion>
+        <Version>1.9.2</Version>
+        <AssemblyVersion>1.9.2.0</AssemblyVersion>
+        <FileVersion>1.9.2.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.9.1: removes the now-inert security-event resolution columns. `ResolvedAt`, `ResolvedBy`, and `Resolution` are dropped from AuditSecurityEventEntity, SecurityEventDto, and the entity/DTO mappings, with a schema-only migration (SecurityEventAppendOnlyCleanup) dropping those columns from the SecurityEvents table. These became dead in 1.9.0 when ResolveEventAsync was removed (security events are append-only; triage/resolution is owned by the application security layer). Status and GetOpenEventsAsync are unchanged. Removing public SecurityEventDto properties is technically breaking, but no AuditCore or MillWorks consumer reads these fields (verified 2026-06-28). See CHANGELOG.md.
+        <PackageReleaseNotes>v1.9.2: completes the security-event append-only cleanup. Removes the Status property (and IX_SecurityEvents_Status index) from AuditSecurityEventEntity, Status from SecurityEventDto, the GetOpenEventsAsync method (from IAuditSecurityEventService, AuditSecurityEventService, ISecurityEventRepository, SecurityEventRepository), and the SecurityEventStatus enum. A schema-only migration (SecurityEventStatusRemoval) drops the Status column and index from the SecurityEvents table. Security events are immutable facts with no in-AuditCore lifecycle; triage/resolution is owned by the application security layer (MillWorks.Security). BREAKING, but no AuditCore or MillWorks consumer referenced these members (verified 2026-06-28). See CHANGELOG.md.
+
+Earlier release notes follow below:
+
+v1.9.1: removes the now-inert security-event resolution columns. `ResolvedAt`, `ResolvedBy`, and `Resolution` are dropped from AuditSecurityEventEntity, SecurityEventDto, and the entity/DTO mappings, with a schema-only migration (SecurityEventAppendOnlyCleanup) dropping those columns from the SecurityEvents table. These became dead in 1.9.0 when ResolveEventAsync was removed (security events are append-only; triage/resolution is owned by the application security layer). Status and GetOpenEventsAsync are unchanged. Removing public SecurityEventDto properties is technically breaking, but no AuditCore or MillWorks consumer reads these fields (verified 2026-06-28). See CHANGELOG.md.
 
 Earlier release notes follow below:
 

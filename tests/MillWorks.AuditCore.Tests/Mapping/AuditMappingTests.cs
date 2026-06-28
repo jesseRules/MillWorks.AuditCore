@@ -210,7 +210,6 @@ public class AuditMappingTests
             Message = "Access denied",
             DetectedAt = DateTimeOffset.UtcNow,
             DetectedBy = "System",
-            Status = SecurityEventStatus.Open,
             IpAddress = "192.168.1.1"
         };
 
@@ -219,7 +218,6 @@ public class AuditMappingTests
         Assert.That(dto.EventType, Is.EqualTo(SecurityEventType.UnauthorizedAccess));
         Assert.That(dto.Severity, Is.EqualTo(SecurityEventSeverity.High));
         Assert.That(dto.Message, Is.EqualTo("Access denied"));
-        Assert.That(dto.Status, Is.EqualTo(SecurityEventStatus.Open));
         Assert.That(dto.IpAddress, Is.EqualTo("192.168.1.1"));
     }
 

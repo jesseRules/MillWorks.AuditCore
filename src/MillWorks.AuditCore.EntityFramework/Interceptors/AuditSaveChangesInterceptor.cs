@@ -451,8 +451,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             DetailsJson = TruncateSafe(JsonSerializer.Serialize(details, _snapshotSerializerOptions), 4000),
             DetectedAt = DateTimeOffset.UtcNow,
             DetectedBy = nameof(AuditSaveChangesInterceptor),
-            IpAddress = contextSource?.CurrentIpAddress,
-            Status = SecurityEventStatus.Open
+            IpAddress = contextSource?.CurrentIpAddress
         });
     }
 
