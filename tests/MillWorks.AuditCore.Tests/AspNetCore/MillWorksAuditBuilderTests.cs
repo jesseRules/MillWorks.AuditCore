@@ -591,39 +591,16 @@ public class MillWorksAuditBuilderTests
     }
 
     [Test]
-    public void ValidateConfiguration_DigitalSignaturesWithoutHmacKey_FailsOptionsValidation()
+    public void ValidateConfiguration_DigitalSignaturesEnabled_DoesNotThrow()
     {
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
-
-        // Register AuditOptions through the pipeline with the same invalid combination
-        // AddMillWorksAudit would otherwise apply. HmacKey-requires-DigitalSignatures is now
-        // owned by AuditOptionsValidator and fires on first IOptions<AuditOptions>.Value access.
-        _services.AddOptions<AuditOptions>().Configure(static o =>
-        {
-            o.EnableDigitalSignatures = true;
-            o.HmacKey = null;
-            o.Environment = "Development";
-        });
-        _services.AddSingleton<IValidateOptions<AuditOptions>, AuditOptionsValidator>();
-
-        using var provider = _services.BuildServiceProvider();
-        Assert.Throws<OptionsValidationException>(
-            () => _ = provider.GetRequiredService<IOptions<AuditOptions>>().Value);
-    }
-
-    [Test]
-    public void ValidateConfiguration_DigitalSignaturesWithValidKey_DoesNotThrow()
-    {
+        // EnableDigitalSignatures no longer requires an HmacKey on AuditOptions — the integrity keys
+        // resolve via the integrity ISigningKeyProvider wired in UseSecurity.
         _builder.UseEntityFramework(static ef =>
         {
             ef.ConnectionString = "Server=test;Database=test;";
         });
 
         _options.EnableDigitalSignatures = true;
-        _options.HmacKey = "this-is-a-very-long-hmac-key-that-is-at-least-32-characters";
 
         Assert.DoesNotThrow(() => _builder.ValidateConfiguration());
     }

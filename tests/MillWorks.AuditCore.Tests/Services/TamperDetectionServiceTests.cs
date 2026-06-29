@@ -7,8 +7,8 @@ using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services;
 
@@ -1108,21 +1108,17 @@ public class TamperDetectionServiceTests
         return Convert.ToBase64String(hashBytes);
     }
 
-    private TamperDetectionService CreateService(
-        AuditOptions? auditOptions = null,
-        SecurityOptions? securityOptions = null)
+    private TamperDetectionService CreateService()
     {
+        // Crypto primitives are delegated to MillWorks.Cryptography; the test signer is backed by a
+        // fixed in-memory key (no file-system key backend needed for unit tests).
         return new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            Options.Create(auditOptions ?? new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = "test-hmac-key-for-testing-12345678"
-            }),
-            Options.Create(securityOptions ?? new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner());
     }
 
     private static List<AuditIntegrityDto> CreateBatchDtos(int count)

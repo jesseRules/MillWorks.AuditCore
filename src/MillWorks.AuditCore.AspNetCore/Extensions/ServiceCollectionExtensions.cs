@@ -118,9 +118,6 @@ public static class ServiceCollectionExtensions
                     if (explicitlySet.Contains(nameof(AuditOptions.Environment)))
                         opts.Environment = auditOptions.Environment;
 
-                    if (explicitlySet.Contains(nameof(AuditOptions.HmacKey)))
-                        opts.HmacKey = auditOptions.HmacKey;
-
                     if (explicitlySet.Contains(nameof(AuditOptions.EnableDigitalSignatures)))
                         opts.EnableDigitalSignatures = auditOptions.EnableDigitalSignatures;
 

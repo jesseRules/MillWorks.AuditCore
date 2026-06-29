@@ -12,11 +12,10 @@ using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.DeadLetterQueue.Implementations;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 using Testcontainers.MsSql;
 
 namespace MillWorks.AuditCore.Tests.Integration.Endurance;
@@ -35,6 +34,7 @@ public sealed class SqlServerIntegrityChainSoakTests
     private const int ConcurrentWriters = 4;
     private const long MemoryCapBytes = 750L * 1024 * 1024;
     private const string HmacKey = "sql-server-soak-100k-endurance-test-hmac-key";
+    private const string HmacKeyId = "sqlserver-soak-hmac-v1";
     private const string OptInEnvVar = "AUDITCORE_RUN_ENDURANCE";
 
     private MsSqlContainer? _container;
@@ -384,12 +384,8 @@ public sealed class SqlServerIntegrityChainSoakTests
             integrityRepo,
             securityEventService,
             NullLogger<TamperDetectionService>.Instance,
-            Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = HmacKey
-            }),
-            Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(Encoding.UTF8.GetBytes(HmacKey), HmacKeyId));
     }
 
     private async Task DropDatabaseIfExistsAsync()

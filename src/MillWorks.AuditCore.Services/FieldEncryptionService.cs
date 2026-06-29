@@ -1,39 +1,58 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.Cryptography;
+using MillWorks.Cryptography.Aead;
+using MillWorks.Cryptography.KeyManagement;
 
 namespace MillWorks.AuditCore.Services.Encryption;
 
 /// <summary>
-/// Implementation of field-level encryption using AES-256-GCM
+/// Field-level encryption built on the shared <c>MillWorks.Cryptography</c> AEAD primitive.
+/// The key material and HKDF field-derivation are owned by <see cref="IEncryptionKeyProvider"/>
+/// (file-system or Key Vault backed); the AES-256-GCM cipher is <see cref="IAeadCipher"/>. This
+/// service owns only the AuditCore storage envelope and the plaintext ⇄ string boundary.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Storage envelope.</b> An encrypted column value is
+/// <c>"ENC2:" + Base64( [envelopeVersion:1][keyVersionLen:2 BE][keyVersion][AEAD frame] )</c>,
+/// where the AEAD frame is the canonical <see cref="AeadFormat"/> frame
+/// <c>[version:1][nonce:12][tag:16][ciphertext]</c>. The key version is carried <i>outside</i> the
+/// frame because decryption must know which key version to resolve for rotation — the frame itself
+/// carries no key id. The <c>"ENC2:"</c> sentinel lets <see cref="IsEncrypted"/> distinguish an
+/// already-encrypted value (so the EF value converter never double-encrypts).
+/// </para>
+/// <para>
+/// <b>Context binding.</b> The tenant scope, key version, and field name are bound into the AEAD
+/// associated data via <see cref="AeadContext.ForKey"/>, so a frame can only be decrypted under the
+/// exact <c>(scope, version, field)</c> it was produced for: a cross-field or cross-version swap
+/// fails authentication (surfaced as a tamper error), which is stronger than the previous
+/// string-compare field check.
+/// </para>
+/// <para>
+/// <b>Key scope.</b> AuditCore field encryption uses a single <see cref="KeyScope.Global"/> key
+/// ring. The encryption seam is the EF value converter, which is bound at model-build time and
+/// carries no per-row tenant context. The key provider is tenant-capable for future use; this
+/// consumer is deliberately global.
+/// </para>
+/// </remarks>
 public sealed class FieldEncryptionService(
     IEncryptionKeyProvider keyProvider,
+    IAeadCipher cipher,
     ILogger<FieldEncryptionService> logger)
     : IFieldEncryptionService
 {
-    // AES-GCM parameters
-    /// <summary>
-    /// Nonce size in bytes
-    /// </summary>
-    private const int _nonceSize = 12; // 96 bits recommended for GCM
+    /// <summary>Storage-envelope sentinel that marks an encrypted column value.</summary>
+    private const string EncryptionPrefix = "ENC2:";
 
-    /// <summary>
-    /// Tag size in bytes
-    /// </summary>
-    private const int _tagSize = 16; // 128 bits authentication tag
+    /// <summary>Current AuditCore storage-envelope version (distinct from the AEAD frame version).</summary>
+    private const byte EnvelopeVersion = 1;
 
-    /// <summary>
-    /// Encryption prefix to identify encrypted values
-    /// </summary>
-    private const string _encryptionPrefix = "ENC_V1:"; // Prefix to identify encrypted values
-
-    /// <summary>
-    /// Current payload schema version
-    /// </summary>
-    private const int _currentSchemaVersion = 1;
+    /// <summary>The single global key ring AuditCore field encryption resolves against.</summary>
+    private static readonly KeyScope Scope = KeyScope.Global;
 
     /// <inheritdoc />
     public async Task<string> EncryptFieldAsync(string plainText, string fieldName,
@@ -44,8 +63,13 @@ public sealed class FieldEncryptionService(
 
         try
         {
-            var keyVersion = await keyProvider.GetCurrentKeyVersionAsync(cancellationToken);
-            return await EncryptFieldWithVersionAsync(plainText, fieldName, keyVersion, cancellationToken);
+            var keyVersion = await keyProvider.GetCurrentVersionAsync(Scope, cancellationToken).ConfigureAwait(false);
+            return await EncryptFieldWithVersionAsync(plainText, fieldName, keyVersion, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (FieldEncryptionException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -58,52 +82,33 @@ public sealed class FieldEncryptionService(
     public async Task<string> EncryptFieldWithVersionAsync(
         string plainText,
         string fieldName,
-        string keyVersion, CancellationToken cancellationToken = default)
+        string keyVersion,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(plainText))
             return plainText;
 
+        ArgumentException.ThrowIfNullOrEmpty(fieldName);
+        ArgumentException.ThrowIfNullOrEmpty(keyVersion);
+
         byte[]? plainBytes = null;
-        byte[]? cipherBytes = null;
         try
         {
-            // Get encryption key for this field and version
-            var key = await keyProvider.GetEncryptionKeyAsync(fieldName, keyVersion, cancellationToken);
+            using var key = await keyProvider
+                .GetEncryptionKeyAsync(fieldName, keyVersion, Scope, cancellationToken)
+                .ConfigureAwait(false);
 
-            // Generate random nonce (IV)
-            var nonce = new byte[_nonceSize];
-            RandomNumberGenerator.Fill(nonce);
-
-            // Convert plaintext to bytes
             plainBytes = Encoding.UTF8.GetBytes(plainText);
+            var associatedData = AeadContext.ForKey(Scope, keyVersion, fieldName);
 
-            // Encrypt using AES-GCM with AAD for metadata authentication
-            cipherBytes = new byte[plainBytes.Length];
-            var tag = new byte[_tagSize];
-
-            // Build AAD: version|keyVersion|fieldName to authenticate metadata
-            var aad = BuildAad(_currentSchemaVersion, keyVersion, fieldName);
-
-            using var aesGcm = new AesGcm(key, _tagSize);
-            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag, aad);
-
-            // Create encrypted payload with metadata
-            var payload = new EncryptedFieldPayload
-            {
-                Version = _currentSchemaVersion,
-                KeyVersion = keyVersion,
-                Nonce = Convert.ToBase64String(nonce),
-                Ciphertext = Convert.ToBase64String(cipherBytes),
-                Tag = Convert.ToBase64String(tag),
-                FieldName = fieldName,
-                EncryptedAt = DateTimeOffset.UtcNow
-            };
-
-            // Serialize and encode
-            var payloadJson = JsonSerializer.Serialize(payload);
-            var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
-
-            return _encryptionPrefix + Convert.ToBase64String(payloadBytes);
+            // The cipher writes the canonical [version][nonce][tag][ciphertext] frame; the
+            // ciphertext (not the plaintext) lands in the returned buffer.
+            var frame = cipher.Encrypt(key.Span, plainBytes, associatedData);
+            return WrapEnvelope(keyVersion, frame);
+        }
+        catch (FieldEncryptionException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -114,8 +119,8 @@ public sealed class FieldEncryptionService(
         }
         finally
         {
-            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
-            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
+            if (plainBytes is not null)
+                CryptographicOperations.ZeroMemory(plainBytes);
         }
     }
 
@@ -126,151 +131,34 @@ public sealed class FieldEncryptionService(
         if (string.IsNullOrEmpty(encryptedValue) || !IsEncrypted(encryptedValue))
             return encryptedValue;
 
-        byte[]? cipherBytes = null;
+        ArgumentException.ThrowIfNullOrEmpty(fieldName);
+
         byte[]? plainBytes = null;
         try
         {
-            // Remove prefix and decode
-            var payloadBase64 = encryptedValue[_encryptionPrefix.Length..];
-            var payloadBytes = Convert.FromBase64String(payloadBase64);
-            var payloadJson = Encoding.UTF8.GetString(payloadBytes);
+            var (keyVersion, frame) = UnwrapEnvelope(encryptedValue);
 
-            // Deserialize payload
-            var payload = JsonSerializer.Deserialize<EncryptedFieldPayload>(payloadJson)
-                          ?? throw new FieldEncryptionException("Failed to deserialize encrypted payload");
+            using var key = await keyProvider
+                .GetEncryptionKeyAsync(fieldName, keyVersion, Scope, cancellationToken)
+                .ConfigureAwait(false);
 
-            // Validate schema version before proceeding
-            if (payload.Version != _currentSchemaVersion)
-            {
-                throw new FieldEncryptionException(
-                    $"Unsupported encryption schema version {payload.Version}. Expected {_currentSchemaVersion}.");
-            }
+            var associatedData = AeadContext.ForKey(Scope, keyVersion, fieldName);
 
-            // Validate that the payload's field name matches the expected field
-            if (!string.Equals(payload.FieldName, fieldName, StringComparison.Ordinal))
-            {
-                throw new FieldEncryptionException(
-                    $"Field name mismatch: expected '{fieldName}' but payload contains '{payload.FieldName}'");
-            }
-
-            // Get decryption key
-            var key = await keyProvider.GetEncryptionKeyAsync(
-                fieldName,
-                payload.KeyVersion, cancellationToken);
-
-            // Decode encrypted components
-            var nonce = Convert.FromBase64String(payload.Nonce);
-            cipherBytes = Convert.FromBase64String(payload.Ciphertext);
-            var tag = Convert.FromBase64String(payload.Tag);
-
-            // Build AAD from metadata for authenticated decryption
-            var aad = BuildAad(payload.Version, payload.KeyVersion, payload.FieldName);
-
-            // Decrypt using AES-GCM with AAD
-            plainBytes = new byte[cipherBytes.Length];
-
-            using var aesGcm = new AesGcm(key, _tagSize);
-            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes, aad);
-
+            // Authentication fails (CryptographyException) if the key, field, version, or
+            // ciphertext was tampered with — the AAD binds field+version+scope.
+            plainBytes = cipher.Decrypt(key.Span, frame, associatedData);
             return Encoding.UTF8.GetString(plainBytes);
-        }
-        catch (CryptographicException ex)
-        {
-            logger.LogError(ex, "Decryption failed for field {FieldName} - possible tampering",
-                fieldName);
-            throw new FieldEncryptionException(
-                $"Decryption failed for field {fieldName} - data may be tampered", ex);
         }
         catch (FieldEncryptionException)
         {
             throw;
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to decrypt field {FieldName}", fieldName);
-            throw new FieldEncryptionException($"Failed to decrypt field {fieldName}", ex);
-        }
-        finally
-        {
-            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
-            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
-        }
-    }
-
-    /// <inheritdoc />
-    public string EncryptField(string plainText, string fieldName)
-    {
-        if (string.IsNullOrEmpty(plainText))
-            return plainText;
-
-        try
-        {
-            var keyVersion = keyProvider.GetCurrentKeyVersion();
-            return EncryptFieldWithVersion(plainText, fieldName, keyVersion);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to encrypt field {FieldName}", fieldName);
-            throw new FieldEncryptionException($"Failed to encrypt field {fieldName}", ex);
-        }
-    }
-
-    /// <inheritdoc />
-    public string DecryptField(string encryptedValue, string fieldName)
-    {
-        if (string.IsNullOrEmpty(encryptedValue) || !IsEncrypted(encryptedValue))
-            return encryptedValue;
-
-        byte[]? cipherBytes = null;
-        byte[]? plainBytes = null;
-        try
-        {
-            var payloadBase64 = encryptedValue[_encryptionPrefix.Length..];
-            var payloadBytes = Convert.FromBase64String(payloadBase64);
-            var payloadJson = Encoding.UTF8.GetString(payloadBytes);
-
-            var payload = JsonSerializer.Deserialize<EncryptedFieldPayload>(payloadJson)
-                          ?? throw new FieldEncryptionException("Failed to deserialize encrypted payload");
-
-            // Validate schema version before proceeding
-            if (payload.Version != _currentSchemaVersion)
-            {
-                throw new FieldEncryptionException(
-                    $"Unsupported encryption schema version {payload.Version}. Expected {_currentSchemaVersion}.");
-            }
-
-            if (!string.Equals(payload.FieldName, fieldName, StringComparison.Ordinal))
-            {
-                throw new FieldEncryptionException(
-                    $"Field name mismatch: expected '{fieldName}' but payload contains '{payload.FieldName}'");
-            }
-
-            var key = keyProvider.GetEncryptionKey(fieldName, payload.KeyVersion);
-
-            var nonce = Convert.FromBase64String(payload.Nonce);
-            cipherBytes = Convert.FromBase64String(payload.Ciphertext);
-            var tag = Convert.FromBase64String(payload.Tag);
-
-            // Build AAD from metadata for authenticated decryption
-            var aad = BuildAad(payload.Version, payload.KeyVersion, payload.FieldName);
-
-            plainBytes = new byte[cipherBytes.Length];
-
-            using var aesGcm = new AesGcm(key, _tagSize);
-            aesGcm.Decrypt(nonce, cipherBytes, tag, plainBytes, aad);
-
-            return Encoding.UTF8.GetString(plainBytes);
-        }
-        catch (CryptographicException ex)
+        catch (CryptographyException ex)
         {
             logger.LogError(ex, "Decryption failed for field {FieldName} - possible tampering", fieldName);
             throw new FieldEncryptionException(
                 $"Decryption failed for field {fieldName} - data may be tampered", ex);
         }
-        catch (FieldEncryptionException)
-        {
-            throw;
-        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to decrypt field {FieldName}", fieldName);
@@ -278,90 +166,33 @@ public sealed class FieldEncryptionService(
         }
         finally
         {
-            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
-            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
+            if (plainBytes is not null)
+                CryptographicOperations.ZeroMemory(plainBytes);
         }
     }
 
     /// <inheritdoc />
-    public bool IsEncrypted(string? value) => !string.IsNullOrEmpty(value) && value.StartsWith(_encryptionPrefix, StringComparison.Ordinal);
-
-    /// <summary>
-    /// Encrypts the field with a specific key version, allowing for key rotation and multiple active keys.
-    /// </summary>
-    /// <param name="plainText"></param>
-    /// <param name="fieldName"></param>
-    /// <param name="keyVersion"></param>
-    /// <returns></returns>
-    /// <exception cref="FieldEncryptionException"></exception>
-    private string EncryptFieldWithVersion(string plainText, string fieldName, string keyVersion)
-    {
-        byte[]? plainBytes = null;
-        byte[]? cipherBytes = null;
-        try
-        {
-            var key = keyProvider.GetEncryptionKey(fieldName, keyVersion);
-
-            var nonce = new byte[_nonceSize];
-            RandomNumberGenerator.Fill(nonce);
-
-            plainBytes = Encoding.UTF8.GetBytes(plainText);
-
-            cipherBytes = new byte[plainBytes.Length];
-            var tag = new byte[_tagSize];
-
-            // Build AAD: version|keyVersion|fieldName to authenticate metadata
-            var aad = BuildAad(_currentSchemaVersion, keyVersion, fieldName);
-
-            using var aesGcm = new AesGcm(key, _tagSize);
-            aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag, aad);
-
-            var payload = new EncryptedFieldPayload
-            {
-                Version = _currentSchemaVersion,
-                KeyVersion = keyVersion,
-                Nonce = Convert.ToBase64String(nonce),
-                Ciphertext = Convert.ToBase64String(cipherBytes),
-                Tag = Convert.ToBase64String(tag),
-                FieldName = fieldName,
-                EncryptedAt = DateTimeOffset.UtcNow
-            };
-
-            var payloadJson = JsonSerializer.Serialize(payload);
-            var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
-
-            return _encryptionPrefix + Convert.ToBase64String(payloadBytes);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to encrypt field {FieldName} with version {KeyVersion}",
-                fieldName, keyVersion);
-            throw new FieldEncryptionException(
-                $"Failed to encrypt field {fieldName} with version {keyVersion}", ex);
-        }
-        finally
-        {
-            if (plainBytes != null) CryptographicOperations.ZeroMemory(plainBytes);
-            if (cipherBytes != null) CryptographicOperations.ZeroMemory(cipherBytes);
-        }
-    }
+    public bool IsEncrypted(string? value) =>
+        !string.IsNullOrEmpty(value) && value.StartsWith(EncryptionPrefix, StringComparison.Ordinal);
 
     /// <inheritdoc />
     public async Task<string> ReEncryptFieldAsync(
         string encryptedValue,
         string fieldName,
-        string newKeyVersion, CancellationToken cancellationToken = default)
+        string newKeyVersion,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            // Decrypt with old key
-            var plainText = await DecryptFieldAsync(encryptedValue, fieldName, cancellationToken);
-
-            // Re-encrypt with new key
-            return await EncryptFieldWithVersionAsync(plainText, fieldName, newKeyVersion, cancellationToken);
+            var plainText = await DecryptFieldAsync(encryptedValue, fieldName, cancellationToken)
+                .ConfigureAwait(false);
+            return await EncryptFieldWithVersionAsync(plainText, fieldName, newKeyVersion, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
+            // A decrypt/encrypt sub-failure (itself a FieldEncryptionException) is intentionally wrapped
+            // with the re-encryption context — the inner exception preserves the underlying cause.
             logger.LogError(ex, "Failed to re-encrypt field {FieldName} to version {NewVersion}",
                 fieldName, newKeyVersion);
             throw new FieldEncryptionException(
@@ -370,14 +201,56 @@ public sealed class FieldEncryptionService(
     }
 
     /// <summary>
-    /// Builds Additional Authenticated Data (AAD) from metadata fields.
-    /// AAD is included in GCM authentication but not encrypted, ensuring
-    /// metadata integrity without storing it redundantly in ciphertext.
-    /// Format: version|keyVersion|fieldName (pipe-delimited, UTF-8 encoded)
+    /// Builds the AuditCore storage envelope around a canonical AEAD frame, carrying the key
+    /// version (length-prefixed, so it is robust against any delimiter in the version string).
     /// </summary>
-    private static byte[] BuildAad(int version, string keyVersion, string fieldName)
+    private static string WrapEnvelope(string keyVersion, byte[] frame)
     {
-        var aadString = $"{version}|{keyVersion}|{fieldName}";
-        return Encoding.UTF8.GetBytes(aadString);
+        var keyVersionBytes = Encoding.UTF8.GetBytes(keyVersion);
+        if (keyVersionBytes.Length > ushort.MaxValue)
+            throw new FieldEncryptionException("Key version is too long to encode in the storage envelope.");
+
+        var envelope = new byte[sizeof(byte) + sizeof(ushort) + keyVersionBytes.Length + frame.Length];
+        envelope[0] = EnvelopeVersion;
+        BinaryPrimitives.WriteUInt16BigEndian(envelope.AsSpan(sizeof(byte), sizeof(ushort)), (ushort)keyVersionBytes.Length);
+        keyVersionBytes.CopyTo(envelope.AsSpan(sizeof(byte) + sizeof(ushort)));
+        frame.CopyTo(envelope.AsSpan(sizeof(byte) + sizeof(ushort) + keyVersionBytes.Length));
+
+        return EncryptionPrefix + Convert.ToBase64String(envelope);
+    }
+
+    /// <summary>
+    /// Parses the AuditCore storage envelope, returning the carried key version and the inner AEAD
+    /// frame. Malformed input surfaces as <see cref="FieldEncryptionException"/>.
+    /// </summary>
+    private static (string KeyVersion, byte[] Frame) UnwrapEnvelope(string encryptedValue)
+    {
+        byte[] envelope;
+        try
+        {
+            envelope = Convert.FromBase64String(encryptedValue[EncryptionPrefix.Length..]);
+        }
+        catch (FormatException ex)
+        {
+            throw new FieldEncryptionException("Encrypted value is not valid Base64.", ex);
+        }
+
+        const int headerSize = sizeof(byte) + sizeof(ushort);
+        if (envelope.Length < headerSize)
+            throw new FieldEncryptionException("Encrypted value envelope is truncated.");
+
+        if (envelope[0] != EnvelopeVersion)
+        {
+            throw new FieldEncryptionException(
+                $"Unsupported encryption envelope version {envelope[0]}. Expected {EnvelopeVersion}.");
+        }
+
+        var keyVersionLength = BinaryPrimitives.ReadUInt16BigEndian(envelope.AsSpan(sizeof(byte), sizeof(ushort)));
+        if (envelope.Length < headerSize + keyVersionLength)
+            throw new FieldEncryptionException("Encrypted value envelope is truncated.");
+
+        var keyVersion = Encoding.UTF8.GetString(envelope, headerSize, keyVersionLength);
+        var frame = envelope[(headerSize + keyVersionLength)..];
+        return (keyVersion, frame);
     }
 }

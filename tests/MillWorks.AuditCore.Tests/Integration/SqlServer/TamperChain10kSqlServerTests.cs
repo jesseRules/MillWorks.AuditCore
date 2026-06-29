@@ -1,13 +1,12 @@
+using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -16,6 +15,7 @@ public sealed class TamperChain10kSqlServerTests : SqlServerTestBase
     private const int TotalRows = 10_000;
     private const int BatchSize = 1_000;
     private const string HmacKey = "sql-server-tamper-chain-10k-test-hmac-key-32";
+    private const string HmacKeyId = "sqlserver-tamper-chain-hmac-v1";
 
     [Test]
     public async Task VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult()
@@ -117,11 +117,7 @@ public sealed class TamperChain10kSqlServerTests : SqlServerTestBase
             integrityRepo,
             securityEventService,
             NullLogger<TamperDetectionService>.Instance,
-            Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = HmacKey
-            }),
-            Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(Encoding.UTF8.GetBytes(HmacKey), HmacKeyId));
     }
 }

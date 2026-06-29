@@ -1,20 +1,20 @@
-using System.Collections.Concurrent;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Canonicalization;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection.Interfaces;
+using MillWorks.Cryptography;
+using MillWorks.Cryptography.Hashing;
+using MillWorks.Cryptography.KeyManagement;
+using MillWorks.Cryptography.Signing;
 
 namespace MillWorks.AuditCore.Services.TamperDetection;
 
@@ -23,8 +23,22 @@ namespace MillWorks.AuditCore.Services.TamperDetection;
 /// hash-chain append happens via a SQL Server <c>sp_getapplock</c> bound to the
 /// write transaction (see <see cref="IAuditIntegrityRepository.AcquireAppendLockAsync"/>).
 /// </summary>
+/// <remarks>
+/// The cryptographic primitives are delegated to <c>MillWorks.Cryptography</c>: SHA-256 event hash
+/// and checksum via <see cref="IHasher"/>; the chain-binding HMAC via an HMAC <see cref="ISigner"/>;
+/// the optional RSA-PSS digital signature via an RSA-PSS <see cref="ISigner"/>. Both signers resolve
+/// their key material from an <see cref="ISigningKeyProvider"/> backend wired by the host composition —
+/// the integrity keys never come from configuration and never cross-route through an encryption-key
+/// provider. The hash-chain orchestration (append-lock, sequence allocation, previous-hash linkage,
+/// atomic persistence, retry/DLQ) stays here unchanged; only the primitive implementations moved out.
+/// The length-prefixed field projection that binds each event to its chain position is audit-domain
+/// logic and likewise stays here.
+/// </remarks>
 public sealed class TamperDetectionService : ITamperDetectionService
 {
+    /// <summary>The tenant scope for integrity signing keys. Audit integrity is a single global chain.</summary>
+    private static readonly KeyScope IntegrityKeyScope = KeyScope.Global;
+
     /// <summary>
     /// Audit event repository
     /// </summary>
@@ -46,30 +60,32 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private readonly ILogger<TamperDetectionService> _logger;
 
     /// <summary>
-    /// Audit configuration options (HMAC key, digital-signature enable flag, environment).
+    /// Raw SHA-256 hashing for the event hash and checksum.
     /// </summary>
-    private readonly AuditOptions _auditOptions;
+    private readonly IHasher _hasher;
 
     /// <summary>
-    /// Security configuration options (digital-signature key paths).
+    /// HMAC-SHA-256 signer/verifier for the chain-binding integrity MAC. Resolves its symmetric key via
+    /// <see cref="ISigningKeyProvider"/>; the resolved key id is persisted per row so verification
+    /// reselects the exact key (rotation-safe).
     /// </summary>
-    private readonly SecurityOptions _securityOptions;
+    private readonly HmacSha256Signer _hmacSigner;
+
+    /// <summary>
+    /// RSA-PSS signer/verifier for the optional digital signature, or <c>null</c> when digital signatures
+    /// are disabled. When non-null it resolves an RSA private key via its own <see cref="ISigningKeyProvider"/>
+    /// — a key space disjoint from the HMAC key. Its presence is the single source of truth for whether
+    /// digital signatures are enabled.
+    /// </summary>
+    private readonly RsaPssSigner? _signatureSigner;
 
     /// <summary>
     /// Time provider for testable timestamps
     /// </summary>
     private readonly TimeProvider _timeProvider;
 
-    /// <summary>
-    /// HMAC key for integrity checks
-    /// </summary>
-    private readonly string _hmacKey;
-
-    /// <summary>
-    /// Lazily-generated default HMAC key shared across all instances when no key is configured.
-    /// Static to ensure consistency across Scoped service lifetimes within the same process.
-    /// </summary>
-    private static readonly Lazy<string> _defaultHmacKey = new(GenerateDefaultHmacKey);
+    /// <summary>True when digital signatures are enabled (an RSA-PSS signer was supplied).</summary>
+    private bool DigitalSignaturesEnabled => _signatureSigner is not null;
 
     /// <summary>
     /// Process-local serializer used only when the active EF provider does not support
@@ -83,67 +99,39 @@ public sealed class TamperDetectionService : ITamperDetectionService
     private static readonly SemaphoreSlim _localAppendLock = new(1, 1);
 
     /// <summary>
-    /// Path-keyed cache of signing key parameters. Each unique key path gets its own cached RSA parameters,
-    /// enabling correct behavior in multi-tenant hosts or tests with different key configurations.
-    /// Wrapped in Lazy to guarantee exactly-once initialization per key under concurrent access.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, Lazy<RSAParameters>> _signingKeyCache = new();
-
-    /// <summary>
-    /// Path-keyed cache of verification key parameters. Keyed by normalized path like _signingKeyCache.
-    /// Wrapped in Lazy to guarantee exactly-once initialization per key under concurrent access.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, Lazy<RSAParameters>> _verifyKeyCache = new();
-
-    /// <summary>
     /// Tamper detection service for audit events. Serializes hash-chain appends cross-process
-    /// via a SQL Server <c>sp_getapplock</c> bound to the write transaction.
-    /// HMAC key, digital-signature enable flag, and Production detection come from
-    /// <see cref="AuditOptions"/>; digital-signature key paths come from <see cref="SecurityOptions"/>.
-    /// <paramref name="hostEnvironment"/> is authoritative for Production detection when registered;
-    /// otherwise falls back to <see cref="AuditOptions.Environment"/>.
+    /// via a SQL Server <c>sp_getapplock</c> bound to the write transaction. The cryptographic
+    /// primitives are delegated: SHA-256 via <paramref name="hasher"/>, the chain-binding HMAC via
+    /// <paramref name="hmacSigner"/>, and the optional RSA-PSS digital signature via
+    /// <paramref name="signatureSigner"/> (pass <c>null</c> to disable digital signatures). Both signers
+    /// own their key material through <see cref="ISigningKeyProvider"/>; no key material is read from
+    /// configuration here.
     /// </summary>
     public TamperDetectionService(
         IAuditEventRepository auditEventRepository,
         IAuditIntegrityRepository auditIntegrityRepository,
         IAuditSecurityEventService securityEventService,
         ILogger<TamperDetectionService> logger,
-        IOptions<AuditOptions> auditOptions,
-        IOptions<SecurityOptions> securityOptions,
-        TimeProvider? timeProvider = null,
-        IHostEnvironment? hostEnvironment = null)
+        IHasher hasher,
+        HmacSha256Signer hmacSigner,
+        RsaPssSigner? signatureSigner = null,
+        TimeProvider? timeProvider = null)
     {
+        ArgumentNullException.ThrowIfNull(auditEventRepository);
+        ArgumentNullException.ThrowIfNull(auditIntegrityRepository);
+        ArgumentNullException.ThrowIfNull(securityEventService);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(hasher);
+        ArgumentNullException.ThrowIfNull(hmacSigner);
+
         _auditEventRepository = auditEventRepository;
         _auditIntegrityRepository = auditIntegrityRepository;
         _securityEventService = securityEventService;
         _logger = logger;
-        _auditOptions = auditOptions.Value;
-        _securityOptions = securityOptions.Value;
+        _hasher = hasher;
+        _hmacSigner = hmacSigner;
+        _signatureSigner = signatureSigner;
         _timeProvider = timeProvider ?? TimeProvider.System;
-
-        if (string.IsNullOrEmpty(_auditOptions.HmacKey))
-        {
-            // IHostEnvironment wins when registered; otherwise AuditOptions.Environment.
-            var isProduction = hostEnvironment?.IsProduction()
-                               ?? string.Equals(_auditOptions.Environment, "Production",
-                                   StringComparison.OrdinalIgnoreCase);
-
-            if (isProduction)
-            {
-                throw new InvalidOperationException(
-                    "Audit:HmacKey must be configured in Production. " +
-                    "A transient key would cause false tamper alerts across instances or after restarts.");
-            }
-
-            _logger.LogWarning(
-                "Audit:HmacKey is not configured. Using a process-scoped generated key. " +
-                "HMAC signatures will not survive application restarts. Configure Audit:HmacKey for production use");
-            _hmacKey = _defaultHmacKey.Value;
-        }
-        else
-        {
-            _hmacKey = _auditOptions.HmacKey;
-        }
     }
 
     /// <summary>
@@ -164,7 +152,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
         var eventHash = ComputeEventHash(auditEvent);
         var checksum = ComputeChecksum(auditEvent);
         var algorithmVersion = AuditCanonicalizer.CurrentVersion;
-        var enableDigitalSignatures = _auditOptions.EnableDigitalSignatures;
+        var enableDigitalSignatures = DigitalSignaturesEnabled;
 
         const int maxRetries = 10;
         var baseDelay = TimeSpan.FromMilliseconds(100);
@@ -218,14 +206,14 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         var timestamp = _timeProvider.GetUtcNow();
 
                         // HMAC and digital signature are computed inside the lock because
-                        // they now bind the event to its chain position.
-                        var hmacSignature = ComputeHmac(eventHash, previousHash, nextSequence, timestamp);
-                        string? digitalSignature = null;
-                        if (enableDigitalSignatures)
-                        {
-                            digitalSignature = await CreateDigitalSignatureAsync(
-                                eventHash, previousHash, nextSequence, timestamp);
-                        }
+                        // they now bind the event to its chain position. Each carries the id of the
+                        // signing key that produced it so verification reselects the exact key.
+                        var hmac = await ComputeHmacAsync(
+                            eventHash, previousHash, nextSequence, timestamp, cancellationToken);
+                        var signature = enableDigitalSignatures
+                            ? await CreateDigitalSignatureAsync(
+                                eventHash, previousHash, nextSequence, timestamp, cancellationToken)
+                            : (Signature: (string?)null, KeyId: (string?)null);
 
                         pendingIntegrity = new AuditIntegrityEntity
                         {
@@ -234,10 +222,12 @@ public sealed class TamperDetectionService : ITamperDetectionService
                             PreviousEventHash = previousHash,
                             TrustedTimestamp = timestamp,
                             SequenceNumber = nextSequence,
-                            HmacSignature = hmacSignature,
+                            HmacSignature = hmac.Signature,
+                            HmacKeyId = hmac.KeyId,
                             Checksum = checksum,
                             AlgorithmVersion = algorithmVersion,
-                            DigitalSignature = digitalSignature
+                            DigitalSignature = signature.Signature,
+                            DigitalSignatureKeyId = signature.KeyId
                         };
 
                         await _auditIntegrityRepository.AddAsync(pendingIntegrity, cancellationToken);
@@ -346,7 +336,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
         const int maxRetries = 10;
         var baseDelay = TimeSpan.FromMilliseconds(100);
         var algorithmVersion = AuditCanonicalizer.CurrentVersion;
-        var enableDigitalSignatures = _auditOptions.EnableDigitalSignatures;
+        var enableDigitalSignatures = DigitalSignaturesEnabled;
 
         // Pre-compute event hashes and checksums OUTSIDE the lock — these depend only on
         // event data. HMAC and digital signature are computed INSIDE the lock because they
@@ -399,14 +389,14 @@ public sealed class TamperDetectionService : ITamperDetectionService
                         {
                             var sequenceNumber = baseSequence + 1 + i;
 
-                            // HMAC and digital signature bind the event to its chain position
-                            var hmac = ComputeHmac(precomputed[i].EventHash, previousHash, sequenceNumber, timestamp);
-                            string? digitalSignature = null;
-                            if (enableDigitalSignatures)
-                            {
-                                digitalSignature = await CreateDigitalSignatureAsync(
-                                    precomputed[i].EventHash, previousHash, sequenceNumber, timestamp);
-                            }
+                            // HMAC and digital signature bind the event to its chain position; each
+                            // carries the id of the signing key that produced it.
+                            var hmac = await ComputeHmacAsync(
+                                precomputed[i].EventHash, previousHash, sequenceNumber, timestamp, cancellationToken);
+                            var signature = enableDigitalSignatures
+                                ? await CreateDigitalSignatureAsync(
+                                    precomputed[i].EventHash, previousHash, sequenceNumber, timestamp, cancellationToken)
+                                : (Signature: (string?)null, KeyId: (string?)null);
 
                             var entity = new AuditIntegrityEntity
                             {
@@ -415,10 +405,12 @@ public sealed class TamperDetectionService : ITamperDetectionService
                                 PreviousEventHash = previousHash,
                                 TrustedTimestamp = timestamp,
                                 SequenceNumber = sequenceNumber,
-                                HmacSignature = hmac,
+                                HmacSignature = hmac.Signature,
+                                HmacKeyId = hmac.KeyId,
                                 Checksum = precomputed[i].Checksum,
                                 AlgorithmVersion = algorithmVersion,
-                                DigitalSignature = digitalSignature
+                                DigitalSignature = signature.Signature,
+                                DigitalSignatureKeyId = signature.KeyId
                             };
                             entities.Add(entity);
 
@@ -553,7 +545,9 @@ public sealed class TamperDetectionService : ITamperDetectionService
         string currentHash;
         try
         {
-            currentHash = ComputeEventHash(auditEvent);
+            currentHash = ComputeEventHash(
+                auditEvent.EventId, auditEvent.EventType, auditEvent.User,
+                auditEvent.InsertedDate, auditEvent.JsonData);
         }
         catch (JsonException ex)
         {
@@ -563,7 +557,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
             return false;
         }
 
-        if (!ConstantTimeEquals(currentHash, integrity.EventHash))
+        // Constant-time Base64 comparison via MillWorks.Cryptography (consolidated FixedTimeEquals).
+        if (!ConstantTime.EqualsBase64(currentHash, integrity.EventHash))
         {
             _logger.LogError("Hash mismatch for event {EventId}. Expected: {Expected}, Actual: {Actual}",
                 eventId, integrity.EventHash, currentHash);
@@ -571,11 +566,12 @@ public sealed class TamperDetectionService : ITamperDetectionService
             return false;
         }
 
-        // Verify HMAC (now includes chain position metadata)
+        // Verify HMAC (binds chain-position metadata; verified via the HMAC ISigner over the
+        // signing key reselected by the persisted key id).
         if (!string.IsNullOrEmpty(integrity.HmacSignature))
         {
-            var currentHmac = ComputeHmac(integrity);
-            if (!ConstantTimeEquals(currentHmac, integrity.HmacSignature))
+            var hmacValid = await VerifyHmacAsync(integrity, cancellationToken);
+            if (!hmacValid)
             {
                 _logger.LogError("HMAC mismatch for event {EventId}", eventId);
                 await LogTamperAlertAsync(eventId, "HMAC verification failed", cancellationToken);
@@ -584,8 +580,8 @@ public sealed class TamperDetectionService : ITamperDetectionService
         }
 
         // Verify checksum (version-independent — uses only immutable fields)
-        var currentChecksum = ComputeChecksum(auditEvent);
-        if (!ConstantTimeEquals(currentChecksum, integrity.Checksum))
+        var currentChecksum = ComputeChecksum(auditEvent.EventId, auditEvent.EventType, auditEvent.UserId);
+        if (!ConstantTime.EqualsBase64(currentChecksum, integrity.Checksum))
         {
             _logger.LogError("Checksum mismatch for event {EventId}", eventId);
             await LogTamperAlertAsync(eventId, "Checksum verification failed", cancellationToken);
@@ -594,33 +590,12 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         // Verify digital signature if present (now includes chain position metadata)
         if (string.IsNullOrEmpty(integrity.DigitalSignature)) return true;
-        var signatureValid = await VerifyDigitalSignatureAsync(integrity);
+        var signatureValid = await VerifyDigitalSignatureAsync(integrity, cancellationToken);
 
         if (signatureValid) return true;
         _logger.LogError("Digital signature verification failed for event {EventId}", eventId);
         await LogTamperAlertAsync(eventId, "Digital signature invalid", cancellationToken);
         return false;
-    }
-
-    /// <summary>
-    /// Constant-time comparison of two Base64 strings to prevent timing attacks.
-    /// Decodes both to bytes and uses CryptographicOperations.FixedTimeEquals.
-    /// </summary>
-    private static bool ConstantTimeEquals(string a, string b)
-    {
-        if (string.IsNullOrEmpty(a) && string.IsNullOrEmpty(b)) return true;
-        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
-
-        try
-        {
-            var bytesA = Convert.FromBase64String(a);
-            var bytesB = Convert.FromBase64String(b);
-            return CryptographicOperations.FixedTimeEquals(bytesA, bytesB);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
     }
 
     /// <summary>
@@ -821,49 +796,165 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
     // Private helper methods
     /// <summary>
-    /// Computes the event hash by feeding each field incrementally into SHA-256,
-    /// avoiding a single large concatenated string that could land on the LOH when JsonData is large.
-    /// Canonicalizes JsonData and normalizes dates for deterministic hashing.
+    /// Computes the SHA-256 event hash over the canonical <c>'|'</c>-delimited field projection
+    /// (eventId, eventType, user, normalized inserted date, canonicalized JSON). Which fields are
+    /// hashed and how they are framed is audit-domain logic and stays here; the raw SHA-256 is
+    /// delegated to <see cref="IHasher"/>.
     /// </summary>
-    private static string ComputeEventHash(Guid eventId, string? eventType, string? user,
+    private string ComputeEventHash(Guid eventId, string? eventType, string? user,
         DateTimeOffset? insertedDate, string? jsonData)
     {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData(Encoding.UTF8.GetBytes(eventId.ToString()));
-        hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(eventType ?? string.Empty));
-        hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(user ?? string.Empty));
-        hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.NormalizeDate(insertedDate)));
-        hash.AppendData("|"u8);
-        hash.AppendData(Encoding.UTF8.GetBytes(AuditCanonicalizer.Canonicalize(jsonData)));
+        var writer = new ArrayBufferWriter<byte>();
+        AppendUtf8(writer, eventId.ToString());
+        AppendUtf8(writer, "|");
+        AppendUtf8(writer, eventType ?? string.Empty);
+        AppendUtf8(writer, "|");
+        AppendUtf8(writer, user ?? string.Empty);
+        AppendUtf8(writer, "|");
+        AppendUtf8(writer, AuditCanonicalizer.NormalizeDate(insertedDate));
+        AppendUtf8(writer, "|");
+        AppendUtf8(writer, AuditCanonicalizer.Canonicalize(jsonData));
 
-        return Convert.ToBase64String(hash.GetHashAndReset());
+        return CryptoEncoding.ToBase64(_hasher.Sha256(writer.WrittenSpan));
     }
 
     /// <summary>
-    /// Overload that computes event hash directly from an AuditIntegrityDto, for convenience.
+    /// Overload that computes the event hash directly from an <see cref="AuditIntegrityDto"/>.
     /// </summary>
-    /// <param name="e"></param>
-    /// <returns></returns>
-    private static string ComputeEventHash(AuditIntegrityDto e) =>
+    private string ComputeEventHash(AuditIntegrityDto e) =>
         ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
 
     /// <summary>
-    /// Overload that computes event hash directly from an AuditEventEntity, for convenience.
+    /// Computes a checksum for the immutable fields of the audit event using SHA-256.
+    /// Uses length-prefixing to avoid ambiguous hash inputs; the raw SHA-256 is delegated to
+    /// <see cref="IHasher"/>.
     /// </summary>
-    /// <param name="e"></param>
-    /// <returns></returns>
-    private static string ComputeEventHash(AuditEventEntity e) =>
-        ComputeEventHash(e.EventId, e.EventType, e.User, e.InsertedDate, e.JsonData);
+    private string ComputeChecksum(Guid eventId, string? eventType, Guid? userId)
+    {
+        var writer = new ArrayBufferWriter<byte>();
+        AppendLengthPrefixed(writer, eventId.ToString());
+        AppendLengthPrefixed(writer, eventType ?? string.Empty);
+        AppendLengthPrefixed(writer, userId?.ToString() ?? string.Empty);
+
+        return CryptoEncoding.ToBase64(_hasher.Sha256(writer.WrittenSpan));
+    }
 
     /// <summary>
-    /// Computes an HMAC signature binding the event hash to its chain position.
-    /// The HMAC now covers: eventHash, previousEventHash, sequenceNumber, and trustedTimestamp.
-    /// Uses length-prefixing to avoid ambiguous hash inputs (e.g., "A|B|C" vs "A|B" + "|C").
+    /// Overload that computes the checksum directly from an <see cref="AuditIntegrityDto"/>.
     /// </summary>
-    private string ComputeHmac(
+    private string ComputeChecksum(AuditIntegrityDto e) =>
+        ComputeChecksum(e.EventId, e.EventType, e.UserId);
+
+    /// <summary>
+    /// Computes the chain-binding HMAC via the HMAC <see cref="ISigner"/>, returning the Base64
+    /// signature and the id of the signing key that produced it. The signer resolves the active
+    /// symmetric key from <see cref="ISigningKeyProvider"/>; the key id is persisted so verification
+    /// can reselect the exact key (rotation-safe).
+    /// </summary>
+    private async Task<(string Signature, string KeyId)> ComputeHmacAsync(
+        string eventHash,
+        string? previousEventHash,
+        long sequenceNumber,
+        DateTimeOffset trustedTimestamp,
+        CancellationToken cancellationToken)
+    {
+        var input = BuildChainBindingInput(eventHash, previousEventHash, sequenceNumber, trustedTimestamp);
+        var envelope = await _hmacSigner.SignAsync(input, IntegrityKeyScope, cancellationToken);
+        return (envelope.ValueBase64, envelope.KeyId);
+    }
+
+    /// <summary>
+    /// Verifies the chain-binding HMAC via the HMAC <see cref="IVerifier"/>, reselecting the signing
+    /// key by the id persisted on the row. A row with an HMAC but no recorded key id, or a non-Base64
+    /// HMAC, fails closed (treated as tamper).
+    /// </summary>
+    private async Task<bool> VerifyHmacAsync(AuditIntegrityEntity integrity, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(integrity.HmacKeyId) || string.IsNullOrEmpty(integrity.HmacSignature))
+        {
+            return false;
+        }
+
+        SignatureEnvelope envelope;
+        try
+        {
+            envelope = SignatureEnvelope.FromBase64(
+                SignatureAlgorithm.HmacSha256, integrity.HmacKeyId, integrity.HmacSignature);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var input = BuildChainBindingInput(
+            integrity.EventHash, integrity.PreviousEventHash, integrity.SequenceNumber, integrity.TrustedTimestamp);
+        return await _hmacSigner.VerifyAsync(input, envelope, IntegrityKeyScope, cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates the RSA-PSS digital signature binding the event hash to its chain position via the
+    /// RSA-PSS <see cref="ISigner"/>, returning the Base64 signature and the id of the signing key.
+    /// Returns <c>(null, null)</c> when digital signatures are disabled.
+    /// </summary>
+    private async Task<(string? Signature, string? KeyId)> CreateDigitalSignatureAsync(
+        string eventHash,
+        string? previousEventHash,
+        long sequenceNumber,
+        DateTimeOffset trustedTimestamp,
+        CancellationToken cancellationToken)
+    {
+        if (_signatureSigner is null)
+        {
+            return (null, null);
+        }
+
+        var input = BuildChainBindingInput(eventHash, previousEventHash, sequenceNumber, trustedTimestamp);
+        var envelope = await _signatureSigner.SignAsync(input, IntegrityKeyScope, cancellationToken);
+        return (envelope.ValueBase64, envelope.KeyId);
+    }
+
+    /// <summary>
+    /// Verifies the RSA-PSS digital signature via the RSA-PSS <see cref="IVerifier"/>, reselecting the
+    /// signing key by the id persisted on the row. When digital signatures are disabled there is no
+    /// verifier to re-check a previously-written signature, so it is skipped (returns <c>true</c>),
+    /// matching the pre-extraction behaviour. A signature with no recorded key id, or a non-Base64
+    /// signature, fails closed.
+    /// </summary>
+    private async Task<bool> VerifyDigitalSignatureAsync(AuditIntegrityEntity integrity, CancellationToken cancellationToken)
+    {
+        if (_signatureSigner is null || string.IsNullOrEmpty(integrity.DigitalSignature))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(integrity.DigitalSignatureKeyId))
+        {
+            return false;
+        }
+
+        SignatureEnvelope envelope;
+        try
+        {
+            envelope = SignatureEnvelope.FromBase64(
+                SignatureAlgorithm.RsaPssSha256, integrity.DigitalSignatureKeyId, integrity.DigitalSignature);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var input = BuildChainBindingInput(
+            integrity.EventHash, integrity.PreviousEventHash, integrity.SequenceNumber, integrity.TrustedTimestamp);
+        return await _signatureSigner.VerifyAsync(input, envelope, IntegrityKeyScope, cancellationToken);
+    }
+
+    /// <summary>
+    /// Builds the length-prefixed byte buffer that binds an event to its chain position
+    /// (eventHash, previousEventHash, sequenceNumber, normalized trusted timestamp). This framing is
+    /// audit-domain logic; the signers compute the HMAC / RSA-PSS over the buffer. Length-prefixing
+    /// prevents concatenation ambiguity (e.g. "A|B|C" vs "A|B" + "|C").
+    /// </summary>
+    private static byte[] BuildChainBindingInput(
         string eventHash,
         string? previousEventHash,
         long sequenceNumber,
@@ -872,215 +963,49 @@ public sealed class TamperDetectionService : ITamperDetectionService
         var timestampString = AuditCanonicalizer.NormalizeDate(trustedTimestamp);
         var previous = previousEventHash ?? string.Empty;
 
-        using var hash = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, Encoding.UTF8.GetBytes(_hmacKey));
-
-        AppendLengthPrefixed(hash, eventHash);
-        AppendLengthPrefixed(hash, previous);
-        AppendLengthPrefixed(hash, sequenceNumber.ToString(CultureInfo.InvariantCulture));
-        AppendLengthPrefixed(hash, timestampString);
-
-        return Convert.ToBase64String(hash.GetHashAndReset());
+        var writer = new ArrayBufferWriter<byte>();
+        AppendLengthPrefixed(writer, eventHash);
+        AppendLengthPrefixed(writer, previous);
+        AppendLengthPrefixed(writer, sequenceNumber.ToString(CultureInfo.InvariantCulture));
+        AppendLengthPrefixed(writer, timestampString);
+        return writer.WrittenSpan.ToArray();
     }
 
     /// <summary>
-    /// Computes HMAC from an integrity entity (for verification path).
+    /// Appends the UTF-8 bytes of <paramref name="value"/> to <paramref name="writer"/>.
     /// </summary>
-    private string ComputeHmac(AuditIntegrityEntity integrity) =>
-        ComputeHmac(integrity.EventHash, integrity.PreviousEventHash, integrity.SequenceNumber, integrity.TrustedTimestamp);
+    private static void AppendUtf8(ArrayBufferWriter<byte> writer, string value)
+    {
+        var byteCount = Encoding.UTF8.GetByteCount(value);
+        if (byteCount == 0)
+        {
+            return;
+        }
+
+        var span = writer.GetSpan(byteCount);
+        var written = Encoding.UTF8.GetBytes(value, span);
+        writer.Advance(written);
+    }
 
     /// <summary>
-    /// Appends a length-prefixed string to the incremental hash.
+    /// Appends a length-prefixed string to <paramref name="writer"/>.
     /// Format: 4-byte big-endian length + UTF-8 bytes. Prevents concatenation ambiguity.
     /// </summary>
-    private static void AppendLengthPrefixed(IncrementalHash hash, string value)
+    private static void AppendLengthPrefixed(ArrayBufferWriter<byte> writer, string value)
     {
-        var bytes = Encoding.UTF8.GetBytes(value);
+        var byteCount = Encoding.UTF8.GetByteCount(value);
         Span<byte> lengthBytes = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(lengthBytes, bytes.Length);
-        hash.AppendData(lengthBytes);
-        hash.AppendData(bytes);
-    }
+        BinaryPrimitives.WriteInt32BigEndian(lengthBytes, byteCount);
+        writer.Write(lengthBytes);
 
-    /// <summary>
-    /// Computes a checksum for immutable fields of the audit event using SHA-256.
-    /// Uses length-prefixing to avoid ambiguous hash inputs.
-    /// </summary>
-    private static string ComputeChecksum(Guid eventId, string? eventType, Guid? userId)
-    {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLengthPrefixed(hash, eventId.ToString());
-        AppendLengthPrefixed(hash, eventType ?? string.Empty);
-        AppendLengthPrefixed(hash, userId?.ToString() ?? string.Empty);
-        return Convert.ToBase64String(hash.GetHashAndReset());
-    }
-
-    /// <summary>
-    /// Overload that computes checksum directly from an AuditIntegrityDto, for convenience.
-    /// </summary>
-    /// <param name="e"></param>
-    /// <returns></returns>
-    private static string ComputeChecksum(AuditIntegrityDto e) =>
-        ComputeChecksum(e.EventId, e.EventType, e.UserId);
-
-    /// <summary>
-    /// Overload that computes checksum directly from an AuditEventEntity, for convenience.
-    /// </summary>
-    /// <param name="e"></param>
-    /// <returns></returns>
-    private static string ComputeChecksum(AuditEventEntity e) =>
-        ComputeChecksum(e.EventId, e.EventType, e.UserId);
-
-    /// <summary>
-    /// Creates a digital signature binding the event hash to its chain position.
-    /// Signs: eventHash, previousEventHash, sequenceNumber, trustedTimestamp.
-    /// Uses PSS padding (preferred for new designs per NIST SP 800-131A).
-    /// Key material is cached on first use to avoid reading the PEM file on every call.
-    /// </summary>
-    private Task<string> CreateDigitalSignatureAsync(
-        string eventHash,
-        string? previousEventHash,
-        long sequenceNumber,
-        DateTimeOffset trustedTimestamp)
-    {
-        if (!_auditOptions.EnableDigitalSignatures)
+        if (byteCount == 0)
         {
-            return Task.FromResult(string.Empty);
+            return;
         }
 
-        var dataToSign = BuildSignatureInput(eventHash, previousEventHash, sequenceNumber, trustedTimestamp);
-        var keyParams = GetOrLoadSigningKey();
-        using var rsa = RSA.Create();
-        rsa.ImportParameters(keyParams);
-        var signatureBytes = rsa.SignData(dataToSign, HashAlgorithmName.SHA256, RSASignaturePadding.Pss);
-        return Task.FromResult(Convert.ToBase64String(signatureBytes));
-    }
-
-    /// <summary>
-    /// Verifies a digital signature for the chain tuple using the configured public key.
-    /// Key material is cached on first use.
-    /// </summary>
-    private Task<bool> VerifyDigitalSignatureAsync(AuditIntegrityEntity integrity)
-    {
-        if (!_auditOptions.EnableDigitalSignatures || string.IsNullOrEmpty(integrity.DigitalSignature))
-        {
-            return Task.FromResult(true);
-        }
-
-        var dataToVerify = BuildSignatureInput(
-            integrity.EventHash,
-            integrity.PreviousEventHash,
-            integrity.SequenceNumber,
-            integrity.TrustedTimestamp);
-        var keyParams = GetOrLoadVerifyKey();
-        using var rsa = RSA.Create();
-        rsa.ImportParameters(keyParams);
-        var signatureBytes = Convert.FromBase64String(integrity.DigitalSignature);
-        return Task.FromResult(rsa.VerifyData(dataToVerify, signatureBytes,
-            HashAlgorithmName.SHA256, RSASignaturePadding.Pss));
-    }
-
-    /// <summary>
-    /// Builds the canonical byte array to sign/verify.
-    /// Uses length-prefixed fields to prevent concatenation ambiguity.
-    /// </summary>
-    private static byte[] BuildSignatureInput(
-        string eventHash,
-        string? previousEventHash,
-        long sequenceNumber,
-        DateTimeOffset trustedTimestamp)
-    {
-        var timestampString = AuditCanonicalizer.NormalizeDate(trustedTimestamp);
-        var previous = previousEventHash ?? string.Empty;
-
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendLengthPrefixed(hash, eventHash);
-        AppendLengthPrefixed(hash, previous);
-        AppendLengthPrefixed(hash, sequenceNumber.ToString(CultureInfo.InvariantCulture));
-        AppendLengthPrefixed(hash, timestampString);
-        return hash.GetHashAndReset();
-    }
-
-    /// <summary>
-    /// Loads and caches the private signing key from the PEM file.
-    /// Thread-safe via ConcurrentDictionary + Lazy — guarantees exactly-once initialization per path.
-    /// </summary>
-    private RSAParameters GetOrLoadSigningKey()
-    {
-        var keyPath = _securityOptions.DigitalSignaturePrivateKeyPath;
-        if (string.IsNullOrEmpty(keyPath))
-        {
-            throw new InvalidOperationException(
-                "Digital signature private key path is not configured.");
-        }
-
-        var normalizedPath = Path.GetFullPath(keyPath);
-
-        return _signingKeyCache.GetOrAdd(normalizedPath, static path => new Lazy<RSAParameters>(() =>
-        {
-            if (!File.Exists(path))
-            {
-                throw new InvalidOperationException(
-                    $"Digital signature private key file does not exist: {path}");
-            }
-
-            var privateKeyPem = File.ReadAllText(path);
-            using var rsa = RSA.Create();
-            rsa.ImportFromPem(privateKeyPem.ToCharArray());
-            return rsa.ExportParameters(true);
-        })).Value;
-    }
-
-    /// <summary>
-    /// Loads and caches the public verification key from the PEM file.
-    /// Thread-safe via ConcurrentDictionary + Lazy — guarantees exactly-once initialization per path.
-    /// </summary>
-    private RSAParameters GetOrLoadVerifyKey()
-    {
-        var publicKeyPath = _securityOptions.DigitalSignaturePublicKeyPath;
-        if (string.IsNullOrEmpty(publicKeyPath))
-        {
-            throw new InvalidOperationException(
-                "Digital signature public key path is not configured.");
-        }
-
-        var normalizedPath = Path.GetFullPath(publicKeyPath);
-
-        return _verifyKeyCache.GetOrAdd(normalizedPath, static path => new Lazy<RSAParameters>(() =>
-        {
-            if (!File.Exists(path))
-            {
-                throw new InvalidOperationException(
-                    $"Digital signature public key file does not exist: {path}");
-            }
-
-            var publicKeyPem = File.ReadAllText(path);
-            using var rsa = RSA.Create();
-            rsa.ImportFromPem(publicKeyPem.ToCharArray());
-            return rsa.ExportParameters(false);
-        })).Value;
-    }
-
-    /// <summary>
-    /// Clears the static RSA key caches for test isolation. Internal so tests can call it
-    /// without reflection, but non-public to prevent accidental use in production code.
-    /// </summary>
-    internal static void ResetKeyCachesForTests()
-    {
-        _signingKeyCache.Clear();
-        _verifyKeyCache.Clear();
-    }
-
-    /// <summary>
-    /// Generates a default HMAC key if none is configured
-    /// </summary>
-    /// <returns></returns>
-    private static string GenerateDefaultHmacKey()
-    {
-        // Generate a secure random key if not configured
-        using var rng = RandomNumberGenerator.Create();
-        var keyBytes = new byte[32];
-        rng.GetBytes(keyBytes);
-        return Convert.ToBase64String(keyBytes);
+        var span = writer.GetSpan(byteCount);
+        var written = Encoding.UTF8.GetBytes(value, span);
+        writer.Advance(written);
     }
 
     /// <summary>

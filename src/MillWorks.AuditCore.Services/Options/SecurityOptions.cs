@@ -45,17 +45,37 @@ public sealed class SecurityOptions
     /// </summary>
     public bool FailFastOnMissingLockScripting { get; set; } = false;
 
-    /// <summary>
-    /// Path to the private key PEM file for signing audit events.
-    /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
-    /// </summary>
-    public string? DigitalSignaturePrivateKeyPath { get; set; }
+    // ─── Integrity signing-key backend (MillWorks.Cryptography file-system ISigningKeyProvider) ───
+    // The integrity HMAC and (optional) RSA-PSS digital signature keys resolve through
+    // MillWorks.Cryptography signing-key providers, not from configuration. By default the
+    // composition wires the file-system backend below; a host may instead register its own
+    // HmacSha256Signer / RsaPssSigner (e.g. over KeyVault) before AddMillWorksAudit to override it.
+    // The HMAC and RSA key spaces are kept disjoint from each other and from any encryption key.
 
     /// <summary>
-    /// Path to the public key PEM file for verifying audit event signatures.
-    /// Used by tamper detection when <c>AuditOptions.EnableDigitalSignatures</c> is true.
+    /// Root directory for the file-system integrity signing-key store. The HMAC and RSA-PSS keys are
+    /// stored under disjoint subdirectories beneath this root. When unset, a per-process temporary
+    /// store is used in non-Production (signatures will not survive a restart); Production requires an
+    /// explicit <see cref="IntegrityKeyMasterKeyBase64"/>. Ignored when the host registers its own
+    /// signing-key backend.
     /// </summary>
-    public string? DigitalSignaturePublicKeyPath { get; set; }
+    public string? IntegrityKeyStorePath { get; set; }
+
+    /// <summary>
+    /// Base64-encoded 256-bit master key that wraps the integrity signing keys at rest. Required in
+    /// Production (a transient key would make previously-written signatures unverifiable and cause
+    /// false tamper alerts across instances or after restarts). When unset in non-Production, a
+    /// process-ephemeral master key is generated with a warning. Ignored when the host registers its
+    /// own signing-key backend.
+    /// </summary>
+    public string? IntegrityKeyMasterKeyBase64 { get; set; }
+
+    /// <summary>
+    /// When true (default), the file-system integrity backend generates the initial signing key on
+    /// first use if none exists. Set to false to require keys to be pre-provisioned (fail-closed on a
+    /// missing key). Ignored when the host registers its own signing-key backend.
+    /// </summary>
+    public bool AllowIntegrityKeyAutoGeneration { get; set; } = true;
 
     /// <summary>
     /// When true, integrity record writes are deferred to a bounded background worker

@@ -2,8 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
+using MillWorks.Cryptography;
+using MillWorks.Cryptography.Aead;
+using MillWorks.Cryptography.FileSystem;
+using MillWorks.Cryptography.Hashing;
+using MillWorks.Cryptography.KeyManagement;
+using MillWorks.Cryptography.Random;
+using MillWorks.Cryptography.Signing;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Abstractions.Services;
 using MillWorks.AuditCore.AspNetCore.Extensions;
@@ -318,9 +326,30 @@ public sealed class MillWorksAuditBuilder
         // Security event service (required by tamper detection)
         Services.AddScoped<IAuditSecurityEventService, AuditSecurityEventService>();
 
+        // MillWorks.Cryptography primitives + the integrity signing-key backend that
+        // TamperDetectionService delegates its hashing/HMAC/RSA-PSS to.
+        AddIntegrityCryptography();
+
         // Tamper detection service. Registered unconditionally; SecurityOptions.EnableTamperDetection
-        // drives routing in consumers (AuditLogger, AuditArchivalService).
-        Services.AddScoped<ITamperDetectionService, TamperDetectionService>();
+        // drives routing in consumers (AuditLogger, AuditArchivalService). The RSA-PSS signer is only
+        // resolved (and its key backend only built) when digital signatures are enabled.
+        Services.AddScoped<ITamperDetectionService>(static sp =>
+        {
+            var auditOptions = sp.GetRequiredService<IOptions<AuditOptions>>().Value;
+            var signatureSigner = auditOptions.EnableDigitalSignatures
+                ? sp.GetRequiredService<RsaPssSigner>()
+                : null;
+
+            return new TamperDetectionService(
+                sp.GetRequiredService<IAuditEventRepository>(),
+                sp.GetRequiredService<IAuditIntegrityRepository>(),
+                sp.GetRequiredService<IAuditSecurityEventService>(),
+                sp.GetRequiredService<ILogger<TamperDetectionService>>(),
+                sp.GetRequiredService<IHasher>(),
+                sp.GetRequiredService<HmacSha256Signer>(),
+                signatureSigner,
+                sp.GetService<TimeProvider>());
+        });
 
         // Batched integrity writes infrastructure. Hosted services self-gate on
         // EnableTamperDetection && EnableBatchedIntegrityWrites inside ExecuteAsync (#12).
@@ -558,5 +587,105 @@ public sealed class MillWorksAuditBuilder
                 "explicitly registered PassThroughAuditFieldRedactor, set AllowPassThroughRedactor = true " +
                 "to confirm you accept unredacted audit storage, or register a custom IAuditFieldRedactor.");
         }
+    }
+
+    // Keyed registrations for the two disjoint integrity signing-key providers. Keyed (rather than a
+    // single ISigningKeyProvider) so the HMAC and RSA-PSS keys live in separate key spaces and the
+    // container owns each provider's lifetime (its cached key material is zeroed on disposal).
+    private const string IntegrityHmacKeyProviderKey = "MillWorks.AuditCore.Integrity.Hmac";
+    private const string IntegrityRsaKeyProviderKey = "MillWorks.AuditCore.Integrity.RsaPss";
+
+    /// <summary>
+    /// Wires the MillWorks.Cryptography primitives and the integrity signing-key backend that
+    /// <see cref="TamperDetectionService"/> delegates its hashing, HMAC, and RSA-PSS to. The HMAC and
+    /// RSA-PSS keys resolve from two disjoint file-system <see cref="ISigningKeyProvider"/>s by default;
+    /// a host can override the whole backend by registering its own <see cref="HmacSha256Signer"/> /
+    /// <see cref="RsaPssSigner"/> (e.g. over KeyVault) before <c>AddMillWorksAudit</c>, which the
+    /// <c>TryAdd</c> registrations below respect.
+    /// </summary>
+    private void AddIntegrityCryptography()
+    {
+        // Stateless primitives (IHasher, ISecureRandom, IAeadCipher, IJsonCanonicalizer); all TryAdd.
+        Services.AddMillWorksCryptography();
+
+        Services.TryAddKeyedSingleton<ISigningKeyProvider>(IntegrityHmacKeyProviderKey,
+            static (sp, _) => BuildIntegritySigningKeyProvider(sp, "hmac", SignatureAlgorithm.HmacSha256));
+        Services.TryAddKeyedSingleton<ISigningKeyProvider>(IntegrityRsaKeyProviderKey,
+            static (sp, _) => BuildIntegritySigningKeyProvider(sp, "rsa", SignatureAlgorithm.RsaPssSha256));
+
+        Services.TryAddSingleton(static sp => new HmacSha256Signer(
+            sp.GetRequiredKeyedService<ISigningKeyProvider>(IntegrityHmacKeyProviderKey),
+            sp.GetRequiredService<IHasher>()));
+        Services.TryAddSingleton(static sp => new RsaPssSigner(
+            sp.GetRequiredKeyedService<ISigningKeyProvider>(IntegrityRsaKeyProviderKey)));
+    }
+
+    /// <summary>
+    /// Builds a file-system <see cref="ISigningKeyProvider"/> for one integrity key usage (HMAC or
+    /// RSA-PSS) under its own subdirectory, so the two key spaces stay disjoint.
+    /// </summary>
+    private static FileSigningKeyProvider BuildIntegritySigningKeyProvider(
+        IServiceProvider sp, string usage, SignatureAlgorithm algorithm)
+    {
+        var security = sp.GetRequiredService<IOptions<SecurityOptions>>().Value;
+        var secureRandom = sp.GetRequiredService<ISecureRandom>();
+        var cipher = sp.GetRequiredService<IAeadCipher>();
+        var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+        var environment = sp.GetService<IHostEnvironment>();
+        var logger = sp.GetService<ILoggerFactory>()?.CreateLogger("MillWorks.AuditCore.IntegrityKeys");
+
+        var (storeRoot, masterKeyBase64) =
+            ResolveIntegrityKeyStore(security, secureRandom, environment, usage, logger);
+
+        var options = new FileSystemKeyProviderOptions
+        {
+            KeyStorePath = storeRoot,
+            MasterKeyBase64 = masterKeyBase64,
+            AllowAutoKeyGeneration = security.AllowIntegrityKeyAutoGeneration,
+            SigningAlgorithm = algorithm,
+        };
+
+        return new FileSigningKeyProvider(cipher, secureRandom, timeProvider, options);
+    }
+
+    /// <summary>
+    /// Resolves the file-system key store root and at-rest master key for an integrity key usage.
+    /// A configured master key is honoured; absent one, Production fails closed and non-Production
+    /// falls back to a process-ephemeral master key plus a per-process temporary store (signatures do
+    /// not survive a restart), with a warning.
+    /// </summary>
+    private static (string StoreRoot, string MasterKeyBase64) ResolveIntegrityKeyStore(
+        SecurityOptions security, ISecureRandom secureRandom, IHostEnvironment? environment,
+        string usage, ILogger? logger)
+    {
+        if (!string.IsNullOrEmpty(security.IntegrityKeyMasterKeyBase64))
+        {
+            var root = string.IsNullOrEmpty(security.IntegrityKeyStorePath)
+                ? Path.Combine(AppContext.BaseDirectory, "auditcore-integrity-keys", usage)
+                : Path.Combine(security.IntegrityKeyStorePath, usage);
+            return (root, security.IntegrityKeyMasterKeyBase64);
+        }
+
+        if (environment?.IsProduction() ?? false)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SecurityOptions.IntegrityKeyMasterKeyBase64)} must be configured in Production. " +
+                "Integrity signing keys are wrapped at rest with this master key; a transient key would make " +
+                "previously-written HMAC/digital signatures unverifiable and cause false tamper alerts across " +
+                "instances or after restarts. Set Audit:Security:IntegrityKeyMasterKeyBase64 (with a persistent " +
+                "Audit:Security:IntegrityKeyStorePath), or register a custom ISigningKeyProvider-backed signer.");
+        }
+
+        // Non-Production convenience: ephemeral master key + per-process temporary store so the
+        // provider stays self-consistent for the process lifetime. Random via the Cryptography
+        // secure-random primitive; the directory name is a non-secret uniquifier.
+        var ephemeralMaster = CryptoEncoding.ToBase64(secureRandom.GetBytes(32));
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(), "millworks-auditcore-integrity", Guid.NewGuid().ToString("N"), usage);
+        logger?.LogWarning(
+            "Audit:Security:IntegrityKeyMasterKeyBase64 is not configured. Using a process-ephemeral " +
+            "integrity signing-key store at {StoreRoot}. Integrity signatures will not survive an " +
+            "application restart. Configure a master key and a persistent store for production use.", tempRoot);
+        return (tempRoot, ephemeralMaster);
     }
 }

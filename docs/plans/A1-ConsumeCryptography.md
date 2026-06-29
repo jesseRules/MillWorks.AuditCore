@@ -62,8 +62,69 @@ Rewriting chain orchestration · SecurityEvent integrity (**shelved** — supers
 encryption-provider reconcile · the locking move itself (decided here, executed per `LockingConsolidation-Orchestration.md`).
 
 ## Done when
-- [ ] `TamperDetectionService` computes hash/HMAC/RSA via `MillWorks.Cryptography`; **chain orchestration unchanged**.
-- [ ] Keys resolve via `ISigningKeyProvider`; no PEM paths / `HmacKey` read for chain signing.
-- [ ] EF-entity hash overloads removed.
-- [ ] Existing tamper-chain + soak tests green (golden hashes updated iff the canonicalizer was adopted).
-- [ ] Canonicalizer and distributed-lock decisions recorded; A2 noted as a separate follow-up.
+- [x] `TamperDetectionService` computes hash/HMAC/RSA via `MillWorks.Cryptography`; **chain orchestration unchanged**.
+- [x] Keys resolve via `ISigningKeyProvider`; no PEM paths / `HmacKey` read for chain signing.
+- [x] EF-entity hash overloads removed.
+- [x] Existing tamper-chain + soak tests green (golden hashes updated iff the canonicalizer was adopted — it was **not**; see below).
+- [x] Canonicalizer and distributed-lock decisions recorded; A2 noted as a separate follow-up.
+
+---
+
+## Outcome — A1 implemented (2026-06-28)
+
+AuditCore now takes its first upstream MillWorks dependency (`MillWorks.Cryptography` on `.Services`,
+`MillWorks.Cryptography.FileSystem` on `.AspNetCore`, both `0.1.0` from the `MillWorksLocal` feed; `.Abstractions`
+arrives transitively). No dependency cycle — Cryptography references nothing in AuditCore.
+
+**Delegated (extracted to `MillWorks.Cryptography`):**
+- `ComputeEventHash` / `ComputeChecksum` → build the same byte projection (kept as domain logic) and call `IHasher.Sha256`.
+- The chain-binding **HMAC** → `HmacSha256Signer` (`ISigner`/`IVerifier`) over an `ISigningKeyProvider`.
+- The optional **RSA-PSS** digital signature → `RsaPssSigner` over a *separate* `ISigningKeyProvider`.
+- Constant-time compares → `ConstantTime.EqualsBase64`; Base64 → `CryptoEncoding`; secure random (DI dev master key) → `ISecureRandom`.
+- Removed: inline `IncrementalHash`/`HMACSHA256`/`RSA`/`RandomNumberGenerator`/`FixedTimeEquals`, the static PEM/RSA caches,
+  `GetOrLoad{Signing,Verify}Key`, `GenerateDefaultHmacKey`, `ResetKeyCachesForTests`, and the `AuditEventEntity` hash overloads.
+
+**Kept in AuditCore (unchanged):** the chain orchestration — `sp_getapplock` serialization, sequence allocation,
+previous-hash linkage, the atomic event+integrity transaction, persistence, and the retry/DLQ path; plus the
+length-prefixed field projection (which fields, the framing). `AuditCanonicalizer` is **untouched**.
+
+**Key model (decision: persist KeyId — rotation-safe):** the HMAC and RSA signers resolve the *active* signing key via
+`ISigningKeyProvider`, and each integrity row now persists the producing key id (`AuditIntegrityEntity.HmacKeyId`,
+`DigitalSignatureKeyId`; additive migration `20260628213010_AddIntegritySigningKeyIds`). Verification rebuilds the exact
+`SignatureEnvelope` and reselects that key id, so verification is unambiguous and survives signing-key rotation.
+
+**Integrity-key backend (decision: FileSystem default, swappable):** `MillWorksAuditBuilder.UseSecurity` wires
+`AddMillWorksCryptography()` + two disjoint file-system `ISigningKeyProvider`s (HMAC under `…/hmac`, RSA-PSS under `…/rsa`)
++ `HmacSha256Signer`/`RsaPssSigner` (all `TryAdd`, so a host can override with a KeyVault-backed signer). New
+`SecurityOptions.IntegrityKeyStorePath` / `IntegrityKeyMasterKeyBase64` / `AllowIntegrityKeyAutoGeneration`. The
+"HMAC key required in Production" rule moved from `AuditOptions`/the ctor to the key backend: **Production fails closed**
+when no `IntegrityKeyMasterKeyBase64` is configured; non-Production uses a process-ephemeral master key + temp store
+(warned; signatures do not survive a restart). The RSA backend is built only when `EnableDigitalSignatures` is on.
+
+**Retired options:** `AuditOptions.HmacKey` and `SecurityOptions.DigitalSignaturePrivateKeyPath/PublicKeyPath` (and the
+HmacKey-in-Production / HmacKey-with-DigitalSignatures validators) — they were the *source of keys*, which now comes from
+the provider.
+
+**Canonicalizer decision:** `AuditCanonicalizer` was **NOT** swapped to the RFC 8785 byte primitive (§6.3 optional; it is
+internal tamper-evidence verified only by AuditCore). The event-hash and checksum byte projections are byte-identical to
+before, so those golden values are unchanged. **HMAC and RSA signature values do change** (the key source moved from
+config to the provider) — no stored chains exist (greenfield), and tests recompute/round-trip rather than pin literals.
+
+**Distributed-lock decision:** AuditCore keeps its own `IAuditDistributedLockService` + `sp_getapplock` (not consuming
+`MillWorks.BackgroundJobs`'s lock manager) — standalone-package posture; revisit per `LockingConsolidation-Orchestration.md`
+only if AuditCore pulls BackgroundJobs for another reason.
+
+**Key-usage isolation (guard test):** `IntegrityKeyUsageIsolationTests` boots the real DI and asserts the HMAC and RSA
+integrity keys come from disjoint key spaces (distinct key ids; neither verifies the other's envelope) and that
+`TamperDetectionService` takes no `IEncryptionKeyProvider` / AEAD dependency (cannot cross-route an encryption key).
+
+**Tests:** library builds clean (0 warn/err). Crypto-affected unit fixtures (TamperDetection*, OptionsFlow,
+IntegrityKeyUsageIsolation, hash property) and the SQLite tamper integration fixtures are green. SQL Server Testcontainers
+lane uses `mssql/server:2022` (amd64) — see the run note in the session outcome for arm64-emulation status.
+
+**A2 — DONE 2026-06-28 (see [A2-ConsumeCryptographyEncryption.md](A2-ConsumeCryptographyEncryption.md)):** reconciled
+`FieldEncryptionService` + `FileBasedKeyProvider` + `AzureKeyVaultProvider` + AuditCore's own
+`FieldKeyDerivation`/`IEncryptionKeyProvider` onto Cryptography's `IAeadCipher` (canonical `[ver][nonce][tag][ct]` frame,
+replacing the `ENC_V1:` JSON frame inside an `ENC2:` envelope), `IEncryptionKeyProvider`, internal `FieldKeyDerivation`,
+and `AeadContext.ForKey` for the `scope|keyVersion|fieldName` AAD binding. AuditCore's own
+`KeyProviderException`/`IEncryptionKeyProvider` (the `.Abstractions` name collisions) were deleted as part of A2.

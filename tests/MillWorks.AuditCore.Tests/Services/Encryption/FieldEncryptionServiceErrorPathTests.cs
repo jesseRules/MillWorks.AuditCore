@@ -1,62 +1,31 @@
-using System.Text;
-using System.Text.Json;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Services.Encryption;
+using MillWorks.AuditCore.Tests.Helpers;
+using MillWorks.Cryptography;
 
 namespace MillWorks.AuditCore.Tests.Services.Encryption;
 
 /// <summary>
-/// Tests for FieldEncryptionService error paths: ReEncryptFieldAsync failures,
-/// key provider errors during decrypt, invalid Base64 payloads, sync CryptographicException,
-/// and field name edge cases — all previously at low or zero coverage.
+/// Error-path tests for <see cref="FieldEncryptionService"/>: re-encryption failures, key-provider
+/// errors during decrypt, malformed envelopes, the synchronous tamper path, and field-name binding —
+/// over the shared MillWorks.Cryptography AEAD cipher with a faked key store.
 /// </summary>
 [TestFixture]
 [Category("Unit")]
 public class FieldEncryptionServiceErrorPathTests
 {
-    private Mock<IEncryptionKeyProvider> _mockKeyProvider;
-    private Mock<ILogger<FieldEncryptionService>> _mockLogger;
-    private FieldEncryptionService _service;
+    private const string Prefix = "ENC2:";
+    private const int FrameHeaderSize = 1 + 12 + 16; // [version][nonce:12][tag:16]
 
-    private static readonly byte[] TestKey =
-    {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-        0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20
-    };
-
-    private static readonly byte[] AlternateKey =
-    {
-        0x20, 0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19,
-        0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-        0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09,
-        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
-    };
+    private FakeEncryptionKeyProvider _keyProvider = null!;
+    private IFieldEncryptionService _service = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockKeyProvider = new Mock<IEncryptionKeyProvider>();
-        _mockLogger = new Mock<ILogger<FieldEncryptionService>>();
-
-        _mockKeyProvider
-            .Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync("v1");
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v2", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AlternateKey);
-
-        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersion()).Returns("v1");
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey(It.IsAny<string>(), "v1")).Returns(TestKey);
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey(It.IsAny<string>(), "v2")).Returns(AlternateKey);
-
-        _service = new FieldEncryptionService(_mockKeyProvider.Object, _mockLogger.Object);
+        _keyProvider = new FakeEncryptionKeyProvider { CurrentVersion = "v1" };
+        _service = EncryptionTestHarness.CreateService(_keyProvider);
     }
 
     #region ReEncryptFieldAsync — Error Paths
@@ -64,14 +33,11 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public async Task ReEncryptFieldAsync_WhenDecryptFails_ThrowsFieldEncryptionException()
     {
-        // Arrange — encrypt with v1, then make v1 key unavailable for decrypt
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v1", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Key v1 has been retired"));
+        // Make the key store unreachable so the inner decrypt fails.
+        _keyProvider.ThrowOnGetKey = new InvalidOperationException("Key store unreachable");
 
-        // Act & Assert
         var act = () => _service.ReEncryptFieldAsync(encrypted, "TestField", "v2");
         await act.Should().ThrowAsync<FieldEncryptionException>()
             .WithMessage("*re-encrypt*TestField*v2*");
@@ -80,14 +46,10 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public async Task ReEncryptFieldAsync_WhenEncryptWithNewVersionFails_ThrowsFieldEncryptionException()
     {
-        // Arrange — encrypt with v1, decrypt will work, but v3 key doesn't exist
+        // Decrypt with v1 works, but the target version v3 is unavailable.
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
+        _keyProvider.FailingVersions.Add("v3");
 
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v3", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Key version v3 not found"));
-
-        // Act & Assert
         var act = () => _service.ReEncryptFieldAsync(encrypted, "TestField", "v3");
         await act.Should().ThrowAsync<FieldEncryptionException>()
             .WithMessage("*re-encrypt*TestField*v3*");
@@ -96,26 +58,13 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public async Task ReEncryptFieldAsync_WithTamperedData_ThrowsFieldEncryptionException()
     {
-        // Arrange — encrypt then corrupt the ciphertext so decrypt fails with CryptographicException
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Corrupt a byte in the payload
-        var payloadBase64 = encrypted["ENC_V1:".Length..];
-        var payloadBytes = Convert.FromBase64String(payloadBase64);
-        var payloadJson = Encoding.UTF8.GetString(payloadBytes);
-        var payload = JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+        var frame = Frame(encrypted);
+        frame[FrameHeaderSize] ^= 0xFF; // corrupt a ciphertext byte
+        var corrupted = ReplaceFrame(encrypted, frame);
 
-        // Corrupt the ciphertext
-        var cipherBase64 = payload["Ciphertext"].ToString()!;
-        var cipherBytes = Convert.FromBase64String(cipherBase64);
-        cipherBytes[0] ^= 0xFF;
-        payload["Ciphertext"] = Convert.ToBase64String(cipherBytes);
-
-        var corruptedJson = JsonSerializer.Serialize(payload);
-        var corruptedEncrypted = "ENC_V1:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(corruptedJson));
-
-        // Act & Assert
-        var act = () => _service.ReEncryptFieldAsync(corruptedEncrypted, "TestField", "v2");
+        var act = () => _service.ReEncryptFieldAsync(corrupted, "TestField", "v2");
         await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
@@ -126,15 +75,10 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public async Task DecryptFieldAsync_WhenKeyProviderThrows_ThrowsFieldEncryptionException()
     {
-        // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Make key provider fail for the version used in the payload
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v1", It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Key storage unavailable"));
+        _keyProvider.ThrowOnGetKey = new InvalidOperationException("Key storage unavailable");
 
-        // Act & Assert
         var act = () => _service.DecryptFieldAsync(encrypted, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>()
             .WithMessage("*decrypt*TestField*");
@@ -143,15 +87,10 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public async Task DecryptField_Sync_WhenKeyProviderThrows_ThrowsFieldEncryptionException()
     {
-        // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Make sync key provider fail
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKey(It.IsAny<string>(), "v1"))
-            .Throws(new InvalidOperationException("Key storage unavailable"));
+        _keyProvider.ThrowOnGetKey = new InvalidOperationException("Key storage unavailable");
 
-        // Act & Assert
         var act = () => _service.DecryptField(encrypted, "TestField");
         act.Should().Throw<FieldEncryptionException>()
             .WithMessage("*decrypt*TestField*");
@@ -159,173 +98,126 @@ public class FieldEncryptionServiceErrorPathTests
 
     #endregion
 
-    #region DecryptFieldAsync — Invalid Base64 Payloads
+    #region DecryptFieldAsync — Malformed Envelopes
 
     [Test]
-    public void DecryptFieldAsync_WithInvalidBase64Payload_ThrowsFieldEncryptionException()
+    public async Task DecryptFieldAsync_WithInvalidBase64Payload_ThrowsFieldEncryptionException()
     {
-        // Arrange — prefix followed by invalid Base64
-        var badValue = "ENC_V1:not-valid-base64!!!@@@";
+        var badValue = Prefix + "not-valid-base64!!!@@@";
 
-        // Act & Assert
         var act = () => _service.DecryptFieldAsync(badValue, "TestField");
-        act.Should().ThrowAsync<FieldEncryptionException>();
-    }
-
-    [Test]
-    public async Task DecryptFieldAsync_WithMalformedJsonPayload_ThrowsFieldEncryptionException()
-    {
-        // Arrange — valid Base64 but not valid JSON inside
-        var badJson = "this is not JSON";
-        var encoded = "ENC_V1:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(badJson));
-
-        // Act & Assert
-        var act = () => _service.DecryptFieldAsync(encoded, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
     [Test]
-    public async Task DecryptFieldAsync_WithInvalidBase64InNonce_ThrowsFieldEncryptionException()
+    public async Task DecryptFieldAsync_WithTruncatedEnvelope_ThrowsFieldEncryptionException()
     {
-        // Arrange — valid outer payload but nonce has bad Base64
-        var payload = new
-        {
-            Version = 1,
-            KeyVersion = "v1",
-            Nonce = "not-valid-base64!!!",
-            Ciphertext = Convert.ToBase64String(new byte[16]),
-            Tag = Convert.ToBase64String(new byte[16]),
-            FieldName = "TestField",
-            EncryptedAt = DateTimeOffset.UtcNow
-        };
+        // Valid Base64, but too short to hold the [version][keyVersionLen] header.
+        var encoded = Prefix + Convert.ToBase64String(new byte[] { 1 });
 
-        var json = JsonSerializer.Serialize(payload);
-        var encoded = "ENC_V1:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        var act = () => _service.DecryptFieldAsync(encoded, "TestField");
+        await act.Should().ThrowAsync<FieldEncryptionException>()
+            .WithMessage("*truncated*");
+    }
 
-        // Act & Assert
+    [Test]
+    public async Task DecryptFieldAsync_WithTruncatedFrame_ThrowsFieldEncryptionException()
+    {
+        // Well-formed envelope wrapping a frame that is too short to be a valid AEAD frame.
+        var envelope = new byte[] { 1, 0, 2, (byte)'v', (byte)'1', 1, 2, 3, 4, 5 };
+        var encoded = Prefix + Convert.ToBase64String(envelope);
+
         var act = () => _service.DecryptFieldAsync(encoded, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
     #endregion
 
-    #region Sync CryptographicException Path
+    #region Synchronous tamper path
 
     [Test]
     public async Task DecryptField_Sync_WithWrongKey_ThrowsTamperMessage()
     {
-        // Arrange — encrypt with TestKey, then swap to WrongKey for sync decrypt
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKey(It.IsAny<string>(), "v1"))
-            .Returns(AlternateKey); // Wrong key
+        var wrongKey = new byte[32];
+        Array.Fill(wrongKey, (byte)0x7E);
+        _keyProvider.SetKey("TestField", "v1", wrongKey);
 
-        // Act & Assert — hits the CryptographicException catch block in DecryptField
         var act = () => _service.DecryptField(encrypted, "TestField");
         act.Should().Throw<FieldEncryptionException>()
-            .WithMessage("*tampered*");
+            .WithMessage("*tampered*")
+            .WithInnerException<CryptographyException>();
     }
 
     [Test]
     public async Task DecryptField_Sync_WithCorruptedTag_ThrowsTamperMessage()
     {
-        // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        var payloadBase64 = encrypted["ENC_V1:".Length..];
-        var payloadBytes = Convert.FromBase64String(payloadBase64);
-        var payloadJson = Encoding.UTF8.GetString(payloadBytes);
-        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+        var frame = Frame(encrypted);
+        frame[1 + 12] ^= 0xFF; // flip a byte in the 16-byte auth tag
+        var corrupted = ReplaceFrame(encrypted, frame);
 
-        // Corrupt the authentication tag
-        var tagBytes = Convert.FromBase64String(dict["Tag"].ToString()!);
-        tagBytes[0] ^= 0xFF;
-        dict["Tag"] = Convert.ToBase64String(tagBytes);
-
-        var corruptedJson = JsonSerializer.Serialize(dict);
-        var corruptedEncrypted = "ENC_V1:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(corruptedJson));
-
-        // Act & Assert — sync path CryptographicException
-        var act = () => _service.DecryptField(corruptedEncrypted, "TestField");
+        var act = () => _service.DecryptField(corrupted, "TestField");
         act.Should().Throw<FieldEncryptionException>()
             .WithMessage("*tampered*");
     }
 
     #endregion
 
-    #region Field Name Edge Cases
+    #region Field Name Binding
 
     [Test]
     public async Task DecryptFieldAsync_WithSpecialCharactersInFieldName_RoundTrips()
     {
-        // Arrange — field names with dots, brackets, etc.
         const string fieldName = "user.addresses[0].street";
 
-        _mockKeyProvider
-            .Setup(kp => kp.GetEncryptionKeyAsync(fieldName, "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-
-        // Act
         var encrypted = await _service.EncryptFieldWithVersionAsync("123 Main St", fieldName, "v1");
         var decrypted = await _service.DecryptFieldAsync(encrypted, fieldName);
 
-        // Assert
         decrypted.Should().Be("123 Main St");
     }
 
     [Test]
     public async Task DecryptFieldAsync_WithWhitespaceFieldNameMismatch_Throws()
     {
-        // Arrange — encrypt with "TestField", try to decrypt with " TestField "
+        // " TestField " binds a different AAD (and resolves a different field key) than "TestField",
+        // so AEAD authentication fails — surfaced as the tamper message.
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Act & Assert — Ordinal comparison means whitespace causes mismatch.
-        // FieldEncryptionException is thrown directly (not wrapped).
         var act = () => _service.DecryptFieldAsync(encrypted, " TestField ");
-        var ex = await act.Should().ThrowAsync<FieldEncryptionException>();
-        ex.WithMessage("*mismatch*");
+        await act.Should().ThrowAsync<FieldEncryptionException>().WithMessage("*tampered*");
     }
 
     [Test]
-    public async Task DecryptField_Sync_FieldNameMismatch_ThrowsSameAsAsync()
+    public async Task DecryptField_Sync_FieldNameMismatch_Throws()
     {
-        // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Act & Assert — FieldEncryptionException is thrown directly (not wrapped).
         var act = () => _service.DecryptField(encrypted, "WrongField");
-        var ex = act.Should().Throw<FieldEncryptionException>();
-        ex.WithMessage("*mismatch*");
+        act.Should().Throw<FieldEncryptionException>().WithMessage("*tampered*");
     }
 
     #endregion
 
-    #region EncryptFieldAsync — Key Provider GetCurrentKeyVersion Error
+    #region EncryptFieldAsync — GetCurrentVersion Error
 
     [Test]
-    public void EncryptFieldAsync_WhenGetCurrentVersionThrows_ThrowsFieldEncryptionException()
+    public async Task EncryptFieldAsync_WhenGetCurrentVersionThrows_ThrowsFieldEncryptionException()
     {
-        // Arrange
-        _mockKeyProvider
-            .Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("No key versions available"));
+        _keyProvider.ThrowOnGetVersion = new InvalidOperationException("No key versions available");
 
-        // Act & Assert
         var act = () => _service.EncryptFieldAsync("secret", "TestField");
-        act.Should().ThrowAsync<FieldEncryptionException>()
+        await act.Should().ThrowAsync<FieldEncryptionException>()
             .WithMessage("*encrypt*TestField*");
     }
 
     [Test]
     public void EncryptField_Sync_WhenGetCurrentVersionThrows_ThrowsFieldEncryptionException()
     {
-        // Arrange
-        _mockKeyProvider
-            .Setup(static kp => kp.GetCurrentKeyVersion())
-            .Throws(new InvalidOperationException("No key versions available"));
+        _keyProvider.ThrowOnGetVersion = new InvalidOperationException("No key versions available");
 
-        // Act & Assert
         var act = () => _service.EncryptField("secret", "TestField");
         act.Should().Throw<FieldEncryptionException>()
             .WithMessage("*encrypt*TestField*");
@@ -333,23 +225,21 @@ public class FieldEncryptionServiceErrorPathTests
 
     #endregion
 
-    #region Async CryptographicException — Tamper Message Validation
+    #region Async tamper message validation
 
     [Test]
     public async Task DecryptFieldAsync_WithWrongKey_ThrowsWithTamperMessage()
     {
-        // Arrange
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        _mockKeyProvider
-            .Setup(static kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AlternateKey);
+        var wrongKey = new byte[32];
+        Array.Fill(wrongKey, (byte)0x33);
+        _keyProvider.SetKey("TestField", "v1", wrongKey);
 
-        // Act & Assert — validates the CryptographicException path produces the "tampered" message
         var act = () => _service.DecryptFieldAsync(encrypted, "TestField");
-        var ex = await act.Should().ThrowAsync<FieldEncryptionException>();
-        ex.WithMessage("*tampered*");
-        ex.WithInnerException<System.Security.Cryptography.CryptographicException>();
+        var assertion = await act.Should().ThrowAsync<FieldEncryptionException>();
+        assertion.WithMessage("*tampered*");
+        assertion.WithInnerException<CryptographyException>();
     }
 
     #endregion
@@ -359,16 +249,39 @@ public class FieldEncryptionServiceErrorPathTests
     [Test]
     public void IsEncrypted_WithPrefixOnly_ReturnsTrue()
     {
-        _service.IsEncrypted("ENC_V1:").Should().BeTrue();
+        _service.IsEncrypted(Prefix).Should().BeTrue();
     }
 
     [Test]
     public void IsEncrypted_WithSimilarButWrongPrefix_ReturnsFalse()
     {
-        _service.IsEncrypted("ENC_V2:something").Should().BeFalse();
-        _service.IsEncrypted("enc_v1:lowercase").Should().BeFalse();
-        _service.IsEncrypted("ENC_V1").Should().BeFalse(); // Missing colon
+        _service.IsEncrypted("ENC3:something").Should().BeFalse();
+        _service.IsEncrypted("enc2:lowercase").Should().BeFalse();
+        _service.IsEncrypted("ENC2").Should().BeFalse(); // missing colon
     }
 
     #endregion
+
+    // ── Helpers: ENC2 envelope / AEAD frame parsing ──
+
+    private static byte[] Envelope(string encrypted) =>
+        Convert.FromBase64String(encrypted[Prefix.Length..]);
+
+    private static int KeyVersionLength(byte[] envelope) => (envelope[1] << 8) | envelope[2];
+
+    private static byte[] Frame(string encrypted)
+    {
+        var envelope = Envelope(encrypted);
+        return envelope[(3 + KeyVersionLength(envelope))..];
+    }
+
+    private static string ReplaceFrame(string encrypted, byte[] newFrame)
+    {
+        var envelope = Envelope(encrypted);
+        var head = envelope[..(3 + KeyVersionLength(envelope))];
+        var combined = new byte[head.Length + newFrame.Length];
+        head.CopyTo(combined, 0);
+        newFrame.CopyTo(combined, head.Length);
+        return Prefix + Convert.ToBase64String(combined);
+    }
 }

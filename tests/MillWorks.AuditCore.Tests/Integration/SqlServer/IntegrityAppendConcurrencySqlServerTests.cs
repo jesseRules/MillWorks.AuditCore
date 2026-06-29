@@ -1,15 +1,14 @@
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration.SqlServer;
 
@@ -35,6 +34,7 @@ public sealed class IntegrityAppendConcurrencySqlServerTests : SqlServerTestBase
 {
     private const int Writers = 32;
     private const string HmacKey = "sql-server-integrity-append-race-test-hmac-key";
+    private const string HmacKeyId = "sqlserver-append-race-hmac-v1";
 
     [Test]
     public async Task CreateIntegrityRecordAsync_Under32ParallelWriters_NoDuplicateKeyRaceAndChainIsContinuous()
@@ -154,12 +154,8 @@ public sealed class IntegrityAppendConcurrencySqlServerTests : SqlServerTestBase
             integrityRepo,
             securityEventService,
             logger,
-            Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = HmacKey
-            }),
-            Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(Encoding.UTF8.GetBytes(HmacKey), HmacKeyId));
     }
 
     /// <summary>

@@ -48,7 +48,6 @@ public sealed class ResilientAuditLoggerRetrySqliteTests : SqliteIntegrationFixt
         services.AddOptions<AuditOptions>().Configure(o =>
         {
             o.Environment = "Development";
-            o.HmacKey = "retry-tracking-regression-test-hmac-32";
         });
         services.AddOptions<SecurityOptions>().Configure(o => o.EnableTamperDetection = true);
 

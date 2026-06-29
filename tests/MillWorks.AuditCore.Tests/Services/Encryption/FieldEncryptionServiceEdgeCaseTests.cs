@@ -1,55 +1,36 @@
-using System.Text;
-using System.Text.Json;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Services.Encryption;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services.Encryption;
 
 /// <summary>
-/// Phase 4: Security-focused edge case tests for FieldEncryptionService.
-/// Validates AES-256-GCM encryption correctness, tamper detection, and boundary conditions.
+/// Security-focused edge case tests for <see cref="FieldEncryptionService"/> over the shared
+/// MillWorks.Cryptography AES-256-GCM cipher. Validates round-trip fidelity, the ENC2 storage
+/// envelope / AEAD frame structure, tamper detection, and boundary conditions.
 /// </summary>
 [TestFixture]
 [Category("Unit")]
 [Category("Phase4")]
 public class FieldEncryptionServiceEdgeCaseTests
 {
-    private Mock<IEncryptionKeyProvider> _mockKeyProvider;
-    private Mock<ILogger<FieldEncryptionService>> _mockLogger;
-    private FieldEncryptionService _service;
+    private const string Prefix = "ENC2:";
 
-    private static readonly byte[] TestKey =
-    {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-        0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20
-    };
+    // ENC2 envelope: [envVersion:1][keyVersionLen:2 BE][keyVersion][frame]
+    // AEAD frame:    [frameVersion:1][nonce:12][tag:16][ciphertext]
+    private const int FrameNonceSize = 12;
+    private const int FrameTagSize = 16;
+    private const int FrameHeaderSize = 1 + FrameNonceSize + FrameTagSize;
 
-    private static readonly byte[] WrongKey =
-    {
-        0x20, 0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19,
-        0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-        0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09,
-        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
-    };
+    private FakeEncryptionKeyProvider _keyProvider = null!;
+    private IFieldEncryptionService _service = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockKeyProvider = new Mock<IEncryptionKeyProvider>();
-        _mockLogger = new Mock<ILogger<FieldEncryptionService>>();
-
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync("v1");
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersion()).Returns("v1");
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKey(It.IsAny<string>(), "v1")).Returns(TestKey);
-
-        _service = new FieldEncryptionService(_mockKeyProvider.Object, _mockLogger.Object);
+        _keyProvider = new FakeEncryptionKeyProvider { CurrentVersion = "v1" };
+        _service = EncryptionTestHarness.CreateService(_keyProvider);
     }
 
     // ── Round-trip with special content ──
@@ -57,7 +38,7 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public async Task EncryptDecrypt_UnicodeContent_PreservesExactValue()
     {
-        var original = "Hello \U0001F600 \u00E9\u00E8\u00EA \u4F60\u597D \u0410\u0411\u0412 \u2603\u2764\u270C";
+        var original = "Hello \U0001F600 éèê 你好 АБВ ☃❤✌";
         var encrypted = await _service.EncryptFieldAsync(original, "UnicodeField");
         var decrypted = await _service.DecryptFieldAsync(encrypted, "UnicodeField");
 
@@ -67,7 +48,7 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public async Task EncryptDecrypt_EmojiSequences_PreservesExactValue()
     {
-        var original = "\U0001F468\u200D\U0001F469\u200D\U0001F467\u200D\U0001F466 \U0001F3F3\uFE0F\u200D\U0001F308 \U0001F1FA\U0001F1F8";
+        var original = "\U0001F468‍\U0001F469‍\U0001F467‍\U0001F466 \U0001F3F3️‍\U0001F308 \U0001F1FA\U0001F1F8";
         var encrypted = await _service.EncryptFieldAsync(original, "EmojiField");
         var decrypted = await _service.DecryptFieldAsync(encrypted, "EmojiField");
 
@@ -113,11 +94,7 @@ public class FieldEncryptionServiceEdgeCaseTests
         var enc1 = await _service.EncryptFieldAsync(value, "Field1");
         var enc2 = await _service.EncryptFieldAsync(value, "Field1");
 
-        // Parse both payloads to extract the nonce
-        var payload1 = DecodePayload(enc1);
-        var payload2 = DecodePayload(enc2);
-
-        payload1.Nonce.Should().NotBe(payload2.Nonce, "nonces must differ for IV uniqueness");
+        FrameNonce(enc1).Should().NotEqual(FrameNonce(enc2), "nonces must differ for IV uniqueness");
     }
 
     // ── Tamper detection ──
@@ -127,9 +104,10 @@ public class FieldEncryptionServiceEdgeCaseTests
     {
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Swap key to wrong one
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WrongKey);
+        // Swap the v1 key out so decryption resolves a different key.
+        var wrongKey = new byte[32];
+        Array.Fill(wrongKey, (byte)0x5A);
+        _keyProvider.SetKey("TestField", "v1", wrongKey);
 
         var act = () => _service.DecryptFieldAsync(encrypted, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>()
@@ -141,12 +119,9 @@ public class FieldEncryptionServiceEdgeCaseTests
     {
         var encrypted = await _service.EncryptFieldAsync("integrity check", "TestField");
 
-        // Decode, flip a bit in the ciphertext, re-encode
-        var payload = DecodePayload(encrypted);
-        var cipherBytes = Convert.FromBase64String(payload.Ciphertext);
-        cipherBytes[0] ^= 0x01; // Flip one bit
-        payload.Ciphertext = Convert.ToBase64String(cipherBytes);
-        var tampered = EncodePayload(payload);
+        var frame = Frame(encrypted);
+        frame[FrameHeaderSize] ^= 0x01; // flip a ciphertext bit
+        var tampered = ReplaceFrame(encrypted, frame);
 
         var act = () => _service.DecryptFieldAsync(tampered, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>();
@@ -157,13 +132,11 @@ public class FieldEncryptionServiceEdgeCaseTests
     {
         var encrypted = await _service.EncryptFieldAsync("truncation test", "TestField");
 
-        var payload = DecodePayload(encrypted);
-        var cipherBytes = Convert.FromBase64String(payload.Ciphertext);
-        // Truncate to half
-        payload.Ciphertext = Convert.ToBase64String(cipherBytes[..(cipherBytes.Length / 2)]);
-        var truncated = EncodePayload(payload);
+        var frame = Frame(encrypted);
+        var truncated = frame[..(FrameHeaderSize + ((frame.Length - FrameHeaderSize) / 2))];
+        var tampered = ReplaceFrame(encrypted, truncated);
 
-        var act = () => _service.DecryptFieldAsync(truncated, "TestField");
+        var act = () => _service.DecryptFieldAsync(tampered, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
@@ -172,75 +145,69 @@ public class FieldEncryptionServiceEdgeCaseTests
     {
         var encrypted = await _service.EncryptFieldAsync("tag check", "TestField");
 
-        var payload = DecodePayload(encrypted);
-        var tagBytes = Convert.FromBase64String(payload.Tag);
-        tagBytes[0] ^= 0xFF;
-        payload.Tag = Convert.ToBase64String(tagBytes);
-        var tampered = EncodePayload(payload);
+        var frame = Frame(encrypted);
+        frame[1 + FrameNonceSize] ^= 0xFF; // flip a tag byte
+        var tampered = ReplaceFrame(encrypted, frame);
 
         var act = () => _service.DecryptFieldAsync(tampered, "TestField");
         await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
-    // ── Payload structure validation ──
+    // ── Envelope / frame structure validation ──
 
     [Test]
-    public async Task EncryptedPayload_ContainsRequiredFields()
+    public async Task EncryptedEnvelope_HasExpectedStructure()
     {
         var encrypted = await _service.EncryptFieldAsync("payload check", "TestField");
-        var payload = DecodePayload(encrypted);
 
-        payload.Version.Should().Be(1);
-        payload.KeyVersion.Should().Be("v1");
-        payload.Nonce.Should().NotBeNullOrEmpty();
-        payload.Ciphertext.Should().NotBeNullOrEmpty();
-        payload.Tag.Should().NotBeNullOrEmpty();
-        payload.FieldName.Should().Be("TestField");
-        payload.EncryptedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
+        encrypted.Should().StartWith(Prefix);
+
+        var envelope = Envelope(encrypted);
+        envelope[0].Should().Be(1, "the storage-envelope version byte is 1");
+        EnvelopeKeyVersion(encrypted).Should().Be("v1");
+
+        var frame = Frame(encrypted);
+        frame[0].Should().Be(1, "the AEAD frame version byte is 1");
+        frame.Length.Should().BeGreaterThan(FrameHeaderSize, "a non-empty plaintext yields ciphertext bytes");
     }
 
     [Test]
-    public async Task EncryptedPayload_NonceSizeIs12Bytes()
+    public async Task EncryptedFrame_NonceSizeIs12Bytes()
     {
         var encrypted = await _service.EncryptFieldAsync("nonce size", "TestField");
-        var payload = DecodePayload(encrypted);
-        var nonceBytes = Convert.FromBase64String(payload.Nonce);
 
-        nonceBytes.Length.Should().Be(12, "AES-GCM requires 96-bit (12-byte) nonce");
+        FrameNonce(encrypted).Length.Should().Be(12, "AES-GCM requires a 96-bit (12-byte) nonce");
     }
 
     [Test]
-    public async Task EncryptedPayload_TagSizeIs16Bytes()
+    public async Task EncryptedFrame_TagSizeIs16Bytes()
     {
         var encrypted = await _service.EncryptFieldAsync("tag size", "TestField");
-        var payload = DecodePayload(encrypted);
-        var tagBytes = Convert.FromBase64String(payload.Tag);
 
-        tagBytes.Length.Should().Be(16, "AES-GCM should use 128-bit (16-byte) auth tag");
+        var frame = Frame(encrypted);
+        frame[1..(1 + FrameNonceSize)].Length.Should().Be(FrameNonceSize);
+        frame[(1 + FrameNonceSize)..(FrameHeaderSize)].Length.Should().Be(16, "AES-GCM uses a 128-bit (16-byte) auth tag");
     }
 
-    // ── Key derivation context ──
+    // ── Key derivation / field binding ──
 
     [Test]
-    public async Task DifferentFieldNames_ProduceDifferentCiphertext_WithSameKey()
+    public async Task DifferentFieldNames_ProduceDifferentCiphertext_AndAreNotInterchangeable()
     {
         var value = "same data";
-        var enc1 = await _service.EncryptFieldAsync(value, "FieldA");
-        var enc2 = await _service.EncryptFieldAsync(value, "FieldB");
+        var encA = await _service.EncryptFieldAsync(value, "FieldA");
+        var encB = await _service.EncryptFieldAsync(value, "FieldB");
 
-        // Even ignoring random nonce, the field name derivation should differ
-        var payload1 = DecodePayload(enc1);
-        var payload2 = DecodePayload(enc2);
-        payload1.FieldName.Should().Be("FieldA");
-        payload2.FieldName.Should().Be("FieldB");
+        encA.Should().NotBe(encB, "different fields derive different keys and bind different AAD");
+
+        // A value encrypted for FieldA cannot be decrypted as FieldB (different key + AAD).
+        var act = () => _service.DecryptFieldAsync(encA, "FieldB");
+        await act.Should().ThrowAsync<FieldEncryptionException>();
     }
 
     [Test]
     public async Task DecryptFieldAsync_FieldNameMismatch_ThrowsFieldEncryptionException()
     {
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync("WrongField", "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-
         var encrypted = await _service.EncryptFieldAsync("test", "CorrectField");
 
         var act = () => _service.DecryptFieldAsync(encrypted, "WrongField");
@@ -252,8 +219,7 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public async Task EncryptionException_DoesNotLeakPlaintext()
     {
-        _mockKeyProvider.Setup(kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Key vault down"));
+        _keyProvider.ThrowOnGetVersion = new InvalidOperationException("Key vault down");
 
         var sensitiveData = "SSN:123-45-6789";
         try
@@ -273,7 +239,7 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public void EncryptField_Sync_UnicodeRoundTrip()
     {
-        var original = "\u00C0\u00C1\u00C2\u00C3 \U0001F4A9";
+        var original = "ÀÁÂÃ \U0001F4A9";
         var encrypted = _service.EncryptField(original, "SyncUnicode");
         var decrypted = _service.DecryptField(encrypted, "SyncUnicode");
 
@@ -283,7 +249,7 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public void DecryptField_Sync_CorruptedPayload_Throws()
     {
-        var corrupted = "ENC_V1:" + Convert.ToBase64String("{{invalid json}}"u8.ToArray());
+        var corrupted = Prefix + Convert.ToBase64String("not-a-valid-envelope"u8.ToArray());
 
         var act = () => _service.DecryptField(corrupted, "TestField");
         act.Should().Throw<FieldEncryptionException>();
@@ -313,47 +279,43 @@ public class FieldEncryptionServiceEdgeCaseTests
     [Test]
     public async Task ReEncryptFieldAsync_PreservesOriginalPlaintext()
     {
-        var v2Key = new byte[32];
-        Array.Fill<byte>(v2Key, 0xAA);
-
-        _mockKeyProvider.Setup(kp => kp.GetEncryptionKeyAsync(It.IsAny<string>(), "v2", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(v2Key);
-
         var original = "re-encrypt me \U0001F512";
         var encV1 = await _service.EncryptFieldAsync(original, "TestField");
         var encV2 = await _service.ReEncryptFieldAsync(encV1, "TestField", "v2");
 
-        // Decrypt with v2 key
+        EnvelopeKeyVersion(encV2).Should().Be("v2");
         var decrypted = await _service.DecryptFieldAsync(encV2, "TestField");
         decrypted.Should().Be(original);
     }
 
-    // ── Helper methods ──
+    // ── Helpers: ENC2 envelope / AEAD frame parsing ──
 
-    private static EncryptedFieldPayloadDto DecodePayload(string encryptedValue)
+    private static byte[] Envelope(string encrypted) =>
+        Convert.FromBase64String(encrypted[Prefix.Length..]);
+
+    private static int KeyVersionLength(byte[] envelope) => (envelope[1] << 8) | envelope[2];
+
+    private static string EnvelopeKeyVersion(string encrypted)
     {
-        var base64 = encryptedValue["ENC_V1:".Length..];
-        var json = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-        return JsonSerializer.Deserialize<EncryptedFieldPayloadDto>(json)!;
+        var envelope = Envelope(encrypted);
+        return System.Text.Encoding.UTF8.GetString(envelope, 3, KeyVersionLength(envelope));
     }
 
-    private static string EncodePayload(EncryptedFieldPayloadDto payload)
+    private static byte[] Frame(string encrypted)
     {
-        var json = JsonSerializer.Serialize(payload);
-        return "ENC_V1:" + Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        var envelope = Envelope(encrypted);
+        return envelope[(3 + KeyVersionLength(envelope))..];
     }
 
-    /// <summary>
-    /// Mirror of the internal EncryptedFieldPayload for test deserialization.
-    /// </summary>
-    private sealed class EncryptedFieldPayloadDto
+    private static byte[] FrameNonce(string encrypted) => Frame(encrypted)[1..(1 + FrameNonceSize)];
+
+    private static string ReplaceFrame(string encrypted, byte[] newFrame)
     {
-        public int Version { get; set; }
-        public string KeyVersion { get; set; } = "";
-        public string Nonce { get; set; } = "";
-        public string Ciphertext { get; set; } = "";
-        public string Tag { get; set; } = "";
-        public string FieldName { get; set; } = "";
-        public DateTimeOffset EncryptedAt { get; set; }
+        var envelope = Envelope(encrypted);
+        var head = envelope[..(3 + KeyVersionLength(envelope))];
+        var combined = new byte[head.Length + newFrame.Length];
+        head.CopyTo(combined, 0);
+        newFrame.CopyTo(combined, head.Length);
+        return Prefix + Convert.ToBase64String(combined);
     }
 }

@@ -13,48 +13,52 @@ using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.Cryptography.Signing;
 
 namespace MillWorks.AuditCore.Tests.Configuration;
 
 /// <summary>
 /// Phase 1 acceptance tests for the options flow contract: fluent builder values must
-/// reach IOptions&lt;AuditOptions&gt; and TamperDetectionService, IConfiguration binding
-/// must survive as a fallback when the consumer does not fluent-set a property, fluent
-/// wins where explicitly set, and Production without an HMAC key must fail at startup.
+/// reach IOptions&lt;AuditOptions&gt;, IConfiguration binding must survive as a fallback when the
+/// consumer does not fluent-set a property, fluent wins where explicitly set, and Production without
+/// a configured integrity master key must fail closed when the signing-key backend is built.
 /// </summary>
 [TestFixture]
 [Category("Unit")]
 public sealed class OptionsFlowTests
 {
+    // The integrity HMAC key no longer flows through AuditOptions (it resolves via the integrity
+    // ISigningKeyProvider). These tests exercise the same fluent/config overlay contract on a still-
+    // existing string option, ApplicationName.
     [Test]
-    public void FluentHmacKey_FlowsThroughOptionsPipeline()
+    public void FluentApplicationName_FlowsThroughOptionsPipeline()
     {
-        const string fluentKey = "fluent-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";
+        const string fluentName = "FluentAuditApp";
 
         var services = BuildServices(
             config: null,
             configure: static builder =>
             {
-                builder.Options.HmacKey = fluentKey;
+                builder.Options.ApplicationName = fluentName;
                 builder.Options.EnableDigitalSignatures = true;
             });
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
 
-        Assert.That(options.HmacKey, Is.EqualTo(fluentKey));
+        Assert.That(options.ApplicationName, Is.EqualTo(fluentName));
         Assert.That(options.EnableDigitalSignatures, Is.True);
     }
 
     [Test]
     public void ConfigurationBinding_FallbackResolves()
     {
-        const string configKey = "config-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";
+        const string configName = "ConfigAuditApp";
 
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Audit:HmacKey"] = configKey,
+                ["Audit:ApplicationName"] = configName,
                 ["Audit:EnableDigitalSignatures"] = "true"
             })
             .Build();
@@ -64,31 +68,31 @@ public sealed class OptionsFlowTests
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
 
-        Assert.That(options.HmacKey, Is.EqualTo(configKey));
+        Assert.That(options.ApplicationName, Is.EqualTo(configName));
         Assert.That(options.EnableDigitalSignatures, Is.True);
     }
 
     [Test]
     public void FluentConfigureOverridesBindConfiguration()
     {
-        const string configKey = "config-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";
-        const string fluentKey = "fluent-hmac-key-64chars-abcdef1234567890abcdef1234567890abcdef12";
+        const string configName = "ConfigAuditApp";
+        const string fluentName = "FluentAuditApp";
 
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Audit:HmacKey"] = configKey
+                ["Audit:ApplicationName"] = configName
             })
             .Build();
 
         var services = BuildServices(
             config: config,
-            configure: static builder => builder.Options.HmacKey = fluentKey);
+            configure: static builder => builder.Options.ApplicationName = fluentName);
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
 
-        Assert.That(options.HmacKey, Is.EqualTo(fluentKey));
+        Assert.That(options.ApplicationName, Is.EqualTo(fluentName));
     }
 
     [Test]
@@ -186,53 +190,11 @@ public sealed class OptionsFlowTests
     }
 
     [Test]
-    public async Task TamperDetectionService_HmacSignature_MatchesAcrossFluentAndConfigPaths()
+    public void Production_NoIntegrityMasterKey_FailsWhenSignerResolved()
     {
-        const string sharedKey = "shared-hmac-key-64chars-1234567890abcdef1234567890abcdef1234567";
-
-        var fluentServices = BuildServices(
-            config: null,
-            configure: static builder => builder.Options.HmacKey = sharedKey);
-
-        await using var fluentProvider = fluentServices.BuildServiceProvider();
-        var fluentOptions = fluentProvider.GetRequiredService<IOptions<AuditOptions>>();
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Audit:HmacKey"] = sharedKey
-            })
-            .Build();
-
-        var configServices = BuildServices(config: config, configure: null);
-
-        await using var configProvider = configServices.BuildServiceProvider();
-        var configOptions = configProvider.GetRequiredService<IOptions<AuditOptions>>();
-
-        var dto = new AuditIntegrityDto
-        {
-            EventId = Guid.NewGuid(),
-            EventType = "Test.Event",
-            InsertedDate = DateTimeOffset.UtcNow,
-            JsonData = "{\"test\":\"same-data\"}"
-        };
-
-        // Use a fixed timestamp so both services produce identical HMACs.
-        // The v3 HMAC format includes TrustedTimestamp, so without a fixed time
-        // the signatures would differ even with the same HMAC key.
-        var fixedTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var fixedTimeProvider = new FakeTimeProvider(fixedTime);
-
-        var fluentSignature = await CaptureHmacSignatureAsync(fluentOptions, dto, fixedTimeProvider);
-        var configSignature = await CaptureHmacSignatureAsync(configOptions, dto, fixedTimeProvider);
-
-        Assert.That(fluentSignature, Is.Not.Null.And.Not.Empty);
-        Assert.That(configSignature, Is.EqualTo(fluentSignature));
-    }
-
-    [Test]
-    public void Production_NoHmacKey_FailsValidateOnStart()
-    {
+        // The old "HmacKey required in Production" rule moved: integrity keys now resolve via the
+        // file-system ISigningKeyProvider, which fails closed in Production when no at-rest master key
+        // is configured. The failure surfaces when the signer is resolved (its key backend is built).
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
@@ -241,13 +203,14 @@ public sealed class OptionsFlowTests
         {
             builder.Options.Environment = "Production";
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
+            builder.UseSecurity(static _ => { /* no IntegrityKeyMasterKeyBase64 */ });
         });
 
         using var provider = services.BuildServiceProvider();
-        var validator = provider.GetRequiredService<IStartupValidator>();
 
-        var ex = Assert.Throws<OptionsValidationException>(validator.Validate);
-        Assert.That(ex!.Message, Does.Contain(nameof(AuditOptions.HmacKey)));
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<HmacSha256Signer>());
+        Assert.That(ex!.Message, Does.Contain(nameof(SecurityOptions.IntegrityKeyMasterKeyBase64)));
     }
 
     private static ServiceCollection BuildServices(
@@ -264,67 +227,6 @@ public sealed class OptionsFlowTests
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
         });
         return services;
-    }
-
-    private static async Task<string?> CaptureHmacSignatureAsync(
-        IOptions<AuditOptions> auditOptions,
-        AuditIntegrityDto dto,
-        TimeProvider? timeProvider = null)
-    {
-        var mockEventRepo = new Mock<IAuditEventRepository>();
-        var mockIntegrityRepo = new Mock<IAuditIntegrityRepository>();
-        var mockSecurityEventService = new Mock<IAuditSecurityEventService>();
-
-        mockIntegrityRepo
-            .Setup(static x => x.GetLatestBySequenceAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((AuditIntegrityEntity?)null);
-
-        mockIntegrityRepo
-            .Setup(static x => x.ExecuteInTransactionAsync(It.IsAny<Func<Task>>(), It.IsAny<CancellationToken>()))
-            .Returns<Func<Task>, CancellationToken>(static (action, _) => action());
-
-        mockIntegrityRepo
-            .Setup(static x => x.AcquireAppendLockAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        mockIntegrityRepo
-            .SetupGet(static x => x.SupportsCrossProcessAppendLock)
-            .Returns(true);
-
-        string? captured = null;
-        mockIntegrityRepo
-            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
-            .Callback((AuditIntegrityEntity entity, CancellationToken _) => captured = entity.HmacSignature)
-            .ReturnsAsync(static (AuditIntegrityEntity entity, CancellationToken _) => entity);
-
-        mockIntegrityRepo
-            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        mockIntegrityRepo
-            .Setup(static x => x.ClearChangeTrackerAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var service = new TamperDetectionService(
-            mockEventRepo.Object,
-            mockIntegrityRepo.Object,
-            mockSecurityEventService.Object,
-            NullLogger<TamperDetectionService>.Instance,
-            auditOptions,
-            Options.Create(new SecurityOptions()),
-            timeProvider: timeProvider);
-
-        await service.CreateIntegrityRecordAsync(dto);
-        return captured;
-    }
-
-    private sealed class FakeTimeProvider : TimeProvider
-    {
-        private readonly DateTimeOffset _fixedTime;
-
-        public FakeTimeProvider(DateTimeOffset fixedTime) => _fixedTime = fixedTime;
-
-        public override DateTimeOffset GetUtcNow() => _fixedTime;
     }
 
     private sealed class FakeHostEnvironment : IHostEnvironment

@@ -121,7 +121,6 @@ public sealed class SafeDefaultRedactionTests
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Production";
-            builder.Options.HmacKey = "startup-warning-test-hmac-key-32";
             builder.Options.AllowPassThroughRedactor = true;
             builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
         });

@@ -1,12 +1,10 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services;
 
@@ -44,20 +42,13 @@ public class TamperDetectionServiceEdgeCaseTests
             .SetupGet(static x => x.SupportsCrossProcessAppendLock)
             .Returns(true);
 
-        var auditOptions = Options.Create(new AuditOptions
-        {
-            Environment = "Development",
-            HmacKey = "test-hmac-key-for-testing-12345678"
-        });
-        var securityOptions = Options.Create(new SecurityOptions());
-
         _tamperDetectionService = new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            auditOptions,
-            securityOptions);
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner());
     }
 
     /// <summary>
