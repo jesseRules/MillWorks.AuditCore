@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 
@@ -13,11 +12,6 @@ public sealed class AuditOptions
     /// Application name for audit logs
     /// </summary>
     private string _applicationName = "Unknown";
-
-    /// <summary>
-    /// HMAC key for signing audit events
-    /// </summary>
-    private string? _hmacKey;
 
     /// <summary>
     /// Environment name for audit logs
@@ -100,19 +94,6 @@ public sealed class AuditOptions
         }
     }
 
-    /// <summary>
-    /// HMAC key for signing audit events
-    /// </summary>
-    public string? HmacKey
-    {
-        get => _hmacKey;
-        set
-        {
-            _hmacKey = value;
-            ExplicitlySetProperties.Add(nameof(HmacKey));
-        }
-    }
-
     private bool _allowPassThroughRedactor;
 
     /// <summary>
@@ -167,25 +148,13 @@ public sealed class AuditOptions
     }
 
     /// <summary>
-    /// Validates the configuration
+    /// Validates the configuration. Integrity signing keys (HMAC + RSA-PSS) are no longer sourced
+    /// from these options — they resolve via the integrity <c>ISigningKeyProvider</c> wired in the
+    /// composition, whose backend owns its own fail-closed provisioning (see
+    /// <see cref="MillWorks.AuditCore.Services.Database.Options.SecurityOptions"/>).
     /// </summary>
     public void Validate()
     {
-        if (EnableDigitalSignatures)
-        {
-            if (string.IsNullOrEmpty(HmacKey))
-            {
-                throw new InvalidOperationException(
-                    "HmacKey must be provided when EnableDigitalSignatures is true");
-            }
-
-            if (HmacKey.Length < 32)
-            {
-                throw new InvalidOperationException(
-                    "HmacKey must be at least 32 characters when EnableDigitalSignatures is true");
-            }
-        }
-
         if (DefaultCustomFields.Count > 50)
         {
             throw new InvalidOperationException(
@@ -197,18 +166,9 @@ public sealed class AuditOptions
 /// <summary>
 /// Runtime validator for <see cref="AuditOptions"/>. Registered via the options pipeline
 /// with <c>ValidateOnStart()</c> so misconfiguration fails at host boot, not at first use.
-/// Uses <see cref="IHostEnvironment"/> when available to determine Production; falls back
-/// to <see cref="AuditOptions.Environment"/> when the host environment is not registered.
 /// </summary>
 internal sealed class AuditOptionsValidator : IValidateOptions<AuditOptions>
 {
-    private readonly IHostEnvironment? _hostEnvironment;
-
-    public AuditOptionsValidator(IHostEnvironment? hostEnvironment = null)
-    {
-        _hostEnvironment = hostEnvironment;
-    }
-
     public ValidateOptionsResult Validate(string? name, AuditOptions options)
     {
         var failures = new List<string>();
@@ -226,25 +186,8 @@ internal sealed class AuditOptionsValidator : IValidateOptions<AuditOptions>
             failures.Add(ex.Message);
         }
 
-        if (IsProduction(options) && string.IsNullOrEmpty(options.HmacKey))
-        {
-            failures.Add(
-                $"{nameof(AuditOptions.HmacKey)} must be configured in Production. " +
-                "A transient key would cause false tamper alerts across instances or after restarts.");
-        }
-
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);
-    }
-
-    private bool IsProduction(AuditOptions options)
-    {
-        if (_hostEnvironment != null)
-        {
-            return _hostEnvironment.IsProduction();
-        }
-
-        return string.Equals(options.Environment, "Production", StringComparison.OrdinalIgnoreCase);
     }
 }

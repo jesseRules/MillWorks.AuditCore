@@ -23,10 +23,8 @@ public sealed class RetryFailureBehaviorSqlServerTests
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddMillWorksAudit(builder =>
         {
-            // Development environment + HmacKey satisfies AuditOptionsValidator without
-            // triggering the Production-mode "HmacKey required" failure.
+            // Development environment; integrity keys resolve via the signing-key backend (not options).
             builder.Options.Environment = "Development";
-            builder.Options.HmacKey = "test-hmac-key-retry-strategy-assertion-32";
             builder.UseEntityFramework(opts =>
             {
                 opts.ConnectionString = "Server=(localdb);Database=Fake;";

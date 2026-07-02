@@ -46,7 +46,16 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [MaxLength(512)]
     [Column("DigitalSignature", TypeName = "varchar(512)")]
     public string? DigitalSignature { get; set; }
-    
+
+    /// <summary>
+    /// Identifier (<c>kid</c>) of the signing key that produced <see cref="DigitalSignature"/>,
+    /// resolved via the integrity <c>ISigningKeyProvider</c>. Persisted so verification reselects the
+    /// exact key, keeping it unambiguous across signing-key rotation. Null when no digital signature was recorded.
+    /// </summary>
+    [MaxLength(64)]
+    [Column("DigitalSignatureKeyId", TypeName = "varchar(64)")]
+    public string? DigitalSignatureKeyId { get; set; }
+
     /// <summary>
     /// Timestamp from a trusted time source
     /// </summary>
@@ -71,7 +80,16 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [MaxLength(44)]
     [Column("HmacSignature", TypeName = "varchar(44)")]
     public string? HmacSignature { get; set; }
-    
+
+    /// <summary>
+    /// Identifier (<c>kid</c>) of the signing key that produced <see cref="HmacSignature"/>, resolved
+    /// via the integrity <c>ISigningKeyProvider</c>. Persisted so verification reselects the exact key,
+    /// keeping it unambiguous across signing-key rotation. Null when no HMAC was recorded.
+    /// </summary>
+    [MaxLength(64)]
+    [Column("HmacKeyId", TypeName = "varchar(64)")]
+    public string? HmacKeyId { get; set; }
+
     /// <summary>
     /// Checksum of critical fields
     /// </summary>

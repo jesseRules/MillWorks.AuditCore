@@ -8,8 +8,8 @@ using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
@@ -46,12 +46,8 @@ public sealed class AuditLoggerTamperNestedTransactionTests : SqliteIntegrationF
             integrityRepo,
             securityEventService,
             NullLogger<TamperDetectionService>.Instance,
-            Microsoft.Extensions.Options.Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = "nested-txn-regression-test-hmac-key-32"
-            }),
-            Microsoft.Extensions.Options.Options.Create(new SecurityOptions { EnableTamperDetection = true }));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner());
 
         var auditLogger = new AuditLogger(
             NullLogger<AuditLogger>.Instance,

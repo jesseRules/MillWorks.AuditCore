@@ -72,19 +72,19 @@ public class ServiceRegistrationTests
     }
 
     [Test]
-    public void AddMillWorksAudit_ConfigurationOnly_AuditHmacKeySurvivesFluentBaselineReplay()
+    public void AddMillWorksAudit_ConfigurationOnly_AuditApplicationNameSurvivesFluentBaselineReplay()
     {
-        // Phase 1 acceptance 2: a consumer who sets Audit:HmacKey via IConfiguration and does
-        // not touch builder.Options.HmacKey must still resolve the config-bound key from
-        // IOptions<AuditOptions>. The baseline-diff replay inside AddMillWorksAudit is what
-        // preserves this — an unconditional property copy would blank the bound value.
-        const string configHmacKey = "config-hmac-key-for-fallback-test-64chars-1234567890abcdef1234567";
+        // Phase 1 acceptance 2: a consumer who sets a value via IConfiguration and does not fluent-set
+        // it must still resolve the config-bound value from IOptions<AuditOptions>. The baseline-diff
+        // replay inside AddMillWorksAudit preserves this — an unconditional property copy would blank
+        // the bound value. (Exercised on ApplicationName; the integrity HMAC key no longer lives here.)
+        const string configAppName = "ConfigOnlyAuditApp";
 
         _services.Remove(_services.First(s => s.ServiceType == typeof(IConfiguration)));
         _services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Audit:HmacKey"] = configHmacKey,
+                ["Audit:ApplicationName"] = configAppName,
                 ["Audit:EnableDigitalSignatures"] = "true"
             })
             .Build());
@@ -98,7 +98,7 @@ public class ServiceRegistrationTests
         using var provider = _services.BuildServiceProvider();
         var auditOptions = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
 
-        Assert.That(auditOptions.HmacKey, Is.EqualTo(configHmacKey));
+        Assert.That(auditOptions.ApplicationName, Is.EqualTo(configAppName));
         Assert.That(auditOptions.EnableDigitalSignatures, Is.True);
     }
 
@@ -107,19 +107,17 @@ public class ServiceRegistrationTests
     {
         // Phase 1 #9 contract: services receiving IOptions<AuditOptions> / IOptions<SecurityOptions>
         // must see the same instance the consumer configured through the fluent builder.
-        const string expectedHmacKey = "test-hmac-key-for-registration-test-32chars";
-        const string expectedPrivateKeyPath = "/tmp/private.pem";
+        const string expectedKeyStorePath = "/tmp/auditcore-integrity-keys";
 
         _services.AddMillWorksAudit(builder =>
         {
             builder.Options.ApplicationName = "RegTestApp";
             builder.Options.Environment = "Test";
-            builder.Options.HmacKey = expectedHmacKey;
             builder.Options.EnableDigitalSignatures = true;
             builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
             builder.UseSecurity(security =>
             {
-                security.DigitalSignaturePrivateKeyPath = expectedPrivateKeyPath;
+                security.IntegrityKeyStorePath = expectedKeyStorePath;
                 security.EnableBatchedIntegrityWrites = true;
             });
         });
@@ -128,12 +126,11 @@ public class ServiceRegistrationTests
         var auditOptions = provider.GetRequiredService<IOptions<AuditOptions>>().Value;
         var securityOptions = provider.GetRequiredService<IOptions<SecurityOptions>>().Value;
 
-        Assert.That(auditOptions.HmacKey, Is.EqualTo(expectedHmacKey));
         Assert.That(auditOptions.EnableDigitalSignatures, Is.True);
         Assert.That(auditOptions.ApplicationName, Is.EqualTo("RegTestApp"));
         Assert.That(auditOptions.Environment, Is.EqualTo("Test"));
 
-        Assert.That(securityOptions.DigitalSignaturePrivateKeyPath, Is.EqualTo(expectedPrivateKeyPath));
+        Assert.That(securityOptions.IntegrityKeyStorePath, Is.EqualTo(expectedKeyStorePath));
         Assert.That(securityOptions.EnableBatchedIntegrityWrites, Is.True);
     }
 

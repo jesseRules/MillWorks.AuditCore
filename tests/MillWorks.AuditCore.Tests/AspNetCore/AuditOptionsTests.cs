@@ -35,29 +35,8 @@ public sealed class AuditOptionsTests
         Assert.Throws<ArgumentException>(() => options.Environment = new string('a', 51));
     }
 
-    [Test]
-    public void Validate_WhenDigitalSignaturesEnabledWithoutKey_Throws()
-    {
-        var options = new AuditOptions
-        {
-            EnableDigitalSignatures = true,
-            HmacKey = null
-        };
-
-        Assert.Throws<InvalidOperationException>(() => options.Validate());
-    }
-
-    [Test]
-    public void Validate_WhenDigitalSignaturesEnabledWithShortKey_Throws()
-    {
-        var options = new AuditOptions
-        {
-            EnableDigitalSignatures = true,
-            HmacKey = "short-key"
-        };
-
-        Assert.Throws<InvalidOperationException>(() => options.Validate());
-    }
+    // The integrity HMAC key no longer lives on AuditOptions (it resolves via the integrity
+    // ISigningKeyProvider), so EnableDigitalSignatures no longer requires an HmacKey on these options.
 
     [Test]
     public void Validate_WhenTooManyDefaultCustomFields_Throws()
@@ -76,8 +55,7 @@ public sealed class AuditOptionsTests
     {
         var options = new AuditOptions
         {
-            EnableDigitalSignatures = true,
-            HmacKey = "12345678901234567890123456789012"
+            EnableDigitalSignatures = true
         };
         options.DefaultCustomFields["tenant"] = "north";
 

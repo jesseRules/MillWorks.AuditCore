@@ -4,10 +4,9 @@ using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
@@ -73,12 +72,8 @@ public sealed class TamperDetectionRetryChangeTrackerTests : SqliteIntegrationFi
             proxy.Object,
             Mock.Of<IAuditSecurityEventService>(),
             NullLogger<TamperDetectionService>.Instance,
-            Microsoft.Extensions.Options.Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = "retry-change-tracker-regression-hmac-32"
-            }),
-            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner());
 
         var eventId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;

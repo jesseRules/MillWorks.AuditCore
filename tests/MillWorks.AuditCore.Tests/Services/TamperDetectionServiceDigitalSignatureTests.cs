@@ -1,33 +1,38 @@
 using System.Security.Cryptography;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services;
 
 /// <summary>
-/// Tests for TamperDetectionService digital signature paths, constructor validation,
-/// cancellation handling, and LogTamperAlertAsync behavior — all previously at 0% coverage.
+/// Tests for TamperDetectionService digital-signature paths, cancellation handling, and
+/// LogTamperAlertAsync behaviour. After the MillWorks.Cryptography extraction the RSA-PSS signature
+/// is produced/verified by an RSA-PSS <see cref="MillWorks.Cryptography.Signing.ISigner"/> over an
+/// <see cref="MillWorks.Cryptography.KeyManagement.ISigningKeyProvider"/>; the persisted key id makes
+/// verification reselect the exact key, so key isolation is exercised with two distinct RSA keys
+/// rather than two PEM file paths. The Production fail-closed behaviour of the key backend is covered
+/// at the DI layer (see OptionsFlowTests.Production_NoIntegrityMasterKey_FailsWhenSignerResolved).
 /// </summary>
 [TestFixture]
 [Category("Unit")]
-public class TamperDetectionServiceDigitalSignatureTests : IDisposable
+public sealed class TamperDetectionServiceDigitalSignatureTests : IDisposable
 {
     private Mock<IAuditEventRepository> _mockAuditEventRepository;
     private Mock<IAuditIntegrityRepository> _mockAuditIntegrityRepository;
     private Mock<IAuditSecurityEventService> _mockSecurityEventService;
     private Mock<ILogger<TamperDetectionService>> _mockLogger;
 
-    private string _tempDir;
-    private string _privateKeyPath;
-    private string _publicKeyPath;
+    // Shared HMAC key/id across services in this fixture so cross-service verification fails ONLY on
+    // the digital signature (the HMAC, checked first, stays valid).
+    private static readonly byte[] SharedHmacKey = RandomNumberGenerator.GetBytes(32);
+    private const string SharedHmacKeyId = "ds-tests-hmac-v1";
+
+    private RSA _rsa = null!;
 
     [SetUp]
     public void Setup()
@@ -50,75 +55,34 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .SetupGet(static x => x.SupportsCrossProcessAppendLock)
             .Returns(true);
 
-        // Generate a real RSA key pair for digital signature tests
-        _tempDir = Path.Combine(Path.GetTempPath(), $"auditcore-tests-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_tempDir);
-
-        using var rsa = RSA.Create(2048);
-        _privateKeyPath = Path.Combine(_tempDir, "private.pem");
-        _publicKeyPath = Path.Combine(_tempDir, "public.pem");
-        File.WriteAllText(_privateKeyPath, rsa.ExportRSAPrivateKeyPem());
-        File.WriteAllText(_publicKeyPath, rsa.ExportRSAPublicKeyPem());
+        _rsa = RSA.Create(2048);
     }
 
-    [TearDown]
-    public void TearDown()
-    {
-        // Reset static cached keys between tests so each test starts fresh
-        ResetStaticKeyCache();
-    }
+    public void Dispose() => _rsa?.Dispose();
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
-
-    /// <summary>
-    /// Clears the static RSA key caches between tests using the internal reset hook.
-    /// </summary>
-    private static void ResetStaticKeyCache()
-    {
-        TamperDetectionService.ResetKeyCachesForTests();
-    }
-
-    private TamperDetectionService CreateServiceWithSignatures(
-        bool enableSignatures = true,
-        string? privateKeyPath = null,
-        string? publicKeyPath = null)
-    {
-        return CreateService(
-            auditOptions: new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = "test-hmac-key-for-testing-12345678",
-                EnableDigitalSignatures = enableSignatures
-            },
-            securityOptions: new SecurityOptions
-            {
-                DigitalSignaturePrivateKeyPath = privateKeyPath ?? _privateKeyPath,
-                DigitalSignaturePublicKeyPath = publicKeyPath ?? _publicKeyPath
-            });
-    }
-
-    private TamperDetectionService CreateService(
-        AuditOptions? auditOptions = null,
-        SecurityOptions? securityOptions = null,
-        IHostEnvironment? hostEnvironment = null)
+    /// <summary>Builds a service with digital signatures enabled over the given (or default) RSA key.</summary>
+    private TamperDetectionService CreateServiceWithSignatures(RSA? rsa = null, string rsaKeyId = "ds-tests-rsa-v1")
     {
         return new TamperDetectionService(
             _mockAuditEventRepository.Object,
             _mockAuditIntegrityRepository.Object,
             _mockSecurityEventService.Object,
             _mockLogger.Object,
-            Options.Create(auditOptions ?? new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = "test-hmac-key-for-testing-12345678"
-            }),
-            Options.Create(securityOptions ?? new SecurityOptions()),
-            timeProvider: null,
-            hostEnvironment: hostEnvironment);
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(SharedHmacKey, SharedHmacKeyId),
+            IntegrityTestCrypto.CreateRsaSigner(rsa ?? _rsa, rsaKeyId));
+    }
+
+    /// <summary>Builds a service with digital signatures disabled (no RSA signer).</summary>
+    private TamperDetectionService CreateService()
+    {
+        return new TamperDetectionService(
+            _mockAuditEventRepository.Object,
+            _mockAuditIntegrityRepository.Object,
+            _mockSecurityEventService.Object,
+            _mockLogger.Object,
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(SharedHmacKey, SharedHmacKeyId));
     }
 
     private void SetupRepositoryForCreate(Guid eventId)
@@ -145,7 +109,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [Test]
     public async Task CreateIntegrityRecordAsync_WithDigitalSignaturesEnabled_PopulatesSignatureField()
     {
-        // Arrange
         var eventId = Guid.NewGuid();
         var service = CreateServiceWithSignatures();
         SetupRepositoryForCreate(eventId);
@@ -156,26 +119,21 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
             .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
 
-        var dto = new AuditIntegrityDto { EventId = eventId };
+        await service.CreateIntegrityRecordAsync(new AuditIntegrityDto { EventId = eventId });
 
-        // Act
-        await service.CreateIntegrityRecordAsync(dto);
-
-        // Assert
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.DigitalSignature, Is.Not.Null.And.Not.Empty,
-            "DigitalSignature should be populated when EnableDigitalSignatures is true");
-
-        // The signature should be valid Base64
+            "DigitalSignature should be populated when digital signatures are enabled");
+        Assert.That(captured.DigitalSignatureKeyId, Is.EqualTo("ds-tests-rsa-v1"),
+            "The signing key id should be persisted alongside the signature");
         Assert.DoesNotThrow(() => Convert.FromBase64String(captured.DigitalSignature!));
     }
 
     [Test]
     public async Task CreateIntegrityRecordAsync_WithDigitalSignaturesDisabled_LeavesSignatureNull()
     {
-        // Arrange
         var eventId = Guid.NewGuid();
-        var service = CreateServiceWithSignatures(enableSignatures: false);
+        var service = CreateService();
         SetupRepositoryForCreate(eventId);
 
         AuditIntegrityEntity? captured = null;
@@ -184,14 +142,11 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
             .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
 
-        var dto = new AuditIntegrityDto { EventId = eventId };
+        await service.CreateIntegrityRecordAsync(new AuditIntegrityDto { EventId = eventId });
 
-        // Act
-        await service.CreateIntegrityRecordAsync(dto);
-
-        // Assert
         Assert.That(captured, Is.Not.Null);
         Assert.That(captured!.DigitalSignature, Is.Null);
+        Assert.That(captured.DigitalSignatureKeyId, Is.Null);
     }
 
     #endregion
@@ -201,7 +156,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [Test]
     public async Task VerifyIntegrityAsync_WithValidDigitalSignature_ReturnsTrue()
     {
-        // Arrange — use identical field values in DTO and Entity so hashes match
         var eventId = Guid.NewGuid();
         var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var service = CreateServiceWithSignatures();
@@ -223,7 +177,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         };
         await service.CreateIntegrityRecordAsync(dto);
 
-        // Entity must have the same field values used to compute the hash
         var auditEvent = new AuditEventEntity
         {
             EventId = eventId,
@@ -236,23 +189,18 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         _mockAuditEventRepository
             .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(auditEvent);
-
         _mockAuditIntegrityRepository
             .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(captured!);
 
-        // Act
         var result = await service.VerifyIntegrityAsync(eventId);
 
-        // Assert
         Assert.That(result, Is.True);
     }
 
     [Test]
     public async Task VerifyIntegrityAsync_WithCorruptedDigitalSignature_ReturnsFalse()
     {
-        // Arrange — use identical field values so hash/HMAC/checksum all pass;
-        // only the digital signature is corrupted.
         var eventId = Guid.NewGuid();
         var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var service = CreateServiceWithSignatures();
@@ -274,7 +222,7 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         };
         await service.CreateIntegrityRecordAsync(dto);
 
-        // Corrupt the digital signature
+        // Corrupt the digital signature (still valid Base64 so it reaches the RSA verify path).
         var corruptedBytes = Convert.FromBase64String(captured!.DigitalSignature!);
         corruptedBytes[0] ^= 0xFF;
         captured.DigitalSignature = Convert.ToBase64String(corruptedBytes);
@@ -291,18 +239,13 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         _mockAuditEventRepository
             .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(auditEvent);
-
         _mockAuditIntegrityRepository
             .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(captured);
 
-        // Act
         var result = await service.VerifyIntegrityAsync(eventId);
 
-        // Assert
         Assert.That(result, Is.False);
-
-        // Should have logged a tamper alert for the invalid signature
         _mockSecurityEventService.Verify(
             x => x.RecordEventAsync(
                 It.Is<SecurityEventDto>(e =>
@@ -319,7 +262,6 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
     [Test]
     public async Task CreateIntegrityRecordBatchAsync_WithDigitalSignatures_SignsAllRecords()
     {
-        // Arrange
         var service = CreateServiceWithSignatures();
         var events = Enumerable.Range(0, 3)
             .Select(_ => new AuditIntegrityDto { EventId = Guid.NewGuid() })
@@ -340,10 +282,8 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(3);
 
-        // Act
         var results = await service.CreateIntegrityRecordBatchAsync(events);
 
-        // Assert
         Assert.That(results, Has.Count.EqualTo(3));
         Assert.That(capturedEntities, Has.Count.EqualTo(3));
 
@@ -351,343 +291,25 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
         {
             Assert.That(entity.DigitalSignature, Is.Not.Null.And.Not.Empty,
                 $"Event {entity.EventId} should have a digital signature");
+            Assert.That(entity.DigitalSignatureKeyId, Is.EqualTo("ds-tests-rsa-v1"));
             Assert.DoesNotThrow(() => Convert.FromBase64String(entity.DigitalSignature!));
         }
     }
 
     #endregion
 
-    #region Key Loading Errors
+    #region Key Isolation — Distinct RSA Keys
 
     [Test]
-    public void CreateIntegrityRecordAsync_WithMissingPrivateKeyFile_ThrowsInvalidOperationException()
+    public async Task TwoInstances_WithDifferentRsaKeys_ProduceDistinctSignaturesAndDoNotCrossVerify()
     {
-        // Arrange
-        var service = CreateServiceWithSignatures(privateKeyPath: "/nonexistent/path/private.pem");
-        SetupRepositoryForCreate(Guid.NewGuid());
-
-        var dto = new AuditIntegrityDto { EventId = Guid.NewGuid() };
-
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateIntegrityRecordAsync(dto));
-
-        Assert.That(ex!.Message, Does.Contain("does not exist"));
-    }
-
-    [Test]
-    public void CreateIntegrityRecordAsync_WithEmptyPrivateKeyPath_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var service = CreateServiceWithSignatures(privateKeyPath: "");
-        SetupRepositoryForCreate(Guid.NewGuid());
-
-        var dto = new AuditIntegrityDto { EventId = Guid.NewGuid() };
-
-        // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateIntegrityRecordAsync(dto));
-
-        Assert.That(ex!.Message, Does.Contain("private key path"));
-    }
-
-    [Test]
-    public void VerifyIntegrityAsync_WithMissingPublicKeyFile_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var eventId = Guid.NewGuid();
-        var service = CreateServiceWithSignatures(publicKeyPath: "/nonexistent/path/public.pem");
-
-        var auditEvent = new AuditEventEntity
-        {
-            EventId = eventId,
-            EventType = "Test",
-            User = "user",
-            InsertedDate = DateTimeOffset.UtcNow,
-            JsonData = "{}"
-        };
-
-        // Create an integrity record that has a signature to trigger verification
-        var integrity = new AuditIntegrityEntity
-        {
-            EventId = eventId,
-            EventHash = "fakehash", // Will pass hash check only if we match
-            HmacSignature = "",
-            Checksum = "",
-            DigitalSignature = "not-empty-so-verification-is-attempted"
-        };
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent);
-
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(integrity);
-
-        // Act & Assert — the hash won't match so it returns false before reaching signature check.
-        // Instead, test via the batch create + verify round-trip isn't feasible without matching hashes.
-        // The key loading path is exercised when CreateDigitalSignatureAsync is called during creation.
-        // We already test that path in CreateIntegrityRecordAsync_WithMissingPrivateKeyFile.
-        // For public key, we need to trigger VerifyDigitalSignatureAsync with a valid hash match.
-        // Simplest: just invoke create with the bad public key path — it only fails at verify time.
-    }
-
-    #endregion
-
-    #region Constructor — Missing HmacKey in Production
-
-    [Test]
-    public void Constructor_WithNoHmacKeyInProduction_ThrowsInvalidOperationException()
-    {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            CreateService(auditOptions: new AuditOptions
-            {
-                Environment = "Production"
-                // Deliberately omit HmacKey
-            }));
-
-        Assert.That(ex!.Message, Does.Contain("Audit:HmacKey must be configured in Production"));
-    }
-
-    [Test]
-    public void Constructor_WithNoHmacKeyInDevelopment_UsesGeneratedKeyWithoutThrowing()
-    {
-        // Should not throw — uses a generated key and logs a warning
-        Assert.DoesNotThrow(() =>
-            CreateService(auditOptions: new AuditOptions
-            {
-                Environment = "Development"
-                // Deliberately omit HmacKey
-            }));
-    }
-
-    [Test]
-    public void Constructor_WithNoHmacKeyAndNonProductionHostEnvironment_UsesGeneratedKeyWithoutThrowing()
-    {
-        // IHostEnvironment wins over AuditOptions.Environment; when the host reports a non-Production
-        // environment, the ctor should not throw even though AuditOptions.Environment defaults to "Production".
-        var mockHostEnvironment = new Mock<IHostEnvironment>();
-        mockHostEnvironment.SetupGet(x => x.EnvironmentName).Returns("Staging");
-
-        Assert.DoesNotThrow(() =>
-            CreateService(
-                auditOptions: new AuditOptions(), // defaults: Environment = "Production", no HmacKey
-                hostEnvironment: mockHostEnvironment.Object));
-    }
-
-    #endregion
-
-    #region LogTamperAlertAsync — Security Event Structure
-
-    [Test]
-    public async Task VerifyIntegrityAsync_HashMismatch_LogsSecurityEventWithCorrectStructure()
-    {
-        // Arrange
-        var eventId = Guid.NewGuid();
-        var service = CreateService();
-
-        var auditEvent = new AuditEventEntity
-        {
-            EventId = eventId,
-            EventType = "Test.Event",
-            User = "testuser",
-            InsertedDate = DateTimeOffset.UtcNow,
-            JsonData = "{}"
-        };
-
-        var integrity = new AuditIntegrityEntity
-        {
-            EventId = eventId,
-            EventHash = "deliberately-wrong-hash",
-            HmacSignature = "hmac",
-            Checksum = "chk",
-            AlgorithmVersion = 1
-        };
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent);
-
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(integrity);
-
-        SecurityEventDto? capturedEvent = null;
-        _mockSecurityEventService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
-            .Callback<SecurityEventDto, CancellationToken>((e, _) => capturedEvent = e)
-            .ReturnsAsync(static (SecurityEventDto e, CancellationToken _) => e);
-
-        // Act
-        var result = await service.VerifyIntegrityAsync(eventId);
-
-        // Assert
-        Assert.That(result, Is.False);
-        Assert.That(capturedEvent, Is.Not.Null);
-        Assert.That(capturedEvent!.EventType, Is.EqualTo(SecurityEventType.AuditTamperAlert));
-        Assert.That(capturedEvent.Severity, Is.EqualTo(SecurityEventSeverity.Critical));
-        Assert.That(capturedEvent.RelatedAuditEventId, Is.EqualTo(eventId));
-        Assert.That(capturedEvent.Message, Does.Contain(eventId.ToString()));
-        Assert.That(capturedEvent.Details, Does.ContainKey("EventId"));
-        Assert.That(capturedEvent.Details, Does.ContainKey("Reason"));
-        Assert.That(capturedEvent.Details, Does.ContainKey("DetectionMethod"));
-        Assert.That(capturedEvent.Details, Does.ContainKey("Timestamp"));
-    }
-
-    [Test]
-    public async Task VerifyIntegrityAsync_WhenSecurityEventServiceThrows_StillReturnsFalse()
-    {
-        // Arrange — LogTamperAlertAsync should swallow exceptions
-        var eventId = Guid.NewGuid();
-        var service = CreateService();
-
-        var auditEvent = new AuditEventEntity
-        {
-            EventId = eventId,
-            EventType = "Test.Event",
-            User = "testuser",
-            InsertedDate = DateTimeOffset.UtcNow,
-            JsonData = "{}"
-        };
-
-        var integrity = new AuditIntegrityEntity
-        {
-            EventId = eventId,
-            EventHash = "deliberately-wrong-hash",
-            HmacSignature = "hmac",
-            Checksum = "chk",
-            AlgorithmVersion = 1
-        };
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent);
-
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(integrity);
-
-        // Security event service throws — this should NOT propagate
-        _mockSecurityEventService
-            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Security event service is down"));
-
-        // Act
-        var result = await service.VerifyIntegrityAsync(eventId);
-
-        // Assert — tamper detection still works even when security logging fails
-        Assert.That(result, Is.False);
-    }
-
-    #endregion
-
-    #region CancellationToken Propagation
-
-    [Test]
-    public void CreateIntegrityRecordAsync_WithCancelledToken_ThrowsOperationCancelledException()
-    {
-        // Arrange
-        var service = CreateService();
-
-        var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // The local fallback lock WaitAsync should observe the token.
-        // TaskCanceledException (a subclass of OperationCanceledException) may be thrown.
-        Assert.CatchAsync<OperationCanceledException>(
-            () => service.CreateIntegrityRecordAsync(
-                new AuditIntegrityDto { EventId = Guid.NewGuid() },
-                cts.Token));
-    }
-
-    #endregion
-
-    #region Algorithm Version Mismatch Warning
-
-    [Test]
-    public async Task VerifyIntegrityAsync_WithMismatchedAlgorithmVersion_StillVerifies()
-    {
-        // Arrange — the service logs a warning but continues verification
-        var eventId = Guid.NewGuid();
-        var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var service = CreateService();
-
-        SetupRepositoryForCreate(eventId);
-
-        // Create a real integrity record first to get correct hashes
-        AuditIntegrityEntity? captured = null;
-        _mockAuditIntegrityRepository
-            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
-            .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
-            .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
-
-        var dto = new AuditIntegrityDto
-        {
-            EventId = eventId,
-            EventType = "Test.Event",
-            User = "testuser",
-            InsertedDate = fixedDate,
-            JsonData = "{}"
-        };
-        await service.CreateIntegrityRecordAsync(dto);
-
-        // Set the algorithm version to something different to trigger the warning
-        captured!.AlgorithmVersion = 999;
-
-        // Entity must match the DTO fields for hash to verify correctly
-        var auditEvent = new AuditEventEntity
-        {
-            EventId = eventId,
-            EventType = "Test.Event",
-            User = "testuser",
-            InsertedDate = fixedDate,
-            JsonData = "{}"
-        };
-
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent);
-
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(captured);
-
-        // Act — should still pass verification (algorithm version mismatch is a warning, not failure)
-        var result = await service.VerifyIntegrityAsync(eventId);
-
-        // Assert
-        Assert.That(result, Is.True);
-    }
-
-    #endregion
-
-    #region Key Cache Isolation
-
-    [Test]
-    public async Task TwoInstances_WithDifferentKeyPaths_UseCorrectKeys()
-    {
-        // Arrange — create two separate key pairs
         using var rsa1 = RSA.Create(2048);
         using var rsa2 = RSA.Create(2048);
 
-        var keyDir1 = Path.Combine(_tempDir, "keys1");
-        var keyDir2 = Path.Combine(_tempDir, "keys2");
-        Directory.CreateDirectory(keyDir1);
-        Directory.CreateDirectory(keyDir2);
-
-        var privateKey1 = Path.Combine(keyDir1, "private.pem");
-        var publicKey1 = Path.Combine(keyDir1, "public.pem");
-        var privateKey2 = Path.Combine(keyDir2, "private.pem");
-        var publicKey2 = Path.Combine(keyDir2, "public.pem");
-
-        File.WriteAllText(privateKey1, rsa1.ExportRSAPrivateKeyPem());
-        File.WriteAllText(publicKey1, rsa1.ExportRSAPublicKeyPem());
-        File.WriteAllText(privateKey2, rsa2.ExportRSAPrivateKeyPem());
-        File.WriteAllText(publicKey2, rsa2.ExportRSAPublicKeyPem());
-
-        var service1 = CreateServiceWithSignatures(privateKeyPath: privateKey1, publicKeyPath: publicKey1);
-        var service2 = CreateServiceWithSignatures(privateKeyPath: privateKey2, publicKeyPath: publicKey2);
+        // Same HMAC key (so the HMAC, checked first, passes for both) but distinct RSA keys/ids, so a
+        // cross-instance verification fails specifically on the digital signature.
+        var service1 = CreateServiceWithSignatures(rsa1, "rsa-key-1");
+        var service2 = CreateServiceWithSignatures(rsa2, "rsa-key-2");
 
         var eventId1 = Guid.NewGuid();
         var eventId2 = Guid.NewGuid();
@@ -708,39 +330,27 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
 
         var dto1 = new AuditIntegrityDto
         {
-            EventId = eventId1,
-            EventType = "Test.Event",
-            User = "user1",
-            InsertedDate = fixedDate,
-            JsonData = "{}"
+            EventId = eventId1, EventType = "Test.Event", User = "user1", InsertedDate = fixedDate, JsonData = "{}"
         };
         var dto2 = new AuditIntegrityDto
         {
-            EventId = eventId2,
-            EventType = "Test.Event",
-            User = "user2",
-            InsertedDate = fixedDate,
-            JsonData = "{}"
+            EventId = eventId2, EventType = "Test.Event", User = "user2", InsertedDate = fixedDate, JsonData = "{}"
         };
 
-        // Act — sign with each service's respective key
         await service1.CreateIntegrityRecordAsync(dto1);
         await service2.CreateIntegrityRecordAsync(dto2);
 
-        // Assert — signatures should be different (different keys)
         Assert.That(captured1, Is.Not.Null);
         Assert.That(captured2, Is.Not.Null);
         Assert.That(captured1!.DigitalSignature, Is.Not.EqualTo(captured2!.DigitalSignature),
             "Different keys should produce different signatures");
+        Assert.That(captured1.DigitalSignatureKeyId, Is.EqualTo("rsa-key-1"));
+        Assert.That(captured2.DigitalSignatureKeyId, Is.EqualTo("rsa-key-2"));
 
-        // Verify service1 can verify its own signature
+        // service1 verifies its own signature.
         var auditEvent1 = new AuditEventEntity
         {
-            EventId = eventId1,
-            EventType = "Test.Event",
-            User = "user1",
-            InsertedDate = fixedDate,
-            JsonData = "{}"
+            EventId = eventId1, EventType = "Test.Event", User = "user1", InsertedDate = fixedDate, JsonData = "{}"
         };
         _mockAuditEventRepository
             .Setup(x => x.GetByIdAsync(eventId1, It.IsAny<CancellationToken>()))
@@ -749,135 +359,177 @@ public class TamperDetectionServiceDigitalSignatureTests : IDisposable
             .Setup(x => x.GetByEventIdAsync(eventId1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(captured1);
 
-        var verified1 = await service1.VerifyIntegrityAsync(eventId1);
-        Assert.That(verified1, Is.True, "Service1 should verify its own signature");
+        Assert.That(await service1.VerifyIntegrityAsync(eventId1), Is.True,
+            "Service1 should verify its own signature");
 
-        // Verify service2 can verify its own signature
-        var auditEvent2 = new AuditEventEntity
+        // service2 cannot verify service1's signature — its RSA provider does not hold key id "rsa-key-1".
+        Assert.That(await service2.VerifyIntegrityAsync(eventId1), Is.False,
+            "Service2 should not verify service1's signature (different key)");
+    }
+
+    #endregion
+
+    #region LogTamperAlertAsync — Security Event Structure
+
+    [Test]
+    public async Task VerifyIntegrityAsync_HashMismatch_LogsSecurityEventWithCorrectStructure()
+    {
+        var eventId = Guid.NewGuid();
+        var service = CreateService();
+
+        var auditEvent = new AuditEventEntity
         {
-            EventId = eventId2,
+            EventId = eventId,
             EventType = "Test.Event",
-            User = "user2",
+            User = "testuser",
+            InsertedDate = DateTimeOffset.UtcNow,
+            JsonData = "{}"
+        };
+
+        var integrity = new AuditIntegrityEntity
+        {
+            EventId = eventId,
+            EventHash = "deliberately-wrong-hash",
+            HmacSignature = "hmac",
+            Checksum = "chk",
+            AlgorithmVersion = 1
+        };
+
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(integrity);
+
+        SecurityEventDto? capturedEvent = null;
+        _mockSecurityEventService
+            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .Callback<SecurityEventDto, CancellationToken>((e, _) => capturedEvent = e)
+            .ReturnsAsync(static (SecurityEventDto e, CancellationToken _) => e);
+
+        var result = await service.VerifyIntegrityAsync(eventId);
+
+        Assert.That(result, Is.False);
+        Assert.That(capturedEvent, Is.Not.Null);
+        Assert.That(capturedEvent!.EventType, Is.EqualTo(SecurityEventType.AuditTamperAlert));
+        Assert.That(capturedEvent.Severity, Is.EqualTo(SecurityEventSeverity.Critical));
+        Assert.That(capturedEvent.RelatedAuditEventId, Is.EqualTo(eventId));
+        Assert.That(capturedEvent.Message, Does.Contain(eventId.ToString()));
+        Assert.That(capturedEvent.Details, Does.ContainKey("EventId"));
+        Assert.That(capturedEvent.Details, Does.ContainKey("Reason"));
+        Assert.That(capturedEvent.Details, Does.ContainKey("DetectionMethod"));
+        Assert.That(capturedEvent.Details, Does.ContainKey("Timestamp"));
+    }
+
+    [Test]
+    public async Task VerifyIntegrityAsync_WhenSecurityEventServiceThrows_StillReturnsFalse()
+    {
+        var eventId = Guid.NewGuid();
+        var service = CreateService();
+
+        var auditEvent = new AuditEventEntity
+        {
+            EventId = eventId,
+            EventType = "Test.Event",
+            User = "testuser",
+            InsertedDate = DateTimeOffset.UtcNow,
+            JsonData = "{}"
+        };
+
+        var integrity = new AuditIntegrityEntity
+        {
+            EventId = eventId,
+            EventHash = "deliberately-wrong-hash",
+            HmacSignature = "hmac",
+            Checksum = "chk",
+            AlgorithmVersion = 1
+        };
+
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(integrity);
+
+        _mockSecurityEventService
+            .Setup(x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Security event service is down"));
+
+        var result = await service.VerifyIntegrityAsync(eventId);
+
+        Assert.That(result, Is.False);
+    }
+
+    #endregion
+
+    #region CancellationToken Propagation
+
+    [Test]
+    public void CreateIntegrityRecordAsync_WithCancelledToken_ThrowsOperationCancelledException()
+    {
+        var service = CreateService();
+
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(
+            () => service.CreateIntegrityRecordAsync(
+                new AuditIntegrityDto { EventId = Guid.NewGuid() },
+                cts.Token));
+    }
+
+    #endregion
+
+    #region Algorithm Version Mismatch Warning
+
+    [Test]
+    public async Task VerifyIntegrityAsync_WithMismatchedAlgorithmVersion_StillVerifies()
+    {
+        var eventId = Guid.NewGuid();
+        var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var service = CreateService();
+
+        SetupRepositoryForCreate(eventId);
+
+        AuditIntegrityEntity? captured = null;
+        _mockAuditIntegrityRepository
+            .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
+            .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
+
+        var dto = new AuditIntegrityDto
+        {
+            EventId = eventId,
+            EventType = "Test.Event",
+            User = "testuser",
             InsertedDate = fixedDate,
             JsonData = "{}"
         };
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId2, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent2);
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId2, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(captured2);
+        await service.CreateIntegrityRecordAsync(dto);
 
-        var verified2 = await service2.VerifyIntegrityAsync(eventId2);
-        Assert.That(verified2, Is.True, "Service2 should verify its own signature");
+        captured!.AlgorithmVersion = 999;
 
-        // Cross-verify: service1's signature should fail with service2's key
-        _mockAuditEventRepository
-            .Setup(x => x.GetByIdAsync(eventId1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(auditEvent1);
-        _mockAuditIntegrityRepository
-            .Setup(x => x.GetByEventIdAsync(eventId1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(captured1);
-
-        var crossVerified = await service2.VerifyIntegrityAsync(eventId1);
-        Assert.That(crossVerified, Is.False, "Service2 should not verify service1's signature (wrong key)");
-    }
-
-    [Test]
-    public async Task PathNormalization_RelativeAndAbsolute_ResolveSameCacheEntry()
-    {
-        // Arrange — use relative path for one service, absolute for another
-        var relativePath = Path.Combine(".", Path.GetFileName(_privateKeyPath));
-        var originalDir = Directory.GetCurrentDirectory();
-
-        try
+        var auditEvent = new AuditEventEntity
         {
-            // Temporarily change to temp dir so relative path resolves to the key file
-            Directory.SetCurrentDirectory(_tempDir);
-            ResetStaticKeyCache();
+            EventId = eventId,
+            EventType = "Test.Event",
+            User = "testuser",
+            InsertedDate = fixedDate,
+            JsonData = "{}"
+        };
 
-            var serviceRelative = CreateServiceWithSignatures(
-                privateKeyPath: relativePath,
-                publicKeyPath: Path.Combine(".", Path.GetFileName(_publicKeyPath)));
-            var serviceAbsolute = CreateServiceWithSignatures(
-                privateKeyPath: _privateKeyPath,
-                publicKeyPath: _publicKeyPath);
+        _mockAuditEventRepository
+            .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(auditEvent);
+        _mockAuditIntegrityRepository
+            .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(captured);
 
-            var eventId = Guid.NewGuid();
-            var fixedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            SetupRepositoryForCreate(eventId);
+        var result = await service.VerifyIntegrityAsync(eventId);
 
-            AuditIntegrityEntity? captured = null;
-            _mockAuditIntegrityRepository
-                .Setup(static x => x.AddAsync(It.IsAny<AuditIntegrityEntity>(), It.IsAny<CancellationToken>()))
-                .Callback<AuditIntegrityEntity, CancellationToken>((e, _) => captured = e)
-                .ReturnsAsync(static (AuditIntegrityEntity e, CancellationToken _) => e);
-
-            var dto = new AuditIntegrityDto
-            {
-                EventId = eventId,
-                EventType = "Test.Event",
-                User = "testuser",
-                InsertedDate = fixedDate,
-                JsonData = "{}"
-            };
-
-            // Act — sign with relative path service
-            await serviceRelative.CreateIntegrityRecordAsync(dto);
-
-            // Verify with absolute path service — this proves they share the same cache entry
-            // because the absolute-path service can verify what relative-path service signed
-            var auditEvent = new AuditEventEntity
-            {
-                EventId = eventId,
-                EventType = "Test.Event",
-                User = "testuser",
-                InsertedDate = fixedDate,
-                JsonData = "{}"
-            };
-            _mockAuditEventRepository
-                .Setup(x => x.GetByIdAsync(eventId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(auditEvent);
-            _mockAuditIntegrityRepository
-                .Setup(x => x.GetByEventIdAsync(eventId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(captured!);
-
-            // Assert — serviceAbsolute should verify signature created by serviceRelative
-            // because both paths normalize to the same cache entry
-            var verified = await serviceAbsolute.VerifyIntegrityAsync(eventId);
-            Assert.That(verified, Is.True,
-                "Absolute path service should verify signature created by relative path service (same cache entry)");
-        }
-        finally
-        {
-            Directory.SetCurrentDirectory(originalDir);
-        }
-    }
-
-    [Test]
-    public void TestIsolationReset_ClearsCache()
-    {
-        // Arrange — populate the cache by creating a service and signing
-        var service = CreateServiceWithSignatures();
-        SetupRepositoryForCreate(Guid.NewGuid());
-
-        // Load keys into cache by creating a record
-        var dto = new AuditIntegrityDto { EventId = Guid.NewGuid() };
-        service.CreateIntegrityRecordAsync(dto).GetAwaiter().GetResult();
-
-        // Act — reset the cache
-        TamperDetectionService.ResetKeyCachesForTests();
-
-        // Delete the key files
-        File.Delete(_privateKeyPath);
-        File.Delete(_publicKeyPath);
-
-        // Assert — the cache should be cleared, so next load should fail
-        var service2 = CreateServiceWithSignatures();
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
-            () => service2.CreateIntegrityRecordAsync(new AuditIntegrityDto { EventId = Guid.NewGuid() }));
-
-        Assert.That(ex!.Message, Does.Contain("does not exist"));
+        Assert.That(result, Is.True);
     }
 
     #endregion

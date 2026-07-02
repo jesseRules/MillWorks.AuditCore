@@ -8,10 +8,9 @@ using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
-using MillWorks.AuditCore.Services.Database.Options;
 using MillWorks.AuditCore.Services.Interfaces;
-using MillWorks.AuditCore.Services.Options;
 using MillWorks.AuditCore.Services.TamperDetection;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Integration;
 
@@ -28,6 +27,11 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
 {
     private const string HmacKey = "test-hmac-key-for-testing-12345678";
 
+    // The integrity HMAC now resolves through an ISigningKeyProvider keyed by id. The seed below and
+    // the service signer must share the same raw key bytes and key id so seeded HMACs verify.
+    private const string HmacKeyId = "test-hmac-key-v1";
+    private static byte[] HmacKeyBytes => Encoding.UTF8.GetBytes(HmacKey);
+
     private static TamperDetectionService CreateService(
         IAuditEventRepository eventRepo,
         IAuditIntegrityRepository integrityRepo,
@@ -38,12 +42,8 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             integrityRepo,
             securityEventService,
             NullLogger<TamperDetectionService>.Instance,
-            Microsoft.Extensions.Options.Options.Create(new AuditOptions
-            {
-                Environment = "Development",
-                HmacKey = HmacKey
-            }),
-            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(HmacKeyBytes, HmacKeyId));
     }
 
     private static AuditEventEntity CreateAuditEvent(
@@ -150,22 +150,22 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         {
             await context.Database.ExecuteSqlRawAsync(
                 """
-                INSERT INTO "AuditIntegrity" ("Id", "EventId", "EventHash", "PreviousEventHash", "TrustedTimestamp", "SequenceNumber", "HmacSignature", "Checksum", "AlgorithmVersion", "CreatedAt", "CreatedById")
-                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, 3, {8}, {9})
+                INSERT INTO "AuditIntegrity" ("Id", "EventId", "EventHash", "PreviousEventHash", "TrustedTimestamp", "SequenceNumber", "HmacSignature", "HmacKeyId", "Checksum", "AlgorithmVersion", "CreatedAt", "CreatedById")
+                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, 3, {9}, {10})
                 """,
                 id, auditEvent.EventId, eventHash, previousEventHash,
-                now, sequenceNumber, hmacSignature, checksum,
+                now, sequenceNumber, hmacSignature, HmacKeyId, checksum,
                 now, Guid.Empty);
         }
         else
         {
             await context.Database.ExecuteSqlRawAsync(
                 """
-                INSERT INTO "AuditIntegrity" ("Id", "EventId", "EventHash", "PreviousEventHash", "TrustedTimestamp", "SequenceNumber", "HmacSignature", "Checksum", "AlgorithmVersion", "CreatedAt", "CreatedById")
-                VALUES ({0}, {1}, {2}, NULL, {3}, {4}, {5}, {6}, 3, {7}, {8})
+                INSERT INTO "AuditIntegrity" ("Id", "EventId", "EventHash", "PreviousEventHash", "TrustedTimestamp", "SequenceNumber", "HmacSignature", "HmacKeyId", "Checksum", "AlgorithmVersion", "CreatedAt", "CreatedById")
+                VALUES ({0}, {1}, {2}, NULL, {3}, {4}, {5}, {6}, {7}, 3, {8}, {9})
                 """,
                 id, auditEvent.EventId, eventHash,
-                now, sequenceNumber, hmacSignature, checksum,
+                now, sequenceNumber, hmacSignature, HmacKeyId, checksum,
                 now, Guid.Empty);
         }
     }
@@ -414,8 +414,8 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
             mockIntegrityRepo.Object,
             mockSecurityService.Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<TamperDetectionService>.Instance,
-            Microsoft.Extensions.Options.Options.Create(new AuditOptions { Environment = "Development", HmacKey = HmacKey }),
-            Microsoft.Extensions.Options.Options.Create(new SecurityOptions()));
+            IntegrityTestCrypto.Hasher,
+            IntegrityTestCrypto.CreateHmacSigner(HmacKeyBytes, HmacKeyId));
 
         // Act
         var result = await service.VerifyChainIntegrityAsync();

@@ -1,53 +1,28 @@
-using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.Services.Encryption;
+using MillWorks.AuditCore.Tests.Helpers;
 
 namespace MillWorks.AuditCore.Tests.Services.Encryption;
 
+/// <summary>
+/// Unit tests for <see cref="FieldEncryptionService"/> over the shared MillWorks.Cryptography AEAD
+/// primitive. A <see cref="FakeEncryptionKeyProvider"/> stands in for key storage while the real
+/// AES-256-GCM cipher and the ENC2 storage envelope are exercised end-to-end.
+/// </summary>
 [TestFixture]
 [Category("Unit")]
 public class FieldEncryptionServiceTests
 {
-    private Mock<IEncryptionKeyProvider> _mockKeyProvider;
-    private Mock<ILogger<FieldEncryptionService>> _mockLogger;
-    private FieldEncryptionService _service;
+    private const string Prefix = "ENC2:";
 
-    // A valid 256-bit key for AES-256-GCM
-    private static readonly byte[] TestKey = new byte[32]
-    {
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-        0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-        0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20
-    };
-
-    private static readonly byte[] AlternateKey = new byte[32]
-    {
-        0x20, 0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19,
-        0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12, 0x11,
-        0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09,
-        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
-    };
+    private FakeEncryptionKeyProvider _keyProvider = null!;
+    private IFieldEncryptionService _service = null!;
 
     [SetUp]
     public void Setup()
     {
-        _mockKeyProvider = new Mock<IEncryptionKeyProvider>();
-        _mockLogger = new Mock<ILogger<FieldEncryptionService>>();
-
-        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync("v1");
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AlternateKey);
-
-        // Sync overloads
-        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersion()).Returns("v1");
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey("TestField", "v1")).Returns(TestKey);
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKey("TestField", "v2")).Returns(AlternateKey);
-
-        _service = new FieldEncryptionService(_mockKeyProvider.Object, _mockLogger.Object);
+        _keyProvider = new FakeEncryptionKeyProvider { CurrentVersion = "v1" };
+        _service = EncryptionTestHarness.CreateService(_keyProvider);
     }
 
     [Test]
@@ -55,7 +30,7 @@ public class FieldEncryptionServiceTests
     {
         var encrypted = await _service.EncryptFieldAsync("Hello, World!", "TestField");
 
-        Assert.That(encrypted, Does.StartWith("ENC_V1:"));
+        Assert.That(encrypted, Does.StartWith(Prefix));
         Assert.That(encrypted, Is.Not.EqualTo("Hello, World!"));
     }
 
@@ -113,7 +88,9 @@ public class FieldEncryptionServiceTests
         var encrypted = await _service.EncryptFieldWithVersionAsync(
             "versioned data", "TestField", "v1");
 
-        Assert.That(encrypted, Does.StartWith("ENC_V1:"));
+        Assert.That(encrypted, Does.StartWith(Prefix));
+        Assert.That(ReadEnvelopeKeyVersion(encrypted), Is.EqualTo("v1"),
+            "the key version must be carried in the storage envelope so decryption can resolve it");
 
         // Decrypt should work with the same version key
         var decrypted = await _service.DecryptFieldAsync(encrypted, "TestField");
@@ -128,12 +105,11 @@ public class FieldEncryptionServiceTests
 
         var encryptedV2 = await _service.ReEncryptFieldAsync(encryptedV1, "TestField", "v2");
 
-        // The ciphertext should be different
+        // The ciphertext should be different, and the envelope should now carry v2.
         Assert.That(encryptedV2, Is.Not.EqualTo(encryptedV1));
+        Assert.That(ReadEnvelopeKeyVersion(encryptedV2), Is.EqualTo("v2"));
 
-        // But decrypting with v2 key should return original
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v2", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AlternateKey);
+        // Decrypting (which resolves v2 from the envelope) returns the original.
         var decrypted = await _service.DecryptFieldAsync(encryptedV2, "TestField");
         Assert.That(decrypted, Is.EqualTo(original));
     }
@@ -143,9 +119,10 @@ public class FieldEncryptionServiceTests
     {
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        // Setup wrong key for decryption
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("TestField", "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AlternateKey);
+        // Rotate the v1 key out from under the ciphertext: decryption now resolves a different key.
+        var wrongKey = new byte[32];
+        Array.Fill(wrongKey, (byte)0xAB);
+        _keyProvider.SetKey("TestField", "v1", wrongKey);
 
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(encrypted, "TestField"));
@@ -154,7 +131,7 @@ public class FieldEncryptionServiceTests
     [Test]
     public void DecryptFieldAsync_CorruptedPayload_ThrowsFieldEncryptionException()
     {
-        var corruptedPayload = "ENC_V1:" + Convert.ToBase64String("not-valid-json"u8.ToArray());
+        var corruptedPayload = Prefix + Convert.ToBase64String("not-a-valid-envelope"u8.ToArray());
 
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(corruptedPayload, "TestField"));
@@ -173,9 +150,8 @@ public class FieldEncryptionServiceTests
     [Test]
     public async Task DecryptFieldAsync_FieldNameMismatch_ThrowsFieldEncryptionException()
     {
-        _mockKeyProvider.Setup(static kp => kp.GetEncryptionKeyAsync("OtherField", "v1", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestKey);
-
+        // Encrypted for "TestField"; decrypting as "OtherField" resolves a different field key and a
+        // different AAD binding, so AEAD authentication fails — a cryptographically enforced check.
         var encrypted = await _service.EncryptFieldAsync("test", "TestField");
 
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
@@ -201,99 +177,102 @@ public class FieldEncryptionServiceTests
         var encrypted1 = await _service.EncryptFieldAsync(input, "TestField");
         var encrypted2 = await _service.EncryptFieldAsync(input, "TestField");
 
-        // Due to random nonce, same input should produce different ciphertext
+        // Due to the random per-call nonce, the same input yields different frames.
         Assert.That(encrypted1, Is.Not.EqualTo(encrypted2));
     }
 
     [Test]
-    public async Task EncryptFieldAsync_KeyProviderThrows_WrapsInFieldEncryptionException()
+    public void EncryptFieldAsync_KeyProviderThrows_WrapsInFieldEncryptionException()
     {
-        _mockKeyProvider.Setup(static kp => kp.GetCurrentKeyVersionAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Key vault unreachable"));
+        _keyProvider.ThrowOnGetVersion = new InvalidOperationException("Key vault unreachable");
 
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.EncryptFieldAsync("test", "TestField"));
     }
 
-    #region AAD Authentication Tests
+    #region AAD / envelope tamper tests
 
     [Test]
-    public async Task DecryptFieldAsync_WithTamperedKeyVersion_ThrowsCryptographicException()
+    public async Task DecryptFieldAsync_WithTamperedKeyVersion_ThrowsFieldEncryptionException()
     {
-        // Arrange — encrypt with v1, then tamper the keyVersion in the payload
+        // Encrypt with v1, then flip the key-version byte carried in the envelope to "v9". Decryption
+        // resolves the v9 key and binds v9 into the AAD, so GCM authentication fails.
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        var payloadBase64 = encrypted["ENC_V1:".Length..];
-        var payloadBytes = Convert.FromBase64String(payloadBase64);
-        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
-        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+        var envelope = DecodeEnvelope(encrypted);
+        // Envelope: [envVer:1][kvLen:2 BE]["v1"][frame]; the second key-version char sits at index 4.
+        envelope[4] = (byte)'9';
+        var tampered = EncodeEnvelope(envelope);
 
-        // Tamper the keyVersion — AAD won't match during decryption
-        dict["KeyVersion"] = "v999";
-
-        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
-        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
-
-        // Act & Assert — GCM authentication should fail due to AAD mismatch
         Assert.ThrowsAsync<FieldEncryptionException>(async () =>
-            await _service.DecryptFieldAsync(tamperedEncrypted, "TestField"));
+            await _service.DecryptFieldAsync(tampered, "TestField"));
     }
 
     [Test]
-    public async Task DecryptFieldAsync_WithTamperedVersion_ThrowsVersionException()
+    public async Task DecryptFieldAsync_WithTamperedEnvelopeVersion_ThrowsVersionException()
     {
-        // Arrange — encrypt then tamper the schema version
         var encrypted = await _service.EncryptFieldAsync("secret", "TestField");
 
-        var payloadBase64 = encrypted["ENC_V1:".Length..];
-        var payloadBytes = Convert.FromBase64String(payloadBase64);
-        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
-        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+        var envelope = DecodeEnvelope(encrypted);
+        envelope[0] = 99; // unsupported storage-envelope version
+        var tampered = EncodeEnvelope(envelope);
 
-        // Tamper the version
-        dict["Version"] = 99;
-
-        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
-        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
-
-        // Act & Assert — version validation should reject unsupported version
         var ex = Assert.ThrowsAsync<FieldEncryptionException>(async () =>
-            await _service.DecryptFieldAsync(tamperedEncrypted, "TestField"));
-        Assert.That(ex!.Message, Does.Contain("Unsupported encryption schema version"));
+            await _service.DecryptFieldAsync(tampered, "TestField"));
+        Assert.That(ex!.Message, Does.Contain("Unsupported encryption envelope version"));
     }
 
     [Test]
-    public void DecryptField_Sync_WithTamperedVersion_ThrowsVersionException()
+    public void DecryptField_Sync_WithTamperedEnvelopeVersion_ThrowsVersionException()
     {
-        // Arrange
         var encrypted = _service.EncryptField("secret", "TestField");
 
-        var payloadBase64 = encrypted["ENC_V1:".Length..];
-        var payloadBytes = Convert.FromBase64String(payloadBase64);
-        var payloadJson = System.Text.Encoding.UTF8.GetString(payloadBytes);
-        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(payloadJson)!;
+        var envelope = DecodeEnvelope(encrypted);
+        envelope[0] = 99;
+        var tampered = EncodeEnvelope(envelope);
 
-        dict["Version"] = 99;
-
-        var tamperedJson = System.Text.Json.JsonSerializer.Serialize(dict);
-        var tamperedEncrypted = "ENC_V1:" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(tamperedJson));
-
-        // Act & Assert
         var ex = Assert.Throws<FieldEncryptionException>(() =>
-            _service.DecryptField(tamperedEncrypted, "TestField"));
-        Assert.That(ex!.Message, Does.Contain("Unsupported encryption schema version"));
+            _service.DecryptField(tampered, "TestField"));
+        Assert.That(ex!.Message, Does.Contain("Unsupported encryption envelope version"));
+    }
+
+    [Test]
+    public async Task DecryptFieldAsync_WithFlippedCiphertextBit_ThrowsTamperException()
+    {
+        var encrypted = await _service.EncryptFieldAsync("integrity", "TestField");
+
+        var envelope = DecodeEnvelope(encrypted);
+        // Frame starts after [envVer:1][kvLen:2]["v1"] = index 5; ciphertext begins after the frame's
+        // [version:1][nonce:12][tag:16] header = +29. Flip a ciphertext bit.
+        envelope[5 + 29] ^= 0x01;
+        var tampered = EncodeEnvelope(envelope);
+
+        var ex = Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+            await _service.DecryptFieldAsync(tampered, "TestField"));
+        Assert.That(ex!.Message, Does.Contain("tampered"));
     }
 
     [Test]
     public void IsEncrypted_UsesOrdinalComparison()
     {
-        // These should NOT match due to case sensitivity (ordinal comparison)
-        Assert.That(_service.IsEncrypted("enc_v1:lowercase"), Is.False);
-        Assert.That(_service.IsEncrypted("ENC_v1:mixedcase"), Is.False);
-
-        // This should match
-        Assert.That(_service.IsEncrypted("ENC_V1:valid"), Is.True);
+        // Case-sensitive (ordinal): only the exact "ENC2:" sentinel counts as encrypted.
+        Assert.That(_service.IsEncrypted("enc2:lowercase"), Is.False);
+        Assert.That(_service.IsEncrypted("Enc2:mixedcase"), Is.False);
+        Assert.That(_service.IsEncrypted("ENC2:valid"), Is.True);
     }
 
     #endregion
+
+    private static byte[] DecodeEnvelope(string encrypted) =>
+        Convert.FromBase64String(encrypted[Prefix.Length..]);
+
+    private static string EncodeEnvelope(byte[] envelope) =>
+        Prefix + Convert.ToBase64String(envelope);
+
+    private static string ReadEnvelopeKeyVersion(string encrypted)
+    {
+        var envelope = DecodeEnvelope(encrypted);
+        var kvLen = (envelope[1] << 8) | envelope[2];
+        return System.Text.Encoding.UTF8.GetString(envelope, 3, kvLen);
+    }
 }
