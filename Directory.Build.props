@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.9.3</Version>
-        <AssemblyVersion>1.9.3.0</AssemblyVersion>
-        <FileVersion>1.9.3.0</FileVersion>
+        <Version>1.9.4</Version>
+        <AssemblyVersion>1.9.4.0</AssemblyVersion>
+        <FileVersion>1.9.4.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.9.2: completes the security-event append-only cleanup. Removes the Status property (and IX_SecurityEvents_Status index) from AuditSecurityEventEntity, Status from SecurityEventDto, the GetOpenEventsAsync method (from IAuditSecurityEventService, AuditSecurityEventService, ISecurityEventRepository, SecurityEventRepository), and the SecurityEventStatus enum. A schema-only migration (SecurityEventStatusRemoval) drops the Status column and index from the SecurityEvents table. Security events are immutable facts with no in-AuditCore lifecycle; triage/resolution is owned by the application security layer (MillWorks.Security). BREAKING, but no AuditCore or MillWorks consumer referenced these members (verified 2026-06-28). See CHANGELOG.md.
+        <PackageReleaseNotes>v1.9.4: dependency-only patch. Bumps the MillWorks.Cryptography dependencies to the latest local build — MillWorks.Cryptography 0.1.0 → 0.1.2 (MillWorks.AuditCore.Services), MillWorks.Cryptography.FileSystem and MillWorks.Cryptography.KeyVault 0.1.0 → 0.1.2 (MillWorks.AuditCore.AspNetCore); MillWorks.Cryptography.Abstractions arrives transitively at 0.1.2. No AuditCore public API change; the whole solution builds clean against 0.1.2. See CHANGELOG.md.
+
+Earlier release notes follow below:
+
+v1.9.2: completes the security-event append-only cleanup. Removes the Status property (and IX_SecurityEvents_Status index) from AuditSecurityEventEntity, Status from SecurityEventDto, the GetOpenEventsAsync method (from IAuditSecurityEventService, AuditSecurityEventService, ISecurityEventRepository, SecurityEventRepository), and the SecurityEventStatus enum. A schema-only migration (SecurityEventStatusRemoval) drops the Status column and index from the SecurityEvents table. Security events are immutable facts with no in-AuditCore lifecycle; triage/resolution is owned by the application security layer (MillWorks.Security). BREAKING, but no AuditCore or MillWorks consumer referenced these members (verified 2026-06-28). See CHANGELOG.md.
 
 Earlier release notes follow below:
 

@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.4] - 2026-07-02
+
+### Dependencies
+- Bumped the `MillWorks.Cryptography` dependencies to the latest local build: `MillWorks.Cryptography` `0.1.0` → `0.1.2` (`MillWorks.AuditCore.Services`) and `MillWorks.Cryptography.FileSystem` / `MillWorks.Cryptography.KeyVault` `0.1.0` → `0.1.2` (`MillWorks.AuditCore.AspNetCore`); `MillWorks.Cryptography.Abstractions` arrives transitively at `0.1.2`. Dependency-only patch — no AuditCore public API change; the full solution builds clean against `0.1.2`.
+
 ## [1.9.3] - 2026-07-02
 
 ### Changed

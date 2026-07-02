@@ -24,7 +24,7 @@
       delegates its hashing / HMAC / RSA-PSS / const-time / encoding primitives to MillWorks.Cryptography;
       MillWorks.Cryptography.Abstractions arrives transitively. Resolved from the MillWorksLocal feed.
     -->
-    <PackageReference Include="MillWorks.Cryptography" Version="0.1.0" />
+    <PackageReference Include="MillWorks.Cryptography" Version="0.1.2" />
     <!-- AuditArchivalService writes archive blobs via a connection-string BlobServiceClient. -->
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.9" />
