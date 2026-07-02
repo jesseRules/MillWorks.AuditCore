@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-07-02
+
+### Changed
+- **Crypto standardization — AuditCore consumes `MillWorks.Cryptography`** (plans `docs/plans/completed/A1-ConsumeCryptography.md` + `A2-ConsumeCryptographyEncryption.md`). AuditCore takes its first upstream MillWorks dependency and stops hand-rolling cryptographic primitives; there is no dependency cycle (Cryptography references nothing in AuditCore).
+  - **Integrity chain (A1)** — `TamperDetectionService` delegates its primitives to the shared library while keeping chain orchestration in AuditCore. Event hash / checksum route through `IHasher.Sha256`; the chain-binding HMAC through `HmacSha256Signer` (`ISigner`/`IVerifier`); the optional RSA-PSS digital signature through `RsaPssSigner` — each over a **dedicated** `ISigningKeyProvider`. Constant-time compares → `ConstantTime`, Base64 → `CryptoEncoding`, dev master-key RNG → `ISecureRandom`. **Unchanged and still AuditCore-owned**: `sp_getapplock` serialization, sequence allocation, previous-hash linkage, the atomic event+integrity transaction, persistence, the retry/DLQ path, the length-prefixed field projection, and `AuditCanonicalizer` (deliberately **not** swapped to the RFC 8785 byte primitive — it is internal tamper-evidence verified only by AuditCore, so the event-hash/checksum byte projections stay byte-identical to 1.9.2).
+  - **Field encryption (A2)** — `FieldEncryptionService` consumes Cryptography's `IAeadCipher` (`AesGcmCipher`) + `IEncryptionKeyProvider` (`FileEncryptionKeyProvider` / `AzureKeyVaultEncryptionKeyProvider`, which own HKDF field derivation, rotation/versioning, and at-rest master-key wrapping) instead of AuditCore's own AES-GCM cipher and key stores. **Unchanged**: the `IFieldEncryptionService` contract, `EncryptedValueConverter`, `ModelBuilderEncryptionExtensions`, `FieldEncryptionException`, and the `[EncryptedField]` / `[SensitiveData]` attributes. Because the EF value converter is synchronous, the converter call path runs sync-over-async over the async-only provider (steady-state CPU-bound HKDF after the master key is cached).
+
+### Added
+- **Rotation-safe integrity key ids** — every integrity row now persists the producing key id (`AuditIntegrityEntity.HmacKeyId`, `AuditIntegrityEntity.DigitalSignatureKeyId`; additive migration `20260628213010_AddIntegritySigningKeyIds`). Verification rebuilds the exact `SignatureEnvelope` and reselects that key id, so verification is unambiguous and survives signing-key rotation.
+- **Integrity-key backend configuration** — new `SecurityOptions.IntegrityKeyStorePath`, `SecurityOptions.IntegrityKeyMasterKeyBase64`, and `SecurityOptions.AllowIntegrityKeyAutoGeneration`. `MillWorksAuditBuilder.UseSecurity` wires `AddMillWorksCryptography()` plus two **disjoint** file-system `ISigningKeyProvider`s (HMAC under `…/hmac`, RSA-PSS under `…/rsa`) and their signers via `TryAdd`, so a host can override with a KeyVault-backed signer. The RSA backend is built only when `EnableDigitalSignatures` is on. The "signing key required in Production" rule moved from `AuditOptions`/the ctor to the key backend: **Production fails closed** when no `IntegrityKeyMasterKeyBase64` is configured; non-Production uses a warned, process-ephemeral master key + temp store (signatures do not survive a restart).
+- **`IntegrityKeyUsageIsolationTests`** — boots the real DI graph and asserts the HMAC and RSA integrity keys come from disjoint key spaces (distinct key ids; neither verifies the other's envelope) and that `TamperDetectionService` takes no `IEncryptionKeyProvider` / AEAD dependency (cannot cross-route an encryption key onto the signing path). New shared test helper `Helpers/FakeEncryptionKeyProvider.cs` backs the rewritten encryption fixtures over the **real** `AesGcmCipher`.
+
+### Removed
+- **BREAKING — AuditCore's own crypto provider stack** — deleted `Abstractions/Interfaces/IEncryptionKeyProvider.cs`, `Services/Providers/FileBasedKeyProvider.cs`, `Services/Providers/AzureKeyVaultProvider.cs`, `Services/Providers/KeyProviderException.cs`, `Services/FieldKeyDerivation.cs`, and `Services/EncryptedFieldPayload.cs`. File/Key-Vault key storage, HKDF derivation, and key-file wrapping are now owned (and tested) by `MillWorks.Cryptography`. No type forwarders ship (greenfield posture). This also removes the name collision between AuditCore's `IEncryptionKeyProvider` / `KeyProviderException` and Cryptography's.
+- **BREAKING — key-source options** — removed `AuditOptions.HmacKey` and `SecurityOptions.DigitalSignaturePrivateKeyPath` / `DigitalSignaturePublicKeyPath` (and the HmacKey-in-Production and HmacKey-with-DigitalSignatures validators). Integrity signing keys now resolve through `ISigningKeyProvider`, not from configuration.
+- Provider-internal test fixtures (`AzureKeyVaultProviderTests`, `FileBasedKeyProviderSecurityTests`, `EncryptionKeyProviderTests`, `FieldKeyDerivationTests`) — the storage, rotation, HKDF-derivation, and key-file-wrapping behavior they covered moved to the `MillWorks.Cryptography` suite. AuditCore's responsibility shrank to the storage envelope, AAD binding, the `IFieldEncryptionService` boundary, and DI wiring, which the rewritten fixtures cover.
+
+### Breaking Changes
+- **Stored field-encryption frame changed `ENC_V1:` → `ENC2:`** — the canonical AEAD frame is now `[version:1][nonce:12][tag:16][ciphertext]`, wrapped in an `ENC2:` envelope that length-prefixes the producing key version. The field name, key version, and `KeyScope.Global` scope are bound into the AEAD associated data (`AeadContext.ForKey`), so a cross-field or cross-version swap now fails GCM authentication — a cryptographically enforced check that replaces the previous stored-`FieldName` string compare. Ciphertext written by ≤1.9.2 (the `ENC_V1:` + Base64-JSON frame) is not readable; greenfield, so there is no stored ciphertext to honor.
+- **HMAC and RSA signature values change** — the signing-key source moved from `AuditOptions`/`SecurityOptions` config to `ISigningKeyProvider`. No stored integrity chains exist (greenfield); tests recompute / round-trip rather than pin literal hashes.
+- **New upstream package dependencies** — `MillWorks.AuditCore.Services` references `MillWorks.Cryptography` `0.1.0`; `MillWorks.AuditCore.AspNetCore` references `MillWorks.Cryptography.FileSystem` `0.1.0` and `MillWorks.Cryptography.KeyVault` `0.1.0` (all from the `MillWorksLocal` feed; `MillWorks.Cryptography.Abstractions` arrives transitively). `.Services` drops its now-unused `Azure.Security.KeyVault.Secrets` + `Azure.Identity` references (it keeps `Azure.Storage.Blobs` for archival); `.AspNetCore` gains `Azure.Security.KeyVault.Secrets` `4.11.0` + `Azure.Identity` `1.21.0` for the direct `AzureKeyVaultEncryptionKeyProvider` / `SecretClient` construction.
+
+### Dependencies
+- Bumped `StackExchange.Redis` `3.0.7` → `3.0.11` (`MillWorks.AuditCore.Services`) and `Testcontainers.MsSql` `4.12.0` → `4.13.0` (test project only).
+
 ## [1.9.2] - 2026-06-28
 
 ### Removed
@@ -371,7 +396,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background maintenance services for cleanup and archive verification
 - SQLite-based integration test suite (1000+ tests)
 
-[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.2...HEAD
+[Unreleased]: https://github.com/jesserules/millworks.auditcore/compare/v1.9.3...HEAD
+[1.9.3]: https://github.com/jesserules/millworks.auditcore/compare/v1.9.2...v1.9.3
+[1.9.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.9.1...v1.9.2
+[1.9.1]: https://github.com/jesserules/millworks.auditcore/compare/v1.9.0...v1.9.1
+[1.9.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.12...v1.9.0
+[1.8.12]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.2...v1.8.12
 [1.8.2]: https://github.com/jesserules/millworks.auditcore/compare/v1.8.0...v1.8.2
 [1.8.0]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.6...v1.8.0
 [1.7.6]: https://github.com/jesserules/millworks.auditcore/compare/v1.7.5...v1.7.6
