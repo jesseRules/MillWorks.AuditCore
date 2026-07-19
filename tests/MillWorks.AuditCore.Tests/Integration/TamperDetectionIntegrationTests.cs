@@ -399,11 +399,11 @@ public class TamperDetectionIntegrationTests : SqliteIntegrationFixture
         mockIntegrityRepo.SetupGet(static x => x.SupportsCrossProcessAppendLock).Returns(true);
         mockIntegrityRepo.Setup(x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
-        mockIntegrityRepo.Setup(x => x.GetWithAuditEventsPagedAsync(
-                It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), 0, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        mockIntegrityRepo.Setup(x => x.GetWithAuditEventsAfterSequenceAsync(
+                It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), long.MinValue, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([integrityRecord]);
-        mockIntegrityRepo.Setup(x => x.GetWithAuditEventsPagedAsync(
-                It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.Is<int>(s => s > 0), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        mockIntegrityRepo.Setup(x => x.GetWithAuditEventsAfterSequenceAsync(
+                It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.Is<long>(s => s > long.MinValue), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         mockSecurityService
             .Setup(static x => x.RecordEventAsync(It.IsAny<SecurityEventDto>(), It.IsAny<CancellationToken>()))

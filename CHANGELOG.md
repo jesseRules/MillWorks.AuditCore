@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-07-19
+
+### Performance
+
+- **Audit dashboard query timeouts fixed** — `GET /audit/summary` and `GET /audit/chain/status` were hitting the 30s SQL command timeout on large audit tables. Three changes remove the underlying scans/sorts:
+  - **`AuditService.GetAuditSummary` now bounds an unbounded request** — when the caller passes no `startDate`, it defaults to a 90-day lookback (`DefaultSummaryWindow`) instead of aggregating over the entire append-only history. Every summary aggregate (`CountAsync`, `GetUniqueUserCountAsync`, `GetEventTypeCountsAsync`, `GetTopUsersByActivityAsync`) now seeks a date range rather than scanning all rows. **Behavior change:** a summary with no dates previously reported all-time; callers wanting a wider/all-time range must now pass an explicit `startDate` (`DateTimeOffset.MinValue` opts back into a full scan).
+  - **Covering index `IX_AuditEvents_Date_Type` now includes `[User]`** (SQL Server only; migration `20260719131302_AddAuditEventsUserCoveringIndex`). The distinct-user count and top-users aggregation are served entirely from the date-range index — no clustered-index key lookups. `[User]` is a string column that no index previously covered.
+  - **`TamperDetectionService.VerifyChainIntegrityAsync` switched from OFFSET to keyset pagination** — OFFSET paging (`Skip(skip)/Take`) re-sorted the whole window and grew more expensive with every page (quadratic over a high-volume window). It now seeks `WHERE SequenceNumber > @last ORDER BY SequenceNumber` over the unique `IX_AuditIntegrity_SequenceNumber` index, so each page is a bounded index-range read with no sort.
+
+### Added
+
+- **`IAuditIntegrityRepository.GetWithAuditEventsAfterSequenceAsync`** — keyset (seek) pagination over `SequenceNumber` for chain walks; additive, non-breaking. The existing `GetWithAuditEventsPagedAsync` (OFFSET) remains for callers that need arbitrary-offset paging.
+
+### Deployment Notes
+
+- Migration `20260719131302_AddAuditEventsUserCoveringIndex` **drops and recreates** `IX_AuditEvents_Date_Type` to add the `INCLUDE (User)` column. On a large `AuditEvents` table on non-Enterprise SQL Server this is an **offline** index rebuild that briefly locks the table — schedule off-peak, or add `WITH (ONLINE = ON)` manually on Enterprise.
+
+## [1.10.0] - 2026-07-06
+
+### Added
+- **NIST compliance validator** — `NistValidator` (`MillWorks.AuditCore.Services.Validators`) registers an `IComplianceValidator` for `ComplianceStandard.NIST`, which previously had none. Before this, `AuditComplianceService.GenerateComplianceReportAsync(ComplianceStandard.NIST, …)` and `ValidateEventTypeComplianceAsync(…, NIST, …)` threw `NotSupportedException: Compliance standard NIST not supported`, breaking any consumer that mapped a NIST-family framework (NIST 800-53 / CSF / 800-171) onto that standard.
+  - **Approximate, overlap-derived coverage** — rather than duplicating a full NIST 800-53 control catalog, `NistValidator` composes the existing `StigValidator` (DISA STIG controls map directly onto the NIST 800-53 AU/AC/IA/SI families) with the `Iso27001Validator` (ISMS logging/monitoring breadth), unioning their findings de-duplicated by rule name. The two validators' rule-name spaces (`… (V-###### / AU-*)` vs `… (A.12.4.*)`) do not collide.
+  - **Always returns real results when invoked** — runs whenever `NIST` **or** either constituent standard (`STIG` / `ISO27001`) is enabled, and force-enables `STIG` + `ISO27001` in the delegated context so the sub-validators always execute. This deliberately differs from the single-standard validators (which early-return when their standard is disabled): a NIST report is *derived from* the overlap, and an empty report is dangerous for continuous-monitoring drift trackers that read "no failing rules" as "every control now passes" and would falsely auto-resolve open NIST drift.
+  - Registered in `MillWorksAuditBuilder.UseCompliance` via `TryAddEnumerable` with a factory (it composes the two stateless, unregistered constituent validators itself). Additive and non-breaking.
+
 ## [1.9.4] - 2026-07-02
 
 ### Dependencies

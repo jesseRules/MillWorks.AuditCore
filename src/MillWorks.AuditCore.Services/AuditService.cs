@@ -289,6 +289,13 @@ public sealed class AuditService(
     }
 
     /// <summary>
+    /// Default lookback window applied when the caller supplies no start date. An unbounded
+    /// summary scans the entire append-only audit history, which times out on large tables;
+    /// callers wanting a wider range must pass an explicit start date.
+    /// </summary>
+    private static readonly TimeSpan DefaultSummaryWindow = TimeSpan.FromDays(90);
+
+    /// <summary>
     ///     Get Audit Summary
     /// </summary>
     /// <param name="startDate">Optional start date filter</param>
@@ -298,6 +305,15 @@ public sealed class AuditService(
     public async Task<AuditSummaryResponse> GetAuditSummary(DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null, CancellationToken cancellationToken = default)
     {
+        // Bound the summary when no start date is given so the aggregates seek a date range
+        // instead of scanning all of history. An explicit startDate (even DateTimeOffset.MinValue)
+        // still opts into a wider/all-time scan.
+        if (!startDate.HasValue)
+        {
+            var upper = endDate ?? DateTimeOffset.UtcNow;
+            startDate = upper - DefaultSummaryWindow;
+        }
+
         logger.LogDebug("Getting audit summary for date range: {StartDate} to {EndDate}",
             startDate?.ToString() ?? "all time", endDate?.ToString() ?? "present");
 

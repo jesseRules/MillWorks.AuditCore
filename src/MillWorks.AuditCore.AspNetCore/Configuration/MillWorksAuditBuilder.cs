@@ -451,6 +451,13 @@ public sealed class MillWorksAuditBuilder
         Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, FerpaValidator>());
         Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, PciDssValidator>());
         Services.TryAddEnumerable(ServiceDescriptor.Scoped<IComplianceValidator, StigValidator>());
+        // NIST is an overlap-derived approximation over STIG + ISO 27001 (see NistValidator). It runs
+        // whenever NIST or either constituent standard is enabled, so callers that request a NIST
+        // report (e.g. NIST 800-53 / CSF / 800-171 monitoring) get real findings instead of a
+        // NotSupportedException. Registered via factory because NistValidator composes the two
+        // (unregistered, stateless) constituent validators itself rather than taking them from DI.
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Scoped<IComplianceValidator, NistValidator>(static _ => new NistValidator()));
     }
 
     /// <summary>

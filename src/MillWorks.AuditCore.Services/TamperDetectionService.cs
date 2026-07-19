@@ -618,12 +618,16 @@ public sealed class TamperDetectionService : ITamperDetectionService
 
         result.TotalEvents = await _auditIntegrityRepository.GetCountAsync(startDate, endDate, cancellationToken);
         string? previousHash = null;
-        int skip = 0;
+
+        // Keyset (seek) pagination over the unique SequenceNumber index. OFFSET paging re-sorted the
+        // whole window and grew more expensive with each page (quadratic over a high-volume window);
+        // seeking past the last sequence number keeps each page a bounded index range read.
+        long afterSequence = long.MinValue;
 
         while (true)
         {
-            var page = await _auditIntegrityRepository.GetWithAuditEventsPagedAsync(
-                startDate, endDate, skip, pageSize, cancellationToken);
+            var page = await _auditIntegrityRepository.GetWithAuditEventsAfterSequenceAsync(
+                startDate, endDate, afterSequence, pageSize, cancellationToken);
 
             if (page.Count == 0)
                 break;
@@ -681,7 +685,7 @@ public sealed class TamperDetectionService : ITamperDetectionService
             if (page.Count < pageSize)
                 break;
 
-            skip += pageSize;
+            afterSequence = page[^1].SequenceNumber;
         }
 
         result.IsValid = result is { ChainBroken: false, TamperedEvents.Count: 0 };

@@ -160,7 +160,7 @@ public class TamperDetectionServiceEdgeCaseTests
             }
         };
 
-        // VerifyChainIntegrityAsync (called by DetectTamperingAsync) uses the paged API
+        // VerifyChainIntegrityAsync (called by DetectTamperingAsync) walks the chain via keyset paging
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetCountAsync(
                 It.IsAny<DateTimeOffset?>(),
@@ -169,10 +169,10 @@ public class TamperDetectionServiceEdgeCaseTests
             .ReturnsAsync(integrityRecords.Count);
 
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetWithAuditEventsPagedAsync(
+            .Setup(static x => x.GetWithAuditEventsAfterSequenceAsync(
                 It.IsAny<DateTimeOffset?>(),
                 It.IsAny<DateTimeOffset?>(),
-                0,
+                long.MinValue,
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(integrityRecords);
@@ -207,10 +207,10 @@ public class TamperDetectionServiceEdgeCaseTests
             .ReturnsAsync(0);
 
         _mockAuditIntegrityRepository
-            .Setup(x => x.GetWithAuditEventsPagedAsync(
+            .Setup(x => x.GetWithAuditEventsAfterSequenceAsync(
                 startDate,
                 endDate,
-                0,
+                long.MinValue,
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AuditIntegrityEntity>());
