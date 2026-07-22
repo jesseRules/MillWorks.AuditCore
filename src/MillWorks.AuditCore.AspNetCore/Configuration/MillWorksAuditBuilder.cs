@@ -174,6 +174,8 @@ public sealed class MillWorksAuditBuilder
             var auditOptions = sp.GetRequiredService<IOptions<AuditOptions>>().Value;
             var failurePolicy = sp.GetRequiredService<IAuditFailurePolicy>();
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+            // Zero-or-more consumer sensitivity policies (empty when none registered).
+            var sensitivityPolicies = sp.GetServices<IAuditPropertySensitivityPolicy>();
             return new AuditSaveChangesInterceptor(
                 logger,
                 complianceOptions?.EnforcementMode,
@@ -181,7 +183,8 @@ public sealed class MillWorksAuditBuilder
                 diagnostics,
                 auditOptions.FailureMode,
                 failurePolicy,
-                scopeFactory);
+                scopeFactory,
+                sensitivityPolicies);
         });
 
         // SQL metrics interceptor for Azure SQL observability (throttling, deadlock, connection pool errors)
