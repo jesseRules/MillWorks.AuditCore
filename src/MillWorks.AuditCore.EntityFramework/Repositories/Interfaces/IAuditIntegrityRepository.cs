@@ -138,6 +138,29 @@ public interface IAuditIntegrityRepository : IRepository<AuditIntegrityEntity>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the next page of audit integrity records (with their audit events) whose
+    /// <see cref="AuditIntegrityEntity.SequenceNumber"/> is strictly greater than
+    /// <paramref name="afterSequenceNumber"/>, ordered by sequence number.
+    /// <para>
+    /// Keyset (seek) pagination over the unique <c>IX_AuditIntegrity_SequenceNumber</c> index —
+    /// unlike <see cref="GetWithAuditEventsPagedAsync"/> this stays O(rows) as the caller walks
+    /// the chain, with no growing OFFSET cost and no sort. Pass <see cref="long.MinValue"/> for the
+    /// first page; then pass the last returned record's sequence number to advance.
+    /// </para>
+    /// </summary>
+    /// <param name="startDate">Optional start date filter on TrustedTimestamp.</param>
+    /// <param name="endDate">Optional end date filter on TrustedTimestamp.</param>
+    /// <param name="afterSequenceNumber">Exclusive lower bound on SequenceNumber.</param>
+    /// <param name="take">Maximum number of records to return.</param>
+    /// <param name="cancellationToken"></param>
+    Task<List<AuditIntegrityEntity>> GetWithAuditEventsAfterSequenceAsync(
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        long afterSequenceNumber,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the count of audit integrity records within an optional date range.
     /// </summary>
     Task<int> GetCountAsync(

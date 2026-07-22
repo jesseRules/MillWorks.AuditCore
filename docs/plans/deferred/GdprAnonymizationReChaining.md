@@ -2,7 +2,7 @@
 
 **Status:** Deferred
 **Origin:** TamperDetectionIntegrityGaps.md finding #5
-**Blocked By:** Merkle pipeline design, schema addition required
+**Blocked By:** schema addition (`AuditIntegritySupersession`) + Merkle pipeline *scheduling* — design authored, see [`../MerkleAnchoringPipeline.md`](../MerkleAnchoringPipeline.md) Phase 6 (settles the tree-level interaction: supersession-at-anchor + forward-epoch anonymization, no retroactive STH edits)
 **Priority:** High
 
 ## Problem

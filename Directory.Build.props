@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.9.4</Version>
-        <AssemblyVersion>1.9.4.0</AssemblyVersion>
-        <FileVersion>1.9.4.0</FileVersion>
+        <Version>1.12.0</Version>
+        <AssemblyVersion>1.12.0.0</AssemblyVersion>
+        <FileVersion>1.12.0.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.9.4: dependency-only patch. Bumps the MillWorks.Cryptography dependencies to the latest local build — MillWorks.Cryptography 0.1.0 → 0.1.2 (MillWorks.AuditCore.Services), MillWorks.Cryptography.FileSystem and MillWorks.Cryptography.KeyVault 0.1.0 → 0.1.2 (MillWorks.AuditCore.AspNetCore); MillWorks.Cryptography.Abstractions arrives transitively at 0.1.2. No AuditCore public API change; the whole solution builds clean against 0.1.2. See CHANGELOG.md.
+        <PackageReleaseNotes>v1.10.0: adds a NIST compliance validator. Previously ComplianceStandard.NIST had no registered IComplianceValidator, so GenerateComplianceReportAsync(ComplianceStandard.NIST) / ValidateEventTypeComplianceAsync(..., NIST, ...) threw NotSupportedException — breaking any consumer that mapped a NIST-family framework (NIST 800-53 / CSF / 800-171) onto that standard. NistValidator provides approximate NIST coverage by composing the existing StigValidator (whose controls map directly onto NIST 800-53 AU/AC/IA/SI families) with the Iso27001Validator (ISMS logging/monitoring breadth), unioning their findings by rule name. It runs whenever NIST or either constituent standard is enabled and force-enables STIG + ISO 27001 for its delegates, so it always returns real results when invoked rather than an empty report (an empty report is dangerous for continuous-monitoring drift trackers, which read "no failing rules" as "all controls pass"). Registered in MillWorksAuditBuilder.UseCompliance via factory. Additive, non-breaking. See CHANGELOG.md.
+
+Earlier release notes follow below:
+
+v1.9.4: dependency-only patch. Bumps the MillWorks.Cryptography dependencies to the latest local build — MillWorks.Cryptography 0.1.0 → 0.1.2 (MillWorks.AuditCore.Services), MillWorks.Cryptography.FileSystem and MillWorks.Cryptography.KeyVault 0.1.0 → 0.1.2 (MillWorks.AuditCore.AspNetCore); MillWorks.Cryptography.Abstractions arrives transitively at 0.1.2. No AuditCore public API change; the whole solution builds clean against 0.1.2. See CHANGELOG.md.
 
 Earlier release notes follow below:
 

@@ -72,6 +72,21 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private readonly IServiceScopeFactory? _scopeFactory;
 
+    /// <summary>
+    /// Consumer-supplied sensitivity policies consulted alongside AuditCore's own attributes.
+    /// Empty when none are registered, in which case property metadata is resolved purely from
+    /// attributes and behaviour is byte-for-byte unchanged. See
+    /// <see cref="IAuditPropertySensitivityPolicy"/>.
+    /// </summary>
+    private readonly IReadOnlyList<IAuditPropertySensitivityPolicy> _sensitivityPolicies;
+
+    /// <summary>
+    /// Per-instance cache of attribute-plus-policy merged metadata, keyed by the concrete entity
+    /// type and the property. Only populated when at least one policy is registered; the singleton
+    /// lifetime makes an instance cache safe (policies are required to be pure).
+    /// </summary>
+    private readonly ConcurrentDictionary<(Type EntityType, PropertyInfo Property), PropertyAuditMetadata> _mergedMetadataCache = new();
+
     // Use HashSet for O(1) lookups instead of multiple 'or' checks
     /// <summary>
     /// Audit entity types to exclude from auditing
@@ -128,6 +143,63 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     }
 
     /// <summary>
+    /// Resolves the effective audit metadata for a property, merging AuditCore's attribute-derived
+    /// classification with any registered <see cref="IAuditPropertySensitivityPolicy"/> using
+    /// "strictest wins". When no policies are registered this is exactly
+    /// <see cref="GetPropertyMetadata"/> (attribute-only), so the no-policy path is unchanged.
+    /// </summary>
+    /// <param name="entityType">The concrete entity type being audited (carries base-class members).</param>
+    /// <param name="propertyInfo">The property reflection info, or null.</param>
+    private PropertyAuditMetadata ResolvePropertyMetadata(Type entityType, PropertyInfo? propertyInfo)
+    {
+        var attributeMeta = GetPropertyMetadata(propertyInfo);
+        if (_sensitivityPolicies.Count == 0 || propertyInfo is null)
+            return attributeMeta;
+
+        return _mergedMetadataCache.GetOrAdd((entityType, propertyInfo), key =>
+        {
+            var attr = GetPropertyMetadata(key.Property);
+            var propertyRef = new AuditPropertyRef(key.EntityType, key.Property.Name);
+
+            var effective = ToTreatment(attr);
+            var maskPattern = attr.MaskPattern;
+
+            foreach (var policy in _sensitivityPolicies)
+            {
+                var classified = policy.Classify(in propertyRef);
+                if (classified is not { } treatment || treatment <= effective)
+                    continue;
+
+                effective = treatment;
+                if (treatment == AuditFieldTreatment.Mask)
+                    maskPattern = policy.MaskPattern(in propertyRef) ?? maskPattern;
+            }
+
+            return FromTreatment(effective, maskPattern);
+        });
+    }
+
+    /// <summary>Collapses attribute-derived metadata into a single <see cref="AuditFieldTreatment"/> (strongest flag wins).</summary>
+    private static AuditFieldTreatment ToTreatment(PropertyAuditMetadata meta) =>
+        meta switch
+        {
+            { IsNoAudit: true } => AuditFieldTreatment.Omit,
+            { IsEncrypted: true } => AuditFieldTreatment.Encrypt,
+            { IsSensitive: true } => AuditFieldTreatment.Mask,
+            _ => AuditFieldTreatment.Audit
+        };
+
+    /// <summary>Expands a merged <see cref="AuditFieldTreatment"/> back into interceptor metadata.</summary>
+    private static PropertyAuditMetadata FromTreatment(AuditFieldTreatment treatment, string? maskPattern) =>
+        treatment switch
+        {
+            AuditFieldTreatment.Omit => new PropertyAuditMetadata { IsNoAudit = true },
+            AuditFieldTreatment.Encrypt => new PropertyAuditMetadata { IsEncrypted = true },
+            AuditFieldTreatment.Mask => new PropertyAuditMetadata { IsSensitive = true, MaskPattern = maskPattern },
+            _ => default
+        };
+
+    /// <summary>
     /// Creates a new instance of the audit save changes interceptor.
     /// </summary>
     /// <param name="logger">Logger instance.</param>
@@ -145,6 +217,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// for the audit publish path; passing null is only acceptable for tests that
     /// exercise the logger-null guard before any save runs.
     /// </param>
+    /// <param name="sensitivityPolicies">
+    /// Consumer-supplied sensitivity policies consulted alongside AuditCore's attributes.
+    /// Null/empty preserves the attribute-only behaviour exactly. See
+    /// <see cref="IAuditPropertySensitivityPolicy"/>.
+    /// </param>
     public AuditSaveChangesInterceptor(
         ILogger<AuditSaveChangesInterceptor> logger,
         ComplianceEnforcementMode? enforcementMode = null,
@@ -152,7 +229,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         IAuditDiagnostics? diagnostics = null,
         AuditFailureMode failureMode = AuditFailureMode.Permissive,
         IAuditFailurePolicy? failurePolicy = null,
-        IServiceScopeFactory? scopeFactory = null)
+        IServiceScopeFactory? scopeFactory = null,
+        IEnumerable<IAuditPropertySensitivityPolicy>? sensitivityPolicies = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _enforcementMode = enforcementMode;
@@ -161,6 +239,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         _failureMode = failureMode;
         _failurePolicy = failurePolicy ?? new RegulatedEntityFailurePolicy();
         _scopeFactory = scopeFactory;
+        _sensitivityPolicies = sensitivityPolicies as IReadOnlyList<IAuditPropertySensitivityPolicy>
+            ?? sensitivityPolicies?.ToList()
+            ?? [];
     }
 
     /// <summary>
@@ -628,7 +709,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             {
                 hasAnyModifiedProperty = true;
 
-                var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
+                var meta = ResolvePropertyMetadata(entityType, prop.Metadata.PropertyInfo);
                 if (meta.IsNoAudit)
                     continue;
 
@@ -693,7 +774,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         // Added / Deleted: snapshot the property values into AdditionalData.
         var properties = entry.Properties
-            .Where(static p => !GetPropertyMetadata(p.Metadata.PropertyInfo).IsNoAudit);
+            .Where(p => !ResolvePropertyMetadata(entityType, p.Metadata.PropertyInfo).IsNoAudit);
 
         var snapshot = new Dictionary<string, object?>();
         foreach (var prop in properties)
@@ -701,7 +782,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             var rawValue = entry.State == EntityState.Deleted
                 ? prop.OriginalValue
                 : prop.CurrentValue;
-            var meta = GetPropertyMetadata(prop.Metadata.PropertyInfo);
+            var meta = ResolvePropertyMetadata(entityType, prop.Metadata.PropertyInfo);
             snapshot[prop.Metadata.Name] = MaskOrRedact(meta, rawValue);
         }
 

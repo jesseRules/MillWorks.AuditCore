@@ -2,7 +2,7 @@
 
 **Status:** Deferred
 **Origin:** TamperDetectionIntegrityGaps.md finding #3
-**Blocked By:** Merkle pipeline design
+**Blocked By:** Merkle pipeline *scheduling* — design authored, see [`../MerkleAnchoringPipeline.md`](../MerkleAnchoringPipeline.md) (its Phase 0 is this doc's interim WORM head anchor; Phase 3 is the long-term fix)
 **Priority:** High
 
 ## Problem
@@ -38,7 +38,7 @@ Periodically persist `(headHash, maxSequenceNumber, timestamp)` to an external o
 
 ### Long-Term Fix: Merkle Pipeline
 
-The Merkle batching pipeline (see `NextStepsDocument.md`) provides a more robust solution:
+The Merkle batching pipeline (see [`../MerkleAnchoringPipeline.md`](../MerkleAnchoringPipeline.md)) provides a more robust solution:
 
 1. **Merkle tree roots** are published to external anchors at regular intervals
 2. **Inclusion proofs** allow verification that specific events existed at anchor time
@@ -98,6 +98,6 @@ If the same credentials that access `AuditEvents` can also delete anchors, the p
 
 ## Related Documents
 
-- `NextStepsDocument.md` — Merkle pipeline overview
+- [`../MerkleAnchoringPipeline.md`](../MerkleAnchoringPipeline.md) — Merkle pipeline design (realizes the referenced-but-unwritten `NextStepsDocument.md`)
 - `TamperDetectionIntegrityGaps.md` — Origin finding
 - `GdprAnonymizationReChaining.md` — Also deferred to Merkle pipeline

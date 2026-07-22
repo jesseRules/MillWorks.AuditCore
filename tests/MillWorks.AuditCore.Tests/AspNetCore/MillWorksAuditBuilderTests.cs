@@ -335,14 +335,19 @@ public class MillWorksAuditBuilderTests
         using var provider = _services.BuildServiceProvider();
         var validators = provider.GetRequiredService<IEnumerable<IComplianceValidator>>().ToList();
 
-        // All 7 built-in validators are registered
-        Assert.That(validators, Has.Count.EqualTo(7));
+        // All 8 built-in validators are registered (GDPR, SOC2, HIPAA, ISO27001, FERPA,
+        // PCI_DSS, STIG, NIST).
+        Assert.That(validators, Has.Count.EqualTo(8));
 
         // Verify the configured standards are represented
         var standardsCovered = validators.Select(static v => v.Standard).ToHashSet();
         Assert.That(standardsCovered, Does.Contain(ComplianceStandard.GDPR));
         Assert.That(standardsCovered, Does.Contain(ComplianceStandard.SOC2));
         Assert.That(standardsCovered, Does.Contain(ComplianceStandard.HIPAA));
+
+        // NIST is the overlap-derived validator added in 1.10.0; it must be registered so
+        // GenerateComplianceReportAsync(ComplianceStandard.NIST) no longer throws NotSupportedException.
+        Assert.That(standardsCovered, Does.Contain(ComplianceStandard.NIST));
     }
 
     [Test]

@@ -334,6 +334,34 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             .ToListAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<List<AuditIntegrityEntity>> GetWithAuditEventsAfterSequenceAsync(
+        DateTimeOffset? startDate,
+        DateTimeOffset? endDate,
+        long afterSequenceNumber,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking()
+            .Include(static i => i.AuditEvent)
+            .Where(i => i.SequenceNumber > afterSequenceNumber);
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(i => i.TrustedTimestamp <= endDate.Value);
+        }
+
+        return await query
+            .OrderBy(static i => i.SequenceNumber)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Gets the count of audit integrity records within an optional date range.
     /// </summary>

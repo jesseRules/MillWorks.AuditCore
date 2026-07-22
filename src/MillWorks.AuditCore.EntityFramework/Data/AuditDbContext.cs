@@ -283,6 +283,14 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                 entity.HasIndex(static e => new { e.EventType, e.InsertedDate })
                     .HasFilter("[EventType] IS NOT NULL")
                     .HasDatabaseName("IX_AuditEvents_EventType_Date_Filtered");
+
+                // Cover the [User] column on the date-range index so the audit summary's
+                // DISTINCT-user count and top-users aggregation are served entirely from the
+                // index (date-range seek, no clustered-index key lookups). [User] is a string
+                // column that is otherwise indexed by no index. SQL Server only — IncludeProperties
+                // is a no-op / unsupported on the SQLite and InMemory providers.
+                entity.HasIndex(static e => new { e.InsertedDate, e.EventType }, "IX_AuditEvents_Date_Type")
+                    .IncludeProperties(static e => e.User);
             }
         });
 

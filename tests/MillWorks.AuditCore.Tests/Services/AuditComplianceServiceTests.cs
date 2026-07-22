@@ -80,7 +80,9 @@ public class AuditComplianceServiceTests
             new HipaaValidator(),
             new Iso27001Validator(),
             new FerpaValidator(new Mock<IComplianceAttributeScanner>().Object),
-            new PciDssValidator()
+            new PciDssValidator(),
+            new StigValidator(),
+            new NistValidator()
         };
 
         // Setup compliance options with all standards enabled
@@ -330,6 +332,45 @@ public class AuditComplianceServiceTests
         // Just verify the report was generated with statistics
         Assert.That(result.Statistics, Is.Not.Null);
         Assert.That(result.Statistics.TotalEvents, Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// GenerateComplianceReportAsync with the NIST standard returns a non-empty overlap-derived report.
+    /// </summary>
+    [Test]
+    public async Task GenerateComplianceReportAsync_WithNistStandard_ReturnsNonEmptyReport()
+    {
+        // Arrange
+        var standard = ComplianceStandard.NIST;
+        var startDate = DateTimeOffset.UtcNow.AddMonths(-1);
+        var endDate = DateTimeOffset.UtcNow;
+
+        var events = new List<AuditEventEntity>
+        {
+            new()
+            {
+                EventId = Guid.NewGuid(),
+                EventType = "User.Login",
+                InsertedDate = DateTimeOffset.UtcNow.AddDays(-10),
+                User = "testuser"
+            }
+        };
+
+        _mockAuditEventRepository
+            .Setup(x => x.GetByDateRangeAsync(startDate, endDate, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(events);
+
+        // Act
+        var result = await _complianceService.GenerateComplianceReportAsync(
+            standard, startDate, endDate);
+
+        // Assert — regression for "Compliance standard NIST not supported"; NIST returns the
+        // overlap-derived STIG + ISO 27001 findings instead of throwing.
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Standard, Is.EqualTo(standard));
+        Assert.That(result.ValidationResults, Is.Not.Empty);
+        Assert.That(result.ValidationResults.Any(static r => r.ComplianceStandard == "DISA STIG"), Is.True);
+        Assert.That(result.ValidationResults.Any(static r => r.ComplianceStandard == "ISO 27001"), Is.True);
     }
 
     /// <summary>
