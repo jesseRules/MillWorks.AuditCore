@@ -23,14 +23,14 @@
       default integrity-key backend; hosts can override with KeyVault by registering their own
       ISigningKeyProvider. Brings MillWorks.Cryptography + .Abstractions transitively.
     -->
-    <PackageReference Include="MillWorks.Cryptography.FileSystem" Version="0.1.2" />
+    <PackageReference Include="MillWorks.Cryptography.FileSystem" Version="0.2.0" />
     <!--
       Key Vault encryption-key backend for field-level encryption (Cryptography consolidation A2).
       EncryptionConfigurationExtensions.UseFieldEncryption(keyVaultUrl) constructs an
       AzureKeyVaultEncryptionKeyProvider directly; the SecretClient / DefaultAzureCredential refs
       back that construction. The file-system backend (above) covers UseFieldEncryptionWithFileStorage.
     -->
-    <PackageReference Include="MillWorks.Cryptography.KeyVault" Version="0.1.2" />
+    <PackageReference Include="MillWorks.Cryptography.KeyVault" Version="0.2.0" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
   </ItemGroup>
