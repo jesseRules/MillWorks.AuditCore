@@ -31,6 +31,19 @@ internal sealed class AuditEntityBatchWriter(
             await using var scope = scopeFactory.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var auditLogSet = dbContext.Set<AuditLogEntity>();
+            var envelopeIds = envelopes
+                .Where(static envelope => envelope is not null)
+                .Select(static envelope => envelope.EnvelopeId)
+                .Distinct()
+                .ToList();
+            var persistedKeys = await auditLogSet
+                .AsNoTracking()
+                .Where(row => row.EnvelopeId.HasValue && envelopeIds.Contains(row.EnvelopeId.Value))
+                .Select(static row => new { EnvelopeId = row.EnvelopeId!.Value, row.PropertyName })
+                .ToListAsync(cancellationToken);
+            var knownKeys = persistedKeys
+                .Select(static row => (row.EnvelopeId, row.PropertyName))
+                .ToHashSet();
             var totalRows = 0;
 
             foreach (var envelope in envelopes)
@@ -38,11 +51,15 @@ internal sealed class AuditEntityBatchWriter(
                 if (envelope is null)
                     continue;
 
+                var addedRows = 0;
                 var changes = envelope.PropertyChanges;
                 if (changes is { Count: > 0 })
                 {
                     foreach (var change in changes)
                     {
+                        if (!knownKeys.Add((envelope.EnvelopeId, change.PropertyName)))
+                            continue;
+
                         auditLogSet.Add(new AuditLogEntity
                         {
                             EnvelopeId = envelope.EnvelopeId,
@@ -59,50 +76,69 @@ internal sealed class AuditEntityBatchWriter(
                             UserAgent = envelope.UserAgent
                         });
                         totalRows++;
+                        addedRows++;
                     }
                 }
                 else
                 {
-                    auditLogSet.Add(new AuditLogEntity
+                    if (knownKeys.Add((envelope.EnvelopeId, null)))
                     {
-                        EnvelopeId = envelope.EnvelopeId,
-                        EntityName = envelope.EntityName,
-                        EntityId = envelope.EntityId,
-                        Action = envelope.Action,
-                        Description = envelope.Description,
-                        AdditionalData = envelope.AdditionalData,
-                        CorrelationId = envelope.CorrelationId,
-                        IpAddress = envelope.IpAddress,
-                        UserAgent = envelope.UserAgent
-                    });
-                    totalRows++;
+                        auditLogSet.Add(new AuditLogEntity
+                        {
+                            EnvelopeId = envelope.EnvelopeId,
+                            EntityName = envelope.EntityName,
+                            EntityId = envelope.EntityId,
+                            Action = envelope.Action,
+                            Description = envelope.Description,
+                            AdditionalData = envelope.AdditionalData,
+                            CorrelationId = envelope.CorrelationId,
+                            IpAddress = envelope.IpAddress,
+                            UserAgent = envelope.UserAgent
+                        });
+                        totalRows++;
+                        addedRows++;
+                    }
                 }
+
+                outcomes.Add(addedRows == 0
+                    ? WriteOutcome.Duplicate(envelope.EnvelopeId)
+                    : WriteOutcome.Success(envelope.EnvelopeId));
             }
 
-            var written = await dbContext.SaveChangesAsync(cancellationToken);
+            var written = totalRows == 0
+                ? 0
+                : await dbContext.SaveChangesAsync(cancellationToken);
             logger.LogDebug(
                 "Wrote {RowCount} AuditLog row(s) for {EnvelopeCount} envelope(s)",
                 written, envelopes.Count);
-
-            foreach (var envelope in envelopes)
-            {
-                if (envelope is not null)
-                    outcomes.Add(WriteOutcome.Success(envelope.EnvelopeId));
-            }
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
-            // Duplicate key on the (EnvelopeId, PropertyName) unique index means this
-            // envelope was already persisted — an idempotent replay after outbox drainer
-            // crash. Mark all envelopes as duplicates (success).
+            // A concurrent writer committed after the readback. Split a mixed batch so one
+            // raced envelope cannot cause unrelated new envelopes to be reported as duplicates.
             logger.LogDebug(
-                "Duplicate key in AuditLogEntity batch ({EnvelopeCount} envelopes), treating as idempotent replay",
+                "Duplicate key in AuditLogEntity batch ({EnvelopeCount} envelopes); retrying each envelope independently",
                 envelopes.Count);
 
-            foreach (var envelope in envelopes)
+            outcomes.Clear();
+            if (envelopes.Count > 1)
             {
-                if (envelope is not null)
-                    outcomes.Add(WriteOutcome.Duplicate(envelope.EnvelopeId));
+                foreach (var envelope in envelopes)
+                {
+                    if (envelope is null)
+                        continue;
+
+                    var envelopeOutcomes = await WriteBatchAsync([envelope], cancellationToken);
+                    outcomes.AddRange(envelopeOutcomes);
+                }
+            }
+            else
+            {
+                foreach (var envelope in envelopes)
+                {
+                    if (envelope is not null)
+                        outcomes.Add(WriteOutcome.Duplicate(envelope.EnvelopeId));
+                }
             }
         }
         catch (DbUpdateException ex)
@@ -112,6 +148,7 @@ internal sealed class AuditEntityBatchWriter(
 
             logger.LogWarning(ex, "Failed to write {EnvelopeCount} entity-change envelope(s)", envelopes.Count);
 
+            outcomes.Clear();
             foreach (var envelope in envelopes)
             {
                 if (envelope is not null)

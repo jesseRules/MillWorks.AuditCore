@@ -617,6 +617,44 @@ public class AuditLoggerTests
         Assert.That(capturedEntity.RequestMethod, Is.EqualTo("POST"));
     }
 
+    [Test]
+    public async Task LogAsync_WithOversizedHttpContextFields_TruncatesToStorageLimits()
+    {
+        var auditEvent = new AuditEvent
+        {
+            EventId = Guid.NewGuid(),
+            EventType = "Test.Event",
+            StartDate = DateTimeOffset.UtcNow,
+            CustomFields = new Dictionary<string, object?>
+            {
+                ["UserAgent"] = new string('u', AuditEventEntity.MaxUserAgentLength + 1),
+                ["RequestPath"] = "/" + new string('p', AuditEventEntity.MaxRequestPathLength)
+            }
+        };
+
+        AuditEventEntity? capturedEntity = null;
+        _mockAuditEventRepository
+            .Setup(static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditEventEntity, CancellationToken>((entity, _) => capturedEntity = entity)
+            .ReturnsAsync(static (AuditEventEntity entity, CancellationToken _) => entity);
+        _mockAuditEventRepository
+            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _mockTamperDetectionService
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AuditIntegrityDto());
+
+        await _auditLogger.LogAsync(auditEvent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capturedEntity, Is.Not.Null);
+            Assert.That(capturedEntity!.UserAgent, Has.Length.EqualTo(AuditEventEntity.MaxUserAgentLength));
+            Assert.That(capturedEntity.RequestPath, Has.Length.EqualTo(AuditEventEntity.MaxRequestPathLength));
+        });
+    }
+
     /// <summary>
     /// Verifies that unmapped custom fields are serialized to AdditionalData
     /// </summary>

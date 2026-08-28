@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2] - 2026-08-24
+
+### Fixed
+
+- **Oversized HTTP audit metadata** — request paths now retain up to 2,048 characters, and both request paths and user agents are defensively truncated to their storage limits after redaction and sanitization. Long route tokens can no longer make `audit.AuditEvents` inserts retry and dead-letter with SQL truncation errors.
+
+## [1.13.1] - 2026-08-23
+
+### Fixed
+
+- **Entity-change mixed-batch idempotency** — `AuditEntityBatchWriter` now reads existing `(EnvelopeId, PropertyName)` keys before inserting, reports replayed envelopes individually, and still persists new envelopes sharing the same batch. Previously, one duplicate-key collision rolled back the full batch and incorrectly reported every envelope as a successful duplicate, silently dropping unrelated new audit records. Concurrent duplicate races fall back to per-envelope writes so one collision cannot discard the rest of the batch. Expected replays no longer generate failed `INSERT` command logs in the common path.
+
 ## [1.11.0] - 2026-07-19
 
 ### Performance

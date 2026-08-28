@@ -22,6 +22,12 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(IntegrityStatus), Name = "IX_AuditEvents_IntegrityStatus")]
 public class AuditEventEntity : AuditAggregateRoot
 {
+    /// <summary>Maximum persisted user-agent length.</summary>
+    public const int MaxUserAgentLength = 500;
+
+    /// <summary>Maximum persisted request-path length.</summary>
+    public const int MaxRequestPathLength = 2048;
+
     /// <summary>
     /// Event Id
     /// </summary>
@@ -223,7 +229,7 @@ public class AuditEventEntity : AuditAggregateRoot
     /// <summary>
     /// User Agent
     /// </summary>
-    [MaxLength(500)]
+    [MaxLength(MaxUserAgentLength)]
     [Column("UserAgent")]
     [JsonPropertyName("user_agent")]
     [DisplayName("User Agent")]
@@ -232,7 +238,7 @@ public class AuditEventEntity : AuditAggregateRoot
     /// <summary>
     /// Request Path
     /// </summary>
-    [MaxLength(500)]
+    [MaxLength(MaxRequestPathLength)]
     [Column("RequestPath")]
     [JsonPropertyName("request_path")]
     [DisplayName("Request Path")]
