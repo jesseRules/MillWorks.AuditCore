@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.4] - 2026-09-07
+
+### Fixed
+
+- **Explicit-event actor identity** — `AuditEventBatchWriter` now maps a GUID-form envelope
+  `UserId` to the indexed application-user field while retaining the original ASP.NET identity
+  string. Entity-trail projections therefore return the actor instead of an empty GUID for
+  explicit events published with a GUID identity.
+
+## [1.13.3] - 2026-09-07
+
+### Fixed
+
+- **Explicit-event entity identity** — `AuditEventBatchWriter` now maps an envelope's `EntityId`
+  into the structural custom field consumed by `AuditLogger`, in addition to retaining the canonical
+  `KeyValues["Id"]`. Explicit events now populate the indexed `audit.AuditEvents.EntityId` column and
+  are discoverable through entity-scoped audit queries instead of being stored with a null entity ID.
+
 ## [1.13.2] - 2026-08-24
 
 ### Fixed
