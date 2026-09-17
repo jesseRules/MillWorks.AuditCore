@@ -1,94 +1,143 @@
 # Database Provider Interoperability Plan
 
-**Status:** Proposed  
-**Date:** 2026-06-06  
-**Goal:** make AuditCore run correctly on multiple EF Core relational providers without regressing tamper evidence, transactional outbox behavior, or operational safety.
+**Status:** Reviewed; implementation not started
 
-## Executive Summary
+**Originally proposed:** 2026-06-06
 
-AuditCore is currently a SQL Server-first library with SQLite/InMemory branches for tests and local scenarios. It is not yet a provider-interoperable library.
+**Last code review:** 2026-08-06
 
-Provider interoperability is broader than replacing `sp_getapplock`. Current SQL Server assumptions appear in public bootstrapping, design-time migrations, model defaults, outbox raw SQL, command metrics, maintenance SQL, and integrity append locking.
+**Goal:** make AuditCore correct on explicitly supported EF Core relational providers without regressing tamper evidence, transactional outbox atomicity, schema lifecycle, or operational safety.
 
-Treat this as a staged portability effort. Do not claim PostgreSQL or MySQL support until runtime registration, model metadata, schema lifecycle, outbox writes, integrity locking, and tests are all provider-correct.
+## Review Outcome
 
-## Current Code Reality
+The original conclusion still holds: the shipped runtime is SQL Server-first and PostgreSQL/MySQL are not supported storage providers. SQLite has meaningful test and direct-`DbContext` coverage, but it is not selectable through the public `UseEntityFramework()` builder and has no supported migration lane.
 
-| Area | Current State | Interop Impact |
-|------|---------------|----------------|
-| Runtime EF registration | `MillWorksAuditBuilder.UseEntityFramework()` always calls `UseSqlServer(...)` | Public builder cannot configure PostgreSQL/MySQL/SQLite runtime storage |
-| Options | `EntityFrameworkOptions` only has `ConnectionString`, schema, and migration flags | No provider selection or provider-specific migration assembly/history table |
-| Options validation | Validator is embedded in `EntityFrameworkOptions.cs` and reserves SQL Server schemas | Validation is SQL Server-biased and may reject valid provider-specific usage |
-| Design-time factory | `DesignTimeDbContextFactory` always calls `UseSqlServer(...)` | Generated migrations and design-time model are SQL Server-only |
-| Packages | EntityFramework project references `Microsoft.EntityFrameworkCore.SqlServer` only | Npgsql/MySQL/SQLite package strategy is not first-class |
-| Model defaults | `AuditDbContext` branches for SQL Server / SQLite / InMemory only | PostgreSQL/MySQL inherit SQL Server defaults such as `GETUTCDATE()` and bracketed predicates |
-| Rowversion | SQL Server uses `IsRowVersion`; non-SQL Server uses application-managed concurrency tokens | Good foundation, but must be tested per provider |
-| Integrity append lock | `AuditIntegrityRepository` uses SQL Server `sp_getapplock`; others are no-op | Multi-instance tamper-chain appends are unsafe outside SQL Server |
-| Transactional outbox writer | `AuditOutboxWriter` emits SQL Server bracketed identifiers and SQL Server-oriented insert SQL | Consumer-context outbox writes are not provider-portable |
-| Outbox drainer claim | SQL Server has `UPDATE TOP ... OUTPUT`; others use EF portable fallback | PostgreSQL/MySQL can work initially via fallback, but need concurrency tests |
-| Maintenance SQL | `GetAuditDatabaseSizeAsync` queries `sys.tables`; `OptimizeAuditTablesAsync` runs `UPDATE STATISTICS [audit].[AuditEvents]` | Admin APIs execute SQL Server-only SQL or degrade through exceptions |
-| Command metrics | `AuditSqlCommandInterceptor` references `Microsoft.Data.SqlClient` and Azure SQL error codes | Metrics interceptor is SQL Server-specific and should not be universal |
+Work completed since the original plan improves the baseline but does not complete an interoperability phase:
 
-## Important Constraints
+- SQL Server now has a Testcontainers CI lane covering empty-database migration, schema override, outbox draining, optimistic concurrency, and cross-context integrity append concurrency.
+- SQLite model branches now provide SQLite timestamp defaults, quoted filters/check constraints, SQL Server type remapping, and application-managed concurrency tokens.
+- The transactional outbox writer now prefers a mapped `AuditOutboxEntity` change-tracker path. That path lets the consumer provider generate SQL; only the unmapped, explicit-transaction fallback remains SQL Server-specific raw SQL.
+- The outbox drainer retains SQL Server's atomic `UPDATE TOP ... OUTPUT` claim and a provider-neutral EF fallback. The fallback is exercised by SQLite tests but is not proven for multi-process PostgreSQL/MySQL contention.
+- Duplicate-key and deadlock helpers contain PostgreSQL-oriented detection without an Npgsql dependency. This is preparatory code only; there is no PostgreSQL provider package or integration lane proving it.
 
-- The hash-chain append lock is transaction-bound serialization. It is not equivalent to the existing TTL-based `IAuditDistributedLockService`.
-- `IAuditDistributedLockService` can still elect one outbox drainer leader, but it should not be reused for integrity sequence allocation.
-- SQLite is useful for single-process development and tests, but it is not a multi-instance tamper-chain provider.
-- Provider support includes schema lifecycle. Runtime LINQ portability alone is not enough.
+No PostgreSQL or MySQL runtime registration, model branch, migrations, advisory lock, maintenance strategy, package reference, Testcontainer, or CI lane exists.
+
+## Verified Code Baseline
+
+| Area | Verified state on 2026-08-06 | Consequence |
+|------|-------------------------------|-------------|
+| Public runtime registration | `MillWorksAuditBuilder.UseEntityFramework()` unconditionally calls `UseSqlServer(...)` | Consumers cannot select PostgreSQL, MySQL, or SQLite through the supported builder |
+| Options | `EntityFrameworkOptions` has connection, schema, migration, seeding, and timeout settings; it has no provider or migrations assembly | Runtime and schema lifecycle cannot select a provider |
+| Options validation | `EntityFrameworkOptionsValidator` reserves SQL Server schema names and applies one 128-character identifier rule | Validation is SQL Server-specific |
+| Migration history schema | Runtime and design-time setup hard-code `__EFMigrationsHistory` to schema `audit`, not `EntityFrameworkOptions.Schema` | Existing custom-schema support does not include the migrations history table |
+| Design-time factory | `DesignTimeDbContextFactory` always calls `UseSqlServer(...)`; only the connection string is configurable | Migration generation is SQL Server-only |
+| Provider packages | The shipped EF project references only `Microsoft.EntityFrameworkCore.SqlServer`; SQLite is test-only | No first-class PostgreSQL/MySQL/SQLite runtime package strategy exists |
+| Migrations | One SQL Server migration set through `20260719131302_AddAuditEventsUserCoveringIndex` | Migrations contain SQL Server types, defaults, schemas, filters, and index features |
+| Model | Explicit branches exist for SQL Server behavior, SQLite, and InMemory; all other relational providers fall into SQL Server SQL/default branches | PostgreSQL/MySQL would receive invalid `GETUTCDATE()`, bracket quoting, and SQL Server-specific index configuration |
+| Model cache | `AuditModelCacheKeyFactory` keys by context type, schema, and design-time flag, but not provider | Replacing EF's default key can allow a model built for one provider to be reused for another |
+| Concurrency token | SQL Server uses database-generated rowversion; every other provider gets an application-managed byte-array token | Useful foundation, but untested on PostgreSQL/MySQL mappings |
+| Integrity append lock | SQL Server uses transaction-owned `sp_getapplock`; all other providers return without a database lock and use process-local serialization upstream | Tamper-chain appends are unsafe across application instances outside SQL Server |
+| Transactional outbox write | Mapped entity path is EF/provider-generated; unmapped explicit-transaction path emits bracketed SQL Server `VALUES`/`WHERE NOT EXISTS` SQL | Mapped mode has a portable foundation; raw-SQL mode is SQL Server-only |
+| Outbox duplicate handling | SQL Server and SQLite are covered; helper has unproven PostgreSQL detection and no MySQL detection | Each new provider needs real exception tests, including raw-command exceptions |
+| Outbox claim | SQL Server uses `UPDATE TOP ... OUTPUT`; others use query + conditional `ExecuteUpdateAsync` | Portable path is not a single atomic claim statement and needs multi-worker contention tests |
+| Maintenance | Size query uses `sys.*`; optimization runs `UPDATE STATISTICS [audit].[AuditEvents]`; failures are caught | Non-SQL providers degrade by executing invalid SQL first; optimization also ignores configured schema |
+| Command metrics | `AuditSqlCommandInterceptor` directly references `Microsoft.Data.SqlClient` and Azure SQL codes and is always registered | Non-SQL providers receive a SQL Server-specific interceptor |
+| CI | General unit/SQLite suite plus a dedicated SQL Server Testcontainers workflow | No PostgreSQL or MySQL proof lane exists |
+
+## Non-Negotiable Correctness Constraints
+
+- Provider support includes runtime registration, model metadata, schema creation/evolution, transactional outbox behavior, integrity locking, maintenance behavior, and repeatable integration tests. LINQ queries compiling is insufficient.
+- The integrity append lock is a transaction/connection-level serialization primitive. The TTL-based `IAuditDistributedLockService` may elect an outbox or DLQ worker, but must not allocate tamper-chain sequence numbers.
+- A provider without a proven cross-process integrity append lock cannot claim multi-instance tamper-evidence correctness.
+- Transactional outbox writes must remain in the consumer's transaction. A portability fallback must never commit an audit row independently.
+- SQL Server remains the default and its retry strategy remains disabled unless the explicit-transaction design changes.
+- SQLite remains single-process development/test storage unless a separate production support decision is made.
 
 ## Support Tiers
 
-Define support levels before implementation so docs do not overclaim.
+| Tier | Required guarantee |
+|------|--------------------|
+| Tier 1 | Runtime reads/writes, provider migrations, both supported outbox modes, atomic multi-worker drain claims, cross-process integrity append serialization, explicit maintenance behavior, and CI coverage |
+| Tier 2 | Runtime and schema lifecycle are supported, but named operational or multi-instance features are unavailable and fail explicitly rather than silently degrading |
+| Experimental | Direct/local use is tested for selected paths; no production correctness claim |
+| Unsupported | The provider may compile through EF, but AuditCore makes no compatibility or correctness claim |
 
-| Tier | Meaning |
-|------|---------|
-| Tier 1 | Runtime writes/reads, outbox, migrations/schema lifecycle, tamper detection, and required tests are supported |
-| Tier 2 | Runtime behavior is supported, but some admin/maintenance operations or multi-instance guarantees are degraded and documented |
-| Experimental | Can be configured for local or limited use, but correctness is not guaranteed under production concurrency |
-| Unsupported | Provider may compile through EF, but AuditCore makes no correctness claim |
+Current and target position:
 
-Recommended initial target:
+| Provider | Current | Target |
+|----------|---------|--------|
+| SQL Server | Tier 1 product path | Tier 1; preserve behavior |
+| PostgreSQL | Unsupported | First additional Tier 1 candidate |
+| MySQL | Unsupported | Defer until PostgreSQL establishes the abstractions; initially Tier 2 at most |
+| SQLite | Experimental through direct/test setup | Experimental, single-process only |
 
-- SQL Server: Tier 1, unchanged behavior
-- PostgreSQL: Tier 1 only after advisory locks and provider migrations are proven
-- MySQL: Tier 2 until lock semantics and concurrency tests are proven under load
-- SQLite: Experimental, single-instance/dev-test only
+Do not advertise a target tier as shipped support until its acceptance suite passes in CI.
 
-## Phase 0: Honest Documentation And Capability Model
+## Architecture Decisions Required Before Coding
 
-**Objective:** make support claims accurate before code changes.
+### 1. Provider package ownership
 
-Add an internal capability model instead of a single provider-supported boolean:
+Choose one packaging model before adding provider APIs:
+
+- provider-specific companion packages, such as `MillWorks.AuditCore.EntityFramework.PostgreSql`; or
+- provider packages referenced by the main EntityFramework package; or
+- a consumer-supplied `DbContextOptionsBuilder` configuration callback plus provider services supplied by the consumer.
+
+**Recommendation:** use companion packages or a consumer-supplied provider configuration hook. Referencing every EF provider from the main package unnecessarily couples release cadence and dependency surface. Provider-specific migrations and lock/maintenance implementations should live with the corresponding provider package.
+
+### 2. Outbox modes supported per provider
+
+Decide whether Tier 1 requires both writer modes:
+
+- mapped `AuditOutboxEntity` through the change tracker; and
+- unmapped entity with an explicit transaction through a SQL dialect.
+
+**Recommendation:** require both for Tier 1 because the public writer deliberately supports both atomicity contracts. If a provider supports mapped mode only, report that limitation as Tier 2 and fail raw mode before issuing SQL.
+
+### 3. Schema semantics
+
+PostgreSQL and SQL Server support schemas; SQLite does not in the same sense, and MySQL treats database/schema concepts differently. Define whether `EntityFrameworkOptions.Schema` is required, ignored, translated, or rejected for each provider. The migrations history table must use the same resolved schema policy instead of the current hard-coded `audit` value.
+
+## Phase 0: Honest Support Documentation And Capability Model
+
+**Status:** Not started.
+
+Create one internal provider descriptor/capability source. Avoid independent provider-name strings across the model, outbox, locks, maintenance, and registration.
 
 ```csharp
 internal sealed record AuditDatabaseCapabilities(
     string ProviderName,
-    bool SupportsTransactionScopedAdvisoryLocks,
+    bool SupportsSchemas,
     bool SupportsProviderMigrations,
+    bool SupportsTransactionScopedAdvisoryLocks,
+    bool SupportsMappedOutboxWrites,
+    bool SupportsRawSqlOutboxWrites,
+    bool SupportsAtomicOutboxClaim,
     bool SupportsDatabaseSizeEstimation,
     bool SupportsTableOptimization,
-    bool SupportsFilteredIndexes,
-    bool UsesDatabaseGeneratedRowVersion,
-    bool SupportsAtomicOutboxClaimSql);
+    bool UsesDatabaseGeneratedRowVersion);
 ```
 
 Deliverables:
 
-- Add provider support matrix to README/docs.
-- State that current released behavior is SQL Server-first.
-- Mark SQLite as single-instance/test oriented.
-- Add provider capability constants or strategies in one internal location.
+- Add a database-provider support matrix to the README and package documentation.
+- State explicitly that the current product path is SQL Server and SQLite is test/development-only.
+- Centralize provider names, detection, capabilities, and resolved schema behavior.
+- Ensure unsupported critical capabilities fail during startup or first relevant operation with a clear provider-specific message.
 
 Acceptance criteria:
 
-- No doc claims PostgreSQL/MySQL production support before runtime, migrations, outbox, locking, and tests exist.
-- Provider capability decisions are centralized, not scattered across string checks.
+- Documentation does not imply PostgreSQL/MySQL production support.
+- Provider decisions are not scattered string comparisons.
+- Unknown providers default to unsupported, not SQL Server behavior.
 
-## Phase 1: Runtime Provider Selection
+## Phase 1: Runtime Provider Selection And Package Boundary
 
-**Objective:** remove hidden SQL Server-only runtime registration.
+**Status:** Not started.
 
-Recommended option shape:
+Add intentional provider selection without forcing non-SQL providers through `UseSqlServer`. Keep SQL Server as the backwards-compatible default.
+
+The exact option/API shape follows the package decision. If AuditCore owns selection directly, the minimum public option is:
 
 ```csharp
 public enum AuditDatabaseProvider
@@ -108,376 +157,200 @@ public sealed class EntityFrameworkOptions
 }
 ```
 
-Implementation notes:
+Implementation requirements:
 
-- Keep SQL Server as the default provider unless intentionally making a breaking change.
-- Register the provider inside one helper used by runtime and design-time paths.
-- Keep SQL Server retry disabled in the current path unless transaction semantics are reworked.
-- Register `AuditSqlCommandInterceptor` only for SQL Server, or rename/generalize it into a provider-aware command metrics interceptor.
-- Revisit `EntityFrameworkOptionsValidator`: reserved schema names and identifier rules should be provider-aware.
-
-Files:
-
-- `src/MillWorks.AuditCore.AspNetCore/Configuration/MillWorksAuditBuilder.cs`
-- `src/MillWorks.AuditCore.EntityFramework/Options/EntityFrameworkOptions.cs`
-- `src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditSqlCommandInterceptor.cs`
-- project package references
+- Use one registration path for runtime and the provider-specific design-time factories.
+- Resolve migration history schema from configured provider/schema rather than hard-coding `audit`.
+- Make identifier and reserved-schema validation provider-aware.
+- Register Azure SQL classification only for SQL Server, or split generic command timing from provider error classification.
+- Add provider identity to `AuditModelCacheKeyFactory`; retain schema and design-time identity.
+- Reject an unknown or unavailable provider at startup.
 
 Acceptance criteria:
 
-- Runtime configuration can intentionally select SQL Server, PostgreSQL, MySQL, or SQLite.
-- SQL Server behavior remains unchanged by default.
-- Non-SQL Server providers do not receive SQL Server-specific interceptors or options.
-- Provider-specific packages are referenced intentionally and documented.
+- The supported builder intentionally selects each installed provider.
+- Default configuration produces the same SQL Server options and interceptors as today.
+- A non-SQL provider receives no SQL Server-specific EF configuration or Azure SQL classifier.
+- Model cache tests prove different providers cannot share a cached model.
 
-## Phase 2: Design-Time And Migration Strategy
+## Phase 2: Provider-Correct Model Metadata
 
-**Objective:** make schema creation and schema evolution provider-specific and repeatable.
+**Status:** Partially prepared for SQLite; not started for PostgreSQL/MySQL.
 
-The current migrations are SQL Server-flavored (`datetimeoffset`, `rowversion`, `GETUTCDATE()`, bracketed check constraints, SQL Server filtered indexes). They should not be treated as portable migrations.
+Replace the current `InMemory / SQLite / else-is-SQL-Server` structure with explicit provider strategies. Unknown relational providers must fail model construction.
 
-Recommended strategy: separate migration sets per provider.
+Provider decisions include:
 
-Example layout:
-
-- `Migrations/SqlServer`
-- `Migrations/PostgreSql`
-- `Migrations/MySql`
-- `Migrations/Sqlite` only if SQLite schema evolution is supported beyond tests
-
-Design-time factory requirements:
-
-- Accept provider from args or environment, for example `AUDIT_MIGRATION_PROVIDER`.
-- Accept connection string from `AUDIT_MIGRATION_CONNECTION_STRING`.
-- Select provider-specific migrations assembly or migrations namespace.
-- Preserve SQL Server as the default design-time provider for existing workflows.
-
-Files:
-
-- `src/MillWorks.AuditCore.EntityFramework/Data/DesignTimeDbContextFactory.cs`
-- `src/MillWorks.AuditCore.EntityFramework/Migrations/*`
-- project/build scripts for provider-specific migration generation
+- UTC timestamp default SQL;
+- filtered/partial index support and syntax;
+- check-constraint quoting;
+- included-column indexes;
+- rowversion versus application-managed concurrency tokens;
+- `DateTimeOffset`, `Guid`, JSON text, and byte-array mappings;
+- schemas and table qualification.
 
 Acceptance criteria:
 
-- Each Tier 1 provider can create an empty schema from migrations.
-- Each Tier 1 provider can apply the next migration cleanly.
-- Migration docs show exactly how to generate and apply migrations per provider.
-- SQL Server migration history table behavior remains unchanged.
+- PostgreSQL/MySQL never receive `GETUTCDATE()`, bracketed identifiers, or SQL Server included-index metadata.
+- SQL Server retains rowversion and the user-covering index.
+- Application-managed concurrency tokens work on each non-SQL provider.
+- Metadata/DDL tests cover every advertised provider and reject an unknown provider.
 
-## Phase 3: Model Configuration Portability
+## Phase 3: Schema Lifecycle And Migrations
 
-**Objective:** make `AuditDbContext` generate valid metadata for each provider.
+**Status:** SQL Server only.
 
-Current gaps:
+The existing migration set is SQL Server-specific and should remain the SQL Server history. Add separate migrations and snapshots per supported provider, preferably in its companion package/assembly.
 
-- PostgreSQL/MySQL fall into SQL Server defaults.
-- `GETUTCDATE()` is applied to non-SQL Server providers.
-- Filter/check constraint SQL uses SQL Server brackets outside SQLite.
-- SQLite column type overrides exist, but equivalent provider-specific type decisions are not centralized.
+Requirements:
 
-Centralize provider names and SQL snippets:
-
-```csharp
-internal static class AuditProviderNames
-{
-    public const string SqlServer = "Microsoft.EntityFrameworkCore.SqlServer";
-    public const string Sqlite = "Microsoft.EntityFrameworkCore.Sqlite";
-    public const string PostgreSql = "Npgsql.EntityFrameworkCore.PostgreSQL";
-    public const string MySqlPomelo = "Pomelo.EntityFrameworkCore.MySql";
-    public const string MySqlOracle = "MySql.EntityFrameworkCore";
-}
-```
-
-Provider-specific concerns:
-
-- timestamp default SQL
-- filtered-index predicate syntax
-- check-constraint identifier quoting
-- rowversion vs application-managed concurrency tokens
-- schema support and migration history table naming
-- provider-specific type mappings for `DateTimeOffset`, `Guid`, JSON strings, and byte arrays where needed
-
-Files:
-
-- `src/MillWorks.AuditCore.EntityFramework/Data/AuditDbContext.cs`
-- `src/MillWorks.AuditCore.EntityFramework/Data/AuditModelCacheKeyFactory.cs`
+- Select provider and connection string explicitly at design time. Preserve SQL Server as the default for the existing workflow.
+- Keep provider snapshots isolated; do not attempt to make the existing SQL Server migration files portable.
+- Document exact generate, script, apply, and upgrade commands.
+- Test both empty-database creation and at least one real upgrade transition.
+- Define SQLite as `EnsureCreated`-only or give it a migration set; do not leave the lifecycle ambiguous.
 
 Acceptance criteria:
 
-- PostgreSQL does not receive `GETUTCDATE()` or bracketed identifiers.
-- MySQL does not receive SQL Server filtered-index/check-constraint syntax.
-- SQL Server rowversion behavior remains unchanged.
-- Model cache keys include provider and schema when needed.
-- Model tests cover each provider's generated metadata.
+- Every Tier 1 provider creates an empty database and upgrades an older schema in CI.
+- Migration history uses the resolved provider/schema configuration.
+- SQL Server's existing migration IDs and upgrade behavior remain unchanged.
 
-## Phase 4: Provider-Portable Transactional Outbox SQL
+## Phase 4: Transactional Outbox Portability
 
-**Objective:** keep transactional outbox behavior correct on consumer DbContexts.
+**Status:** Mapped mode has a portable foundation; raw mode and non-SQL contention are incomplete.
 
-`AuditOutboxWriter` currently writes raw SQL like:
+Preserve the existing hybrid writer contract:
 
-- `INSERT INTO [schema].[AuditOutbox]`
-- SQL Server bracketed column identifiers
-- `VALUES` table constructor aliasing
-- `WHERE NOT EXISTS` duplicate handling
+1. When the consumer maps `AuditOutboxEntity`, stage rows through the change tracker so the consumer provider generates SQL.
+2. When the entity is unmapped but an explicit transaction exists, use a provider dialect on that connection/transaction.
+3. Otherwise fail closed with `AuditOutboxAtomicityException`.
 
-That SQL runs against the consumer's DbContext and transaction. It must become provider-aware before the outbox can be claimed as portable.
+For raw mode, introduce a dialect with identifier delimiting, parameter limits, duplicate-safe insertion, and table qualification. Do not assume SQL Server's `VALUES` alias form is portable.
 
-Recommended abstraction:
+Also make duplicate detection explicit per provider. The current PostgreSQL type-name/`Data["SqlState"]` path must be verified against real Npgsql exceptions, and MySQL codes must be implemented and tested.
 
-```csharp
-internal interface IAuditOutboxSqlDialect
-{
-    int MaxParametersPerCommand { get; }
-    string DelimitIdentifier(string identifier);
-    string QualifyTable(string schema, string table);
-    string BuildInsertIfNotExistsSql(
-        string schema,
-        int rowCount,
-        IReadOnlyList<string> columnNames);
-}
-```
-
-Implementation notes:
-
-- Keep idempotent duplicate handling.
-- Keep writes inside the consumer transaction.
-- Avoid provider packages leaking into the abstractions project.
-- Continue to use EF parameters; do not concatenate values.
-- The drainer's existing portable EF claim path may be acceptable initially for PostgreSQL/MySQL, but needs concurrency tests. Provider-specific atomic claim SQL can be a later optimization.
-
-Files:
-
-- `src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs`
-- `src/MillWorks.AuditCore.Services/Sinks/AuditOutboxDrainer.cs`
-- new internal SQL dialect/strategy files
+For draining, treat the existing EF claim path as a correctness candidate, not a proven atomic algorithm. Its conditional status update prevents the straightforward double-claim race, but the multi-statement candidate/update/reload sequence has only SQLite coverage. Prove its behavior under real client/server isolation and multi-worker contention, or replace it with provider-specific atomic claim SQL (`FOR UPDATE SKIP LOCKED`, provider equivalent, or another transactionally sound strategy).
 
 Acceptance criteria:
 
-- Outbox writes succeed on each supported provider.
-- Duplicate idempotency keys are still treated as success.
-- SQL Server outbox write behavior remains unchanged.
-- PostgreSQL/MySQL do not execute SQL Server bracketed identifier SQL.
+- Mapped and raw writer modes commit/rollback atomically on every Tier 1 provider.
+- Duplicate idempotency keys are success in batch, individual fallback, and races.
+- Two or more drainers never process the same lease concurrently.
+- SQL Server retains its atomic claim fast path.
+- Unsupported outbox modes fail before executing provider-invalid SQL.
 
-## Phase 5: Advisory Lock Portability
+## Phase 5: Integrity Advisory Locks
 
-**Objective:** preserve tamper-chain append correctness across providers.
+**Status:** SQL Server only.
 
-Keep integrity locking near `AuditIntegrityRepository`. Do not reuse `IAuditDistributedLockService` for sequence allocation.
+Keep lock acquisition next to `AuditIntegrityRepository`, but extract provider strategies.
 
-Recommended abstraction:
+| Provider | Candidate strategy | Support consequence |
+|----------|--------------------|---------------------|
+| SQL Server | `sp_getapplock`, `LockOwner = Transaction` | Existing behavior |
+| PostgreSQL | transaction-scoped advisory lock, with bounded/cancellable acquisition | Strong Tier 1 candidate |
+| MySQL | `GET_LOCK` / `RELEASE_LOCK` | Session-scoped; requires explicit exception-safe release and connection-pool tests |
+| SQLite | process-local serializer plus native single-writer behavior | Experimental single-process only |
 
-```csharp
-internal interface IDatabaseAdvisoryLock
-{
-    bool IsSupported { get; }
-    string ProviderName { get; }
+Requirements:
 
-    Task AcquireAsync(
-        DbContext context,
-        string resourceName,
-        int timeoutMs,
-        CancellationToken cancellationToken);
-}
-```
-
-Provider strategy:
-
-| Provider | Strategy | Tier Notes |
-|----------|----------|------------|
-| SQL Server | `sp_getapplock` with `LockOwner = Transaction` | Existing Tier 1 behavior |
-| PostgreSQL | `pg_advisory_xact_lock` or `pg_try_advisory_xact_lock` loop | Good transaction-scoped match |
-| MySQL | `GET_LOCK` / `RELEASE_LOCK` | Session-scoped; Tier 2 until proven safe |
-| SQLite | no-op plus process-local serializer | Experimental single-instance only |
-
-Implementation notes:
-
-- `AcquireAppendLockAsync` must still require an active transaction for providers with transaction-scoped locks.
-- MySQL lock release must be explicit and exception-safe because the lock is session-scoped.
-- `TamperDetectionService` comments and docs currently mention SQL Server `sp_getapplock`; update them to describe provider strategy.
-- Existing local serializer fallback remains useful for providers without cross-process lock support.
-
-Files:
-
-- `src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs`
-- new `Locking` strategy files under EntityFramework
-- `src/MillWorks.AuditCore.Services/TamperDetectionService.cs` docs/comments
+- Require an active transaction wherever lock ownership is transaction-scoped.
+- Use a stable, collision-safe advisory lock key derived from the audit database/schema/chain identity.
+- Test separate contexts and connections, timeout/cancellation, rollback release, and connection reuse.
+- Update SQL Server-specific comments in `TamperDetectionService`, repository interfaces, options, and README after the abstraction lands.
 
 Acceptance criteria:
 
-- SQL Server behavior is unchanged.
-- PostgreSQL concurrent integrity appends serialize across separate contexts/processes.
-- Lock timeout behavior is tested.
-- Rollback releases transaction-scoped locks.
-- MySQL behavior is tested and documented as session-scoped.
+- Concurrent append tests validate a gap-free chain across independent connections.
+- Lock failure never falls back silently to an unsafe append.
+- SQL Server behavior and its existing concurrency suite remain unchanged.
 
-## Phase 6: Provider-Aware Maintenance Services
+## Phase 6: Provider-Aware Maintenance
 
-**Objective:** stop admin APIs from assuming SQL Server internals.
+**Status:** Not started.
 
-Current SQL Server-only operations:
+Replace exception-driven degradation with a provider strategy. Separate portable cleanup/statistics queries from provider-specific database-size and optimization operations.
 
-- `GetAuditDatabaseSizeAsync` queries `sys.tables`.
-- `OptimizeAuditTablesAsync` runs `UPDATE STATISTICS [audit].[AuditEvents]`.
+Requirements:
 
-Recommended abstraction:
-
-```csharp
-internal interface IAuditDatabaseMaintenanceStrategy
-{
-    bool SupportsDatabaseSizeEstimation { get; }
-    bool SupportsOptimization { get; }
-
-    Task<long> GetDatabaseSizeAsync(
-        AuditDbContext context,
-        CancellationToken cancellationToken);
-
-    Task<bool> OptimizeAsync(
-        AuditDbContext context,
-        CancellationToken cancellationToken);
-}
-```
-
-Behavior:
-
-- SQL Server retains current behavior.
-- PostgreSQL/MySQL implement provider-correct SQL only where safe.
-- Unsupported operations return a degraded result and log clearly.
-- Do not rely on catching provider SQL failures as the normal degradation path.
-
-Files:
-
-- `src/MillWorks.AuditCore.Services/AuditMaintenanceService.cs`
-- new maintenance strategy files
+- SQL Server retains its size query and `UPDATE STATISTICS`, using the configured schema.
+- PostgreSQL/MySQL use provider-correct operations only when the behavior is well-defined.
+- SQLite/unsupported operations return an explicit unsupported/degraded result and log once at the appropriate level.
+- Consider evolving the maintenance contract so callers can distinguish an exact size, an estimate, and an unsupported operation; a `long` or `bool` alone cannot express that distinction.
 
 Acceptance criteria:
 
-- PostgreSQL/MySQL do not execute `sys.tables` or `UPDATE STATISTICS [audit]...`.
-- Unsupported maintenance operations degrade explicitly.
-- `GetAuditStatisticsAsync` reports whether database size is estimated/degraded if possible.
+- No provider executes another provider's system-catalog or maintenance SQL.
+- Configured schema is honored.
+- Tests assert both supported execution and explicit degradation.
 
-## Phase 7: Test Matrix And CI
+## Phase 7: Integration Matrix And CI Gates
 
-**Objective:** prove correctness, not just compile success.
+**Status:** SQL Server and SQLite baseline exists; PostgreSQL/MySQL lanes do not.
 
-Required integration coverage:
+| Capability | SQL Server | PostgreSQL | MySQL | SQLite |
+|------------|------------|------------|-------|--------|
+| provider selection/startup validation | required | required | required if shipped | required |
+| model/DDL validation | required | required | required if shipped | required |
+| empty schema + upgrade migrations | existing/extend | required | required if shipped | define lifecycle |
+| normal read/write + concurrency token | existing | required | required if shipped | existing/extend |
+| mapped and raw transactional outbox | existing/extend | required | required if Tier 1 | mapped required; raw per tier |
+| multi-worker outbox claim | existing/extend | required | required if shipped | local contention only |
+| cross-process integrity append | existing | required | required for multi-instance claim | not claimed |
+| lock timeout and release | existing/extend | required | required if shipped | n/a |
+| maintenance behavior | required | required | required if shipped | degraded behavior required |
 
-| Area | SQL Server | PostgreSQL | MySQL | SQLite |
-|------|------------|------------|-------|--------|
-| schema creation from migrations | yes | yes | yes | optional/test |
-| normal write/read path | yes | yes | yes | yes |
-| outbox write in consumer transaction | yes | yes | yes | yes |
-| outbox drain/claim | yes | yes | yes | yes |
-| tamper append serialization | yes | yes | yes/documented | local only |
-| lock timeout/release | yes | yes | yes | n/a |
-| maintenance APIs | yes | yes/degraded | yes/degraded | degraded |
-| model metadata validation | yes | yes | yes | yes |
+CI rules:
 
-Must-have tests:
+- Keep the existing SQL Server Testcontainers workflow as a required gate.
+- Add PostgreSQL as the first new provider gate.
+- Add MySQL only when its product tier and provider package are committed.
+- Keep fast SQLite tests in the general suite, but do not treat them as proof of client/server concurrency semantics.
 
-- provider selection in `UseEntityFramework`
-- design-time factory provider selection
-- migrations create provider schema cleanly
-- model uses provider-correct default SQL and constraints
-- transactional outbox duplicate handling per provider
-- concurrent integrity appends across separate DbContexts/connections
-- rollback releases advisory lock
-- command metrics interceptor does not require `SqlException` on non-SQL Server providers
-- maintenance methods do not issue invalid SQL for the active provider
+## Revised Delivery Slices
 
-Infrastructure:
+| Slice | Scope | Depends on | Estimate |
+|-------|-------|------------|----------|
+| A | Package/API decision, support matrix, capability registry | none | 1 day |
+| B | Provider-aware runtime registration, validation, migration-history schema, model cache key | A | 1.5-2 days |
+| C | Explicit model strategies and provider metadata tests | B | 2 days |
+| D | PostgreSQL package, design-time factory, migrations, empty/upgrade lane | B, C | 3-4 days |
+| E | Outbox writer dialects, real duplicate detection, atomic PostgreSQL claim | B, D | 2-3 days |
+| F | Lock strategy extraction, SQL Server parity, PostgreSQL advisory lock | B, D | 2 days |
+| G | Maintenance strategies and result semantics | B, D | 1-2 days |
+| H | PostgreSQL CI matrix, docs, failure-path and concurrency hardening | E, F, G | 2-3 days |
+| I | MySQL product decision and implementation | proven PostgreSQL abstractions | separately estimate |
 
-- existing SQL Server Testcontainers lane remains required
-- add PostgreSQL Testcontainer lane
-- add MySQL Testcontainer lane
-- keep SQLite local integration tests
+Estimated PostgreSQL Tier 1 effort: **14-18 engineering days**, excluding production soak and package-release work. MySQL is intentionally not included until its tier and session-lock risk are accepted.
 
-## Ticketable Rollout
+## Risks And Rollback
 
-| Slice | Scope | Depends On | Est. Effort |
-|-------|-------|------------|-------------|
-| A | Support docs + capability model | None | 0.5 day |
-| B | Runtime provider option + provider registration helper | A | 1 day |
-| C | Provider-aware options validation and SQL command metrics registration | B | 0.5 day |
-| D | Design-time factory + package/provider wiring | B | 1 day |
-| E | Migration set strategy and first non-SQL Server migration lane | D | 2-3 days |
-| F | Model configuration normalization | B, D | 1.5 days |
-| G | Outbox SQL dialect strategy | B, F | 1.5 days |
-| H | Advisory lock strategy extraction + SQL Server parity | B | 0.5 day |
-| I | PostgreSQL advisory lock support | H | 1 day |
-| J | MySQL advisory lock support and documentation | H | 1.5 days |
-| K | Maintenance strategy abstraction | B | 1 day |
-| L | Integration test matrix + CI | E, F, G, I, J, K | 2-4 days |
+- **Migration maintenance:** every Tier 1 provider adds a long-lived snapshot and upgrade lane. If that cost is not acceptable, keep the provider unsupported.
+- **Integrity correctness:** an advisory-lock implementation error can create an apparently valid but forked/gapped chain. Provider support remains blocked until cross-connection tests pass.
+- **Outbox claim races:** the generic EF fallback is multi-statement and cannot be assumed atomic under client/server concurrency.
+- **Model cache contamination:** the custom cache key must include provider before a process can construct the same context type/schema for different providers.
+- **Package drift:** provider packages must remain compatible with the repository's EF Core version.
+- **MySQL lock lifetime:** session-owned locks and pooled connections make exception/release behavior higher risk than PostgreSQL transaction-owned locks.
 
-Realistic total: 14-18 engineering days, not counting production soak time.
+Each phase is independently reversible by removing the new provider registration/package and retaining SQL Server as the only Tier 1 provider. Never roll back by silently routing an unknown provider through SQL Server SQL or by weakening transactional/tamper guarantees.
 
-## Risk Analysis
+## Definition Of Done For A New Provider
 
-### Biggest Risk: Migration Maintenance
+A provider is supported only when all of the following are true:
 
-Provider-specific migrations add maintenance cost. If the library does not intend to maintain those lanes, do not claim Tier 1 support.
+- it is intentionally selectable through the public configuration surface;
+- options and schema semantics are provider-correct;
+- model metadata and types are provider-correct;
+- empty creation and upgrades use maintained provider migrations;
+- mapped and advertised raw outbox modes are atomic;
+- multi-worker claim behavior is proven;
+- duplicate/deadlock detection uses real provider exceptions;
+- integrity appends serialize across connections/instances, or the limitation is explicit in a lower tier;
+- maintenance operations execute provider-correct SQL or explicitly report unsupported behavior;
+- the provider's integration matrix is a required CI gate; and
+- README/package support claims match the achieved tier.
 
-### Highest Correctness Risk: Integrity Sequence Locking
+## Recommendation
 
-The tamper chain depends on serialized sequence allocation. PostgreSQL has a good transaction-scoped lock primitive. MySQL does not match as cleanly because `GET_LOCK` is session-scoped.
-
-### Outbox Atomicity Risk
-
-`AuditOutboxWriter` writes into the consumer transaction. Provider-specific SQL must preserve duplicate handling and transaction enrollment.
-
-### Provider Drift Risk
-
-Provider-name checks scattered across services will rot. Centralize detection, capabilities, SQL snippets, and dialects.
-
-### Package Footprint Risk
-
-Referencing every EF provider from the main package increases dependency surface. Decide whether AuditCore ships all providers, provider-specific companion packages, or documented consumer-owned provider packages.
-
-## Rollback Plan
-
-- Phase 1 rollback: keep SQL Server default registration only.
-- Phase 2 rollback: keep SQL Server migrations as the only supported migration set.
-- Phase 3 rollback: keep PostgreSQL/MySQL marked unsupported until model metadata is provider-correct.
-- Phase 4 rollback: disable transactional outbox support on non-SQL Server providers.
-- Phase 5 rollback: keep SQL Server advisory locking only; other providers remain unsupported for multi-instance integrity.
-- Phase 6 rollback: keep SQL Server maintenance strategy as the only concrete implementation.
-
-Each phase should be independently revertible and should not weaken SQL Server behavior.
-
-## Recommended Implementation Order
-
-1. Phase 0: docs and capabilities
-2. Phase 1: runtime provider selection
-3. Phase 2: design-time/migration strategy
-4. Phase 3: model portability
-5. Phase 4: outbox SQL portability
-6. Phase 5: advisory locks
-7. Phase 6: maintenance strategies
-8. Phase 7: full provider CI matrix
-
-This order keeps support claims behind the real blockers: schema lifecycle, outbox atomicity, and integrity locking.
-
-## Success Metrics
-
-| Metric | Before | After |
-|--------|--------|-------|
-| Public runtime provider choice | SQL Server only | SQL Server, PostgreSQL, MySQL, SQLite |
-| Provider-aware schema lifecycle | No | Yes for Tier 1 providers |
-| Outbox raw SQL portability | SQL Server only | Provider dialects or provider-safe EF paths |
-| Multi-instance integrity correctness outside SQL Server | No | Yes for PostgreSQL; documented/tested for MySQL |
-| SQL Server-only maintenance SQL on non-SQL providers | Possible | Eliminated |
-| Provider support claims | Risk of overclaiming | Explicit by tier |
-
-## Final Recommendation
-
-Do this work only if AuditCore genuinely intends to support PostgreSQL/MySQL as maintained product paths. The minimum credible standard is:
-
-- provider-aware runtime registration
-- provider-correct model metadata
-- provider-specific migration lifecycle
-- provider-portable transactional outbox writes
-- tested integrity locking semantics
-- explicit support tiers and degradation behavior
-
-Anything less should be labeled "SQL Server first with experimental provider work," which is a valid product stance as long as it is explicit.
+Implement PostgreSQL first and use it to establish the provider boundary. Keep SQL Server as the unchanged default, SQLite as the local/test lane, and MySQL out of the committed scope until PostgreSQL proves the migrations, outbox, locking, and maintenance abstractions. This produces a smaller credible support claim than attempting four providers at once and makes every advertised guarantee testable.

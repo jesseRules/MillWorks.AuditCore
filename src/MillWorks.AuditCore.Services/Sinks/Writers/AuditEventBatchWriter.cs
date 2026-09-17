@@ -117,12 +117,17 @@ internal sealed class AuditEventBatchWriter(
             CorrelationId = envelope.CorrelationId,
             IpAddress = envelope.IpAddress,
             UserAgent = envelope.UserAgent,
-            AspNetUserId = envelope.UserId
+            AspNetUserId = envelope.UserId,
+            UserId = Guid.TryParse(envelope.UserId, out var userId) ? userId : null
         };
 
         if (envelope.EntityId is { } entityId)
         {
             auditEvent.KeyValues["Id"] = entityId;
+            // AuditLogger's first-class AuditEventEntity.EntityId mapping intentionally reads the
+            // structural EntityId custom field. Keep the key value for the canonical event payload,
+            // and populate the indexed field so entity-scoped queries can retrieve explicit events.
+            auditEvent.CustomFields["EntityId"] = entityId;
         }
 
         if (envelope.Description is { } description)

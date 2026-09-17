@@ -165,12 +165,8 @@ public sealed class IdempotencySqliteTests : IDisposable
     #region AuditEntityBatchWriter with SQLite
 
     [Test]
-    public async Task AuditEntityBatchWriter_WriteSameEnvelopeTwice_BothSucceed()
+    public async Task AuditEntityBatchWriter_WriteSameEnvelopeTwice_SecondIsDuplicate()
     {
-        // Entity changes don't have unique constraints on their content,
-        // so writing the same envelope twice should succeed (both are new rows).
-        // The idempotency is at the outbox level, not the AuditLog level.
-
         var scopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
         var logger = NullLogger<AuditEntityBatchWriter>.Instance;
         var writer = new AuditEntityBatchWriter(scopeFactory, logger);
@@ -180,7 +176,8 @@ public sealed class IdempotencySqliteTests : IDisposable
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = "TestEntity",
             Action = AuditAction.Created,
-            EntityId = Guid.NewGuid()
+            EntityId = Guid.NewGuid(),
+            PropertyChanges = [new AuditEnvelopePropertyChange("Status", null, "Active")]
         };
 
         var outcomes1 = await writer.WriteBatchAsync([envelope], CancellationToken.None);
@@ -190,11 +187,47 @@ public sealed class IdempotencySqliteTests : IDisposable
         Assert.That(outcomes1[0].Succeeded, Is.True);
         Assert.That(outcomes2, Has.Count.EqualTo(1));
         Assert.That(outcomes2[0].Succeeded, Is.True);
+        Assert.That(outcomes2[0].IsDuplicate, Is.True);
 
-        // Verify both rows were written
+        // The stable envelope/property key makes replay idempotent.
         await using var context = new AuditDbContext(_options);
         var count = await context.AuditLogs.CountAsync();
-        Assert.That(count, Is.EqualTo(2));
+        Assert.That(count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task AuditEntityBatchWriter_MixedReplayAndNewEnvelope_PersistsNewEnvelope()
+    {
+        var writer = new AuditEntityBatchWriter(
+            _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AuditEntityBatchWriter>.Instance);
+        var replay = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "ExistingEntity",
+            Action = AuditAction.Updated,
+            EntityId = Guid.NewGuid(),
+            PropertyChanges = [new AuditEnvelopePropertyChange("Status", "Pending", "Active")]
+        };
+        var fresh = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "NewEntity",
+            Action = AuditAction.Created,
+            EntityId = Guid.NewGuid(),
+            PropertyChanges = [new AuditEnvelopePropertyChange("Name", null, "New")]
+        };
+        await writer.WriteBatchAsync([replay], CancellationToken.None);
+
+        var outcomes = await writer.WriteBatchAsync([replay, fresh], CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcomes.Single(outcome => outcome.EnvelopeId == replay.EnvelopeId).IsDuplicate, Is.True);
+            Assert.That(outcomes.Single(outcome => outcome.EnvelopeId == fresh.EnvelopeId).IsDuplicate, Is.False);
+        });
+        await using var context = new AuditDbContext(_options);
+        Assert.That(await context.AuditLogs.CountAsync(), Is.EqualTo(2));
     }
 
     #endregion

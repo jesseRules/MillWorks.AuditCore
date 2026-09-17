@@ -152,6 +152,7 @@ public sealed class AuditEventBatchWriterTests
             Assert.That(capturedEvent.IpAddress, Is.EqualTo("10.0.0.1"));
             Assert.That(capturedEvent.UserAgent, Is.EqualTo("Mozilla/5.0"));
             Assert.That(capturedEvent.KeyValues["Id"], Is.EqualTo(entityId));
+            Assert.That(capturedEvent.CustomFields["EntityId"], Is.EqualTo(entityId));
             Assert.That(capturedEvent.CustomFields["Description"], Is.EqualTo("Login OK"));
             Assert.That(capturedEvent.CustomFields["AdditionalData"], Is.EqualTo("{\"method\":\"oauth\"}"));
         });
@@ -179,6 +180,35 @@ public sealed class AuditEventBatchWriterTests
         Assert.That(capturedEvent, Is.Not.Null);
         Assert.That(capturedEvent!.KeyValues, Is.Empty);
         Assert.That(capturedEvent.CustomFields, Is.Empty);
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_GuidUserId_MapsApplicationAndAspNetIdentity()
+    {
+        var userId = Guid.NewGuid();
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.ExplicitEvent,
+            EntityName = "DecisionModels.WorkbenchInferenceRun",
+            Action = AuditAction.Created,
+            EventType = "WorkbenchInferenceRun.Created",
+            UserId = userId.ToString("D"),
+        };
+
+        AuditEvent? capturedEvent = null;
+        _auditLogger
+            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((events, _) => capturedEvent = events.Single())
+            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+
+        await _writer.WriteBatchAsync([envelope], CancellationToken.None);
+
+        Assert.That(capturedEvent, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(capturedEvent!.UserId, Is.EqualTo(userId));
+            Assert.That(capturedEvent.AspNetUserId, Is.EqualTo(userId.ToString("D")));
+        });
     }
 
     [Test]

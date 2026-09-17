@@ -555,11 +555,14 @@ public class AuditLogger(
             ?? (auditEvent.CustomFields.TryGetValue("IpAddress", out var ipAddress) ? ipAddress?.ToString() : null)));
 
         entity.UserAgent = SanitizeInput(fieldRedactor.RedactValue("UserAgent",
-            auditEvent.UserAgent
-            ?? (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent) ? userAgent?.ToString() : null)));
+                auditEvent.UserAgent
+                ?? (auditEvent.CustomFields.TryGetValue("UserAgent", out var userAgent) ? userAgent?.ToString() : null)),
+            AuditEventEntity.MaxUserAgentLength);
 
         if (auditEvent.CustomFields.TryGetValue("RequestPath", out var requestPath))
-            entity.RequestPath = SanitizeInput(fieldRedactor.RedactValue("RequestPath", requestPath?.ToString()));
+            entity.RequestPath = SanitizeInput(
+                fieldRedactor.RedactValue("RequestPath", requestPath?.ToString()),
+                AuditEventEntity.MaxRequestPathLength);
 
         if (auditEvent.CustomFields.TryGetValue("RequestMethod", out var requestMethod))
             entity.RequestMethod = requestMethod?.ToString();
@@ -623,18 +626,29 @@ public class AuditLogger(
     /// to prevent log injection attacks where attackers embed forged log entries
     /// via HTTP headers like User-Agent.
     /// </summary>
-    private static string? SanitizeInput(string? value)
+    private static string? SanitizeInput(string? value, int? maxLength = null)
     {
         if (value is null) return null;
 
-        // Fast path: zero-allocation scan for control characters
-        bool hasControlChars = value.Any(char.IsControl);
+        var outputLength = maxLength.HasValue
+            ? Math.Min(value.Length, maxLength.Value)
+            : value.Length;
 
-        if (!hasControlChars) return value;
-
-        return string.Create(value.Length, value, static (span, src) =>
+        // Fast path: zero-allocation scan over only the portion that will be persisted.
+        var hasControlChars = false;
+        for (var i = 0; i < outputLength; i++)
         {
-            for (int i = 0; i < src.Length; i++)
+            if (!char.IsControl(value[i])) continue;
+            hasControlChars = true;
+            break;
+        }
+
+        if (!hasControlChars)
+            return outputLength == value.Length ? value : value[..outputLength];
+
+        return string.Create(outputLength, value, static (span, src) =>
+        {
+            for (var i = 0; i < span.Length; i++)
                 span[i] = char.IsControl(src[i]) ? ' ' : src[i];
         });
     }
