@@ -152,6 +152,7 @@ public sealed class AuditEventBatchWriterTests
             Assert.That(capturedEvent.IpAddress, Is.EqualTo("10.0.0.1"));
             Assert.That(capturedEvent.UserAgent, Is.EqualTo("Mozilla/5.0"));
             Assert.That(capturedEvent.KeyValues["Id"], Is.EqualTo(entityId));
+            Assert.That(capturedEvent.CustomFields["EntityId"], Is.EqualTo(entityId.ToString("D")));
             Assert.That(capturedEvent.CustomFields["Description"], Is.EqualTo("Login OK"));
             Assert.That(capturedEvent.CustomFields["AdditionalData"], Is.EqualTo("{\"method\":\"oauth\"}"));
         });

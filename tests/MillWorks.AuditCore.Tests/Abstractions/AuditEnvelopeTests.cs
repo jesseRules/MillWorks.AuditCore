@@ -112,6 +112,43 @@ public sealed class AuditEnvelopeTests
     }
 
     [Test]
+    public void GovernanceIdentity_SurvivesEnvelopeJsonRoundTrip()
+    {
+        var tenantId = Guid.NewGuid();
+        var resourceId = Guid.NewGuid();
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "DocumentEntity",
+            EntityId = resourceId,
+            Action = AuditAction.Updated,
+            GovernanceIdentity = new AuditGovernanceIdentity(
+                tenantId,
+                "Document:Document",
+                resourceId),
+            SubjectReferences =
+            [
+                new AuditSubjectReference(Guid.NewGuid(), "OwnerUserId")
+            ]
+        };
+
+        string json = JsonSerializer.Serialize(envelope);
+        AuditEnvelope? restored = JsonSerializer.Deserialize<AuditEnvelope>(json);
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(restored!.GovernanceIdentity, Is.EqualTo(envelope.GovernanceIdentity));
+        Assert.That(restored.SubjectReferences, Is.EqualTo(envelope.SubjectReferences));
+    }
+
+    [Test]
+    public void GovernanceIdentity_RejectsWhitespaceResourceTypePairedWithResourceId()
+    {
+        Assert.That(
+            () => new AuditGovernanceIdentity(Guid.NewGuid(), "   ", Guid.NewGuid()),
+            Throws.ArgumentException.With.Message.Contains("both be supplied"));
+    }
+
+    [Test]
     public void With_ProducesNewInstance_OriginalUnchanged()
     {
         var original = new AuditEnvelope

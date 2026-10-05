@@ -570,6 +570,42 @@ public class AuditLoggerTests
         Assert.That(capturedEntity.EntityId, Is.EqualTo("12345"));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ExplicitEnvelope_PersistsSearchableEntityId(bool stringKey)
+    {
+        var id = Guid.NewGuid();
+        var expectedId = stringKey ? "case-123" : id.ToString("D");
+        AuditEventEntity? captured = null;
+        _mockAuditEventRepository
+            .Setup(x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditEventEntity, CancellationToken>((entity, _) => captured = entity)
+            .ReturnsAsync((AuditEventEntity entity, CancellationToken _) => entity);
+        _mockAuditEventRepository.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockTamperDetectionService
+            .Setup(x => x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AuditIntegrityDto());
+        var writer = new MillWorks.AuditCore.Services.Sinks.Writers.AuditEventBatchWriter(
+            _auditLogger, Microsoft.Extensions.Logging.Abstractions.NullLogger<MillWorks.AuditCore.Services.Sinks.Writers.AuditEventBatchWriter>.Instance);
+        var envelope = new AuditEnvelope
+        {
+            Kind = MillWorks.AuditCore.Abstractions.Enums.AuditEnvelopeKind.ExplicitEvent,
+            EntityName = "DataBreachReportEntity",
+            EntityId = stringKey ? null : id,
+            EntityIdString = stringKey ? expectedId : "ignored-string-key",
+            Action = MillWorks.AuditCore.Abstractions.Enums.AuditAction.Exported,
+            EventType = "Compliance.BreachEvidence.Downloaded"
+        };
+
+        var outcomes = await writer.WriteBatchAsync([envelope], CancellationToken.None);
+
+        Assert.That(outcomes.Single().Succeeded, Is.True);
+        Assert.That(captured, Is.Not.Null);
+        Assert.That(captured!.EntityType, Is.EqualTo(envelope.EntityName));
+        Assert.That(captured.EntityId, Is.EqualTo(expectedId));
+        Assert.That(captured.Action, Is.EqualTo("Exported"));
+    }
+
     /// <summary>
     /// Verifies that IpAddress, UserAgent, RequestPath, RequestMethod are all mapped
     /// </summary>

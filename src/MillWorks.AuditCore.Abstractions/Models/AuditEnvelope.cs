@@ -139,4 +139,16 @@ public sealed record AuditEnvelope
     /// Null for <see cref="AuditEnvelopeKind.EntityChange"/> envelopes.
     /// </summary>
     public Guid? ExplicitEventId { get; init; }
+
+    /// <summary>
+    /// Stable tenant/resource identity for retention and legal-hold evaluation. This metadata is
+    /// deliberately separate from redacted payload data and survives outbox serialization.
+    /// </summary>
+    public AuditGovernanceIdentity? GovernanceIdentity { get; init; }
+
+    /// <summary>
+    /// Typed subject links extracted through host policy. These are separate from payload snapshots so
+    /// redaction and changed-property selection cannot make subject discovery incomplete.
+    /// </summary>
+    public IReadOnlyList<AuditSubjectReference>? SubjectReferences { get; init; }
 }

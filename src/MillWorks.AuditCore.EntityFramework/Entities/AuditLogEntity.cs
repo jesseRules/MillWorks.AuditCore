@@ -19,6 +19,9 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(EnvelopeId), nameof(PropertyName), Name = "IX_AuditLogs_Envelope_Property", IsUnique = true)]
 public sealed class AuditLogEntity: AppendOnlyEntity
 {
+    /// <summary>Normalized subject locators used by tenant-scoped privacy queries.</summary>
+    public ICollection<AuditLogSubjectLinkEntity> SubjectLinks { get; set; } = [];
+
     /// <summary>
     /// Source envelope ID for idempotent replay. Combined with PropertyName, this unique index
     /// prevents duplicate rows when an outbox drainer crashes after SaveChanges but before
@@ -82,6 +85,14 @@ public sealed class AuditLogEntity: AppendOnlyEntity
     [Column("AdditionalData")]
     [MaxLength(4000)]
     public string? AdditionalData { get; set; }
+
+    /// <summary>
+    /// JSON-serialized <c>AuditGovernanceIdentity</c>. Kept separate from payload snapshots so
+    /// redaction and modified-property selection cannot remove retention/hold identity.
+    /// </summary>
+    [Column("GovernanceMetadata", TypeName = "nvarchar(512)")]
+    [MaxLength(512)]
+    public string? GovernanceMetadata { get; set; }
 
     /// <summary>
     /// Correlation ID linking this log entry to the originating request's AuditEvent.

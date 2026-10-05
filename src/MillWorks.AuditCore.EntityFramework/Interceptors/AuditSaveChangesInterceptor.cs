@@ -80,6 +80,12 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// </summary>
     private readonly IReadOnlyList<IAuditPropertySensitivityPolicy> _sensitivityPolicies;
 
+    /// <summary>Consumer mappings from CLR entity types to canonical resource-type keys.</summary>
+    private readonly IReadOnlyList<IAuditResourceIdentityPolicy> _resourceIdentityPolicies;
+
+    /// <summary>Consumer mappings from CLR entity types to typed subject-id properties.</summary>
+    private readonly IReadOnlyList<IAuditSubjectIdentityPolicy> _subjectIdentityPolicies;
+
     /// <summary>
     /// Per-instance cache of attribute-plus-policy merged metadata, keyed by the concrete entity
     /// type and the property. Only populated when at least one policy is registered; the singleton
@@ -222,6 +228,13 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// Null/empty preserves the attribute-only behaviour exactly. See
     /// <see cref="IAuditPropertySensitivityPolicy"/>.
     /// </param>
+    /// <param name="resourceIdentityPolicies">
+    /// Optional pure policies that publish canonical resource-type keys. Tenant and primary-key
+    /// values are obtained from EF metadata, independently of redacted audit payloads.
+    /// </param>
+    /// <param name="subjectIdentityPolicies">
+    /// Optional pure policies that identify typed EF properties containing subject identifiers.
+    /// </param>
     public AuditSaveChangesInterceptor(
         ILogger<AuditSaveChangesInterceptor> logger,
         ComplianceEnforcementMode? enforcementMode = null,
@@ -230,7 +243,9 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         AuditFailureMode failureMode = AuditFailureMode.Permissive,
         IAuditFailurePolicy? failurePolicy = null,
         IServiceScopeFactory? scopeFactory = null,
-        IEnumerable<IAuditPropertySensitivityPolicy>? sensitivityPolicies = null)
+        IEnumerable<IAuditPropertySensitivityPolicy>? sensitivityPolicies = null,
+        IEnumerable<IAuditResourceIdentityPolicy>? resourceIdentityPolicies = null,
+        IEnumerable<IAuditSubjectIdentityPolicy>? subjectIdentityPolicies = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _enforcementMode = enforcementMode;
@@ -241,6 +256,12 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         _scopeFactory = scopeFactory;
         _sensitivityPolicies = sensitivityPolicies as IReadOnlyList<IAuditPropertySensitivityPolicy>
             ?? sensitivityPolicies?.ToList()
+            ?? [];
+        _resourceIdentityPolicies = resourceIdentityPolicies as IReadOnlyList<IAuditResourceIdentityPolicy>
+            ?? resourceIdentityPolicies?.ToList()
+            ?? [];
+        _subjectIdentityPolicies = subjectIdentityPolicies as IReadOnlyList<IAuditSubjectIdentityPolicy>
+            ?? subjectIdentityPolicies?.ToList()
             ?? [];
     }
 
@@ -579,6 +600,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             .ToList();
 
         var contextSource = context as IAuditContextSource;
+        var tenantContextSource = context as IAuditTenantContextSource;
         var correlationId = contextSource?.CurrentCorrelationId;
 
         try
@@ -602,7 +624,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 var envelopes = new List<AuditEnvelope>(auditableEntries.Count);
                 foreach (var entry in auditableEntries)
                 {
-                    var envelope = BuildEnvelope(entry, contextSource);
+                    var envelope = BuildEnvelope(entry, contextSource, tenantContextSource);
                     if (envelope is not null)
                         envelopes.Add(envelope);
                 }
@@ -680,7 +702,10 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// <c>[NoAudit]</c> or unchanged) — preserving the prior behavior of emitting
     /// zero rows for that entry.
     /// </summary>
-    private AuditEnvelope? BuildEnvelope(EntityEntry entry, IAuditContextSource? contextSource)
+    private AuditEnvelope? BuildEnvelope(
+        EntityEntry entry,
+        IAuditContextSource? contextSource,
+        IAuditTenantContextSource? tenantContextSource)
     {
         var entityType = entry.Entity.GetType();
         var entityName = entityType.Name;
@@ -697,6 +722,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var ipAddress = contextSource?.CurrentIpAddress;
         var userAgent = contextSource?.CurrentUserAgent;
         var userId = contextSource?.CurrentUserId;
+        var governanceIdentity = ResolveGovernanceIdentity(entry, tenantContextSource);
+        var subjectReferences = ResolveSubjectReferences(entry, governanceIdentity);
 
         if (entry.State == EntityState.Modified)
         {
@@ -753,6 +780,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     Description = description,
                     PropertyChanges = changes,
                     AdditionalData = additionalData,
+                    GovernanceIdentity = governanceIdentity,
+                    SubjectReferences = subjectReferences,
                 };
             }
 
@@ -855,7 +884,96 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             UserAgent = userAgent,
             Description = addedDeletedDescription,
             AdditionalData = snapshotJson,
+            GovernanceIdentity = governanceIdentity,
+            SubjectReferences = subjectReferences,
         };
+    }
+
+    private IReadOnlyList<AuditSubjectReference>? ResolveSubjectReferences(
+        EntityEntry entry,
+        AuditGovernanceIdentity? governanceIdentity)
+    {
+        if (_subjectIdentityPolicies.Count == 0)
+            return null;
+
+        var propertyNames = _subjectIdentityPolicies
+            .SelectMany(policy => policy.GetSubjectPropertyNames(entry.Entity.GetType()) ?? [])
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(static name => name.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+        if (propertyNames.Length == 0)
+            return null;
+        if (governanceIdentity is null)
+        {
+            throw new InvalidOperationException(
+                $"Audited subject links for '{entry.Entity.GetType().FullName}' require a non-empty TenantId.");
+        }
+
+        var references = new List<AuditSubjectReference>(propertyNames.Length);
+        foreach (string propertyName in propertyNames)
+        {
+            var property = entry.Metadata.FindProperty(propertyName)
+                ?? throw new InvalidOperationException(
+                    $"Audit subject policy property '{entry.Entity.GetType().FullName}.{propertyName}' is not mapped by EF.");
+            object? value = entry.State == EntityState.Deleted
+                ? entry.Property(property.Name).OriginalValue
+                : entry.Property(property.Name).CurrentValue;
+            if (value is Guid subjectId && subjectId != Guid.Empty)
+                references.Add(new AuditSubjectReference(subjectId, propertyName));
+        }
+
+        return references.Count == 0 ? null : references;
+    }
+
+    private AuditGovernanceIdentity? ResolveGovernanceIdentity(
+        EntityEntry entry,
+        IAuditTenantContextSource? tenantContextSource)
+    {
+        var tenantProperty = entry.Metadata.FindProperty("TenantId");
+        object? tenantValue = tenantProperty is null
+            ? null
+            : entry.State == EntityState.Deleted
+                ? entry.Property(tenantProperty.Name).OriginalValue
+                : entry.Property(tenantProperty.Name).CurrentValue;
+        Guid? tenantId = tenantValue is Guid entityTenantId && entityTenantId != Guid.Empty
+            ? entityTenantId
+            : tenantContextSource?.CurrentAuditTenantId;
+        if (tenantId is null || tenantId == Guid.Empty)
+            return null;
+
+        string? resourceType = null;
+        foreach (IAuditResourceIdentityPolicy policy in _resourceIdentityPolicies)
+        {
+            string? candidate = policy.GetResourceType(entry.Entity.GetType());
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            candidate = candidate.Trim();
+            if (resourceType is not null && !string.Equals(resourceType, candidate, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting audit resource identities were registered for '{entry.Entity.GetType().FullName}'.");
+            }
+
+            resourceType = candidate;
+        }
+
+        if (resourceType is null)
+            return new AuditGovernanceIdentity(tenantId.Value);
+
+        var primaryKey = entry.Metadata.FindPrimaryKey();
+        if (primaryKey?.Properties.Count != 1)
+            return new AuditGovernanceIdentity(tenantId.Value);
+
+        var keyProperty = primaryKey.Properties[0];
+        object? keyValue = entry.State == EntityState.Deleted
+            ? entry.Property(keyProperty.Name).OriginalValue
+            : entry.Property(keyProperty.Name).CurrentValue;
+        return keyValue is Guid resourceId && resourceId != Guid.Empty
+            ? new AuditGovernanceIdentity(tenantId.Value, resourceType, resourceId)
+            : new AuditGovernanceIdentity(tenantId.Value);
     }
 
     /// <summary>

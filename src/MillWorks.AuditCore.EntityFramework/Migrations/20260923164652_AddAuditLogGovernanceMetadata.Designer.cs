@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MillWorks.AuditCore.EntityFramework.Data;
 
@@ -11,9 +12,11 @@ using MillWorks.AuditCore.EntityFramework.Data;
 namespace MillWorks.AuditCore.EntityFramework.Migrations
 {
     [DbContext(typeof(AuditDbContext))]
-    partial class AuditDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923164652_AddAuditLogGovernanceMetadata")]
+    partial class AddAuditLogGovernanceMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -663,31 +666,6 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         });
                 });
 
-            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditLogSubjectLinkEntity", b =>
-                {
-                    b.Property<Guid>("AuditLogId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SubjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Relationship")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.HasKey("AuditLogId", "TenantId", "SubjectId", "Relationship");
-
-                    b.HasIndex(new[] { "TenantId", "SubjectId", "OccurredAt", "AuditLogId" }, "IX_AuditLogSubjectLinks_Subject_Time");
-
-                    b.ToTable("AuditLogSubjectLinks", "audit");
-                });
-
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -898,17 +876,6 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                     b.Navigation("AuditEvent");
                 });
 
-            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditLogSubjectLinkEntity", b =>
-                {
-                    b.HasOne("MillWorks.AuditCore.EntityFramework.Entities.AuditLogEntity", "AuditLog")
-                        .WithMany("SubjectLinks")
-                        .HasForeignKey("AuditLogId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AuditLog");
-                });
-
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditSecurityEventEntity", b =>
                 {
                     b.HasOne("MillWorks.AuditCore.EntityFramework.Entities.AuditEventEntity", "RelatedAuditEvent")
@@ -921,11 +888,6 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditEventEntity", b =>
                 {
                     b.Navigation("AuditIntegrity");
-                });
-
-            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditLogEntity", b =>
-                {
-                    b.Navigation("SubjectLinks");
                 });
 #pragma warning restore 612, 618
         }

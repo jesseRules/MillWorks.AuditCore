@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.13.0</Version>
-        <AssemblyVersion>1.13.0.0</AssemblyVersion>
-        <FileVersion>1.13.0.0</FileVersion>
+        <Version>1.15.2</Version>
+        <AssemblyVersion>1.15.2.0</AssemblyVersion>
+        <FileVersion>1.15.2.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,15 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.10.0: adds a NIST compliance validator. Previously ComplianceStandard.NIST had no registered IComplianceValidator, so GenerateComplianceReportAsync(ComplianceStandard.NIST) / ValidateEventTypeComplianceAsync(..., NIST, ...) threw NotSupportedException — breaking any consumer that mapped a NIST-family framework (NIST 800-53 / CSF / 800-171) onto that standard. NistValidator provides approximate NIST coverage by composing the existing StigValidator (whose controls map directly onto NIST 800-53 AU/AC/IA/SI families) with the Iso27001Validator (ISMS logging/monitoring breadth), unioning their findings by rule name. It runs whenever NIST or either constituent standard is enabled and force-enables STIG + ISO 27001 for its delegates, so it always returns real results when invoked rather than an empty report (an empty report is dangerous for continuous-monitoring drift trackers, which read "no failing rules" as "all controls pass"). Registered in MillWorksAuditBuilder.UseCompliance via factory. Additive, non-breaking. See CHANGELOG.md.
+        <PackageReleaseNotes>v1.15.2: fixes entity audit batch replay handling. Existing envelope/property rows are verified before insertion; mixed and partial replays persist missing rows and subject links. Concurrent unique-key conflicts are retried with fresh contexts and unresolved failures are never acknowledged as successful duplicates. See CHANGELOG.md.
+
+v1.15.1 release notes follow below:
+
+v1.15.1: adds the optional IAuditTenantContextSource fallback for subject-indexed entities that do not carry their own TenantId. Entity-level tenant metadata still takes precedence; consumers that do not enable subject indexing are unchanged, and an unresolved tenant still fails closed. Includes the payload-independent subject lookup introduced in 1.15.0. Additive, non-breaking. See CHANGELOG.md.
+
+Earlier release notes follow below:
+
+v1.10.0: adds a NIST compliance validator. Previously ComplianceStandard.NIST had no registered IComplianceValidator, so GenerateComplianceReportAsync(ComplianceStandard.NIST) / ValidateEventTypeComplianceAsync(..., NIST, ...) threw NotSupportedException — breaking any consumer that mapped a NIST-family framework (NIST 800-53 / CSF / 800-171) onto that standard. NistValidator provides approximate NIST coverage by composing the existing StigValidator (whose controls map directly onto NIST 800-53 AU/AC/IA/SI families) with the Iso27001Validator (ISMS logging/monitoring breadth), unioning their findings by rule name. It runs whenever NIST or either constituent standard is enabled and force-enables STIG + ISO 27001 for its delegates, so it always returns real results when invoked rather than an empty report (an empty report is dangerous for continuous-monitoring drift trackers, which read "no failing rules" as "all controls pass"). Registered in MillWorksAuditBuilder.UseCompliance via factory. Additive, non-breaking. See CHANGELOG.md.
 
 Earlier release notes follow below:
 

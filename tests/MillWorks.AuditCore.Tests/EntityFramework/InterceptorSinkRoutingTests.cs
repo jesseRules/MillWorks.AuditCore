@@ -48,7 +48,9 @@ public sealed class InterceptorSinkRoutingTests
 
         _interceptor = new AuditSaveChangesInterceptor(
             NullLogger<AuditSaveChangesInterceptor>.Instance,
-            scopeFactory: scopeFactory);
+            scopeFactory: scopeFactory,
+            resourceIdentityPolicies: [new RoutingResourceIdentityPolicy()],
+            subjectIdentityPolicies: [new RoutingSubjectIdentityPolicy()]);
 
         var options = new DbContextOptionsBuilder<RoutingTestDbContext>()
             .UseInMemoryDatabase($"InterceptorSinkRouting_{Guid.NewGuid()}")
@@ -92,6 +94,28 @@ public sealed class InterceptorSinkRoutingTests
             Assert.That(envelope.AdditionalData!, Does.Contain("\"Name\""));
             Assert.That(envelope.AdditionalData!, Does.Contain("Created"));
             Assert.That(envelope.Description, Is.EqualTo("Added RoutingEntity"));
+            Assert.That(envelope.GovernanceIdentity, Is.EqualTo(
+                new AuditGovernanceIdentity(entity.TenantId, "test:routing", entity.Id)));
+            Assert.That(envelope.SubjectReferences, Is.EqualTo(
+                new[] { new AuditSubjectReference(entity.SubjectId, nameof(RoutingEntity.SubjectId)) }));
+        });
+    }
+
+    [Test]
+    public async Task AddedEntityWithoutTenantProperty_UsesConsumerContextTenantForSubjectIndex()
+    {
+        var entity = new ContextTenantEntity();
+        _dbContext.ContextTenantEntities.Add(entity);
+
+        await _dbContext.SaveChangesAsync();
+
+        AuditEnvelope envelope = _sink.Envelopes.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(envelope.GovernanceIdentity, Is.EqualTo(
+                new AuditGovernanceIdentity(_dbContext.CurrentAuditTenantId!.Value)));
+            Assert.That(envelope.SubjectReferences, Is.EqualTo(
+                new[] { new AuditSubjectReference(entity.SubjectId, nameof(ContextTenantEntity.SubjectId)) }));
         });
     }
 
@@ -122,6 +146,11 @@ public sealed class InterceptorSinkRoutingTests
             Assert.That(envelope.PropertyChanges[0].OldValue, Is.EqualTo("Original"));
             Assert.That(envelope.PropertyChanges[0].NewValue, Is.EqualTo("Updated"));
             Assert.That(envelope.Description, Is.EqualTo("Updated RoutingEntity"));
+            Assert.That(envelope.GovernanceIdentity, Is.EqualTo(
+                new AuditGovernanceIdentity(entity.TenantId, "test:routing", entity.Id)),
+                "Unchanged tenant/resource metadata must survive a modified-property-only envelope.");
+            Assert.That(envelope.SubjectReferences, Is.EqualTo(
+                new[] { new AuditSubjectReference(entity.SubjectId, nameof(RoutingEntity.SubjectId)) }));
         });
     }
 
@@ -144,6 +173,12 @@ public sealed class InterceptorSinkRoutingTests
             Assert.That(envelope.PropertyChanges, Is.Null);
             Assert.That(envelope.AdditionalData, Is.Not.Null);
             Assert.That(envelope.Description, Is.EqualTo("Deleted RoutingEntity"));
+            Assert.That(envelope.GovernanceIdentity, Is.EqualTo(
+                new AuditGovernanceIdentity(entity.TenantId, "test:routing", entity.Id)),
+                "Deleted entities must use original tenant and key values.");
+            Assert.That(envelope.SubjectReferences, Is.EqualTo(
+                new[] { new AuditSubjectReference(entity.SubjectId, nameof(RoutingEntity.SubjectId)) }),
+                "Deleted entities must use original subject-link values.");
         });
     }
 
@@ -383,27 +418,54 @@ public sealed class InterceptorSinkRoutingTests
     }
 
     private sealed class RoutingTestDbContext(DbContextOptions<RoutingTestDbContext> options)
-        : DbContext(options), IAuditBypassable
+        : DbContext(options), IAuditBypassable, IAuditTenantContextSource
     {
         public DbSet<RoutingEntity> Entities { get; set; } = null!;
+        public DbSet<ContextTenantEntity> ContextTenantEntities { get; set; } = null!;
         public DbSet<RoutingFerpaEntity> FerpaEntities { get; set; } = null!;
         public DbSet<AuditLogEntity> AuditLogs { get; set; } = null!;
 
         public bool BypassAuditInterceptor { get; set; }
+        public Guid? CurrentAuditTenantId { get; } = Guid.NewGuid();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<RoutingEntity>().HasKey(static e => e.Id);
+            modelBuilder.Entity<ContextTenantEntity>().HasKey(static e => e.Id);
             modelBuilder.Entity<RoutingFerpaEntity>().HasKey(static e => e.Id);
             modelBuilder.Entity<AuditLogEntity>().HasKey(static e => e.Id);
             base.OnModelCreating(modelBuilder);
         }
     }
 
+    private sealed class ContextTenantEntity
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid SubjectId { get; set; } = Guid.NewGuid();
+    }
+
     private sealed class RoutingEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid TenantId { get; set; } = Guid.NewGuid();
+        public Guid SubjectId { get; set; } = Guid.NewGuid();
         public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class RoutingSubjectIdentityPolicy : IAuditSubjectIdentityPolicy
+    {
+        public IReadOnlyCollection<string> GetSubjectPropertyNames(Type entityType) =>
+            entityType == typeof(RoutingEntity)
+                ? [nameof(RoutingEntity.SubjectId)]
+                : entityType == typeof(ContextTenantEntity)
+                    ? [nameof(ContextTenantEntity.SubjectId)]
+                    : [];
+    }
+
+    private sealed class RoutingResourceIdentityPolicy : IAuditResourceIdentityPolicy
+    {
+        public string? GetResourceType(Type entityType) =>
+            entityType == typeof(RoutingEntity) ? "test:routing" : null;
     }
 
     [FERPA(RequiresConsent = true, RecordType = "EducationRecord")]

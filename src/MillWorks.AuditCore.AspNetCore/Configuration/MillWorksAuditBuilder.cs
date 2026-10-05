@@ -22,6 +22,7 @@ using MillWorks.AuditCore.EntityFramework.Options;
 using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.EntityFramework.Repositories.Interfaces;
 using MillWorks.AuditCore.Services.Core;
+using MillWorks.AuditCore.Services;
 using MillWorks.AuditCore.Services.Database;
 using AuditProviderDispatcher = MillWorks.AuditCore.Services.Core.AuditProviderDispatcher;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -176,6 +177,8 @@ public sealed class MillWorksAuditBuilder
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
             // Zero-or-more consumer sensitivity policies (empty when none registered).
             var sensitivityPolicies = sp.GetServices<IAuditPropertySensitivityPolicy>();
+            var resourceIdentityPolicies = sp.GetServices<IAuditResourceIdentityPolicy>();
+            var subjectIdentityPolicies = sp.GetServices<IAuditSubjectIdentityPolicy>();
             return new AuditSaveChangesInterceptor(
                 logger,
                 complianceOptions?.EnforcementMode,
@@ -184,7 +187,9 @@ public sealed class MillWorksAuditBuilder
                 auditOptions.FailureMode,
                 failurePolicy,
                 scopeFactory,
-                sensitivityPolicies);
+                sensitivityPolicies,
+                resourceIdentityPolicies,
+                subjectIdentityPolicies);
         });
 
         // SQL metrics interceptor for Azure SQL observability (throttling, deadlock, connection pool errors)
@@ -278,6 +283,7 @@ public sealed class MillWorksAuditBuilder
 
         // Register query, search, report, and archival services
         Services.AddScoped<IAuditQueryService, AuditQueryService>();
+        Services.AddScoped<IAuditSubjectLookupService, AuditSubjectLookupService>();
         Services.AddScoped<IAuditSearchService, AuditSearchService>();
         Services.AddScoped<IAuditReportService, AuditReportService>();
         Services.AddScoped<IAuditArchivalService, AuditArchivalService>();

@@ -165,11 +165,9 @@ public sealed class IdempotencySqliteTests : IDisposable
     #region AuditEntityBatchWriter with SQLite
 
     [Test]
-    public async Task AuditEntityBatchWriter_WriteSameEnvelopeTwice_BothSucceed()
+    public async Task AuditEntityBatchWriter_WriteSameEnvelopeTwice_PersistsOnlyOnce()
     {
-        // Entity changes don't have unique constraints on their content,
-        // so writing the same envelope twice should succeed (both are new rows).
-        // The idempotency is at the outbox level, not the AuditLog level.
+        // Even without a property name, a persisted envelope is an idempotent replay.
 
         var scopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
         var logger = NullLogger<AuditEntityBatchWriter>.Instance;
@@ -191,10 +189,13 @@ public sealed class IdempotencySqliteTests : IDisposable
         Assert.That(outcomes2, Has.Count.EqualTo(1));
         Assert.That(outcomes2[0].Succeeded, Is.True);
 
-        // Verify both rows were written
+        Assert.That(outcomes1[0].IsDuplicate, Is.False);
+        Assert.That(outcomes2[0].IsDuplicate, Is.True);
+
+        // Verify the replay did not create a second row
         await using var context = new AuditDbContext(_options);
         var count = await context.AuditLogs.CountAsync();
-        Assert.That(count, Is.EqualTo(2));
+        Assert.That(count, Is.EqualTo(1));
     }
 
     #endregion

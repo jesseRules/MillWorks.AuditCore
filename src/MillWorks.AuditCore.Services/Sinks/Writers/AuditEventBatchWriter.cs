@@ -123,6 +123,14 @@ internal sealed class AuditEventBatchWriter(
         if (envelope.EntityId is { } entityId)
         {
             auditEvent.KeyValues["Id"] = entityId;
+            // AuditLogger indexes EntityId from CustomFields; KeyValues only enters the payload.
+            auditEvent.CustomFields["EntityId"] = entityId.ToString("D");
+        }
+
+        if (envelope.EntityId is null && envelope.EntityIdString is { } entityIdString)
+        {
+            auditEvent.KeyValues["Id"] = entityIdString;
+            auditEvent.CustomFields["EntityId"] = entityIdString;
         }
 
         if (envelope.Description is { } description)

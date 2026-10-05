@@ -15,6 +15,7 @@ public sealed class MigrationFromEmptyDatabaseTests
         "AuditIntegrity",
         "AuditIntegrityWorkItems",
         "AuditLogs",
+        "AuditLogSubjectLinks",
         "SecurityEvents"
     ];
 
@@ -32,7 +33,9 @@ public sealed class MigrationFromEmptyDatabaseTests
 
     private static readonly string[] ExpectedMigrationIds =
     [
-        "20260420195321_Init"
+        "20260420195321_Init",
+        "20260923164652_AddAuditLogGovernanceMetadata",
+        "20260924124659_AddAuditLogSubjectLinks"
     ];
 
     private string _migrationConnectionString = null!;
@@ -98,13 +101,13 @@ public sealed class MigrationFromEmptyDatabaseTests
         Assert.Multiple(() =>
         {
             Assert.That(actualTables, Is.SupersetOf(ExpectedAuditTables),
-                "Expected all six audit tables under 'audit' schema after MigrateAsync().");
+                "Expected every current audit table under 'audit' schema after MigrateAsync().");
             Assert.That(actualTables, Does.Contain("__EFMigrationsHistory"),
                 "Expected audit.__EFMigrationsHistory after MigrateAsync().");
             Assert.That(actualIndexes, Is.SupersetOf(ExpectedAuditEventsIndexes),
                 "Expected all eight IX_AuditEvents_* indexes on audit.AuditEvents after MigrateAsync().");
             Assert.That(historyRows, Is.SupersetOf(ExpectedMigrationIds),
-                "Expected both Init and ChangeIntegrityFKsToRestrict rows in audit.__EFMigrationsHistory.");
+                "Expected the initial, governance-identity, and subject-link migrations in audit.__EFMigrationsHistory.");
         });
     }
 

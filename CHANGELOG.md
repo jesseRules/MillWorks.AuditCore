@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.2] - 2026-09-27
+
+### Fixed
+
+- Entity audit batches now check persisted envelope/property keys and write missing rows and their subject links. Mixed batches, partial replays, and repeated envelopes no longer lose new records or provoke avoidable duplicate inserts.
+- Concurrent duplicate-key races retry in fresh contexts. Exhausted conflicts return retryable failures instead of acknowledging an uncommitted batch as successful.
+
+## [1.15.1] - 2026-09-24
+
+### Added
+
+- **Optional ambient tenant metadata** — consumer DbContexts may implement `IAuditTenantContextSource` to supply the tenant governing an operation when a subject-indexed entity does not carry a mapped `TenantId`. An entity's own non-empty tenant always takes precedence.
+
+### Compatibility
+
+- Additive and opt-in. Consumers that do not register an `IAuditSubjectIdentityPolicy` have no new requirement. When subject indexing is requested, AuditCore still fails closed if neither entity metadata nor the optional context source provides a non-empty tenant.
+
+## [1.15.0] - 2026-09-24
+
+### Added
+
+- **Payload-independent subject discovery** — `IAuditSubjectIdentityPolicy` lets a host declare direct typed `Guid` subject properties for audited EF entities. `AuditSaveChangesInterceptor` reads those values through EF metadata, uses original values for deleted rows, and adds bounded `AuditSubjectReference` values to the entity-change envelope without searching descriptions, snapshots, or arbitrary JSON.
+- **Normalized AuditLog subject index** — `AuditEntityBatchWriter` persists one `AuditLogSubjectLinks` row per distinct envelope subject reference for every AuditLog fan-out row. Migration `20260924124659_AddAuditLogSubjectLinks` creates the indexed table and a cascading foreign key to `AuditLogs` so sanctioned retention deletion cannot strand links.
+- **Tenant-scoped lookup service** — `IAuditSubjectLookupService` discovers a subject's records across typed `AuditEvents` columns, normalized `AuditLogSubjectLinks`, and typed `SecurityEvents` columns. Results use deterministic `(OccurredAt, Store, RecordId)` keyset pagination and bounded indexed queries rather than payload scans.
+
+### Boundaries
+
+- Subject policies describe direct person identifiers only. AuditCore does not treat arbitrary foreign keys such as `GroupId` or `ProvisioningOperationId` as subject IDs and does not infer transitive domain ownership. A host's domain inventory remains responsible for those dependent relationships.
+- Existing AuditLog rows are not silently inferred or backfilled from payload text. They have no subject-link rows until a separately reviewed, typed backfill supplies them.
+
+### Compatibility
+
+- Additive and non-breaking. Hosts that register no subject policy retain their existing behavior; typed AuditEvent and SecurityEvent lookup remains available through the new service.
+
+## [1.14.0] - 2026-09-23
+
+### Added
+
+- **Stable governance identity for entity-change audit evidence** — `AuditGovernanceIdentity` carries the required tenant identity and an optional paired canonical resource type/resource id. `AuditEnvelope.GovernanceIdentity` transports it without coupling AuditCore to a host governance implementation.
+- **Host-owned canonical resource mapping** — consumers may register `IAuditResourceIdentityPolicy` implementations to map audited CLR entity types onto their own stable resource-type keys. AuditCore remains unaware of Compliance or legal-hold contracts.
+- **Persisted retention metadata** — `AuditLogEntity.GovernanceMetadata` stores the bounded serialized identity for every fan-out row produced from an entity-change envelope. Migration `20260923164652_AddAuditLogGovernanceMetadata` adds the nullable `nvarchar(512)` column.
+
+### Changed
+
+- `AuditSaveChangesInterceptor` derives `TenantId` through EF property metadata, including original values for deleted rows, and attaches tenant-only identity when no exact resource policy applies. A single-Guid primary key becomes the resource id only when a host policy supplies a canonical type.
+
+### Compatibility
+
+- Additive and non-breaking. Existing audit rows remain valid with null governance metadata; retention consumers can deliberately fail closed on those legacy rows.
+
 ## [1.11.0] - 2026-07-19
 
 ### Performance

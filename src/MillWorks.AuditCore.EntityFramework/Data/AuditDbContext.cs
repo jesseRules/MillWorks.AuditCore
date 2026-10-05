@@ -137,6 +137,9 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
     /// </summary>
     public virtual DbSet<AuditLogEntity> AuditLogs { get; set; } = null!;
 
+    /// <summary>Normalized subject links for entity-change audit rows.</summary>
+    public virtual DbSet<AuditLogSubjectLinkEntity> AuditLogSubjectLinks { get; set; } = null!;
+
     /// <summary>
     /// Archive records for storing archived audit collections in the database.
     /// </summary>
@@ -318,6 +321,14 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                 entity.ToTable(static t => t.HasCheckConstraint("CK_AuditLogs_Action",
                     "[Action] >= 0 AND [Action] <= 10"));
             }
+        });
+
+        modelBuilder.Entity<AuditLogSubjectLinkEntity>(entity =>
+        {
+            entity.HasOne(static link => link.AuditLog)
+                .WithMany(static log => log.SubjectLinks)
+                .HasForeignKey(static link => link.AuditLogId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ArchiveRecordEntity configuration (merged from two separate blocks)

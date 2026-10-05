@@ -304,6 +304,68 @@ services.AddDbContext<ProjectDbContext>((sp, options) =>
 });
 ```
 
+#### Governance identity for retention and legal holds
+
+Entity-change envelopes carry a separate `AuditGovernanceIdentity` so retention/hold identity cannot disappear
+when payload fields are redacted or when a modified-row envelope contains only changed properties. The interceptor
+reads a non-empty `TenantId` through EF metadata for added, modified, and deleted entities (deleted rows use the
+original value). Without a host policy, the result is tenant-scoped metadata only.
+
+A host can publish an exact canonical resource type by registering one or more pure singleton policies:
+
+```csharp
+public sealed class AuditResourceIdentityPolicy : IAuditResourceIdentityPolicy
+{
+    public string? GetResourceType(Type entityType) =>
+        entityType == typeof(DocumentEntity) ? "Document:Document" : null;
+}
+
+services.AddSingleton<IAuditResourceIdentityPolicy, AuditResourceIdentityPolicy>();
+```
+
+When a policy supplies a key and the entity has one non-empty `Guid` primary key, the envelope records the paired
+resource type/id. `AuditEntityBatchWriter` serializes that identity into every resulting `AuditLogs.GovernanceMetadata`
+row, including each property-level fan-out row. AuditCore treats the resource-type string as opaque: the host owns
+its vocabulary and connects it to its legal-hold authority. Conflicting non-null policy answers fail the audit write;
+AuditCore does not guess between resource identities. Payload metadata is not a substitute for this field.
+
+Existing rows can have null governance metadata because the schema column is nullable. A retention implementation
+should treat absent, malformed, or unrecognized governance identity as a fail-closed deletion denial unless a
+separately approved migration has classified those rows.
+
+#### Data-subject discovery
+
+Data-subject discovery is separate from payload export and governance identity. AuditCore uses the typed subject
+columns already present on `AuditEvents` and `SecurityEvents`; for entity-change `AuditLogs`, a host declares direct
+`Guid` subject properties with a pure singleton policy:
+
+```csharp
+public sealed class AuditSubjectIdentityPolicy : IAuditSubjectIdentityPolicy
+{
+    public IReadOnlyCollection<string> GetSubjectPropertyNames(Type entityType) =>
+        entityType == typeof(OrganizationMembershipEntity)
+            ? [nameof(OrganizationMembershipEntity.UserId)]
+            : [];
+}
+
+services.AddSingleton<IAuditSubjectIdentityPolicy, AuditSubjectIdentityPolicy>();
+```
+
+The interceptor reads those values through EF metadata, using original values for deleted entities, and the writer
+persists normalized `AuditLogSubjectLinks` rows. `IAuditSubjectLookupService.FindAsync` returns tenant-scoped record
+references across all three active database evidence stores with stable keyset pagination. Discovery does not depend
+on snapshots, descriptions, redacted fields, or arbitrary JSON.
+
+If a subject-indexed entity has no mapped `TenantId`, its consumer DbContext can optionally implement
+`IAuditTenantContextSource` and expose the ambient tenant governing that operation. Entity-level tenant metadata takes
+precedence. This is not a requirement for every consumer: it is consulted only as a fallback, and an unresolved tenant
+fails closed only when a registered subject policy requested subject indexing for that entity.
+
+Policies must name direct person identifiers only. AuditCore deliberately does not guess through foreign-key chains:
+`GroupId`, `ProvisioningOperationId`, and similar domain identifiers are not subject IDs. The host's reviewed domain
+inventory must resolve those transitive relationships. Existing AuditLog payloads are not implicitly backfilled;
+historical indexing requires a separately reviewed typed backfill.
+
 ## The `IAuditProvider` Contract
 
 `IAuditProvider` is the primary extensibility point for per-entity audit behavior. Implement this interface to control what gets audited and how audit events are enriched for a given entity type.
@@ -655,7 +717,7 @@ All tables are created under a configurable SQL Server schema (default: `audit`)
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
 | `AuditEvents` | Primary audit event store | `Id`, `EventType`, `EntityName`, `Action`, `UserId`, `JsonData`, `StartDate`, `CorrelationId`, `IntegrityStatus` |
-| `AuditLogs` | Entity change log with old/new values | `Id`, `EntityName`, `EntityId`, `Action`, `OldValues`, `NewValues`, `ChangedProperties`, `UserId` |
+| `AuditLogs` | Entity change log with old/new values | `Id`, `EntityName`, `EntityId`, `Action`, `OldValues`, `NewValues`, `ChangedProperties`, `UserId`, `GovernanceMetadata` |
 | `AuditIntegrity` | Hash chain records for tamper detection | `Id`, `AuditEventId`, `EventHash`, `PreviousHash`, `SequenceNumber`, `HmacSignature` |
 | `AuditIntegrityWorkItems` | Durable outbox for pending integrity writes (batched mode) | `Id`, `EventId`, `Status`, `AttemptCount`, `CreatedAt`, `LastError`, `CompletedAt` |
 | `ArchiveRecord` | Metadata for archived audit batches | `Id`, `ArchiveId`, `BlobPath`, `EventCount`, `Checksum`, `ArchivedAt`, `RestoredAt` |
