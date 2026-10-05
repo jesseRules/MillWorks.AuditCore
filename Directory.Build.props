@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
         <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.15.2</Version>
-        <AssemblyVersion>1.15.2.0</AssemblyVersion>
-        <FileVersion>1.15.2.0</FileVersion>
+        <Version>1.15.3</Version>
+        <AssemblyVersion>1.15.3.0</AssemblyVersion>
+        <FileVersion>1.15.3.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.2: fixes entity audit batch replay handling. Existing envelope/property rows are verified before insertion; mixed and partial replays persist missing rows and subject links. Concurrent unique-key conflicts are retried with fresh contexts and unresolved failures are never acknowledged as successful duplicates. See CHANGELOG.md.
+        <PackageReleaseNotes>v1.15.3: fixes searchable record IDs for explicit audit events used by compliance evidence exports. AuditEventBatchWriter now supplies CustomFields["EntityId"] to AuditLogger for GUID and string envelope IDs, with canonical GUID formatting and GUID precedence. No schema change or historical backfill. See CHANGELOG.md.
+
+v1.15.2 release notes follow below:
+
+v1.15.2: fixes entity audit batch replay handling. Existing envelope/property rows are verified before insertion; mixed and partial replays persist missing rows and subject links. Concurrent unique-key conflicts are retried with fresh contexts and unresolved failures are never acknowledged as successful duplicates. See CHANGELOG.md.
 
 v1.15.1 release notes follow below:
 

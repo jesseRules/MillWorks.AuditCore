@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.3] - 2026-10-05
+
+### Fixed
+
+- Explicit audit events now populate the searchable `AuditEvents.EntityId` column from envelope record IDs, allowing compliance evidence exports to discover those events. GUID IDs use canonical `D` formatting and take precedence over string IDs; string IDs are mapped when the GUID ID is absent.
+- Regression coverage exercises the real batch writer/logger mapping for GUID and string record IDs and verifies entity type, searchable ID, and the `Exported` action.
+
+### Compatibility
+
+- No schema change. Previously stored events with missing searchable record IDs are not backfilled by this release.
+
 ## [1.15.2] - 2026-09-27
 
 ### Fixed
