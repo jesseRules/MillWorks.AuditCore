@@ -166,8 +166,7 @@ public class BareConsumerDbContextTests
 
         await using var consumerCtx = new BareConsumerDbContext(options);
         consumerCtx.Products.Add(new Product { Name = "NoDispatch" });
-
-        Assert.DoesNotThrowAsync(async () => await consumerCtx.SaveChangesAsync());
+        await Assert.DoesNotThrowAsync(async () => await consumerCtx.SaveChangesAsync());
 
         await using var scope = _provider.CreateAsyncScope();
         var auditCtx = scope.ServiceProvider.GetRequiredService<AuditDbContext>();

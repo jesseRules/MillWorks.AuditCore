@@ -93,15 +93,14 @@ public class RepositoryOptimisticUpdateSqliteTests
     }
 
     [Test]
-    public void ExecuteOptimisticUpdateAsync_WhenEveryAttemptConflicts_ThrowsDbUpdateConcurrencyException()
+    public async Task ExecuteOptimisticUpdateAsync_WhenEveryAttemptConflicts_ThrowsDbUpdateConcurrencyException()
     {
         var eventId = SeedEventAsync().GetAwaiter().GetResult();
 
         using var context = CreateContext();
         var repository = new AuditEventRepository(context);
         var updateCalls = 0;
-
-        Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
             await repository.ExecuteOptimisticUpdateAsync(eventId, entity =>
             {
                 updateCalls++;

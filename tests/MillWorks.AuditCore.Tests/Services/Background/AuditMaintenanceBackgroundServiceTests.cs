@@ -87,7 +87,7 @@ public class AuditMaintenanceBackgroundServiceTests
     }
 
     [Test]
-    public void StartAsync_WhenDependencyMissing_ThrowsMeaningfulError()
+    public async Task StartAsync_WhenDependencyMissing_ThrowsMeaningfulError()
     {
         using var serviceProvider = new ServiceCollection()
             .AddSingleton(_mockMaintenanceService.Object)
@@ -97,7 +97,7 @@ public class AuditMaintenanceBackgroundServiceTests
 
         using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromMilliseconds(50));
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await service.StartAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await service.StartAsync(CancellationToken.None));
 
         Assert.That(ex!.Message, Does.Contain("ITamperDetectionService"));
     }
@@ -150,8 +150,7 @@ public class AuditMaintenanceBackgroundServiceTests
 
         await service.StartAsync(CancellationToken.None);
         await WaitAsync(cleanupStarted.Task);
-
-        Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
+        await Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
     }
 
     [Test]

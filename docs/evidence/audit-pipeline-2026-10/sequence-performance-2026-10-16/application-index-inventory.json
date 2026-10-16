@@ -1,0 +1,86 @@
+{
+  "ObservedUtc": "2026-10-16T20:23:13.4652484",
+  "DatabaseName": "MillWorks",
+  "SqlVersion": "15.0.2000.1574",
+  "RcsiEnabled": true,
+  "IntegrityRows": 0,
+  "IntegrityIndexes": [
+    {
+      "name": "PK_AuditIntegrity",
+      "type_desc": "CLUSTERED",
+      "is_unique": true,
+      "is_disabled": false,
+      "has_filter": false,
+      "Columns": [
+        {
+          "name": "Id",
+          "key_ordinal": 1,
+          "is_included_column": false
+        }
+      ]
+    },
+    {
+      "name": "IX_AuditIntegrity_EventId",
+      "type_desc": "NONCLUSTERED",
+      "is_unique": true,
+      "is_disabled": false,
+      "has_filter": false,
+      "Columns": [
+        {
+          "name": "EventId",
+          "key_ordinal": 1,
+          "is_included_column": false
+        }
+      ]
+    },
+    {
+      "name": "IX_AuditIntegrity_HashChain",
+      "type_desc": "NONCLUSTERED",
+      "is_unique": false,
+      "is_disabled": false,
+      "has_filter": false,
+      "Columns": [
+        {
+          "name": "EventHash",
+          "key_ordinal": 1,
+          "is_included_column": false
+        },
+        {
+          "name": "PreviousEventHash",
+          "key_ordinal": 2,
+          "is_included_column": false
+        }
+      ]
+    },
+    {
+      "name": "IX_AuditIntegrity_SequenceNumber",
+      "type_desc": "NONCLUSTERED",
+      "is_unique": true,
+      "is_disabled": false,
+      "has_filter": false,
+      "Columns": [
+        {
+          "name": "SequenceNumber",
+          "key_ordinal": 1,
+          "is_included_column": false
+        }
+      ]
+    },
+    {
+      "name": "IX_AuditIntegrity_Timestamp",
+      "type_desc": "NONCLUSTERED",
+      "is_unique": false,
+      "is_disabled": false,
+      "has_filter": false,
+      "Columns": [
+        {
+          "name": "TrustedTimestamp",
+          "key_ordinal": 1,
+          "is_included_column": false
+        }
+      ]
+    }
+  ],
+  "ConfiguredPooling": "true (SqlClient default)",
+  "ConfigurationIsNotLoadedRuntimeProof": true
+}

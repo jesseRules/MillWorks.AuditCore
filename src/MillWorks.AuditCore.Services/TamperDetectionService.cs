@@ -697,24 +697,13 @@ public sealed class TamperDetectionService : ITamperDetectionService
     /// </summary>
     public async Task<bool> VerifySequenceIntegrityAsync(CancellationToken cancellationToken = default)
     {
-        var sequenceNumbers = await _auditIntegrityRepository.GetAllSequenceNumbersAsync(cancellationToken);
-        var sequenceList = sequenceNumbers.ToList();
-
-        if (!sequenceList.Any())
+        var isValid = await _auditIntegrityRepository.IsSequenceContiguousAsync(cancellationToken);
+        if (!isValid)
         {
-            return true; // Empty sequence is valid
+            _logger.LogError("Sequence gap or duplicate detected in audit integrity records");
         }
 
-        // Check for gaps in the sequence
-        for (int i = 1; i < sequenceList.Count; i++)
-        {
-            if (sequenceList[i] == sequenceList[i - 1] + 1) continue;
-            _logger.LogError("Sequence gap detected between {Prev} and {Current}",
-                sequenceList[i - 1], sequenceList[i]);
-            return false;
-        }
-
-        return true;
+        return isValid;
     }
 
     /// <summary>

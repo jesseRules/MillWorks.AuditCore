@@ -83,14 +83,13 @@ public sealed class IntegrityHealthCheckTests
     }
 
     [Test]
-    public void CheckHealthAsync_WithCanceledToken_PropagatesCancellation()
+    public async Task CheckHealthAsync_WithCanceledToken_PropagatesCancellation()
     {
         using var provider = BuildProvider();
         var healthCheck = new IntegrityHealthCheck(provider.GetRequiredService<IServiceScopeFactory>());
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await healthCheck.CheckHealthAsync(new HealthCheckContext(), cts.Token));
     }
 

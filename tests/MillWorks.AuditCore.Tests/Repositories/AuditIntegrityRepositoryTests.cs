@@ -220,28 +220,25 @@ public class AuditIntegrityRepositoryTests
 
     #endregion
 
-    #region GetAllSequenceNumbersAsync
-
-    /// <summary>
-    /// Verifies all sequence numbers returned in order.
-    /// </summary>
-    [Test]
-    public async Task GetAllSequenceNumbersAsync_ReturnsOrderedSequenceNumbers()
+    [TestCase(new long[] { }, true)]
+    [TestCase(new long[] { 42 }, true)]
+    [TestCase(new long[] { 3, 1, 2 }, true)]
+    [TestCase(new long[] { 41, 42, 43 }, true)]
+    [TestCase(new long[] { 1, 2, 4 }, false)]
+    [TestCase(new long[] { 1, 1, 3 }, false)]
+    [TestCase(new long[] { 1, 1, 2 }, false)]
+    [TestCase(new long[] { long.MaxValue - 1, long.MaxValue }, true)]
+    [TestCase(new long[] { long.MinValue, long.MinValue + 1 }, true)]
+    [TestCase(new long[] { long.MinValue, long.MaxValue }, false)]
+    public async Task IsSequenceContiguousAsync_ValidatesRangeAndUniqueness(long[] sequences, bool expected)
     {
-        // Arrange
-        await SeedIntegrity(Guid.NewGuid(), 3, "h3", "h2");
-        await SeedIntegrity(Guid.NewGuid(), 1, "h1", null);
-        await SeedIntegrity(Guid.NewGuid(), 2, "h2", "h1");
+        foreach (var sequence in sequences)
+        {
+            await SeedIntegrity(Guid.NewGuid(), sequence, "hash", null);
+        }
 
-        // Act
-        var sequences = (await _repository.GetAllSequenceNumbersAsync()).ToList();
-
-        // Assert
-        Assert.That(sequences, Has.Count.EqualTo(3));
-        Assert.That(sequences, Is.EqualTo(new List<long> { 1, 2, 3 }));
+        Assert.That(await _repository.IsSequenceContiguousAsync(), Is.EqualTo(expected));
     }
-
-    #endregion
 
     #region GetByTrustedTimestampRangeAsync
 

@@ -300,6 +300,13 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
         // AuditLogEntity configuration
         modelBuilder.Entity<AuditLogEntity>(entity =>
         {
+            // Replay lookup includes whole-envelope rows with no PropertyName. The unique
+            // envelope/property index excludes those rows, so it cannot serve this lookup.
+            entity.HasIndex(static e => e.EnvelopeId)
+                .HasDatabaseName("IX_AuditLogs_Envelope_Lookup")
+                .HasFilter("[EnvelopeId] IS NOT NULL")
+                .IncludeProperties(static e => e.PropertyName);
+
             if (isInMemory)
             {
                 // InMemory: entity property initializers handle defaults

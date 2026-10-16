@@ -356,7 +356,7 @@ public class AuditSaveChangesInterceptorTests
     /// Saving changes with exception in logger does not throw
     /// </summary>
     [Test]
-    public Task SavingChanges_WithException_DoesNotThrow()
+    public async Task SavingChanges_WithException_DoesNotThrow()
     {
         // Arrange
         // Only make the Debug log throw, not the Error log
@@ -383,7 +383,7 @@ public class AuditSaveChangesInterceptorTests
         _dbContext.TestEntities.Add(testEntity);
 
         // Act & Assert
-        Assert.DoesNotThrowAsync(async () => await _dbContext.SaveChangesAsync());
+        await Assert.DoesNotThrowAsync(async () => await _dbContext.SaveChangesAsync());
 
         // Verify error was logged
         _mockLogger.Verify(
@@ -394,7 +394,6 @@ public class AuditSaveChangesInterceptorTests
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
-        return Task.CompletedTask;
     }
 
     /// <summary>

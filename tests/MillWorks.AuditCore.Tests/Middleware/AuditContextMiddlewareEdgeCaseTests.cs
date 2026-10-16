@@ -306,8 +306,7 @@ public class AuditContextMiddlewareEdgeCaseTests
         _httpContext.Request.Headers["User-Agent"] = "TestAgent";
 
         RequestDelegate next = static _ => throw new InvalidOperationException("Pipeline failure");
-
-        Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await _middleware.InvokeAsync(_httpContext, next));
 
         Assert.That(_auditContext.CorrelationId, Is.Null);

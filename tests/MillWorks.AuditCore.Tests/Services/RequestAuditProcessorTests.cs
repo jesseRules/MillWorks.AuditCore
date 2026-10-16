@@ -86,7 +86,7 @@ public sealed class RequestAuditProcessorTests
     }
 
     [Test]
-    public void ProcessAsync_WhenAuditLoggerFails_AndDlqFails_ThrowsAggregateException()
+    public async Task ProcessAsync_WhenAuditLoggerFails_AndDlqFails_ThrowsAggregateException()
     {
         var mockLogger = new Mock<IAuditLogger>();
         var originalException = new InvalidOperationException("DB connection failed");
@@ -110,7 +110,7 @@ public sealed class RequestAuditProcessorTests
 
         var auditEvent = new AuditEvent { EventId = Guid.NewGuid() };
 
-        var ex = Assert.ThrowsAsync<AggregateException>(
+        var ex = await Assert.ThrowsAsync<AggregateException>(
             async () => await processor.ProcessAsync(auditEvent, CancellationToken.None));
 
         Assert.Multiple(() =>

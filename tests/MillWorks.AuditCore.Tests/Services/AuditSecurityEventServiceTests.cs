@@ -391,7 +391,7 @@ public class AuditSecurityEventServiceTests
     }
 
     [Test]
-    public void RecordEventAsync_AddAsyncFailure_PropagatesException()
+    public async Task RecordEventAsync_AddAsyncFailure_PropagatesException()
     {
         var inputDto = new SecurityEventDto
         {
@@ -402,12 +402,11 @@ public class AuditSecurityEventServiceTests
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<AuditSecurityEventEntity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database connection failed"));
-
-        Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
     }
 
     [Test]
-    public void RecordEventAsync_SaveChangesAsyncFailure_PropagatesException()
+    public async Task RecordEventAsync_SaveChangesAsyncFailure_PropagatesException()
     {
         var inputDto = new SecurityEventDto
         {
@@ -418,8 +417,7 @@ public class AuditSecurityEventServiceTests
 
         _mockRepository.Setup(static r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Save failed"));
-
-        Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RecordEventAsync(inputDto));
     }
 
     [TestCase(SecurityEventType.BreakGlassAttempt)]

@@ -1,0 +1,782 @@
+{
+  "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build --sql -- --no-restore --filter FullyQualifiedName~ProfileSequenceSummary --logger 'trx;LogFileName=profile.trx' --results-directory /tmp/audit-sequence-performance-20261016 > /tmp/audit-sequence-profile.log 2>&1",
+  "sdk": "10.0.202",
+  "head": "1cc9ce2c407b4f58c95ba8d25e67379ca14c9765",
+  "dirty": true,
+  "sourceAndAssemblySha256": {
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs": "87217161329c50c0ef43ced0b05579edf9bbdd1e5aa3bf11463855219a2e06b3",
+    "src/MillWorks.AuditCore.EntityFramework/Entities/AuditIntegrityEntity.cs": "77682f83989a120125d0ed7d775655c49b9accf1916a99e172767924a78c8622",
+    "src/MillWorks.AuditCore.EntityFramework/Data/AuditDbContext.cs": "f112136e5aab47ac1b46cd7dc86dbdf1c88ac7195d7b932b59943afc5b9e74e6",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.Performance.cs": "3c8857c3e7580f63d666cc0a4e98671bf9064b92c6d3f97172f8869eb03ee705",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.cs": "3a12039fee984355ccc2580252670935344e76aa54607fa2b651cd1dcdcf8d28",
+    "tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj": "b965ba727a4253a73247d5327f475308bf5319793f662b21cb2c052d3eb2aaa2",
+    "Directory.Build.props": "876718ff94da6f5c4c244a8ef0c7eba9f143348b7e3886949f2aed7b274e7561",
+    "tests/MillWorks.AuditCore.Tests/bin/Debug/net10.0/MillWorks.AuditCore.Tests.dll": "deff0b10a11d804a00364003ed5503a21e8aecd9bef20d71eed224060a4bac71",
+    "src/MillWorks.AuditCore.EntityFramework/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll": "539e646374d8ddf2347fb93a46fb8df8d3d012dd926acc7b77986d1d11b2348a"
+  },
+  "times": {
+    "creation": "2026-10-16T15:25:04.1098460-05:00",
+    "queuing": "2026-10-16T15:25:04.1098460-05:00",
+    "start": "2026-10-16T15:24:57.3286850-05:00",
+    "finish": "2026-10-16T15:25:32.0976590-05:00"
+  },
+  "counters": {
+    "total": "8",
+    "executed": "8",
+    "passed": "8",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "warmupRounds": 2,
+  "measuredRounds": 9,
+  "variantOrder": "Rotated each round",
+  "dataRows": 217719,
+  "cases": [
+    {
+      "rcsi": false,
+      "pooling": false,
+      "uniqueIndex": false,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            80.9761,
+            77.9402,
+            80.08,
+            86.355,
+            77.8532,
+            91.8023,
+            78.3033,
+            78.4245,
+            87.8338
+          ],
+          "medianMs": 80.08,
+          "minimumMs": 77.8532,
+          "maximumMs": 91.8023
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            75.6575,
+            73.6769,
+            78.1339,
+            76.6719,
+            81.8049,
+            76.2057,
+            74.783,
+            75.5448,
+            80.125
+          ],
+          "medianMs": 76.2057,
+          "minimumMs": 73.6769,
+          "maximumMs": 81.8049
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            77.6328,
+            78.2787,
+            76.3081,
+            78.0432,
+            90.1048,
+            79.2912,
+            76.5817,
+            87.3351,
+            81.3543
+          ],
+          "medianMs": 78.2787,
+          "minimumMs": 76.3081,
+          "maximumMs": 90.1048
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            77.1645,
+            82.5712,
+            79.5572,
+            77.8832,
+            91.143,
+            76.711,
+            79.5727,
+            80.3861,
+            75.1797
+          ],
+          "medianMs": 79.5572,
+          "minimumMs": 75.1797,
+          "maximumMs": 91.143
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            60.948,
+            66.4688,
+            60.8627,
+            64.7592,
+            61.2825,
+            63.3267,
+            62.367,
+            63.097,
+            61.1984
+          ],
+          "medianMs": 62.367,
+          "minimumMs": 60.8627,
+          "maximumMs": 66.4688
+        }
+      },
+      "testName": "ProfileSequenceSummary(False,False)",
+      "outcome": "Passed",
+      "statistics": "rcsi-False-pool-False-unique-False-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-False-unique-False-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-False-unique-False-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": true,
+      "pooling": false,
+      "uniqueIndex": false,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            79.7402,
+            82.7611,
+            83.9109,
+            80.6768,
+            80.1074,
+            86.8925,
+            81.4477,
+            81.5871,
+            79.1987
+          ],
+          "medianMs": 81.4477,
+          "minimumMs": 79.1987,
+          "maximumMs": 86.8925
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            79.6956,
+            80.711,
+            76.2205,
+            79.1606,
+            81.6807,
+            85.3762,
+            81.6952,
+            88.9146,
+            80.6429
+          ],
+          "medianMs": 80.711,
+          "minimumMs": 76.2205,
+          "maximumMs": 88.9146
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            79.9353,
+            81.0492,
+            81.7733,
+            82.8127,
+            104.3495,
+            86.6412,
+            79.2199,
+            78.5884,
+            79.7095
+          ],
+          "medianMs": 81.0492,
+          "minimumMs": 78.5884,
+          "maximumMs": 104.3495
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            79.2359,
+            80.1092,
+            79.027,
+            76.0143,
+            78.2211,
+            81.9693,
+            79.8316,
+            80.8159,
+            77.8946
+          ],
+          "medianMs": 79.2359,
+          "minimumMs": 76.0143,
+          "maximumMs": 81.9693
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            62.8831,
+            65.6424,
+            66.0715,
+            65.0279,
+            64.0216,
+            67.5212,
+            65.7056,
+            66.0219,
+            64.9779
+          ],
+          "medianMs": 65.6424,
+          "minimumMs": 62.8831,
+          "maximumMs": 67.5212
+        }
+      },
+      "testName": "ProfileSequenceSummary(True,False)",
+      "outcome": "Passed",
+      "statistics": "rcsi-True-pool-False-unique-False-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-False-unique-False-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-False-unique-False-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": false,
+      "pooling": true,
+      "uniqueIndex": false,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            76.9317,
+            70.9178,
+            71.7438,
+            75.4456,
+            79.4258,
+            71.1666,
+            92.5978,
+            74.3057,
+            71.6317
+          ],
+          "medianMs": 74.3057,
+          "minimumMs": 70.9178,
+          "maximumMs": 92.5978
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            72.8251,
+            68.4642,
+            71.2033,
+            70.3824,
+            69.6822,
+            71.0069,
+            68.3951,
+            70.7959,
+            69.2597
+          ],
+          "medianMs": 70.3824,
+          "minimumMs": 68.3951,
+          "maximumMs": 72.8251
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            74.5678,
+            70.0398,
+            69.357,
+            70.715,
+            69.9374,
+            75.741,
+            73.0283,
+            85.6651,
+            69.4599
+          ],
+          "medianMs": 70.715,
+          "minimumMs": 69.357,
+          "maximumMs": 85.6651
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            70.758,
+            69.5392,
+            69.1567,
+            69.231,
+            68.3342,
+            70.094,
+            70.058,
+            73.4854,
+            71.1846
+          ],
+          "medianMs": 70.058,
+          "minimumMs": 68.3342,
+          "maximumMs": 73.4854
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            55.0158,
+            54.0106,
+            54.1497,
+            57.6068,
+            55.3405,
+            54.1912,
+            57.1395,
+            56.3576,
+            55.0903
+          ],
+          "medianMs": 55.0903,
+          "minimumMs": 54.0106,
+          "maximumMs": 57.6068
+        }
+      },
+      "testName": "ProfileSequenceSummary(False,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-False-pool-True-unique-False-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-True-unique-False-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-True-unique-False-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": true,
+      "pooling": true,
+      "uniqueIndex": false,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            72.2044,
+            70.2255,
+            71.0821,
+            70.7053,
+            71.0897,
+            73.3027,
+            71.864,
+            70.8715,
+            72.4386
+          ],
+          "medianMs": 71.0897,
+          "minimumMs": 70.2255,
+          "maximumMs": 73.3027
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            68.6151,
+            69.6757,
+            70.8551,
+            67.4934,
+            70.1675,
+            73.1048,
+            71.4103,
+            68.4569,
+            67.9397
+          ],
+          "medianMs": 69.6757,
+          "minimumMs": 67.4934,
+          "maximumMs": 73.1048
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            69.6735,
+            70.902,
+            78.7267,
+            70.1583,
+            69.7031,
+            97.6941,
+            75.3228,
+            72.3957,
+            70.174
+          ],
+          "medianMs": 70.902,
+          "minimumMs": 69.6735,
+          "maximumMs": 97.6941
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            68.5338,
+            69.1646,
+            69.3802,
+            71.2418,
+            68.8522,
+            73.3857,
+            71.5868,
+            71.365,
+            71.1947
+          ],
+          "medianMs": 71.1947,
+          "minimumMs": 68.5338,
+          "maximumMs": 73.3857
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            55.2352,
+            54.2018,
+            54.0613,
+            54.8263,
+            54.935,
+            59.5217,
+            56.3092,
+            54.1315,
+            55.8047
+          ],
+          "medianMs": 54.935,
+          "minimumMs": 54.0613,
+          "maximumMs": 59.5217
+        }
+      },
+      "testName": "ProfileSequenceSummary(True,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-True-pool-True-unique-False-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-True-unique-False-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-True-unique-False-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": false,
+      "pooling": false,
+      "uniqueIndex": true,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            69.5378,
+            43.5173,
+            44.6315,
+            44.813,
+            44.5302,
+            43.6239,
+            43.9358,
+            41.1401,
+            42.3817
+          ],
+          "medianMs": 43.9358,
+          "minimumMs": 41.1401,
+          "maximumMs": 69.5378
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            43.996,
+            44.1509,
+            41.775,
+            41.4213,
+            42.9529,
+            42.4477,
+            63.78,
+            39.9297,
+            40.8362
+          ],
+          "medianMs": 42.4477,
+          "minimumMs": 39.9297,
+          "maximumMs": 63.78
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            42.8912,
+            45.9987,
+            42.7524,
+            42.6149,
+            44.6415,
+            44.9673,
+            52.3064,
+            41.3106,
+            43.5577
+          ],
+          "medianMs": 43.5577,
+          "minimumMs": 41.3106,
+          "maximumMs": 52.3064
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            45.333,
+            44.0855,
+            43.6291,
+            42.2523,
+            44.2591,
+            43.7384,
+            44.9412,
+            40.2045,
+            41.8277
+          ],
+          "medianMs": 43.7384,
+          "minimumMs": 40.2045,
+          "maximumMs": 45.333
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            60.6879,
+            60.7446,
+            60.4843,
+            56.9404,
+            59.0443,
+            71.4523,
+            61.0622,
+            57.4821,
+            56.7831
+          ],
+          "medianMs": 60.4843,
+          "minimumMs": 56.7831,
+          "maximumMs": 71.4523
+        }
+      },
+      "testName": "ProfileSequenceSummary(False,False,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-False-pool-False-unique-True-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-False-unique-True-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-False-unique-True-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": true,
+      "pooling": false,
+      "uniqueIndex": true,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            43.063,
+            45.2375,
+            44.9426,
+            44.8712,
+            43.6256,
+            42.9169,
+            43.7268,
+            42.5865,
+            42.7025
+          ],
+          "medianMs": 43.6256,
+          "minimumMs": 42.5865,
+          "maximumMs": 45.2375
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            42.9147,
+            42.9575,
+            44.0095,
+            43.894,
+            43.1541,
+            42.707,
+            42.4604,
+            42.2788,
+            43.9637
+          ],
+          "medianMs": 42.9575,
+          "minimumMs": 42.2788,
+          "maximumMs": 44.0095
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            42.1858,
+            44.4049,
+            42.5752,
+            43.6647,
+            43.8466,
+            43.8269,
+            41.2417,
+            43.0862,
+            41.0542
+          ],
+          "medianMs": 43.0862,
+          "minimumMs": 41.0542,
+          "maximumMs": 44.4049
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            46.054,
+            43.2292,
+            42.0105,
+            42.287,
+            41.832,
+            42.3457,
+            42.4695,
+            40.8831,
+            39.6937
+          ],
+          "medianMs": 42.287,
+          "minimumMs": 39.6937,
+          "maximumMs": 46.054
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            53.5998,
+            54.161,
+            52.7655,
+            53.8868,
+            54.1356,
+            52.2637,
+            53.0642,
+            51.3513,
+            51.5571
+          ],
+          "medianMs": 53.0642,
+          "minimumMs": 51.3513,
+          "maximumMs": 54.161
+        }
+      },
+      "testName": "ProfileSequenceSummary(True,False,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-True-pool-False-unique-True-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-False-unique-True-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 595, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-False-unique-True-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": false,
+      "pooling": true,
+      "uniqueIndex": true,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            34.043,
+            40.2454,
+            34.7099,
+            35.0461,
+            34.4541,
+            33.9317,
+            33.6592,
+            33.2323,
+            33.611
+          ],
+          "medianMs": 34.043,
+          "minimumMs": 33.2323,
+          "maximumMs": 40.2454
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            31.4236,
+            30.4207,
+            31.9885,
+            32.7236,
+            31.3834,
+            32.0894,
+            30.7322,
+            30.7213,
+            30.6272
+          ],
+          "medianMs": 31.3834,
+          "minimumMs": 30.4207,
+          "maximumMs": 32.7236
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            31.9607,
+            33.4627,
+            33.7347,
+            34.999,
+            32.6324,
+            33.1619,
+            32.1321,
+            38.5161,
+            32.2444
+          ],
+          "medianMs": 33.1619,
+          "minimumMs": 31.9607,
+          "maximumMs": 38.5161
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            32.5625,
+            33.1281,
+            36.25,
+            33.6134,
+            32.9332,
+            33.2053,
+            32.1336,
+            37.7002,
+            32.3072
+          ],
+          "medianMs": 33.1281,
+          "minimumMs": 32.1336,
+          "maximumMs": 37.7002
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            42.3849,
+            46.5929,
+            46.615,
+            44.567,
+            44.3763,
+            42.8779,
+            42.3196,
+            47.9022,
+            42.3509
+          ],
+          "medianMs": 44.3763,
+          "minimumMs": 42.3196,
+          "maximumMs": 47.9022
+        }
+      },
+      "testName": "ProfileSequenceSummary(False,True,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-False-pool-True-unique-True-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-True-unique-True-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-False-pool-True-unique-True-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 458, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    },
+    {
+      "rcsi": true,
+      "pooling": true,
+      "uniqueIndex": true,
+      "rows": 217719,
+      "output": {
+        "protected_ef": {
+          "samplesMs": [
+            32.8228,
+            33.3602,
+            32.802,
+            33.3767,
+            33.2962,
+            36.35,
+            33.3177,
+            33.2453,
+            40.4711
+          ],
+          "medianMs": 33.3177,
+          "minimumMs": 32.802,
+          "maximumMs": 40.4711
+        },
+        "original_unprotected_ef": {
+          "samplesMs": [
+            30.1769,
+            30.7939,
+            30.4819,
+            30.901,
+            30.8796,
+            30.6573,
+            30.6375,
+            30.765,
+            30.3583
+          ],
+          "medianMs": 30.6573,
+          "minimumMs": 30.1769,
+          "maximumMs": 30.901
+        },
+        "serializable_raw": {
+          "samplesMs": [
+            31.9402,
+            32.231,
+            32.2336,
+            32.5647,
+            32.7415,
+            32.4935,
+            32.4637,
+            32.5574,
+            32.6666
+          ],
+          "medianMs": 32.4935,
+          "minimumMs": 31.9402,
+          "maximumMs": 32.7415
+        },
+        "serializable_tablock_raw": {
+          "samplesMs": [
+            30.8929,
+            31.2744,
+            31.3032,
+            31.5064,
+            31.8042,
+            31.2273,
+            30.898,
+            31.3506,
+            31.5395
+          ],
+          "medianMs": 31.3032,
+          "minimumMs": 30.8929,
+          "maximumMs": 31.8042
+        },
+        "serializable_grouped_raw": {
+          "samplesMs": [
+            41.0484,
+            41.1872,
+            40.8535,
+            41.0312,
+            41.0062,
+            40.8589,
+            42.3387,
+            40.8212,
+            46.6894
+          ],
+          "medianMs": 41.0312,
+          "minimumMs": 40.8212,
+          "maximumMs": 46.6894
+        }
+      },
+      "testName": "ProfileSequenceSummary(True,True,True)",
+      "outcome": "Passed",
+      "statistics": "rcsi-True-pool-True-unique-True-row_locks\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-True-unique-True-table_lock\nTable 'AuditIntegrity'. Scan count 1, logical reads 595, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.\nrcsi-True-pool-True-unique-True-grouped\nTable 'AuditIntegrity'. Scan count 1, logical reads 596, physical reads 0, page server reads 0, read-ahead reads 0, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0."
+    }
+  ],
+  "productionQueryChanged": false,
+  "limitations": [
+    "Small local warm-cache benchmark; no confidence interval or production SLA.",
+    "Narrow heap/index fixture; unique-index variants model the production constraint but not the entire production schema.",
+    "Unprotected EF is a diagnostic sequential baseline only; it does not qualify concurrent reads.",
+    "Configured pooling is not proof of the running API connection string or loaded assembly."
+  ]
+}

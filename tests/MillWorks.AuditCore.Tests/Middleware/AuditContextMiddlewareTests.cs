@@ -415,17 +415,16 @@ public class AuditContextMiddlewareTests
     }
 
     [Test]
-    public Task InvokeAsync_WhenExceptionOccurs_StillClearsContext()
+    public async Task InvokeAsync_WhenExceptionOccurs_StillClearsContext()
     {
         _httpContext.TraceIdentifier = "test-trace-id";
         _httpContext.Request.Path = "/api/test";
 
         RequestDelegate next = static _ => throw new Exception("Test exception");
 
-        Assert.ThrowsAsync<Exception>(async () =>
+        await Assert.ThrowsAsync<Exception>(async () =>
             await _middleware.InvokeAsync(_httpContext, next));
 
         Assert.That(_auditContext.CorrelationId, Is.Null);
-        return Task.CompletedTask;
     }
 }

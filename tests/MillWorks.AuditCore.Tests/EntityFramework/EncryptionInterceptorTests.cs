@@ -231,15 +231,14 @@ public class EncryptionValueConverterTests : IDisposable
     }
 
     [Test]
-    public void EncryptionFailure_PreventsSave()
+    public async Task EncryptionFailure_PreventsSave()
     {
         // Arrange
         _encryptionService.ThrowOnEncrypt = true;
         var entity = new EncryptedTestEntity { SecretField = "plaintext" };
         _dbContext.EncryptedEntities.Add(entity);
-
         // Act & Assert — encryption failure must propagate
-        Assert.ThrowsAsync<DbUpdateException>(async () =>
+        await Assert.ThrowsAsync<DbUpdateException>(async () =>
             await _dbContext.SaveChangesAsync());
     }
 

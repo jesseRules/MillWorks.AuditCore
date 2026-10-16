@@ -215,7 +215,7 @@ public class DatabaseInitializationServiceTests
     /// StartAsync_WhenExceptionOccursWithFailOnError_Throws
     /// </summary>
     [Test]
-    public Task StartAsync_WhenExceptionOccursWithFailOnError_Throws()
+    public async Task StartAsync_WhenExceptionOccursWithFailOnError_Throws()
     {
         // Arrange
         _options.MigrateOnStartup = true;
@@ -245,9 +245,8 @@ public class DatabaseInitializationServiceTests
             Options.Create(_options));
 
         // Act & Assert
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await service.StartAsync(CancellationToken.None));
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -282,9 +281,8 @@ public class DatabaseInitializationServiceTests
             mockDisposedServiceProvider.Object,
             _mockLogger.Object,
             Options.Create(_options));
-
         // Act & Assert
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await service.StartAsync(CancellationToken.None));
 
         _mockLogger.Verify(
@@ -350,10 +348,10 @@ public class DatabaseInitializationServiceTests
     /// DatabaseInitializer.InitializeAsync throws InvalidOperationException with in-memory database
     /// </summary>
     [Test]
-    public void DatabaseInitializer_InitializeAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_InitializeAsync_ThrowsWithInMemoryDatabase()
     {
         // Arrange & Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.InitializeAsync(_serviceProvider));
     }
 
@@ -361,10 +359,10 @@ public class DatabaseInitializationServiceTests
     /// DatabaseInitializer.NeedsMigrationAsync_ThrowsWithInMemoryDatabase
     /// </summary>
     [Test]
-    public void DatabaseInitializer_NeedsMigrationAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_NeedsMigrationAsync_ThrowsWithInMemoryDatabase()
     {
         // Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.NeedsMigrationAsync(_serviceProvider));
     }
 
@@ -372,10 +370,10 @@ public class DatabaseInitializationServiceTests
     /// DatabaseInitializer.GetPendingMigrationsAsync throws InvalidOperationException with in-memory database
     /// </summary>
     [Test]
-    public void DatabaseInitializer_GetPendingMigrationsAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_GetPendingMigrationsAsync_ThrowsWithInMemoryDatabase()
     {
         // Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.GetPendingMigrationsAsync(_serviceProvider));
     }
 

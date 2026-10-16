@@ -22,7 +22,7 @@ public sealed class DatabaseExtensionsTests
     }
 
     [Test]
-    public void RunAuditMigrationsAsync_WithSqliteProvider_SurfacesMigrationFailure()
+    public async Task RunAuditMigrationsAsync_WithSqliteProvider_SurfacesMigrationFailure()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"auditcore-migrate-{Guid.NewGuid():N}.db");
         var logger = new Mock<ILogger<AuditDbContext>>();
@@ -36,7 +36,7 @@ public sealed class DatabaseExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Assert.ThrowsAsync<SqliteException>(async () => await provider.RunAuditMigrationsAsync());
+        var ex = await Assert.ThrowsAsync<SqliteException>(async () => await provider.RunAuditMigrationsAsync());
 
         Assert.That(ex!.Message, Does.Contain("syntax error"));
         logger.Verify(

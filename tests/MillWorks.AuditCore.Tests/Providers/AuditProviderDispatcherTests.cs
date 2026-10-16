@@ -108,9 +108,8 @@ public class AuditProviderDispatcherTests
             new("Order", "Create", new { Id = 1 }, null),
             new("Order", "Create", new { Id = 2 }, null)
         };
-
         // Should not throw - errors are caught and logged
-        Assert.DoesNotThrowAsync(() => _dispatcher.DispatchAsync(dispatches, CancellationToken.None));
+        await Assert.DoesNotThrowAsync(() => _dispatcher.DispatchAsync(dispatches, CancellationToken.None));
     }
 
     [Test]

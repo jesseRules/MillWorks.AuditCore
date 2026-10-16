@@ -754,20 +754,22 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         var strategy = _context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await BeginTransactionAsync(cancellationToken);
+            var transaction = await BeginTransactionAsync(cancellationToken);
+            Exception? failure = null;
             try
             {
                 await action();
                 await transaction.CommitAsync(cancellationToken);
             }
-            catch
+            catch (Exception ex)
             {
-                await transaction.RollbackAsync(cancellationToken);
+                failure = ex;
                 throw;
             }
             finally
             {
                 _currentTransaction = null;
+                await CleanupTransactionAsync(transaction, failure);
             }
         });
     }
@@ -786,23 +788,51 @@ public class Repository<T>(AuditDbContext context) : IRepository<T>
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await BeginTransactionAsync(cancellationToken);
+            var transaction = await BeginTransactionAsync(cancellationToken);
+            Exception? failure = null;
             try
             {
                 var result = await func();
                 await transaction.CommitAsync(cancellationToken);
                 return result;
             }
-            catch
+            catch (Exception ex)
             {
-                await transaction.RollbackAsync(cancellationToken);
+                failure = ex;
                 throw;
             }
             finally
             {
                 _currentTransaction = null;
+                await CleanupTransactionAsync(transaction, failure);
             }
         });
+    }
+
+    // Cleanup must not replace the failure that the execution strategy needs to classify.
+    // Cancellation of the operation must still allow rollback of an active transaction.
+    private static async Task CleanupTransactionAsync(IDbContextTransaction transaction, Exception? failure)
+    {
+        if (failure is not null)
+        {
+            try
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+            }
+            catch (Exception rollbackFailure)
+            {
+                failure.Data["TransactionRollbackException"] = rollbackFailure;
+            }
+        }
+
+        try
+        {
+            await transaction.DisposeAsync();
+        }
+        catch (Exception disposalFailure) when (failure is not null)
+        {
+            failure.Data["TransactionDisposalException"] = disposalFailure;
+        }
     }
 
     #endregion

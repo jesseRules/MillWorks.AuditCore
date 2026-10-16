@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Sequence validation consistency — pending package release
+
+- SQL Server sequence summaries now run on a dedicated connection/context in a short SERIALIZABLE transaction, independent of caller and ambient transaction isolation. The aggregate still returns at most one summary row.
+- Bound each command to two seconds, lock waits to 1.5 seconds, and overall validation to a seven-second cancellation deadline. Retry lock timeout, command timeout, and deadlock failures at most twice with fresh contexts; incomplete reads throw instead of becoming corruption findings.
+- Add isolated SQL concurrency coverage for append/rollback, prefix retention, interior gaps, caller isolation, cancellation, and retry exhaustion. This source change is not included in previously distributed packages and does not establish running-API acceptance.
+
+### Local dependency update — 1.15.4-dev.5
+
+- Update package dependencies and explicitly require System.Security.Cryptography.Pkcs 10.0.13 to replace SqlClient's vulnerable transitive 9.0.11 dependency.
+- Migrate async assertions to NUnit 5 and await startup/shutdown in integrity-batcher shutdown tests.
+- Publish all five packages under a coordinated prerelease version, including the pending source reconciliation and lookup migration described below. SQL Server sequence acceptance and batch hardening H1–H3 remain open; local package publication does not establish runtime acceptance.
+
+### Package reconciliation — 1.15.4-dev.4 (not yet packed or deployed)
+
+- Advance the shared default and all three project version overrides beyond distributed dev.3; release notes identify dev.4 and disclose the included lookup migration.
+- This reserves a new identity for the pending source reconciliation. Historical dev.1/dev.3 packages must not be overwritten. Commit/package provenance, validation, and consumer delivery remain pending.
+- SQL Server sequence acceptance and batch hardening H1–H3 remain open; no new runtime correctness fix is claimed by the metadata update.
+
+### SQL stall recovery — 1.15.4-dev.3
+
+- Both ExecuteInTransactionAsync overloads preserve the original operation/commit exception when rollback or disposal also fails. Secondary cleanup failures are attached to the original exception's Data; rollback uses an uncanceled token and transaction state is cleared before cleanup.
+- No model or migration changes. Bump the affected persistence package and its dependent packages; unrelated package versions remain unchanged.
+
+### Fixed
+
+- Entity-envelope replay lookups now have a covering `EnvelopeId` index that includes rows with null `PropertyName`, avoiding the clustered-index scan caused by the narrower unique index. A new incremental EF migration adds the lookup index; existing migrations and uniqueness rules are unchanged.
+
+## [1.15.4-dev.1] - 2026-10-08
+
+### Fixed
+
+- Sequence integrity verification now uses a single aggregate result (count, distinct count, minimum and maximum) rather than materializing the complete sequence column and copying it into another list on every background scan.
+- Retains gap and duplicate detection, empty-sequence validity, and support for contiguous sequences starting above 1. Range arithmetic handles the full Int64 domain without overflow.
+- Regression tests cover duplicate/gap combinations, boundary values, and a SQLite query over 2,100 rows that executes as one aggregate command.
+
+### Changed
+
+- Replaces `IAuditIntegrityRepository.GetAllSequenceNumbersAsync` with `IsSequenceContiguousAsync`; all in-repository callers and test mocks use the new contract. No schema change.
+
 ## [1.15.3] - 2026-10-05
 
 ### Fixed

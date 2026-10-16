@@ -467,14 +467,13 @@ public sealed class TamperDetectionServiceDigitalSignatureTests : IDisposable
     #region CancellationToken Propagation
 
     [Test]
-    public void CreateIntegrityRecordAsync_WithCancelledToken_ThrowsOperationCancelledException()
+    public async Task CreateIntegrityRecordAsync_WithCancelledToken_ThrowsOperationCancelledException()
     {
         var service = CreateService();
 
         var cts = new CancellationTokenSource();
         cts.Cancel();
-
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => service.CreateIntegrityRecordAsync(
                 new AuditIntegrityDto { EventId = Guid.NewGuid() },
                 cts.Token));

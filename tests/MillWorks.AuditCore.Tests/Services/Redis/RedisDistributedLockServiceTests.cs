@@ -153,7 +153,7 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync exceeds max retries and throws TimeoutException
     /// </summary>
     [Test]
-    public void AcquireLockAsync_WithMaxRetriesExceeded_ThrowsTimeoutException()
+    public async Task AcquireLockAsync_WithMaxRetriesExceeded_ThrowsTimeoutException()
     {
         // Arrange
         var resource = "locked-resource";
@@ -168,7 +168,7 @@ public class RedisDistributedLockServiceTests
             .ReturnsAsync(false); // Always fail
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<TimeoutException>(async () =>
+        var ex = await Assert.ThrowsAsync<TimeoutException>(async () =>
             await _lockService.AcquireLockAsync(resource, expiry));
 
         Assert.That(ex!.Message, Does.Contain("Failed to acquire distributed lock"));
@@ -179,14 +179,13 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync with null resource throws ArgumentNullException
     /// </summary>
     [Test]
-    public void AcquireLockAsync_WithNullResource_ThrowsArgumentNullException()
+    public async Task AcquireLockAsync_WithNullResource_ThrowsArgumentNullException()
     {
         // Arrange
         string? resource = null;
         var expiry = TimeSpan.FromSeconds(30);
-
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _lockService.AcquireLockAsync(resource!, expiry));
     }
 
@@ -194,14 +193,14 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync with empty resource throws ArgumentException
     /// </summary>
     [Test]
-    public void AcquireLockAsync_WithZeroExpiry_ThrowsArgumentException()
+    public async Task AcquireLockAsync_WithZeroExpiry_ThrowsArgumentException()
     {
         // Arrange
         var resource = "test-resource";
         var expiry = TimeSpan.Zero;
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _lockService.AcquireLockAsync(resource, expiry));
 
         Assert.That(ex!.Message, Does.Contain("Expiry must be greater than zero"));
@@ -211,14 +210,14 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync with negative expiry throws ArgumentException
     /// </summary>
     [Test]
-    public void AcquireLockAsync_WithNegativeExpiry_ThrowsArgumentException()
+    public async Task AcquireLockAsync_WithNegativeExpiry_ThrowsArgumentException()
     {
         // Arrange
         var resource = "test-resource";
         var expiry = TimeSpan.FromSeconds(-10);
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _lockService.AcquireLockAsync(resource, expiry));
 
         Assert.That(ex!.Message, Does.Contain("Expiry must be greater than zero"));
@@ -228,7 +227,7 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync with cancellation token propagates cancellation
     /// </summary>
     [Test]
-    public Task AcquireLockAsync_WithCancellation_PropagatesCancellation()
+    public async Task AcquireLockAsync_WithCancellation_PropagatesCancellation()
     {
         // Arrange
         var resource = "test-resource";
@@ -245,9 +244,8 @@ public class RedisDistributedLockServiceTests
             .ReturnsAsync(false);
 
         // Act & Assert
-        Assert.ThrowsAsync<TaskCanceledException>(async () =>
+        await Assert.ThrowsAsync<TaskCanceledException>(async () =>
             await _lockService.AcquireLockAsync(resource, expiry, cts.Token));
-        return Task.CompletedTask;
     }
 
     #endregion
@@ -534,7 +532,7 @@ public class RedisDistributedLockServiceTests
     /// AcquireLockAsync when lock is held by another process eventually times out
     /// </summary>
     [Test]
-    public void AcquireLockAsync_WhenLockHeldByOther_TimesOut()
+    public async Task AcquireLockAsync_WhenLockHeldByOther_TimesOut()
     {
         // Arrange
         var resource = "locked-resource";
@@ -550,7 +548,7 @@ public class RedisDistributedLockServiceTests
             .ReturnsAsync(false); // Always return false = lock held
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<TimeoutException>(async () =>
+        var ex = await Assert.ThrowsAsync<TimeoutException>(async () =>
             await _lockService.AcquireLockAsync(resource, expiry));
 
         Assert.That(ex!.Message, Does.Contain("Failed to acquire distributed lock"));
@@ -603,7 +601,7 @@ public class RedisDistributedLockServiceTests
 
         // The other should eventually timeout
         var remainingTask = tasks.First(t => t != completedTask);
-        Assert.ThrowsAsync<TimeoutException>(async () => await remainingTask);
+        await Assert.ThrowsAsync<TimeoutException>(async () => await remainingTask);
     }
 
     #endregion

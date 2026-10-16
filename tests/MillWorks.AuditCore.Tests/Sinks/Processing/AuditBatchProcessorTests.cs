@@ -32,7 +32,7 @@ public sealed class AuditBatchProcessorTests
     [Test]
     public async Task ProcessBatchAsync_NullRows_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() =>
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
             _processor.ProcessBatchAsync(null!, CancellationToken.None));
     }
 

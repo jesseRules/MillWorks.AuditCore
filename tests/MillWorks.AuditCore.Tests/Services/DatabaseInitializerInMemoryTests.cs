@@ -56,10 +56,10 @@ public class DatabaseInitializerInMemoryTests
     /// DatabaseInitializer.InitializeAsync throws InvalidOperationException with in-memory database
     /// </summary>
     [Test]
-    public void DatabaseInitializer_InitializeAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_InitializeAsync_ThrowsWithInMemoryDatabase()
     {
         // Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.InitializeAsync(_serviceProvider));
     }
 
@@ -67,10 +67,10 @@ public class DatabaseInitializerInMemoryTests
     /// DatabaseInitializer.NeedsMigrationAsync throws InvalidOperationException with in-memory database
     /// </summary>
     [Test]
-    public void DatabaseInitializer_NeedsMigrationAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_NeedsMigrationAsync_ThrowsWithInMemoryDatabase()
     {
         // Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.NeedsMigrationAsync(_serviceProvider));
     }
 
@@ -78,10 +78,10 @@ public class DatabaseInitializerInMemoryTests
     /// DatabaseInitializer.GetPendingMigrationsAsync throws InvalidOperationException with in-memory database
     /// </summary>
     [Test]
-    public void DatabaseInitializer_GetPendingMigrationsAsync_ThrowsWithInMemoryDatabase()
+    public async Task DatabaseInitializer_GetPendingMigrationsAsync_ThrowsWithInMemoryDatabase()
     {
         // Act & Assert - In-memory database doesn't support migrations
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await DatabaseInitializer.GetPendingMigrationsAsync(_serviceProvider));
     }
 }

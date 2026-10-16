@@ -301,7 +301,7 @@ public sealed class InterceptorSinkRoutingTests
     }
 
     [Test]
-    public Task SinkThrows_FailClosedRegulatedEntity_RethrowsAsAuditIntegrityException()
+    public async Task SinkThrows_FailClosedRegulatedEntity_RethrowsAsAuditIntegrityException()
     {
         // Replace the recording sink with a throwing sink, fresh DI graph,
         // FailClosedForRegulated mode, FERPA entity → fail-closed must rethrow.
@@ -334,12 +334,11 @@ public sealed class InterceptorSinkRoutingTests
 
         _dbContext.FerpaEntities.Add(new RoutingFerpaEntity { Name = "FerpaToFail", StudentId = "S102" });
 
-        var ex = Assert.ThrowsAsync<AuditIntegrityException>(
+        var ex = await Assert.ThrowsAsync<AuditIntegrityException>(
             async () => await _dbContext.SaveChangesAsync());
         Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
         Assert.That(ex.Message, Does.Contain("audit log records"));
 
-        return Task.CompletedTask;
     }
 
     [Test]
@@ -373,8 +372,7 @@ public sealed class InterceptorSinkRoutingTests
         _dbContext = new RoutingTestDbContext(options);
 
         _dbContext.Entities.Add(new RoutingEntity { Name = "Permissive" });
-
-        Assert.DoesNotThrowAsync(async () => await _dbContext.SaveChangesAsync());
+        await Assert.DoesNotThrowAsync(async () => await _dbContext.SaveChangesAsync());
 
         // Confirm the business save still committed (the entity row exists).
         var saved = await _dbContext.Entities.AsNoTracking().FirstOrDefaultAsync();

@@ -283,37 +283,29 @@ public class AuditServiceUnitTests
     /// The service must not throw an unhandled exception for this degenerate input.
     /// </summary>
     [Test]
-    public Task GetAuditEventsByDateRange_InvalidRange_HandlesGracefully()
+    public async Task GetAuditEventsByDateRange_InvalidRange_HandlesGracefully()
     {
-        try
-        {
-            // Arrange — start date is after end date
-            var startDate = DateTimeOffset.UtcNow;
-            var endDate = DateTimeOffset.UtcNow.AddDays(-1);
+        // Arrange — start date is after end date
+        var startDate = DateTimeOffset.UtcNow;
+        var endDate = DateTimeOffset.UtcNow.AddDays(-1);
 
-            _mockAuditEventRepository
-                .Setup(static x => x.GetByOffsetAsync(
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
-                    It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Enumerable.Empty<AuditEventEntity>(), 0));
+        _mockAuditEventRepository
+            .Setup(static x => x.GetByOffsetAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<Expression<Func<AuditEventEntity, bool>>>(),
+                It.IsAny<Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Empty<AuditEventEntity>(), 0));
 
-            // Act — must not throw
-            AuditEventsResponse? result = null;
-            Assert.DoesNotThrowAsync(async () =>
-                result = await _auditService.GetAuditEventsByDateRange(startDate, endDate));
+        // Act — must not throw
+        AuditEventsResponse? result = null;
+        await Assert.DoesNotThrowAsync(async () =>
+            result = await _auditService.GetAuditEventsByDateRange(startDate, endDate));
 
-            // Assert
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result!.TotalItems, Is.EqualTo(0));
-            return Task.CompletedTask;
-        }
-        catch (Exception exception)
-        {
-            return Task.FromException(exception);
-        }
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.TotalItems, Is.EqualTo(0));
     }
 
     // ──────────────────────────────────────────────────────────────────────────

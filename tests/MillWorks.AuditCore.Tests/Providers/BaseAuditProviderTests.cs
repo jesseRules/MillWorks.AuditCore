@@ -196,7 +196,7 @@ public class BaseAuditProviderTests
     [Test]
     public async Task CreateAuditEventAsync_NullEntity_ThrowsArgumentNullException()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(
+        await Assert.ThrowsAsync<ArgumentNullException>(
             async () => await _provider.CreateAuditEventAsync("Create", null!));
     }
 

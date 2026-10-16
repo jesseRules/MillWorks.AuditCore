@@ -66,10 +66,10 @@ public class RepositoryTransactionTests
     /// Verifies ExecuteInTransactionAsync rolls back on exception.
     /// </summary>
     [Test]
-    public void ExecuteInTransactionAsync_OnException_RollsBackAndRethrows()
+    public async Task ExecuteInTransactionAsync_OnException_RollsBackAndRethrows()
     {
         // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await _repository.ExecuteInTransactionAsync(static () =>
                 throw new InvalidOperationException("Test failure"));
@@ -122,7 +122,7 @@ public class RepositoryTransactionTests
     public async Task ExecuteInTransactionAsync_AfterFailure_AllowsNewTransaction()
     {
         // Act - first transaction fails
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await _repository.ExecuteInTransactionAsync(static () =>
                 throw new InvalidOperationException("Fail"));
@@ -229,7 +229,7 @@ public class RepositoryTransactionTests
         var tx = await _repository.BeginTransactionAsync();
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await _repository.BeginTransactionAsync());
         Assert.That(ex!.Message, Does.Contain("transaction is already in progress"));
 
@@ -289,10 +289,10 @@ public class RepositoryTransactionTests
     /// Verifies RollbackTransactionAsync is safe to call with no current transaction.
     /// </summary>
     [Test]
-    public void RollbackTransactionAsync_WithNoTransaction_DoesNotThrow()
+    public async Task RollbackTransactionAsync_WithNoTransaction_DoesNotThrow()
     {
         // Act & Assert
-        Assert.DoesNotThrowAsync(async () => await _repository.RollbackTransactionAsync());
+        await Assert.DoesNotThrowAsync(async () => await _repository.RollbackTransactionAsync());
     }
 
     #endregion

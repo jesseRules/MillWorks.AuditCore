@@ -250,13 +250,12 @@ public class ResilientAuditLoggerTests
     /// LogBatchAsync rejects null entries instead of passing malformed batches downstream.
     /// </summary>
     [Test]
-    public void LogBatchAsync_NullEventInBatch_ThrowsArgumentException()
+    public async Task LogBatchAsync_NullEventInBatch_ThrowsArgumentException()
     {
         // Arrange
         IReadOnlyList<AuditEvent> events = [new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test.Event" }, null!];
-
         // Act / Assert
-        Assert.ThrowsAsync<ArgumentException>(async () => await _resilientLogger.LogBatchAsync(events));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await _resilientLogger.LogBatchAsync(events));
         _mockInnerLogger.Verify(
             static x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -402,15 +401,14 @@ public class ResilientAuditLoggerTests
     /// LogBatchAsync propagates pre-cancelled tokens without retries or DLQ writes.
     /// </summary>
     [Test]
-    public void LogBatchAsync_CancellationRequested_PropagatesImmediately()
+    public async Task LogBatchAsync_CancellationRequested_PropagatesImmediately()
     {
         // Arrange
         var events = CreateBatch(2);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-
         // Act / Assert
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await _resilientLogger.LogBatchAsync(events, cts.Token));
         _mockInnerLogger.Verify(
             static x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()),
@@ -614,7 +612,7 @@ public class ResilientAuditLoggerTests
     /// LogAsync with cancellation requested propagates immediately
     /// </summary>
     [Test]
-    public Task LogAsync_CancellationRequested_PropagatesImmediately()
+    public async Task LogAsync_CancellationRequested_PropagatesImmediately()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -627,7 +625,7 @@ public class ResilientAuditLoggerTests
         cts.Cancel();
 
         // Act & Assert
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await _resilientLogger.LogAsync(auditEvent, cts.Token));
 
         // Should not call inner logger or send to DLQ when token is pre-cancelled
@@ -638,7 +636,6 @@ public class ResilientAuditLoggerTests
         _mockDeadLetterQueue.Verify(
             static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
             Times.Never);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -646,7 +643,7 @@ public class ResilientAuditLoggerTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task LogAsync_CancellationDuringOperation_PropagatesAndDoesNotRetry()
+    public async Task LogAsync_CancellationDuringOperation_PropagatesAndDoesNotRetry()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -662,7 +659,7 @@ public class ResilientAuditLoggerTests
             .ThrowsAsync(new OperationCanceledException());
 
         // Act & Assert
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await _resilientLogger.LogAsync(auditEvent, cts.Token));
 
         // Should call once but not retry or send to DLQ
@@ -673,7 +670,6 @@ public class ResilientAuditLoggerTests
         _mockDeadLetterQueue.Verify(
             static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
             Times.Never);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -682,7 +678,7 @@ public class ResilientAuditLoggerTests
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
     [Test]
-    public Task LogAsync_CancellationDuringRetry_StopsRetrying()
+    public async Task LogAsync_CancellationDuringRetry_StopsRetrying()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -717,7 +713,7 @@ public class ResilientAuditLoggerTests
         }, cts.Token);
 
         // Act & Assert - Accept TaskCanceledException (subclass of OperationCanceledException)
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await _resilientLogger.LogAsync(auditEvent, cts.Token));
 
         // Should fail once, then get cancelled during retry delay
@@ -726,7 +722,6 @@ public class ResilientAuditLoggerTests
         _mockDeadLetterQueue.Verify(
             static x => x.StoreFailedEventAsync(It.IsAny<AuditEvent>(), It.IsAny<Exception>(), It.IsAny<string>()),
             Times.Never);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -734,12 +729,11 @@ public class ResilientAuditLoggerTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task LogAsync_NullEvent_ThrowsArgumentNullException()
+    public async Task LogAsync_NullEvent_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _resilientLogger.LogAsync((AuditEvent)null!));
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -776,7 +770,7 @@ public class ResilientAuditLoggerTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task LogAsync_CancellationRequested_PropagatesToken()
+    public async Task LogAsync_CancellationRequested_PropagatesToken()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -793,9 +787,8 @@ public class ResilientAuditLoggerTests
             .ThrowsAsync(new OperationCanceledException());
 
         // Act & Assert
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await _resilientLogger.LogAsync(auditEvent, cts.Token));
-        return Task.CompletedTask;
     }
 
     /// <summary>

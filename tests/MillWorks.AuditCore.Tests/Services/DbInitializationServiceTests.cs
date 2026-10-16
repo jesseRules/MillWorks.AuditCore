@@ -216,7 +216,7 @@ public class DbInitializationServiceTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task StartAsync_WhenExceptionOccursWithFailOnError_Throws()
+    public async Task StartAsync_WhenExceptionOccursWithFailOnError_Throws()
     {
         // Arrange
         _options.MigrateOnStartup = true;
@@ -246,9 +246,8 @@ public class DbInitializationServiceTests
             Options.Create(_options));
 
         // Act & Assert
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await service.StartAsync(CancellationToken.None));
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -256,7 +255,7 @@ public class DbInitializationServiceTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task StartAsync_WhenExceptionOccursWithoutFailOnError_DoesNotThrow()
+    public async Task StartAsync_WhenExceptionOccursWithoutFailOnError_DoesNotThrow()
     {
         // Arrange
         _options.MigrateOnStartup = true;
@@ -286,7 +285,7 @@ public class DbInitializationServiceTests
             Options.Create(_options));
 
         // Act & Assert
-        Assert.DoesNotThrowAsync(async () =>
+        await Assert.DoesNotThrowAsync(async () =>
             await service.StartAsync(CancellationToken.None));
 
         _mockLogger.Verify(
@@ -298,7 +297,6 @@ public class DbInitializationServiceTests
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
-        return Task.CompletedTask;
     }
 
     /// <summary>

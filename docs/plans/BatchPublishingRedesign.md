@@ -1,6 +1,6 @@
 # Batch Publishing Redesign Plan
 
-**Goal:** Transform batch publishing from "best effort" convenience into an explicit, transactional contract with per-envelope result tracking and deterministic outbox processing.
+**Goal:** Provide deterministic internal per-envelope outcomes and durable, idempotent outbox processing. Immediate mixed-kind batches are not currently one atomic transaction; public result visibility remains optional.
 
 ---
 
@@ -14,7 +14,43 @@
 | D | Stateful outbox row claims (InFlight, leases) | ✅ Complete | 2026-05-19 |
 | E | Extract `IAuditBatchProcessor` | ✅ Complete | 2026-05-19 |
 | F | Metrics / observability | ✅ Complete | 2026-05-19 |
-| G | Public `BatchPublishResult` API (optional) | ⬚ Not started | |
+| G | Public `BatchPublishResult` API | Deferred; requires a demonstrated consumer need | Reviewed 2026-10-16 |
+
+### Correctness follow-up — 2026-10-16
+
+A–F record delivered infrastructure. The subsequent implementation review identified missing
+stale-owner enforcement on outbox transitions, an overstatement of immediate-batch atomicity
+in the public documentation, and lost individual duplicate classifications in mixed replay/new
+explicit-event batches, plus a mismatch between explicit-event outbox and persistence IDs.
+These are planned as H1–H3 (including identity prerequisite H3a) in
+[Batch Publishing Hardening](BatchPublishingHardening.md). H4 tracks repository extraction;
+H5 tracks load qualification; optional G remains deferred behind a consumer need.
+The cross-plan review on 2026-10-16 adds retained failed-row authority, a separately retryable
+DLQ projection, durable uncertain-commit verification, queued-contract validation, and
+same-identity/different-content conflict rejection to that follow-up. These are planned
+requirements, not guarantees established by the historical A–F completion record.
+
+The hardening plan's [MillWorks precedents and gates](BatchPublishingHardening.md#millworks-precedents-and-implementation-gates)
+link shared messaging mechanics, durable failure/recovery, commit receipts, identity policies,
+and retention ownership. The remaining AuditCore-specific decisions must be resolved before
+implementation; those references do not establish AuditCore runtime acceptance.
+
+Review test evidence and its limits are maintained in the hardening plan's
+[Evidence and boundaries](BatchPublishingHardening.md#evidence-and-boundaries) section.
+Historical sequence-fix validation is recorded only in the durability plan and its evidence register.
+
+### Sequence consistent-read follow-up — 2026-10-16
+
+The SQL Server summary now runs in a dedicated SERIALIZABLE transaction with bounded
+retries and deadline/cancellation handling. [Isolated concurrency evidence](../evidence/audit-pipeline-2026-10/sequence-consistency-2026-10-16/README.md)
+proves append/rollback and retention overlap under RCSI OFF/ON, including the original row
+volume. This source change does not reopen A–F or implement H1–H3; package/runtime and
+scheduled-scan acceptance remain in the durability plan.
+
+### Sequence integrity scan performance follow-up — 2026-10-08
+
+Sequence-query history, index/deployment evidence, and remaining acceptance belong to
+[Audit Write Pipeline Durability](completed/AuditWritePipelineDurability.md#remaining-acceptance-and-release-work--reviewed-2026-10-16).
 
 **Slice B Deliverables (2026-05-19):**
 - `WriteOutcome` record with `EnvelopeId` correlation, factory methods for Success/Duplicate/Failed
@@ -31,12 +67,12 @@
 - `AuditDbContext` configures `UX_AuditOutbox_IdempotencyKey` unique index
 - `IAuditOutboxWriter` interface updated: accepts `Guid idempotencyKey`, returns insert count/success
 - `AuditOutboxWriter` uses `INSERT...WHERE NOT EXISTS` for graceful duplicate handling, falls back to individual inserts on race conditions
-- `TransactionalOutboxSink.ExtractIdempotencyKey()` derives key from `EnvelopeId` for both envelope kinds
+- `TransactionalOutboxSink.ExtractIdempotencyKey()` now prefers `ExplicitEventId` for explicit events, otherwise `EnvelopeId`; entity changes use `EnvelopeId`
 - `BatchAuditResult.IsDuplicate` property and `Duplicate()` factory method
-- `AuditLogger.LogBatchAsync` returns `BatchAuditResult.Duplicate()` on duplicate key detection
+- `AuditLogger.LogBatchAsync` now confirms all events are duplicates before returning `BatchAuditResult.Duplicate()`; mixed replay/new batches persist new events but need per-event duplicate reporting (H3)
 - `AuditEntityBatchWriter` catches `DbUpdateException` via `DuplicateKeyDetector`, returns `WriteOutcome.Duplicate`
 - `AuditEventBatchWriter` maps `IsDuplicate` flag to `WriteOutcome.Duplicate`
-- `AuditEventBatchWriter.MapToAuditEvent` sets `EventId = EnvelopeId` for replay stability (same envelope → same EventId → PK catches duplicates)
+- `AuditEventBatchWriter.MapToAuditEvent` currently sets `EventId = EnvelopeId`; H3a corrects this to the caller's required `ExplicitEventId` so logical-event replay remains safe across re-enveloping
 - 24 new tests: `IdempotencyTests.cs` (18 unit tests), `IdempotencySqliteTests.cs` (6 integration tests proving constraint enforcement)
 - Note: Skipped redundant unique index on `AuditEvents.EventId` since it's already the PK
 
@@ -55,8 +91,8 @@
 **Slice E Deliverables (2026-05-19):**
 - `IAuditBatchProcessor` interface with supporting types: `ClaimedOutboxRow`, `BatchProcessingResult`, `RowOutcome`, `RowStatus` enum
 - `AuditBatchProcessor` implementation: groups rows by envelope kind, delegates to `IAuditEntityBatchWriter`/`IAuditEventBatchWriter`, maps `WriteOutcome` to `RowOutcome`
-- `AuditOutboxDrainer` refactored to orchestration-only: claim → deserialize → process → apply outcomes
-- Drainer reduced from ~570 to ~460 LOC (repository extraction deferred to future slice for full ~100 LOC target)
+- `AuditOutboxDrainer` delegates batch writes to the processor: claim → deserialize → process → apply outcomes; claim/recovery/state persistence remain in the drainer (H1/H4)
+- Processor extraction completed; drainer still owns persistence transitions. Repository extraction is deferred with the decision criteria below; there is no line-count completion target.
 - Retry exhaustion logic fixed: `ApplyRetryOutcomeAsync` checks `AttemptCount >= MaxAttempts` before scheduling retry, routes to `ApplyExhaustedOutcomeAsync` + DLQ on exhaustion
 - Separated `ApplyExhaustedOutcomeAsync` from `ApplyFailedOutcomeAsync` — non-retryable errors still increment attempt count before failing
 - DI registration: `IAuditBatchProcessor` → `AuditBatchProcessor` (scoped)
@@ -79,16 +115,29 @@
 
 ---
 
-## Current State Summary
+## Current State Summary — reviewed 2026-10-16
 
-| Aspect | Current Behavior | Problem |
-|--------|------------------|---------|
-| `PublishBatchAsync` return | `Task` (void) | Caller cannot distinguish which envelopes succeeded/failed |
-| EntityChange handling | Buffered, single `SaveChangesAsync` | Atomic but no per-row feedback |
-| ExplicitEvent handling | Drainer isolates them and processes one-at-a-time; sink still writes them inline | Common-case duplicate hazard is mitigated, but sink semantics remain mixed |
-| Outbox row states | `Pending=0, Completed=1, Failed=2` | No `InFlight` claim; no lease ownership |
-| Idempotency | `AuditEvent.EventId` exists for explicit events; entity-change envelopes have no first-class envelope identity | Result correlation and replay semantics depend on ad-hoc mapping |
-| Drainer recovery | EntityChange rows batch first, then fall back one-at-a-time; ExplicitEvent rows are isolated up front | Safer than the original design, but still not a deterministic per-row outcome contract |
+| Aspect | Implemented behavior | Remaining decision/work |
+|--------|----------------------|-------------------------|
+| Public `PublishBatchAsync` | Returns `Task`; public sink acceptance semantics remain unchanged | Slice G deferred; define a consumer need before designing a return-type change |
+| Immediate batch atomicity | Entity/event writers execute independently; one subset may persist before another fails | Correct public single-transaction/no-partial-success documentation (H2) |
+| Explicit-event identity | Outbox prefers ExplicitEventId; event writer stores EnvelopeId as EventId | H3a will require ExplicitEventId for both; EnvelopeId remains result correlation |
+| Internal processing | Writers return envelope outcomes; processor correlates row outcomes; drainer applies completion/retry/failure | Stale-owner transitions and mixed duplicate classifications need H1/H3 follow-up |
+| Outbox state | `Pending=0, InFlight=1, Completed=2, Failed=3`; row claims and expiring leases | Enforce ownership on outcome/recovery updates (H1); claims alone are insufficient |
+| Idempotency | Stable envelope identity, explicit-event PK, outbox unique key, entity envelope/property replay checks | Envelope lookup index verified October 9; see durability plan |
+| Observability | Outcome, retry, lease, row-age, and queue-depth instruments implemented | Load targets below remain unverified |
+
+The phase designs below retain the original proposal for reference. Their sample code is not
+the implemented API contract. The implementation status above and the dispositions below
+govern remaining work; proposed signatures and historical estimates are not release blockers.
+
+### Disposition of remaining design items
+
+| Item | Disposition and trigger | Required outcome if resumed |
+|------|-------------------------|----------------------------|
+| Slice G: public results | Deferred. Resume only with a named consumer use case that existing exceptions, internal outcomes, and metrics cannot satisfy. | Document acceptance-versus-final-persistence semantics for immediate and outbox sinks, duplicate handling, result correlation, cancellation, and compatibility/versioning before implementation. Then test every envelope outcome, mixed replay/failure, consumer implementations, and migration examples. Outbox acceptance must not claim final audit-store persistence. |
+| Outbox repository extraction | Planned as independently deferrable H4 after H1 ownership correction; not required to restore the historical ~100-line target. | Move claim, complete, retry, fail, and lease recovery behind a repository; preserve H1 guarded ownership predicates and state transitions with SQL Server concurrent-claim, expired-lease, stale-owner, retry-exhaustion, and cancellation tests. Drainer line count is not an acceptance criterion. |
+| Load qualification | Unverified; original 10K/sec and P99 <100ms numbers are provisional targets, not demonstrated guarantees. | Define hardware/SQL version, row count, envelope mix, concurrency, polling/lease settings, payload size, and a 30-minute workload before running. Report offered/committed rate, backlog, end-to-end P99, errors, and memory trend; reconcile every envelope as persisted, pending/retry, or DLQ with no silent loss. Set a latency/throughput/memory budget for that workload before claiming a pass. |
 
 ---
 
@@ -122,9 +171,11 @@ public sealed record AuditEnvelope
 public sealed class BatchPublishResult
 {
     public IReadOnlyList<EnvelopeOutcome> Outcomes { get; init; }
-    public bool AllSucceeded => Outcomes.All(o => o.Status == EnvelopeStatus.Succeeded);
+    public bool AllSucceeded => Outcomes.All(o =>
+        o.Status is EnvelopeStatus.Succeeded or EnvelopeStatus.Duplicate);
     public int SucceededCount => Outcomes.Count(o => o.Status == EnvelopeStatus.Succeeded);
     public int FailedCount => Outcomes.Count(o => o.Status == EnvelopeStatus.Failed);
+    public int DuplicateCount => Outcomes.Count(o => o.Status == EnvelopeStatus.Duplicate);
 }
 
 public sealed class EnvelopeOutcome
@@ -168,7 +219,7 @@ Task<BatchPublishResult> PublishBatchAsync(
 **File:** `MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs`
 
 - Return success outcomes for all envelopes written to outbox
-- Outbox write is atomic; if it fails, all envelopes failed
+- Outcomes describe acceptance inside the consumer transaction, which may later roll back; they do not establish final audit-store persistence. Define failure and cancellation behavior as part of G.
 
 ### 1.6 Update AuditOutboxDrainer
 
@@ -268,7 +319,7 @@ public async Task<BatchPublishResult> PublishBatchAsync(
 - [x] No inline side effects during batch iteration *(Slice B - completed 2026-05-19)*
 - [x] Both entity changes and explicit events batch-written *(Slice B - completed 2026-05-19)*
 - [x] Coordinator combines outcomes from both writers *(Slice B - completed 2026-05-19)*
-- [ ] Drainer unchanged (consumes same `BatchPublishResult`) *(N/A until Slice G changes public API)*
+- Not applicable: the implemented drainer consumes internal row outcomes. Public result changes belong only to deferred Slice G.
 
 ---
 
@@ -435,7 +486,7 @@ INCLUDE (EnvelopeJson, EnvelopeVersion, IdempotencyKey);
 - [x] Rows transition: Pending → InFlight → Completed/Failed
 - [x] Lease columns populated during claim
 - [x] Expired leases recovered automatically
-- [x] No row processed by multiple drainers simultaneously
+- [ ] Overlapping workers cannot apply stale outcomes after lease expiry/reclaim (H1); repeated processing must remain idempotent
 - [x] Metrics track InFlight count and lease recovery rate — lease recovery counter `audit.outbox.drainer.leases_recovered` plus the `audit.outbox.inflight_count` gauge (`AuditOutboxQueueObserver`, 2026-06-16)
 
 ---
@@ -537,22 +588,24 @@ private async Task ApplyOutcomesAsync(IReadOnlyList<RowOutcome> outcomes, Cancel
 }
 ```
 
-### 5.4 Extract Outbox Repository
+### 5.4 Extract Outbox Repository (deferred design)
 
 **File:** `MillWorks.AuditCore.Services/Sinks/AuditOutboxRepository.cs`
 
 - `ClaimBatchAsync(leaseId, expiry, batchSize)`
-- `CompleteRowAsync(rowId)`
-- `ScheduleRetryAsync(rowId, retryAfter)`
-- `FailRowAsync(rowId, errorMessage)`
-- `RecoverExpiredLeasesAsync()`
+- `CompleteRowAsync(claim)`
+- `ScheduleRetryAsync(claim, retryAfter)`
+- `FailRowAsync(claim, errorMessage)`
+
+These are conceptual signatures. H1/H4 require a fresh acquisition token in `claim` and
+conditional mutations; a row ID alone is insufficient to authorize a transition.
+Recovery (`RecoverExpiredLeasesAsync`) must also apply conditional state/expiry predicates.
 
 **Acceptance Criteria:**
-- [ ] Drainer is ~100 lines (orchestration only)
-- [ ] Processor handles all sink interaction
-- [ ] Repository encapsulates row state transitions
-- [ ] Each component independently testable
-- [ ] Processor unit tests don't need DbContext
+- [x] Processor routes envelopes to internal writers and maps per-row outcomes (Slice E).
+- [x] Processor unit tests use mocked writers without a DbContext (`AuditBatchProcessorTests`).
+- Planned follow-up H4: repository extraction and transition-isolation tests after H1; independently deferrable.
+- Removed: the ~100-line drainer target; correctness and ownership semantics determine acceptance.
 
 ---
 
@@ -746,21 +799,18 @@ Phase 1 ────────────────────────
 | A | Add `AuditEnvelope.EnvelopeId`; preserve through interceptor, immediate sink, outbox serialization, drainer deserialization | None | Yes: `AuditEnvelope` contract | 1 day | ✅ Done |
 | B | Introduce internal `WriteOutcome` / batch writer abstractions for entity changes and explicit events; refactor `ImmediateSink` to coordinate them behind the current API | A | No | 2-3 days | ✅ Done |
 | C | Add explicit-event idempotency constraints and outbox `IdempotencyKey`; handle duplicates as success | A | Yes: migration | 1-2 days | ✅ Done |
-| D | Add stateful outbox row claims (`InFlight`, lease columns, repository methods, claim/apply transitions) | C | Yes: migration | 2-3 days | |
-| E | Extract `IAuditBatchProcessor`; make drainer orchestration-only | B, D | No | 1-2 days | |
-| F | Add metrics / observability | E | No | 1 day | |
-| G | Change public `IAuditSink.PublishBatchAsync` to return `BatchPublishResult` if internal processing still cannot expose needed visibility without it | B, C, D, E | Yes: public API | 1-2 days | |
+| D | Add stateful outbox row claims (`InFlight`, lease columns, repository methods, claim/apply transitions) | C | Yes: migration | 2-3 days | ✅ Done |
+| E | Extract `IAuditBatchProcessor`; make drainer orchestration-only | B, D | No | 1-2 days | ✅ Done |
+| F | Add metrics / observability | E | No | 1 day | ✅ Done |
+| G | Change public `IAuditSink.PublishBatchAsync` to return `BatchPublishResult` if internal processing still cannot expose needed visibility without it | B, C, D, E | Yes: public API | 1-2 days | Deferred; consumer need required |
 
 **Realistic total:** ~8-14 engineering days depending on migration/test overhead.
 
 ### Recommendation
 
-Treat **Slice G** as optional until the end.
-
-If deterministic replay, idempotency, and row-level outbox outcomes can be fully
-implemented behind internal abstractions, avoid the public signature break in
-the first release of this redesign. A top-tier library should minimize public
-surface churn unless the new API materially unlocks consumer value.
+Prioritize [H1 stale-owner enforcement](BatchPublishingHardening.md#h1--enforce-claim-ownership-at-the-database-boundary),
+the highest-severity open correctness item, followed by H2/H3. Keep Slice G deferred until a
+consumer need is demonstrated. H4/H5 dependencies and acceptance are owned by the hardening plan.
 
 ---
 
@@ -793,13 +843,14 @@ surface churn unless the new API materially unlocks consumer value.
 
 - **Slices C-D:** Requires coordinated deployment
   - Run migrations before deploying new drainer code
-  - Old drainer code compatible with new schema (ignores new columns)
+  - Stop all drainers before the status mapping changes; old numeric enum mappings are not compatible merely because new columns are ignored.
+  - Inventory/reconcile persisted states under the stopped-drainer procedure before rollback; H1 additionally requires every restarted drainer to use guarded transitions.
   - New drainer code requires new schema
 
 - **Slice G:** If the public `PublishBatchAsync` return type changes
   - Any consumer implementing `IAuditSink` must update
   - Consumers only *calling* the method are usually low-friction to migrate
-  - Consider shipping an adapter/shim release if external implementations are expected
+  - Apply the greenfield rule: update implementations and consumers together; do not add a legacy adapter/shim without a demonstrated requirement
 
 ### Suggested Release Shape
 
@@ -807,11 +858,11 @@ surface churn unless the new API materially unlocks consumer value.
    - Slices A-B
    - Internal semantics normalized, no outbox schema change yet
 
-2. **Release 2**
+2. **Release 2** ✅ *Slices complete*
    - Slices C-D
    - Idempotency + stateful outbox processing
 
-3. **Release 3**
+3. **Release 3** ✅ *Slices complete*
    - Slices E-F
    - Processor extraction + observability
 
@@ -843,10 +894,13 @@ surface churn unless the new API materially unlocks consumer value.
 | Explicit-event subset failure | No duplicate explicit events after batch error + retry |
 | Duplicate envelope | Returns `Duplicate` status, no DB error |
 | Lease expiry recovery | Crashed drainer's rows reclaimed |
-| Concurrent drainers | No row processed twice |
+| Concurrent drainers | No simultaneous valid claim by different owners; expired-lease replay is idempotent and stale owners cannot apply outcomes |
 | DLQ routing | Failed rows reach DLQ with context |
 
-### Load Tests
+### Load Tests (provisional; not yet qualified)
+
+Use the workload definition and evidence requirements in the disposition table above.
+These targets have no passing run attached to this plan.
 
 | Metric | Target |
 |--------|--------|
@@ -858,26 +912,31 @@ surface churn unless the new API materially unlocks consumer value.
 
 ## Rollback Plan
 
-Each phase is independently deployable and rollback-safe:
+Rollback requires schema and status-enum compatibility. A pre-D drainer interprets numeric
+states differently; keeping the new columns alone does not make it compatible. Stop drainers
+and explicitly reconcile states before such a rollback. H1 also requires all active drainers
+to use guarded transitions; mixed old/new workers do not establish its safety guarantee.
+
+Original slice rollback considerations:
 
 1. **Slice A:** Keep `EnvelopeId`; it is additive and safe to retain
 2. **Slice B:** Revert internal writer coordinator refactor; sink behavior unchanged
 3. **Slice C:** Keep idempotency columns/indexes; revert code if needed
-4. **Slice D:** Keep lease columns/status values; revert code if needed
+4. **Slice D:** Retain lease columns; reverting the status mapping requires stopped drainers and an explicit state conversion
 5. **Slice E:** Merge processor back into drainer if extraction causes issues
 6. **Slice F:** Remove metric instrumentation
-7. **Slice G:** If shipped, provide compatibility adapter or revert public return-type change in a major-version rollback only
+7. **Slice G:** If shipped, coordinate consumer and package rollback for any signature change; no legacy compatibility adapter is planned
 
 ---
 
-## Success Metrics
+## Success Metrics (design goals; not benchmark evidence)
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Retry storms after batch failure | Common | Eliminated |
-| Duplicate audit records from replay | Possible | Impossible |
+| Retry storms after batch failure | Common | Per-row retry routing delivered; sustained failure/load behavior remains H5 |
+| Duplicate audit records from replay | Possible | Replay must not add duplicate logical records; verify mixed/partial/concurrent replay regressions |
 | Drainer observability | Basic counters | Full histogram suite |
-| Code complexity (drainer LOC) | ~350 | ~100 |
-| Per-envelope failure visibility | None | Full |
-| Concurrent drainer safety | Distributed lock | Row-level leases |
+| Code complexity | Drainer coupled processing and persistence | Processor extraction complete; repository extraction deferred without a LOC target |
+| Per-envelope failure visibility | None | Internal envelope/row outcomes implemented; public results deferred (Slice G) |
+| Concurrent drainer safety | Distributed lock | Row claims delivered; guarded ownership transitions remain H1 |
 | Batch/result correlation | Implicit ordering / ad-hoc row pairing | Stable `EnvelopeId` end-to-end |

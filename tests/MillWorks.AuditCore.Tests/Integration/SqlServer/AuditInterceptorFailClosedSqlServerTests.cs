@@ -52,7 +52,7 @@ public sealed class AuditInterceptorFailClosedSqlServerTests
     }
 
     [Test]
-    public void SaveChangesAsync_FailClosedAlways_AuditFailure_RollsBackBusinessRow()
+    public async Task SaveChangesAsync_FailClosedAlways_AuditFailure_RollsBackBusinessRow()
     {
         var diagnostics = new AuditDiagnostics();
         var interceptor = new AuditSaveChangesInterceptor(
@@ -65,7 +65,7 @@ public sealed class AuditInterceptorFailClosedSqlServerTests
         using (var ctx = new FailClosedTestDbContext(BuildOptions(interceptor)))
         {
             ctx.PlainEntities.Add(new PlainTestEntity { Name = "rollback-target" });
-            thrown = Assert.ThrowsAsync<AuditIntegrityException>(async () =>
+            thrown = await Assert.ThrowsAsync<AuditIntegrityException>(async () =>
                 await ctx.SaveChangesAsync());
         }
 

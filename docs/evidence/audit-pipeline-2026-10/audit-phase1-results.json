@@ -1,0 +1,104 @@
+{
+  "times": {
+    "creation": "2026-10-09T05:51:18.2597070-05:00",
+    "queuing": "2026-10-09T05:51:18.2597070-05:00",
+    "start": "2026-10-09T05:51:16.3166460-05:00",
+    "finish": "2026-10-09T05:51:20.7986310-05:00"
+  },
+  "counters": {
+    "total": "19",
+    "executed": "19",
+    "passed": "19",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "results": [
+    {
+      "name": "WriteBatchAsync_100Envelopes_AllSucceed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_UnrelatedUniqueViolation_DoesNotAcknowledgeUnwrittenEnvelopes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_DbUpdateException_ReturnsFailedOutcomes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_MixedReplay_PersistsNewEnvelope(False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_MultipleEnvelopes_ReturnsOutcomePerEnvelope",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_PartialReplay_PersistsMissingPropertyAndSubjectLink",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_PersistsRowsToDatabase",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_SingleEnvelope_ReturnsSuccessOutcome",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_CompleteReplay_DoesNotAttemptAnotherSave",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_NullEnvelopes_Throws",
+      "outcome": "Passed"
+    },
+    {
+      "name": "SqlServerReplayLookup_CoversRowsWithAndWithoutPropertyChanges",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_RepeatedEnvelopeInBatch_WritesEachRowOnce(False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_OutcomesCorrelateByEnvelopeId",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_ConcurrentPartialReplay_RechecksAndPersistsRemainingBatch",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_EmptyList_ReturnsEmptyOutcomes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_WithoutPropertyChanges_WritesSingleRow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_RepeatedEnvelopeInBatch_WritesEachRowOnce(True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_MixedReplay_PersistsNewEnvelope(True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "WriteBatchAsync_WithPropertyChanges_WritesMultipleRowsPerEnvelope",
+      "outcome": "Passed"
+    }
+  ]
+}

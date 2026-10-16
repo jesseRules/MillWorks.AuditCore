@@ -28,7 +28,7 @@ public class LogAsyncTraceFixTests
     #region N1: LogBatchAsync OperationCanceledException handling
 
     [Test]
-    public void LogBatchAsync_WhenCancelled_ThrowsOperationCanceledWithoutLoggingError()
+    public async Task LogBatchAsync_WhenCancelled_ThrowsOperationCanceledWithoutLoggingError()
     {
         // Arrange
         var mockLogger = new Mock<ILogger<AuditLogger>>();
@@ -55,9 +55,8 @@ public class LogAsyncTraceFixTests
             new() { EventType = "Test.Event1" },
             new() { EventType = "Test.Event2" }
         };
-
         // Act & Assert — should throw OperationCanceledException, not wrap it
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             () => auditLogger.LogBatchAsync(events, CancellationToken.None));
 
         // Verify LogError was NOT called (the fix prevents error logging on cancellation)
@@ -72,7 +71,7 @@ public class LogAsyncTraceFixTests
     }
 
     [Test]
-    public void LogBatchAsync_WhenCancelled_DoesNotCatchAsGenericException()
+    public async Task LogBatchAsync_WhenCancelled_DoesNotCatchAsGenericException()
     {
         // Arrange — verify that OperationCanceledException is re-thrown silently
         var mockLogger = new Mock<ILogger<AuditLogger>>();
@@ -100,7 +99,7 @@ public class LogAsyncTraceFixTests
         };
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<OperationCanceledException>(
+        var ex = await Assert.ThrowsAsync<OperationCanceledException>(
             () => auditLogger.LogBatchAsync(events, cts.Token));
         Assert.That(ex, Is.Not.Null);
     }

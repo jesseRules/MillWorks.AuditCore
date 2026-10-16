@@ -1,0 +1,12 @@
+   CPU time = 5 ms, elapsed time = 5 ms.
+00000000-0000-0000-0000-000000000000 UpdatedAt
+
+Table 'AuditLogs'. Scan count 5, logical reads 55571, physical reads 0, page server reads 0, read-ahead reads 48032, page server read-ahead reads 0, lob logical reads 0, lob physical reads 0, lob page server reads 0, lob read-ahead reads 0, lob page server read-ahead reads 0.
+
+ SQL Server Execution Times:
+   CPU time = 700 ms,  elapsed time = 1749 ms.
+
+ SQL Server Execution Times:
+   CPU time = 706 ms,  elapsed time = 1759 ms.
+SQL Server parse and compile time: 
+   CPU time = 18 ms, elapsed time = 43 ms.

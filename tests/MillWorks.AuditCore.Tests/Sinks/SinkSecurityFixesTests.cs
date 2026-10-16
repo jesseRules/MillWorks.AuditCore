@@ -41,7 +41,7 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public void ImmediateSink_EntityWriterFailure_ThrowsAuditWriteException()
+    public async Task ImmediateSink_EntityWriterFailure_ThrowsAuditWriteException()
     {
         var entityWriter = new Mock<IAuditEntityBatchWriter>();
         entityWriter
@@ -57,7 +57,7 @@ public sealed class SinkSecurityFixesTests
             new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Patient", Action = AuditAction.Created }
         };
 
-        var ex = Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
+        var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
         Assert.Multiple(() =>
         {
             Assert.That(ex!.FailedCount, Is.EqualTo(1));
@@ -68,7 +68,7 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public void ImmediateSink_EventWriterFailure_ThrowsAuditWriteException()
+    public async Task ImmediateSink_EventWriterFailure_ThrowsAuditWriteException()
     {
         var entityWriter = CreateSuccessEntityWriter();
         var eventWriter = new Mock<IAuditEventBatchWriter>();
@@ -84,7 +84,7 @@ public sealed class SinkSecurityFixesTests
             new() { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
         };
 
-        var ex = Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
+        var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
         Assert.Multiple(() =>
         {
             Assert.That(ex!.FailedCount, Is.EqualTo(1));
@@ -93,7 +93,7 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public void ImmediateSink_PartialFailure_ThrowsWithCorrectCounts()
+    public async Task ImmediateSink_PartialFailure_ThrowsWithCorrectCounts()
     {
         var entityWriter = new Mock<IAuditEntityBatchWriter>();
         entityWriter
@@ -122,7 +122,7 @@ public sealed class SinkSecurityFixesTests
             })
             .ToList();
 
-        var ex = Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
+        var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
         Assert.Multiple(() =>
         {
             Assert.That(ex!.FailedCount, Is.EqualTo(2));
@@ -132,7 +132,7 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public void ImmediateSink_MixedKindsFailure_KindIsNull()
+    public async Task ImmediateSink_MixedKindsFailure_KindIsNull()
     {
         var entityWriter = new Mock<IAuditEntityBatchWriter>();
         entityWriter
@@ -154,7 +154,7 @@ public sealed class SinkSecurityFixesTests
             new() { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
         };
 
-        var ex = Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
+        var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
         Assert.That(ex!.Kind, Is.Null);
     }
 

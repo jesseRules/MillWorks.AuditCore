@@ -63,7 +63,7 @@ public sealed class AuditInterceptorFailClosedSqliteTests
     }
 
     [Test]
-    public void FailClosedForRegulated_RegulatedEntity_ThrowsAndRollsBack()
+    public async Task FailClosedForRegulated_RegulatedEntity_ThrowsAndRollsBack()
     {
         var diagnostics = new AuditDiagnostics();
         var interceptor = new AuditSaveChangesInterceptor(
@@ -76,7 +76,7 @@ public sealed class AuditInterceptorFailClosedSqliteTests
         using (var context = new FailClosedTestDbContext(BuildOptions(interceptor)))
         {
             context.FerpaEntities.Add(new FerpaTestEntity { Name = "bob" });
-            thrown = Assert.ThrowsAsync<AuditIntegrityException>(async () =>
+            thrown = await Assert.ThrowsAsync<AuditIntegrityException>(async () =>
                 await context.SaveChangesAsync());
         }
 
@@ -114,7 +114,7 @@ public sealed class AuditInterceptorFailClosedSqliteTests
     }
 
     [Test]
-    public void FailClosedAlways_PlainEntity_ThrowsAndRollsBack()
+    public async Task FailClosedAlways_PlainEntity_ThrowsAndRollsBack()
     {
         var diagnostics = new AuditDiagnostics();
         var interceptor = new AuditSaveChangesInterceptor(
@@ -127,7 +127,7 @@ public sealed class AuditInterceptorFailClosedSqliteTests
         using (var context = new FailClosedTestDbContext(BuildOptions(interceptor)))
         {
             context.PlainEntities.Add(new PlainTestEntity { Name = "dave" });
-            thrown = Assert.ThrowsAsync<AuditIntegrityException>(async () =>
+            thrown = await Assert.ThrowsAsync<AuditIntegrityException>(async () =>
                 await context.SaveChangesAsync());
         }
 

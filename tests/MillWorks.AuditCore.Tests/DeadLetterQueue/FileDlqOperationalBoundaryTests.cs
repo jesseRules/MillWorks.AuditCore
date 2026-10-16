@@ -93,9 +93,8 @@ public sealed class FileDlqOperationalBoundaryTests
         await dlq.StoreFailedEventAsync(CreateTestEvent(), reason: "test1");
         await dlq.StoreFailedEventAsync(CreateTestEvent(), reason: "test2");
         await dlq.StoreFailedEventAsync(CreateTestEvent(), reason: "test3");
-
         // Next event should be rejected
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await dlq.StoreFailedEventAsync(CreateTestEvent(), reason: "test4");
         });

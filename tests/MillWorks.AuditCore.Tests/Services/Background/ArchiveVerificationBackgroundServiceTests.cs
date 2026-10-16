@@ -66,7 +66,7 @@ public class ArchiveVerificationBackgroundServiceTests
     }
 
     [Test]
-    public void StartAsync_WhenDependencyMissing_ThrowsMeaningfulError()
+    public async Task StartAsync_WhenDependencyMissing_ThrowsMeaningfulError()
     {
         using var serviceProvider = new ServiceCollection()
             .AddSingleton(_mockArchivalService.Object)
@@ -74,7 +74,7 @@ public class ArchiveVerificationBackgroundServiceTests
 
         using var service = CreateService(serviceProvider, startupDelay: TimeSpan.Zero, intervalOverride: TimeSpan.FromMilliseconds(50));
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await service.StartAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await service.StartAsync(CancellationToken.None));
 
         Assert.That(ex!.Message, Does.Contain("IArchiveRecordRepository"));
     }
@@ -135,8 +135,7 @@ public class ArchiveVerificationBackgroundServiceTests
 
         await service.StartAsync(CancellationToken.None);
         await WaitAsync(verificationStarted.Task);
-
-        Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
+        await Assert.DoesNotThrowAsync(async () => await service.StopAsync(CancellationToken.None));
     }
 
     [Test]

@@ -213,7 +213,7 @@ public class DeadLetterQueueProcessorTests
     }
 
     [Test]
-    public void StartAsync_WhenLockServiceMissing_ThrowsMeaningfulError()
+    public async Task StartAsync_WhenLockServiceMissing_ThrowsMeaningfulError()
     {
         var services = new ServiceCollection();
         services.AddScoped(_ => Mock.Of<IAuditDeadLetterQueue>());
@@ -221,7 +221,7 @@ public class DeadLetterQueueProcessorTests
 
         var processor = new DeadLetterQueueProcessor(provider, _mockLogger.Object, Options.Create(_resilienceOptions));
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await processor.StartAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await processor.StartAsync(CancellationToken.None));
 
         Assert.That(ex!.Message, Does.Contain("IAuditDistributedLockService"));
     }

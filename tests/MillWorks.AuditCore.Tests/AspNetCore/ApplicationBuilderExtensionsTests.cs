@@ -63,7 +63,7 @@ public sealed class ApplicationBuilderExtensionsTests
     }
 
     [Test]
-    public void UseMillWorksAudit_WithoutMiddlewareRegistration_FailsAtRequestTime()
+    public async Task UseMillWorksAudit_WithoutMiddlewareRegistration_FailsAtRequestTime()
     {
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
@@ -77,7 +77,7 @@ public sealed class ApplicationBuilderExtensionsTests
             RequestServices = services
         };
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await pipeline(httpContext));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await pipeline(httpContext));
 
         Assert.That(ex!.Message, Does.Contain(nameof(IMiddlewareFactory)));
     }

@@ -80,7 +80,7 @@ public class FerpaConsentUserBridgeTests
 
         // Consent enforcement now sees the user, so the regulated write is allowed.
         ctx.StudentRecords.Add(new StudentRecordEntity { Name = "Alice" });
-        Assert.DoesNotThrowAsync(() => ctx.SaveChangesAsync());
+        await Assert.DoesNotThrowAsync(() => ctx.SaveChangesAsync());
 
         // And the write was audited (proving the save fully committed through the pipeline).
         var auditLog = await ctx.AuditLogs.AsNoTracking()
@@ -90,7 +90,7 @@ public class FerpaConsentUserBridgeTests
     }
 
     [Test]
-    public void EnforceMode_AnonymousRequest_LeavesUserNull_BlocksRegulatedWrite()
+    public async Task EnforceMode_AnonymousRequest_LeavesUserNull_BlocksRegulatedWrite()
     {
         // Control: identical harness, but no authenticated user. CurrentUserId stays null,
         // consent resolves NotFound, and Enforce mode blocks — proving the authenticated
@@ -98,12 +98,11 @@ public class FerpaConsentUserBridgeTests
         var ctx = CreateAuditedContext(ComplianceEnforcementMode.Enforce);
         var (httpContext, middleware) = CreateMiddlewarePipeline(
             ctx, new ClaimsPrincipal(new ClaimsIdentity()));
-
-        Assert.DoesNotThrowAsync(() => middleware.InvokeAsync(httpContext, static _ => Task.CompletedTask));
+        await Assert.DoesNotThrowAsync(() => middleware.InvokeAsync(httpContext, static _ => Task.CompletedTask));
         Assert.That(ctx.CurrentUserId, Is.Null);
 
         ctx.StudentRecords.Add(new StudentRecordEntity { Name = "Bob" });
-        var ex = Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
         Assert.That(ex!.Standard, Is.EqualTo("FERPA"));
         Assert.That(ex.EntityType, Is.EqualTo(nameof(StudentRecordEntity)));
     }

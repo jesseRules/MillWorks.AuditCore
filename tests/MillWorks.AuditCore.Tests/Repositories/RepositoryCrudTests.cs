@@ -230,18 +230,18 @@ public class RepositoryCrudTests
     /// Verifies GetPagedAsync throws for invalid page number.
     /// </summary>
     [Test]
-    public void GetPagedAsync_WithZeroPageNumber_ThrowsArgumentException()
+    public async Task GetPagedAsync_WithZeroPageNumber_ThrowsArgumentException()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () => await _repository.GetPagedAsync(0, 10));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await _repository.GetPagedAsync(0, 10));
     }
 
     /// <summary>
     /// Verifies GetPagedAsync throws for invalid page size.
     /// </summary>
     [Test]
-    public void GetPagedAsync_WithZeroPageSize_ThrowsArgumentException()
+    public async Task GetPagedAsync_WithZeroPageSize_ThrowsArgumentException()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () => await _repository.GetPagedAsync(1, 0));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await _repository.GetPagedAsync(1, 0));
     }
 
     /// <summary>

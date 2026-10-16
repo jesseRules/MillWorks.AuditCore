@@ -59,11 +59,9 @@ public class TamperDetectionServiceEdgeCaseTests
     public async Task VerifySequenceIntegrityAsync_SingleElement_ReturnsTrue()
     {
         // Arrange
-        var sequenceNumbers = new List<long> { 1 };
-
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         // Act
         var result = await _tamperDetectionService.VerifySequenceIntegrityAsync();
@@ -124,8 +122,8 @@ public class TamperDetectionServiceEdgeCaseTests
     {
         // Arrange — valid sequence, no gaps
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<long> { 1, 2, 3, 4 });
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         // Four records; records at index 2 and 3 both have broken chains
         var integrityRecords = new List<AuditIntegrityEntity>

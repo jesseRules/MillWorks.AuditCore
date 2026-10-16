@@ -448,7 +448,7 @@ public class MillWorksAuditBuilderTests
         // CatchAsync matches OperationCanceledException or any derived type (TaskCanceledException
         // in practice). The test only cares that scope B could not acquire the lock while scope A
         // held it — the specific cancellation subtype isn't load-bearing.
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             _ = await lockServiceB.AcquireLockAsync(
                 "audit:integrity:sequence", TimeSpan.FromSeconds(30), cts.Token));
     }

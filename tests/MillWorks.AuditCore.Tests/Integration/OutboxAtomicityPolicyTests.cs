@@ -73,7 +73,7 @@ public sealed class OutboxAtomicityPolicyTests
     }
 
     [Test]
-    public void MappedContext_BusinessSaveFails_RollsBackOutboxRowAtomically()
+    public async Task MappedContext_BusinessSaveFails_RollsBackOutboxRowAtomically()
     {
         var collidingId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
@@ -90,7 +90,7 @@ public sealed class OutboxAtomicityPolicyTests
             // Duplicate primary key: the business INSERT fails inside base.SaveChangesAsync,
             // after the interceptor has already staged the outbox row.
             ctx.BusinessRecords.Add(new BusinessRecord { Id = collidingId, Name = "duplicate" });
-            Assert.ThrowsAsync<DbUpdateException>(async () => await ctx.SaveChangesAsync());
+            await Assert.ThrowsAsync<DbUpdateException>(async () => await ctx.SaveChangesAsync());
         }
 
         using var verify = NewMappedContext(interceptor: null);
@@ -103,7 +103,7 @@ public sealed class OutboxAtomicityPolicyTests
     }
 
     [Test]
-    public void BareContext_NoTransaction_FailsClosedAndCommitsNothing()
+    public async Task BareContext_NoTransaction_FailsClosedAndCommitsNothing()
     {
         using (var setup = NewBareContext(interceptor: null))
             setup.Database.EnsureCreated();
@@ -115,7 +115,7 @@ public sealed class OutboxAtomicityPolicyTests
             // No AuditOutboxEntity mapping and no ambient transaction → atomicity is impossible.
             // The guard throws, and (critically) it propagates even though the interceptor's
             // default failure mode is permissive — it must never be swallowed.
-            Assert.ThrowsAsync<AuditOutboxAtomicityException>(async () => await ctx.SaveChangesAsync());
+            await Assert.ThrowsAsync<AuditOutboxAtomicityException>(async () => await ctx.SaveChangesAsync());
         }
 
         using var verify = NewBareContext(interceptor: null);
@@ -194,7 +194,7 @@ public sealed class OutboxAtomicityPolicyTests
 
         using (accessor.SetCurrent(ctx))
         {
-            var ex = Assert.ThrowsAsync<AuditOutboxAtomicityException>(
+            var ex = await Assert.ThrowsAsync<AuditOutboxAtomicityException>(
                 async () => await writer.WriteBatchAsync([("{\"a\":1}", 1, Guid.NewGuid())]));
 
             Assert.That(ex!.Message, Does.Contain("mapped to schema"));

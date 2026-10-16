@@ -412,7 +412,7 @@ public class AuditComplianceServiceTests
     /// GenerateComplianceReportAsync with unsupported standard throws NotSupportedException.
     /// </summary>
     [Test]
-    public void GenerateComplianceReportAsync_WithUnsupportedStandard_ThrowsException()
+    public async Task GenerateComplianceReportAsync_WithUnsupportedStandard_ThrowsException()
     {
         // Arrange
         var unsupportedStandard = (ComplianceStandard)999;
@@ -420,7 +420,7 @@ public class AuditComplianceServiceTests
         var endDate = DateTimeOffset.UtcNow;
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(async () =>
             await _complianceService.GenerateComplianceReportAsync(
                 unsupportedStandard, startDate, endDate));
 
@@ -888,7 +888,7 @@ public class AuditComplianceServiceTests
     /// ValidateEventTypeComplianceAsync with unsupported standard throws NotSupportedException.
     /// </summary>
     [Test]
-    public void ValidateEventTypeComplianceAsync_WithUnsupportedStandard_ThrowsException()
+    public async Task ValidateEventTypeComplianceAsync_WithUnsupportedStandard_ThrowsException()
     {
         // Arrange
         var eventType = "User.Login";
@@ -897,7 +897,7 @@ public class AuditComplianceServiceTests
         var endDate = DateTimeOffset.UtcNow;
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(async () =>
             await _complianceService.ValidateEventTypeComplianceAsync(
                 eventType, unsupportedStandard, startDate, endDate));
 

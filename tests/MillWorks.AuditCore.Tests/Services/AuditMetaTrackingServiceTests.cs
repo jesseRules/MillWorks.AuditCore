@@ -496,15 +496,14 @@ public class AuditMetaTrackingServiceTests
     /// LogAuditQueryAsync_WhenLoggerThrows_PropagatesException
     /// </summary>
     [Test]
-    public void LogAuditQueryAsync_WhenLoggerThrows_PropagatesException()
+    public async Task LogAuditQueryAsync_WhenLoggerThrows_PropagatesException()
     {
         // Arrange
         _mockAuditLogger
             .Setup(static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Logger error"));
-
         // Act & Assert
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _metaTrackingService.LogAuditQueryAsync(
                 "TestQuery",
                 "params=test",
@@ -516,15 +515,14 @@ public class AuditMetaTrackingServiceTests
     /// LogAuditExportAsync_WhenLoggerThrows_PropagatesException
     /// </summary>
     [Test]
-    public void LogAuditExportAsync_WhenLoggerThrows_PropagatesException()
+    public async Task LogAuditExportAsync_WhenLoggerThrows_PropagatesException()
     {
         // Arrange
         _mockAuditLogger
             .Setup(static x => x.LogAsync(It.IsAny<AuditEvent>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Logger error"));
-
         // Act & Assert
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _metaTrackingService.LogAuditExportAsync(
                 "Export",
                 DateTimeOffset.UtcNow.AddDays(-1),

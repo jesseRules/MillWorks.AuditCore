@@ -1,0 +1,247 @@
+{
+  "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build --sql -- --no-restore --filter FullyQualifiedName~AuditSequenceIntegritySqlServerTests --logger 'trx;LogFileName=sequence-sqlserver.trx' --results-directory /tmp/audit-sequence-sqlserver-20261016",
+  "sdk": "10.0.202",
+  "head": "1cc9ce2c407b4f58c95ba8d25e67379ca14c9765",
+  "dirty": true,
+  "statusAtEvidenceCapture": [
+    " M CHANGELOG.md",
+    " M Directory.Build.props",
+    " M docs/plans/BatchPublishingRedesign.md",
+    " M docs/plans/completed/AuditWritePipelineDurability.md",
+    " M samples/MillWorks.AuditCore.SampleProject/MillWorks.AuditCore.SampleProject.csproj",
+    " M src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+    " M src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+    " M src/MillWorks.AuditCore.EntityFramework/Data/AuditDbContext.cs",
+    " M src/MillWorks.AuditCore.EntityFramework/Migrations/AuditDbContextModelSnapshot.cs",
+    " M src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+    " M src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs",
+    " M src/MillWorks.AuditCore.EntityFramework/Repositories/Interfaces/IAuditIntegrityRepository.cs",
+    " M src/MillWorks.AuditCore.EntityFramework/Repositories/Repository.cs",
+    " M src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+    " M src/MillWorks.AuditCore.Services/TamperDetectionService.cs",
+    " M tests/MillWorks.AuditCore.Tests/AspNetCore/ApplicationBuilderExtensionsTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/AspNetCore/DatabaseExtensionsTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/AspNetCore/EncryptionConfigurationExtensionsTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/AspNetCore/IntegrityHealthCheckTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/AspNetCore/MillWorksAuditBuilderTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Core/CustomAuditScopeTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/DeadLetterQueue/FileDlqOperationalBoundaryTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/DeadLetterQueue/RedisAuditDeadLetterQueueTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/BareConsumerDbContextTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/EncryptionInterceptorTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/FerpaEnforcementTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/InterceptorSinkRoutingTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/EntityFramework/InternalAuditEventRepositoryTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Integration/AuditInterceptorFailClosedSqliteTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Integration/FerpaConsentUserBridgeTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Integration/OutboxAtomicityPolicyTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Integration/SqlServer/AuditInterceptorFailClosedSqlServerTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Middleware/AuditContextMiddlewareEdgeCaseTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Middleware/AuditContextMiddlewareTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+    " M tests/MillWorks.AuditCore.Tests/Providers/AuditProviderDispatcherTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Providers/BaseAuditProviderTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Providers/UserAuditProviderTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/AuditIntegrityRepositoryTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/InternalAuditEventRepositoryTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositoryAdvancedTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositoryCrudTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositoryOptimisticUpdateSqliteTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositoryOptimisticUpdateTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositorySharedContextTransactionTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Repositories/RepositoryTransactionTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditComplianceServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditLoggerTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditMaintenanceServiceSqliteTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditMetaTrackingServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditSecurityEventServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/AuditServiceUnitTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Background/ArchiveVerificationBackgroundServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Background/AuditMaintenanceBackgroundServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializerInMemoryTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Encryption/FieldEncryptionServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Locking/InMemoryDistributedLockServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/LogAsyncTraceFixTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Query/AuditReportServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/Redis/RedisDistributedLockServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/RequestAuditProcessorTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceDigitalSignatureTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceEdgeCaseTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/IdempotencySqliteTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/ImmediateSinkTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/Processing/AuditBatchProcessorTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/SinkSecurityFixesTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/TransactionalOutboxSinkTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEntityBatchWriterTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEventBatchWriterTests.cs",
+    " M tests/MillWorks.AuditCore.Tests/TamperDetection/IntegrityWriteBatcherTests.cs",
+    "?? docs/evidence/",
+    "?? docs/plans/AuditDispositionRecovery.md",
+    "?? docs/plans/BatchPublishingHardening.md",
+    "?? src/MillWorks.AuditCore.EntityFramework/Migrations/20261008124628_AddAuditLogEnvelopeLookupIndex.Designer.cs",
+    "?? src/MillWorks.AuditCore.EntityFramework/Migrations/20261008124628_AddAuditLogEnvelopeLookupIndex.cs",
+    "?? tests/MillWorks.AuditCore.Tests/EntityFramework/AuditEnvelopeLookupIndexTests.cs",
+    "?? tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.cs",
+    "?? tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqliteTests.cs",
+    "?? tests/MillWorks.AuditCore.Tests/Repositories/RepositoryTransactionFailureTests.cs"
+  ],
+  "fileSha256": {
+    "Directory.Build.props": "876718ff94da6f5c4c244a8ef0c7eba9f143348b7e3886949f2aed7b274e7561",
+    "global.json": "b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73",
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs": "6f58970b5544216328c2edcfa1bdda39986f4c77d32fd3a475a99f0496cb5f96",
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/Interfaces/IAuditIntegrityRepository.cs": "93ec6dba498c0a7ff74a00932428be64d5861569a7417869fb8daaeaaee89d5a",
+    "src/MillWorks.AuditCore.Services/TamperDetectionService.cs": "fbd7f2d51abc3a3303191cd12777dae460838916dae88ee0fceee841d48a6750",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.cs": "97f58891fc944a3fffffbfc4979697e5128cdb2a10c99da9cb391d5730c068a9",
+    "tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj": "b965ba727a4253a73247d5327f475308bf5319793f662b21cb2c052d3eb2aaa2",
+    "tests/MillWorks.AuditCore.Tests/bin/Debug/net10.0/MillWorks.AuditCore.Tests.dll": "ccba0177286d2408dfdc3eb55acb062f6592ca063d47315ad4c28dde04c0be75",
+    "src/MillWorks.AuditCore.EntityFramework/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll": "730d28ccc52a2ec2ed35df3de64953f833bd4e5f40404211c00e9f42c7a72c10"
+  },
+  "counters": {
+    "total": "22",
+    "executed": "22",
+    "passed": "22",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "times": {
+    "creation": "2026-10-16T14:48:20.9622160-05:00",
+    "queuing": "2026-10-16T14:48:20.9622160-05:00",
+    "start": "2026-10-16T14:48:19.2886450-05:00",
+    "finish": "2026-10-16T14:48:23.7682690-05:00"
+  },
+  "tests": [
+    {
+      "name": "Sequence_duplicate_masking_gap_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0360030"
+    },
+    {
+      "name": "Sequence_int64_min_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0336840"
+    },
+    {
+      "name": "Sequence_int64_max_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0349160"
+    },
+    {
+      "name": "Sequence_singleton_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0361390"
+    },
+    {
+      "name": "Sequence_negative_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0359120"
+    },
+    {
+      "name": "Summary_OriginalRowVolume_ReturnsAggregate(False)",
+      "outcome": "Passed",
+      "duration": "00:00:01.0176390"
+    },
+    {
+      "name": "Sequence_int64_max_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0346220"
+    },
+    {
+      "name": "Sequence_int64_full_range_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0389170"
+    },
+    {
+      "name": "Sequence_duplicate_masking_gap_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0417780"
+    },
+    {
+      "name": "Sequence_empty_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.1584470"
+    },
+    {
+      "name": "Sequence_duplicate_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0360090"
+    },
+    {
+      "name": "Sequence_non_one_based_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0506210"
+    },
+    {
+      "name": "Sequence_gap_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0356790"
+    },
+    {
+      "name": "Sequence_singleton_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0920509"
+    },
+    {
+      "name": "Sequence_gap_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0359070"
+    },
+    {
+      "name": "Sequence_negative_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0395030"
+    },
+    {
+      "name": "Summary_OriginalRowVolume_ReturnsAggregate(True)",
+      "outcome": "Passed",
+      "duration": "00:00:01.0860360"
+    },
+    {
+      "name": "Sequence_non_one_based_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0357800"
+    },
+    {
+      "name": "Sequence_int64_min_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0344020"
+    },
+    {
+      "name": "Sequence_int64_full_range_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.0355990"
+    },
+    {
+      "name": "Sequence_duplicate_RCSI_True",
+      "outcome": "Passed",
+      "duration": "00:00:00.0332530"
+    },
+    {
+      "name": "Sequence_empty_RCSI_False",
+      "outcome": "Passed",
+      "duration": "00:00:00.5402360"
+    }
+  ],
+  "limits": [
+    "Provider test uses a narrow fixture table, not the full production schema.",
+    "No concurrent mutation or SERIALIZABLE consistency test.",
+    "No package deployment or API build/restart.",
+    "Plan-cache absence is not proof of non-execution."
+  ]
+}

@@ -75,9 +75,9 @@ public sealed class ImmediateSinkTests
     }
 
     [Test]
-    public void PublishAsync_NullEnvelope_Throws()
+    public async Task PublishAsync_NullEnvelope_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishAsync(null!, CancellationToken.None));
     }
 
     [Test]
@@ -131,7 +131,7 @@ public sealed class ImmediateSinkTests
     }
 
     [Test]
-    public void PublishAsync_UnknownKind_Throws()
+    public async Task PublishAsync_UnknownKind_Throws()
     {
         var envelope = new AuditEnvelope
         {
@@ -139,14 +139,13 @@ public sealed class ImmediateSinkTests
             EntityName = "X",
             Action = AuditAction.Created,
         };
-
-        Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishAsync(envelope));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishAsync(envelope));
     }
 
     [Test]
-    public void PublishBatchAsync_NullEnvelopes_Throws()
+    public async Task PublishBatchAsync_NullEnvelopes_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishBatchAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishBatchAsync(null!, CancellationToken.None));
     }
 
     [Test]
@@ -261,7 +260,7 @@ public sealed class ImmediateSinkTests
     }
 
     [Test]
-    public void PublishBatchAsync_UnknownKind_Throws()
+    public async Task PublishBatchAsync_UnknownKind_Throws()
     {
         var envelopes = new List<AuditEnvelope>
         {
@@ -278,8 +277,7 @@ public sealed class ImmediateSinkTests
                 Action = AuditAction.Created,
             },
         };
-
-        Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishBatchAsync(envelopes, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishBatchAsync(envelopes, CancellationToken.None));
     }
 
     [Test]
@@ -488,15 +486,15 @@ public sealed class AuditDbContextEntityWriterTests
     }
 
     [Test]
-    public void WriteEntityChangeAsync_NullEnvelope_Throws()
+    public async Task WriteEntityChangeAsync_NullEnvelope_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteEntityChangeAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteEntityChangeAsync(null!, CancellationToken.None));
     }
 
     [Test]
-    public void WriteBatchAsync_NullEnvelopes_Throws()
+    public async Task WriteBatchAsync_NullEnvelopes_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteBatchAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteBatchAsync(null!, CancellationToken.None));
     }
 
     [Test]

@@ -1,0 +1,671 @@
+{
+  "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build --sql -- --no-restore --filter 'FullyQualifiedName~AuditSequenceIntegrity|FullyQualifiedName~AuditIntegrityRepositoryTests|FullyQualifiedName~TamperDetectionServiceTests' --logger 'trx;LogFileName=sequence-consistency.trx' --results-directory /tmp/audit-sequence-consistency-20261016 > /tmp/audit-sequence-consistency-build.log 2>&1",
+  "sdk": "10.0.202",
+  "head": "1cc9ce2c407b4f58c95ba8d25e67379ca14c9765",
+  "dirty": true,
+  "sourceAndAssemblySha256": {
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs": "87217161329c50c0ef43ced0b05579edf9bbdd1e5aa3bf11463855219a2e06b3",
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/Interfaces/IAuditIntegrityRepository.cs": "f23804960e435a4c665b1fbfa830de76724d38ff02141995ce0faf594f51c6ca",
+    "src/MillWorks.AuditCore.Services/TamperDetectionService.cs": "fbd7f2d51abc3a3303191cd12777dae460838916dae88ee0fceee841d48a6750",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.cs": "3a12039fee984355ccc2580252670935344e76aa54607fa2b651cd1dcdcf8d28",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.Concurrency.cs": "736a837e576e9933ff4da2c5aaeae3ad87cadf1ddb07b82a9d43ddc11c2f9ba5",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqliteTests.cs": "36dfe5312eafb5b09eb7917b80060716bc349b97f5d87fb2c752d45735e17916",
+    "tests/MillWorks.AuditCore.Tests/Repositories/AuditIntegrityRepositoryTests.cs": "bb1ca715ee93a7cdf0aea6347fe40d8fdaf7813dc2cfe203538649458c6ce00f",
+    "tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs": "04a8c0371a25de62188127ecd408c683bb3cf3ad5635256e00d9869859395d7c",
+    "tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj": "b965ba727a4253a73247d5327f475308bf5319793f662b21cb2c052d3eb2aaa2",
+    "Directory.Build.props": "876718ff94da6f5c4c244a8ef0c7eba9f143348b7e3886949f2aed7b274e7561",
+    "global.json": "b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73",
+    "tests/MillWorks.AuditCore.Tests/bin/Debug/net10.0/MillWorks.AuditCore.Tests.dll": "5473db4c26f0013b153b60246966b5df833f14292046868549ac152b00df97b6",
+    "src/MillWorks.AuditCore.EntityFramework/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll": "539e646374d8ddf2347fb93a46fb8df8d3d012dd926acc7b77986d1d11b2348a"
+  },
+  "times": {
+    "creation": "2026-10-16T15:12:14.5341980-05:00",
+    "queuing": "2026-10-16T15:12:14.5341980-05:00",
+    "start": "2026-10-16T15:12:13.7334030-05:00",
+    "finish": "2026-10-16T15:13:00.0437660-05:00"
+  },
+  "counters": {
+    "total": "102",
+    "executed": "102",
+    "passed": "102",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "countsByClass": {
+    "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests": 47,
+    "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests": 25,
+    "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests": 26,
+    "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqliteTests": 4
+  },
+  "results": [
+    {
+      "name": "Summary_CancellationWhileBlockedIsNotRetried",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1581799"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([1L, 2L, 4L],False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0007020"
+    },
+    {
+      "name": "VerifyIntegrityAsync_WithValidEvent_ReturnsTrue",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0013570"
+    },
+    {
+      "name": "VerifyIntegrityAsync_WhenEventNotFound_ReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0030420"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(True,\"prefix\",True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1586970"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(False,\"interior\",True,False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1669840"
+    },
+    {
+      "name": "GetLatestBySequenceAsync_EmptyTable_ReturnsNull",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0034200"
+    },
+    {
+      "name": "DetectTamperingAsync_IncompleteSequenceReadDoesNotProduceCorruptionAlert(False)",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0059220"
+    },
+    {
+      "name": "GetWithAuditEventsAsync_WithDateFilters_RespectsRange",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0140100"
+    },
+    {
+      "name": "CreateIntegrityRecordAsync_WhenAllRetriesFail_ThrowsInvalidOperationException",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:19.9606270"
+    },
+    {
+      "name": "Sequence_int64_min_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0453920"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(True,\"interior\",False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1710160"
+    },
+    {
+      "name": "GetByEventIdAsync_WithNonExistentEvent_ReturnsNull",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0061140"
+    },
+    {
+      "name": "Sequence_int64_full_range_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0524830"
+    },
+    {
+      "name": "GetWithAuditEventsAsync_IncludesRelatedEvents",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0226850"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(False,\"append\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1693380"
+    },
+    {
+      "name": "Sequence_duplicate_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0480929"
+    },
+    {
+      "name": "Sequence_gap_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0457610"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(False,\"prefix\",True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1642589"
+    },
+    {
+      "name": "Summary_SuppressesAmbientTransaction",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1793930"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(False,\"append\",True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.2117570"
+    },
+    {
+      "name": "ValidateIntegrityChainAsync_EmptyRange_ReturnsTrue",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003520"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(True,\"interior\",False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1604610"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([1L, 1L, 3L],False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0006810"
+    },
+    {
+      "name": "Sequence_negative_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0515420"
+    },
+    {
+      "name": "DetectTamperingAsync_WithSequenceGap_ReturnsAlert",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0019410"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_ReReadsChainHeadPerInvocation",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0050970"
+    },
+    {
+      "name": "Summary_OverallDeadlineThrowsAndClosesConnection",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:06.7881110"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_WithMultipleEvents_CreatesChainedRecordsAndSavesOnce",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0073980"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([long.MinValue, long.MaxValue],False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005250"
+    },
+    {
+      "name": "GetBySequenceRangeAsync_ReturnsOrderedRecordsInRange",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0052280"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([1L, 1L, 2L],False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0007000"
+    },
+    {
+      "name": "Sequence_empty_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0925270"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(True,\"append\",False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1738220"
+    },
+    {
+      "name": "GetByEventIdAsync_WithExistingEvent_ReturnsRecord",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0196240"
+    },
+    {
+      "name": "ValidateIntegrityChainAsync_SequenceGap_ReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0007260"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([3L, 1L, 2L],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008760"
+    },
+    {
+      "name": "DetectTamperingAsync_WithSequenceGapAndChainBroken_ReturnsBothAlerts",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0025420"
+    },
+    {
+      "name": "ExportIntegrityProofAsync_WithValidEvent_ReturnsProofBytes",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0060600"
+    },
+    {
+      "name": "ValidateIntegrityChainAsync_ValidChain_ReturnsTrue",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0009040"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([9223372036854775806L, long.MaxValue],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005960"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_UsesOneAggregateCommand(2100,True,False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqliteTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.3597300"
+    },
+    {
+      "name": "Summary_UsesFreshSerializableTransactionDespiteWeakerCallerAndProviderRetries",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0446330"
+    },
+    {
+      "name": "Sequence_int64_max_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0476310"
+    },
+    {
+      "name": "CreateIntegrityRecordAsync_WithValidEvent_CreatesIntegrityRecord",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0085609"
+    },
+    {
+      "name": "VerifySequenceIntegrityAsync_WithGapsInSequence_ReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0011670"
+    },
+    {
+      "name": "Sequence_int64_max_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0431750"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(True,\"prefix\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1652470"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_AcquiresAppendLockInsideTransaction",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0105640"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(True,\"append\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1675200"
+    },
+    {
+      "name": "GetByTrustedTimestampRangeAsync_ReturnsRecordsInRange",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0012460"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([long.MinValue, -9223372036854775807L],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005490"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(False,\"interior\",False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1605939"
+    },
+    {
+      "name": "DetectTamperingAsync_WithNoTampering_ReturnsEmptyList",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0025600"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([42L],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0024450"
+    },
+    {
+      "name": "Sequence_non_one_based_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0489700"
+    },
+    {
+      "name": "Sequence_duplicate_masking_gap_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0499370"
+    },
+    {
+      "name": "GetByTrustedTimestampRangeAsync_NoRecordsInRange_ReturnsEmpty",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0041830"
+    },
+    {
+      "name": "VerifyIntegrityAsync_WithHashMismatch_LogsSecurityEventAndReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0023620"
+    },
+    {
+      "name": "DetectTamperingAsync_WithChainBrokenOnly_ReturnsChainBrokenAndIntegrityViolationAlerts",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0119110"
+    },
+    {
+      "name": "Sequence_negative_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0443459"
+    },
+    {
+      "name": "Summary_PreservesCustomSchemaAndDoesNotRetrySqlContractErrors",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.2147650"
+    },
+    {
+      "name": "VerifySequenceIntegrityAsync_WithEmptySequence_ReturnsTrue",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005970"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_UsesOneAggregateCommand(2100,False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqliteTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.5271470"
+    },
+    {
+      "name": "Sequence_int64_full_range_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0440990"
+    },
+    {
+      "name": "Summary_LockTimeoutRetriesTwiceWithFreshConnectionsThenSucceeds",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:03.4780660"
+    },
+    {
+      "name": "Sequence_duplicate_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0447560"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_UsesOneAggregateCommand(0,False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqliteTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1128920"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(False,\"interior\",False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1642960"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_UsesOneAggregateCommand(1,False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqliteTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0801240"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([41L, 42L, 43L],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0007440"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_OnDuplicateKey_DetachesOnlyFailedBatchThenRetries",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1325720"
+    },
+    {
+      "name": "GetLatestBySequenceAsync_ReturnsHighestSequence",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0011070"
+    },
+    {
+      "name": "Summary_OriginalRowVolume_ReturnsAggregate(True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:01.1846509"
+    },
+    {
+      "name": "Summary_OriginalRowVolume_ReturnsAggregate(False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.8361280"
+    },
+    {
+      "name": "DetectTamperingAsync_IncompleteSequenceReadDoesNotProduceCorruptionAlert(True)",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0011260"
+    },
+    {
+      "name": "Sequence_int64_min_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0441780"
+    },
+    {
+      "name": "VerifyChainIntegrityAsync_WithBrokenChain_ReturnsBrokenResult",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0033820"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(False,\"volumeAppend\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.8026690"
+    },
+    {
+      "name": "Sequence_non_one_based_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0490650"
+    },
+    {
+      "name": "Sequence_singleton_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0526970"
+    },
+    {
+      "name": "GetWithAuditEventsAsync_NoDateFilters_ReturnsAll",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0009960"
+    },
+    {
+      "name": "VerifyIntegrityAsync_WhenIntegrityRecordNotFound_ReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0010060"
+    },
+    {
+      "name": "Sequence_singleton_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0780330"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_WithEmptyBatch_ReturnsEmptyWithoutWriting",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0024060"
+    },
+    {
+      "name": "Sequence_duplicate_masking_gap_RCSI_False",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0481400"
+    },
+    {
+      "name": "VerifySequenceIntegrityAsync_WithValidSequence_ReturnsTrue",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004400"
+    },
+    {
+      "name": "Sequence_gap_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0455119"
+    },
+    {
+      "name": "ExportIntegrityProofAsync_WhenEventNotFound_ThrowsException",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0015370"
+    },
+    {
+      "name": "GetByAlgorithmVersionAsync_ReturnsMatchingRecords",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.3659930"
+    },
+    {
+      "name": "IsSequenceContiguousAsync_ValidatesRangeAndUniqueness([],True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0110620"
+    },
+    {
+      "name": "Summary_PersistentLockTimeoutThrowsInsteadOfReportingCorruption",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:05.0333890"
+    },
+    {
+      "name": "ValidateIntegrityChainAsync_BrokenHash_ReturnsFalse",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditIntegrityRepositoryTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0016780"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(True,\"interior\",True,False)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1609240"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(False,\"append\",False,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1692200"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_OnUnexpectedError_Rethrows",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0035880"
+    },
+    {
+      "name": "Summary_WaitsForWriterAndSeesCommittedState(False,\"prefix\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1721360"
+    },
+    {
+      "name": "Sequence_empty_RCSI_True",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1662810"
+    },
+    {
+      "name": "CreateIntegrityRecordAsync_WhenDuplicateKeyOnFirstAttempt_RetriesAndSucceeds",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1234320"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(True,\"append\",True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.1710950"
+    },
+    {
+      "name": "CreateIntegrityRecordBatchAsync_WithSingleEvent_UsesSingleRecordPath",
+      "class": "MillWorks.AuditCore.Tests.Services.TamperDetectionServiceTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.0026340"
+    },
+    {
+      "name": "Summary_HoldsSerializableLocksUntilCompletion(True,\"volumeAppend\",True,True)",
+      "class": "MillWorks.AuditCore.Tests.Repositories.AuditSequenceIntegritySqlServerTests",
+      "outcome": "Passed",
+      "duration": "00:00:00.8303460"
+    }
+  ],
+  "limitations": [
+    "Narrow nonce-owned SQL fixture, not full-schema/live API acceptance.",
+    "No new package publication or API build/restart.",
+    "Seven-second cancellation budget reserves 250ms for cleanup; not a hard real-time guarantee under arbitrary OS/network stalls.",
+    "Retry behavior exercised using real SQL 1222 lock timeouts; deadlock/command-timeout codes share the handler but were not separately fault-injected."
+  ]
+}

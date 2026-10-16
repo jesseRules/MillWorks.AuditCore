@@ -62,9 +62,9 @@ public class InternalAuditEventRepositoryNewTests
     /// Verifies AddAsync with null entity throws.
     /// </summary>
     [Test]
-    public void AddAsync_NullEntity_ThrowsArgumentNullException()
+    public async Task AddAsync_NullEntity_ThrowsArgumentNullException()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _repository.AddAsync(null!));
     }
 
@@ -98,9 +98,9 @@ public class InternalAuditEventRepositoryNewTests
     /// Verifies AddRangeAsync with null throws.
     /// </summary>
     [Test]
-    public void AddRangeAsync_NullEntities_ThrowsArgumentNullException()
+    public async Task AddRangeAsync_NullEntities_ThrowsArgumentNullException()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _repository.AddRangeAsync(null!));
     }
 

@@ -123,17 +123,15 @@ public class FieldEncryptionServiceTests
         var wrongKey = new byte[32];
         Array.Fill(wrongKey, (byte)0xAB);
         _keyProvider.SetKey("TestField", "v1", wrongKey);
-
-        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(encrypted, "TestField"));
     }
 
     [Test]
-    public void DecryptFieldAsync_CorruptedPayload_ThrowsFieldEncryptionException()
+    public async Task DecryptFieldAsync_CorruptedPayload_ThrowsFieldEncryptionException()
     {
         var corruptedPayload = Prefix + Convert.ToBase64String("not-a-valid-envelope"u8.ToArray());
-
-        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(corruptedPayload, "TestField"));
     }
 
@@ -153,8 +151,7 @@ public class FieldEncryptionServiceTests
         // Encrypted for "TestField"; decrypting as "OtherField" resolves a different field key and a
         // different AAD binding, so AEAD authentication fails — a cryptographically enforced check.
         var encrypted = await _service.EncryptFieldAsync("test", "TestField");
-
-        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(encrypted, "OtherField"));
     }
 
@@ -182,11 +179,10 @@ public class FieldEncryptionServiceTests
     }
 
     [Test]
-    public void EncryptFieldAsync_KeyProviderThrows_WrapsInFieldEncryptionException()
+    public async Task EncryptFieldAsync_KeyProviderThrows_WrapsInFieldEncryptionException()
     {
         _keyProvider.ThrowOnGetVersion = new InvalidOperationException("Key vault unreachable");
-
-        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.EncryptFieldAsync("test", "TestField"));
     }
 
@@ -203,8 +199,7 @@ public class FieldEncryptionServiceTests
         // Envelope: [envVer:1][kvLen:2 BE]["v1"][frame]; the second key-version char sits at index 4.
         envelope[4] = (byte)'9';
         var tampered = EncodeEnvelope(envelope);
-
-        Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(tampered, "TestField"));
     }
 
@@ -217,7 +212,7 @@ public class FieldEncryptionServiceTests
         envelope[0] = 99; // unsupported storage-envelope version
         var tampered = EncodeEnvelope(envelope);
 
-        var ex = Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        var ex = await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(tampered, "TestField"));
         Assert.That(ex!.Message, Does.Contain("Unsupported encryption envelope version"));
     }
@@ -247,7 +242,7 @@ public class FieldEncryptionServiceTests
         envelope[5 + 29] ^= 0x01;
         var tampered = EncodeEnvelope(envelope);
 
-        var ex = Assert.ThrowsAsync<FieldEncryptionException>(async () =>
+        var ex = await Assert.ThrowsAsync<FieldEncryptionException>(async () =>
             await _service.DecryptFieldAsync(tampered, "TestField"));
         Assert.That(ex!.Message, Does.Contain("tampered"));
     }

@@ -122,14 +122,14 @@ public class FerpaEnforcementTests
     }
 
     [Test]
-    public void Enforce_ConsentNotFound_ThrowsComplianceViolationException()
+    public async Task Enforce_ConsentNotFound_ThrowsComplianceViolationException()
     {
         // Arrange — no consent recorded
         var (_, ctx) = CreateContext(ComplianceEnforcementMode.Enforce);
         ctx.FerpaConsentEntities.Add(new FerpaConsentEntity { Name = "Bob" });
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
         Assert.That(ex!.Standard, Is.EqualTo("FERPA"));
         Assert.That(ex.EntityType, Is.EqualTo("FerpaConsentEntity"));
         Assert.That(ex.UserId, Is.EqualTo("test-user"));
@@ -139,7 +139,7 @@ public class FerpaEnforcementTests
     }
 
     [Test]
-    public void Enforce_ConsentServiceThrows_ThrowsComplianceViolationException()
+    public async Task Enforce_ConsentServiceThrows_ThrowsComplianceViolationException()
     {
         // Arrange — consent service that blows up
         var failingService = new Mock<IConsentVerificationService>();
@@ -150,7 +150,7 @@ public class FerpaEnforcementTests
         ctx.FerpaConsentEntities.Add(new FerpaConsentEntity { Name = "Charlie" });
 
         // Act & Assert — fail-closed: service error in Enforce mode blocks
-        var ex = Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
         Assert.That(ex!.Standard, Is.EqualTo("FERPA"));
         Assert.That(ex.InnerException, Is.TypeOf<InvalidOperationException>());
 
@@ -310,16 +310,15 @@ public class FerpaEnforcementTests
     }
 
     [Test]
-    public void ComplianceViolationException_PropagatesThroughSaveChanges()
+    public async Task ComplianceViolationException_PropagatesThroughSaveChanges()
     {
         // This validates Architectural Constraint #6:
         // ComplianceViolationException is NOT swallowed by the interceptor's
         // generic catch block in ProcessAuditableEntries.
         var (_, ctx) = CreateContext(ComplianceEnforcementMode.Enforce);
         ctx.FerpaConsentEntities.Add(new FerpaConsentEntity { Name = "Propagation" });
-
         // Assert — the exception escapes SaveChangesAsync, proving it's not caught
-        Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
+        await Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
 
         ctx.Dispose();
     }
@@ -338,14 +337,14 @@ public class FerpaEnforcementTests
     }
 
     [Test]
-    public void NullUserId_InEnforceMode_ThrowsComplianceViolationException()
+    public async Task NullUserId_InEnforceMode_ThrowsComplianceViolationException()
     {
         // Arrange — no user ID, Enforce mode
         var (_, ctx) = CreateContext(ComplianceEnforcementMode.Enforce, userId: null);
         ctx.FerpaConsentEntities.Add(new FerpaConsentEntity { Name = "NoUser" });
 
         // Act & Assert — null user ID means consent can't be verified, fail-closed
-        var ex = Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
+        var ex = await Assert.ThrowsAsync<ComplianceViolationException>(() => ctx.SaveChangesAsync());
         Assert.That(ex!.UserId, Is.Null);
 
         ctx.Dispose();

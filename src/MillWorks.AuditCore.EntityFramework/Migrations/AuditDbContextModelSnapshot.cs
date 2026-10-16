@@ -641,6 +641,12 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EnvelopeId")
+                        .HasDatabaseName("IX_AuditLogs_Envelope_Lookup")
+                        .HasFilter("[EnvelopeId] IS NOT NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("EnvelopeId"), new[] { "PropertyName" });
+
                     b.HasIndex(new[] { "Action" }, "IX_AuditLogs_Action");
 
                     b.HasIndex(new[] { "CorrelationId" }, "IX_AuditLogs_CorrelationId");

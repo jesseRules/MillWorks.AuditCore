@@ -675,7 +675,7 @@ public class RedisAuditDeadLetterQueueTests
     /// Gets statistics when Redis fails and verifies exception wrapping
     /// </summary>
     [Test]
-    public void GetStatisticsAsync_WhenRedisFails_WrapsException()
+    public async Task GetStatisticsAsync_WhenRedisFails_WrapsException()
     {
         _mockDatabase
             .Setup(x => x.SortedSetRangeByScoreAsync(
@@ -689,7 +689,7 @@ public class RedisAuditDeadLetterQueueTests
                 It.IsAny<CommandFlags>()))
             .ThrowsAsync(new TimeoutException("redis timeout"));
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _deadLetterQueue.GetStatisticsAsync());
 
         Assert.That(ex!.Message, Does.Contain("statistics"));
@@ -880,7 +880,7 @@ public class RedisAuditDeadLetterQueueTests
     /// When Redis transaction fails, StoreFailedEventAsync throws with explicit message
     /// </summary>
     [Test]
-    public void StoreFailedEventAsync_WhenTransactionFails_ThrowsWithExplicitMessage()
+    public async Task StoreFailedEventAsync_WhenTransactionFails_ThrowsWithExplicitMessage()
     {
         // Arrange - create a transaction that returns false from ExecuteAsync
         var failingTransaction = new Mock<ITransaction>();
@@ -905,7 +905,7 @@ public class RedisAuditDeadLetterQueueTests
         var auditEvent = new AuditEvent { EventId = Guid.NewGuid(), EventType = "Test" };
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _deadLetterQueue.StoreFailedEventAsync(auditEvent, null, "Reason"));
 
         Assert.That(ex!.Message, Does.Contain("transaction failed"));

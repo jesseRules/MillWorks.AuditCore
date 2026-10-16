@@ -69,7 +69,9 @@ public sealed class StigValidator : IComplianceValidator
                     : $"Audit records missing required content: {eventsWithoutUser} without user ID, {eventsWithoutTimestamp} without timestamp, {eventsWithoutEventType} without event type",
             Severity = events.Count == 0
                 ? ValidationSeverity.Low
-                : auditContentComplete ? ValidationSeverity.Info : ValidationSeverity.Critical,
+                : auditContentComplete
+                    ? ValidationSeverity.Info
+                    : ValidationSeverity.Critical,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-3 / V-222576",
@@ -108,7 +110,9 @@ public sealed class StigValidator : IComplianceValidator
                     : $"Audit records missing additional info: {eventsWithoutIp} without IP address, {eventsWithoutComponent} without component name",
             Severity = events.Count == 0
                 ? ValidationSeverity.Low
-                : additionalInfoComplete ? ValidationSeverity.Info : ValidationSeverity.High,
+                : additionalInfoComplete
+                    ? ValidationSeverity.Info
+                    : ValidationSeverity.High,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-3(1) / V-222577",
@@ -140,7 +144,9 @@ public sealed class StigValidator : IComplianceValidator
                     : $"FINDING: {eventsWithoutTs} audit records lack timestamps",
             Severity = events.Count == 0
                 ? ValidationSeverity.Low
-                : allHaveTimestamps ? ValidationSeverity.Info : ValidationSeverity.High,
+                : allHaveTimestamps
+                    ? ValidationSeverity.Info
+                    : ValidationSeverity.High,
             ComplianceStandard = "DISA STIG",
             Category = "Audit and Accountability",
             RegulationReference = "NIST 800-53 AU-8 / V-222578",

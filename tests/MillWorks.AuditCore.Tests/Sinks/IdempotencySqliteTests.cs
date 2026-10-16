@@ -90,7 +90,7 @@ public sealed class IdempotencySqliteTests : IDisposable
 
         context.AuditOutbox.Add(row2);
 
-        var ex = Assert.ThrowsAsync<DbUpdateException>(async () =>
+        var ex = await Assert.ThrowsAsync<DbUpdateException>(async () =>
             await context.SaveChangesAsync());
 
         Assert.That(ex!.InnerException?.Message, Does.Contain("UNIQUE constraint"));
@@ -153,7 +153,7 @@ public sealed class IdempotencySqliteTests : IDisposable
 
         context2.AuditEvents.Add(event2);
 
-        var ex = Assert.ThrowsAsync<DbUpdateException>(async () =>
+        var ex = await Assert.ThrowsAsync<DbUpdateException>(async () =>
             await context2.SaveChangesAsync());
 
         // SQLite reports PK violation as UNIQUE constraint

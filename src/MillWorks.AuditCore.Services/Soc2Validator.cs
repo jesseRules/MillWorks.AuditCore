@@ -123,7 +123,9 @@ public sealed class Soc2Validator : IComplianceValidator
                     : $"{eventsWithoutUser} events lack user identification - required for accountability",
             Severity = events.Count == 0
                 ? ValidationSeverity.Low
-                : hasUserIdentification ? ValidationSeverity.Info : ValidationSeverity.Critical,
+                : hasUserIdentification
+                    ? ValidationSeverity.Info
+                    : ValidationSeverity.Critical,
             ComplianceStandard = "SOC 2",
             Category = "Common Criteria - Logical and Physical Access",
             RegulationReference = "CC6.6",

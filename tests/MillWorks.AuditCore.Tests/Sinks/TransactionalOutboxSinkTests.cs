@@ -55,22 +55,20 @@ public sealed class TransactionalOutboxSinkTests
     }
 
     [Test]
-    public void PublishAsync_NullEnvelope_Throws()
+    public async Task PublishAsync_NullEnvelope_Throws()
     {
         var writer = new RecordingWriter();
         var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
-
-        Assert.ThrowsAsync<ArgumentNullException>(
+        await Assert.ThrowsAsync<ArgumentNullException>(
             async () => await sink.PublishAsync(null!));
     }
 
     [Test]
-    public void PublishBatchAsync_NullEnvelopes_Throws()
+    public async Task PublishBatchAsync_NullEnvelopes_Throws()
     {
         var writer = new RecordingWriter();
         var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
-
-        Assert.ThrowsAsync<ArgumentNullException>(
+        await Assert.ThrowsAsync<ArgumentNullException>(
             async () => await sink.PublishBatchAsync(null!));
     }
 

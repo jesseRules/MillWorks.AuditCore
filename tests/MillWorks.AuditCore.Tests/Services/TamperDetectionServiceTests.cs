@@ -412,7 +412,7 @@ public class TamperDetectionServiceTests
     /// CreateIntegrityRecordBatchAsync rethrows unexpected exceptions.
     /// </summary>
     [Test]
-    public void CreateIntegrityRecordBatchAsync_OnUnexpectedError_Rethrows()
+    public async Task CreateIntegrityRecordBatchAsync_OnUnexpectedError_Rethrows()
     {
         // Arrange
         _mockAuditIntegrityRepository
@@ -421,9 +421,8 @@ public class TamperDetectionServiceTests
         _mockAuditIntegrityRepository
             .Setup(x => x.AddRangeAsync(It.IsAny<IEnumerable<AuditIntegrityEntity>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("unexpected failure"));
-
         // Act / Assert
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _tamperDetectionService.CreateIntegrityRecordBatchAsync(CreateBatchDtos(2)));
     }
 
@@ -532,11 +531,9 @@ public class TamperDetectionServiceTests
     public async Task VerifySequenceIntegrityAsync_WithValidSequence_ReturnsTrue()
     {
         // Arrange
-        var sequenceNumbers = new List<long> { 1, 2, 3, 4, 5 };
-
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         // Act
         var result = await _tamperDetectionService.VerifySequenceIntegrityAsync();
@@ -552,11 +549,9 @@ public class TamperDetectionServiceTests
     public async Task VerifySequenceIntegrityAsync_WithGapsInSequence_ReturnsFalse()
     {
         // Arrange
-        var sequenceNumbers = new List<long> { 1, 2, 4, 5 }; // Missing 3
-
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         // Act
         var result = await _tamperDetectionService.VerifySequenceIntegrityAsync();
@@ -579,17 +574,32 @@ public class TamperDetectionServiceTests
     public async Task VerifySequenceIntegrityAsync_WithEmptySequence_ReturnsTrue()
     {
         // Arrange
-        var sequenceNumbers = new List<long>();
-
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         // Act
         var result = await _tamperDetectionService.VerifySequenceIntegrityAsync();
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task DetectTamperingAsync_IncompleteSequenceReadDoesNotProduceCorruptionAlert(bool cancelled)
+    {
+        Exception failure = cancelled ? new OperationCanceledException() : new TimeoutException("Incomplete sequence read");
+        _mockAuditIntegrityRepository
+            .Setup(x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+
+        var thrown = await Assert.CatchAsync<Exception>(async () => await _tamperDetectionService.DetectTamperingAsync());
+        Assert.That(thrown, Is.SameAs(failure));
+        _mockLogger.Verify(x => x.Log(
+            LogLevel.Error, It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((value, _) => value.ToString()!.Contains("Sequence gap")),
+            It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception, string>>()!), Times.Never);
     }
 
     /// <summary>
@@ -607,10 +617,9 @@ public class TamperDetectionServiceTests
                     It.IsAny<CancellationToken>()))
             .ReturnsAsync(events);
 
-        var sequenceNumbers = new List<long> { 1, 2, 3 };
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
@@ -646,10 +655,9 @@ public class TamperDetectionServiceTests
                     It.IsAny<CancellationToken>()))
             .ReturnsAsync(events);
 
-        var sequenceNumbers = new List<long> { 1, 2, 4, 5 }; // Gap at 3
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         _mockAuditIntegrityRepository
             .Setup(static x => x.GetCountAsync(It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(),
@@ -784,7 +792,7 @@ public class TamperDetectionServiceTests
     /// ExportIntegrityProofAsync when event not found throws exception
     /// </summary>
     [Test]
-    public void ExportIntegrityProofAsync_WhenEventNotFound_ThrowsException()
+    public async Task ExportIntegrityProofAsync_WhenEventNotFound_ThrowsException()
     {
         // Arrange
         var eventId = Guid.NewGuid();
@@ -794,7 +802,7 @@ public class TamperDetectionServiceTests
             .ReturnsAsync((AuditIntegrityEntity?)null);
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _tamperDetectionService.ExportIntegrityProofAsync(eventId));
 
         Assert.That(ex.Message, Does.Contain("No integrity record found"));
@@ -866,7 +874,7 @@ public class TamperDetectionServiceTests
     /// Verifies that when all retries fail, InvalidOperationException is thrown
     /// </summary>
     [Test]
-    public void CreateIntegrityRecordAsync_WhenAllRetriesFail_ThrowsInvalidOperationException()
+    public async Task CreateIntegrityRecordAsync_WhenAllRetriesFail_ThrowsInvalidOperationException()
     {
         // Arrange
         var eventId = Guid.NewGuid();
@@ -900,7 +908,7 @@ public class TamperDetectionServiceTests
             .ThrowsAsync(new DbUpdateException("duplicate key", CreateSqlException(2627)));
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _tamperDetectionService.CreateIntegrityRecordAsync(dto));
 
         Assert.That(ex!.Message, Does.Contain("after 10 attempts"));
@@ -973,10 +981,9 @@ public class TamperDetectionServiceTests
     {
         // Arrange
         // Sequence gap
-        var sequenceNumbers = new List<long> { 1, 2, 4, 5 }; // Gap at 3
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         // Chain broken
         var integrityRecords = new List<AuditIntegrityEntity>
@@ -1017,10 +1024,9 @@ public class TamperDetectionServiceTests
     {
         // Arrange
         // Valid sequence - no gaps
-        var sequenceNumbers = new List<long> { 1, 2, 3 };
         _mockAuditIntegrityRepository
-            .Setup(static x => x.GetAllSequenceNumbersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sequenceNumbers);
+            .Setup(static x => x.IsSequenceContiguousAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var eventId1 = Guid.NewGuid();
         var eventId2 = Guid.NewGuid();

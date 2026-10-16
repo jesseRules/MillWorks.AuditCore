@@ -854,9 +854,9 @@ public class AuditReportServiceTests
     }
 
     [Test]
-    public void GenerateAuditReportAsync_UnsupportedFormat_ThrowsNotSupported()
+    public async Task GenerateAuditReportAsync_UnsupportedFormat_ThrowsNotSupported()
     {
-        Assert.ThrowsAsync<NotSupportedException>(async () =>
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
         {
             await _reportService.GenerateAuditReportAsync(
                 DateTimeOffset.UtcNow.AddDays(-7),

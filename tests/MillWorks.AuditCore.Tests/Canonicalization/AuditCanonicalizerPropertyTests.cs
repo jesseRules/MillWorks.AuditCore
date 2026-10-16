@@ -39,17 +39,17 @@ public sealed class AuditCanonicalizerPropertyTests
         for (var i = 0; i < 500; i++)
         {
             var keys = Enumerable.Range(0, Rng.Next(2, 8))
-                .Select(_ => RandomAlphaString(Rng, 3, 10))
+                .Select(static _ => RandomAlphaString(Rng, 3, 10))
                 .Distinct().ToList();
-            var values = keys.Select(_ => RandomJsonValue(Rng)).ToList();
+            var values = keys.Select(static _ => RandomJsonValue(Rng)).ToList();
 
             // Build JSON with original key order
             var json1 = BuildJsonObject(keys, values);
             // Build JSON with shuffled key order
-            var shuffled = keys.Zip(values).OrderBy(_ => Rng.Next()).ToList();
+            var shuffled = keys.Zip(values).OrderBy(static _ => Rng.Next()).ToList();
             var json2 = BuildJsonObject(
-                shuffled.Select(x => x.First).ToList(),
-                shuffled.Select(x => x.Second).ToList());
+                shuffled.Select(static x => x.First).ToList(),
+                shuffled.Select(static x => x.Second).ToList());
 
             var result1 = AuditCanonicalizer.Canonicalize(json1);
             var result2 = AuditCanonicalizer.Canonicalize(json2);
@@ -72,7 +72,8 @@ public sealed class AuditCanonicalizerPropertyTests
             var result1 = AuditCanonicalizer.Canonicalize(json1);
             var result2 = AuditCanonicalizer.Canonicalize(json2);
 
-            result1.Should().NotBe(result2, $"iteration {i}: different field values should produce different canonical forms");
+            result1.Should().NotBe(result2,
+                $"iteration {i}: different field values should produce different canonical forms");
         }
     }
 
@@ -102,7 +103,7 @@ public sealed class AuditCanonicalizerPropertyTests
         var fields = new[] { "a", "b", "c", "d", "e" };
         for (var i = 0; i < 500; i++)
         {
-            var entries = fields.Select(f =>
+            var entries = fields.Select(static f =>
             {
                 var isNull = Rng.Next(2) == 0;
                 return $"\"{f}\":{(isNull ? "null" : $"\"{RandomAlphaString(Rng, 1, 5)}\"")}";
@@ -245,7 +246,8 @@ public sealed class AuditCanonicalizerPropertyTests
             var result1 = AuditCanonicalizer.Canonicalize(jsonWithOffset);
             var result2 = AuditCanonicalizer.Canonicalize(jsonUtc);
 
-            result1.Should().Be(result2, $"iteration {i}: same instant in different timezones must canonicalize identically");
+            result1.Should().Be(result2,
+                $"iteration {i}: same instant in different timezones must canonicalize identically");
         }
     }
 
@@ -282,6 +284,7 @@ public sealed class AuditCanonicalizerPropertyTests
                 value = RandomJsonValue(rng);
             entries.Add($"\"{key}\":{value}");
         }
+
         return "{" + string.Join(",", entries) + "}";
     }
 
@@ -308,7 +311,7 @@ public sealed class AuditCanonicalizerPropertyTests
 
     private static string BuildJsonObject(List<string> keys, List<string> values)
     {
-        var entries = keys.Zip(values, (k, v) => $"\"{k}\":{v}");
+        var entries = keys.Zip(values, static (k, v) => $"\"{k}\":{v}");
         return "{" + string.Join(",", entries) + "}";
     }
 

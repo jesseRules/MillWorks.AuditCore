@@ -61,7 +61,7 @@ public sealed class CountingHashingStreamTests
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using var inner = new MemoryStream();
-        using var sut = new CountingHashingStream(inner, hash);
+        await using var sut = new CountingHashingStream(inner, hash);
 
         var data = "Async test data"u8.ToArray();
         await sut.WriteAsync(data, 0, data.Length);
@@ -75,7 +75,7 @@ public sealed class CountingHashingStreamTests
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using var inner = new MemoryStream();
-        using var sut = new CountingHashingStream(inner, hash);
+        await using var sut = new CountingHashingStream(inner, hash);
 
         var data = "Memory overload test"u8.ToArray();
         await sut.WriteAsync(data.AsMemory());
@@ -89,7 +89,7 @@ public sealed class CountingHashingStreamTests
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var failingStream = new FailingStream(failAfterBytes: 5);
-        using var sut = new CountingHashingStream(failingStream, hash, leaveOpen: true);
+        await using var sut = new CountingHashingStream(failingStream, hash, leaveOpen: true);
 
         var data = new byte[10];
         Array.Fill(data, (byte)'B');
@@ -157,6 +157,7 @@ public sealed class CountingHashingStreamTests
             {
                 throw new IOException("Simulated write failure");
             }
+
             _bytesWritten += count;
         }
 
@@ -166,6 +167,7 @@ public sealed class CountingHashingStreamTests
             {
                 throw new IOException("Simulated write failure");
             }
+
             _bytesWritten += buffer.Length;
         }
 
@@ -175,6 +177,7 @@ public sealed class CountingHashingStreamTests
             {
                 return ValueTask.FromException(new IOException("Simulated write failure"));
             }
+
             _bytesWritten += buffer.Length;
             return ValueTask.CompletedTask;
         }
@@ -183,8 +186,17 @@ public sealed class CountingHashingStreamTests
         public override bool CanSeek => false;
         public override bool CanWrite => true;
         public override long Length => _bytesWritten;
-        public override long Position { get => _bytesWritten; set => throw new NotSupportedException(); }
-        public override void Flush() { }
+
+        public override long Position
+        {
+            get => _bytesWritten;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();

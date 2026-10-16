@@ -33,7 +33,7 @@ public sealed class AuditEventRedactionHelperTests
         result.ChangedProperties.Should().Contain("Status");
         result.ChangedProperties.Should().NotContain("SSN");
         result.ChangedProperties.Should().NotContain("Diagnosis");
-        result.ChangedProperties.Where(p => p == "[REDACTED_PROP]").Should().HaveCount(2);
+        result.ChangedProperties.Where(static p => p == "[REDACTED_PROP]").Should().HaveCount(2);
     }
 
     [Test]

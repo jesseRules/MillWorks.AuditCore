@@ -51,7 +51,7 @@ public class InMemoryDistributedLockServiceTests
 
         // Act & Assert - second acquisition should throw TaskCanceledException
         // (Task.Delay throws TaskCanceledException when token is cancelled)
-        var ex = Assert.CatchAsync<OperationCanceledException>(async () =>
+        var ex = await Assert.CatchAsync<OperationCanceledException>(async () =>
             await _service.AcquireLockAsync(
                 "contested-resource", TimeSpan.FromMinutes(5), cts.Token));
 
@@ -80,7 +80,7 @@ public class InMemoryDistributedLockServiceTests
 
         // Act & Assert - second acquisition must NOT succeed while firstLock is alive,
         // even though the nominal expiry has elapsed
-        var ex = Assert.CatchAsync<OperationCanceledException>(async () =>
+        var ex = await Assert.CatchAsync<OperationCanceledException>(async () =>
             await _service.AcquireLockAsync(
                 "expiring-resource", TimeSpan.FromSeconds(30), cts.Token));
 

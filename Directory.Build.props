@@ -1,9 +1,9 @@
 <Project>
     <PropertyGroup>
-        <!-- Version - Change this ONE place to update all projects -->
-        <Version>1.15.3</Version>
-        <AssemblyVersion>1.15.3.0</AssemblyVersion>
-        <FileVersion>1.15.3.0</FileVersion>
+        <!-- Default version; synchronize any project-level Version overrides for coordinated releases. -->
+        <Version>1.15.4-dev.5</Version>
+        <AssemblyVersion>1.15.4.0</AssemblyVersion>
+        <FileVersion>1.15.4.0</FileVersion>
 
         <!-- Package Metadata -->
         <Authors>Jesse Carlberg</Authors>
@@ -19,7 +19,19 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.3: fixes searchable record IDs for explicit audit events used by compliance evidence exports. AuditEventBatchWriter now supplies CustomFields["EntityId"] to AuditLogger for GUID and string envelope IDs, with canonical GUID formatting and GUID precedence. No schema change or historical backfill. See CHANGELOG.md.
+        <PackageReleaseNotes>v1.15.4-dev.5: updates dependencies, requires System.Security.Cryptography.Pkcs 10.0.13, and migrates tests to NUnit 5 with deterministic background-service shutdown tests. Includes the pending source reconciliation and migration described in dev.4 below. SQL Server sequence acceptance and batch hardening H1-H3 remain open. Local prerelease built from the current working tree; see CHANGELOG.md.
+
+Earlier development release notes follow below:
+
+v1.15.4-dev.4: reconciles the envelope lookup index, bounded sequence aggregate, and transaction cleanup fixes under a new package identity. Includes incremental migration 20261008124628_AddAuditLogEnvelopeLookupIndex. SQL Server sequence-query acceptance and batch hardening H1-H3 remain open; this version bump does not claim those are fixed. See CHANGELOG.md.
+
+Earlier development release notes follow below:
+
+v1.15.4-dev.1: sequence integrity checks return one database aggregate result instead of loading every sequence number. Gaps and duplicates remain invalid; empty and non-1-based contiguous sequences remain valid. Replaces IAuditIntegrityRepository.GetAllSequenceNumbersAsync with IsSequenceContiguousAsync. No schema change.
+
+v1.15.3 release notes follow below:
+
+v1.15.3: fixes searchable record IDs for explicit audit events used by compliance evidence exports. AuditEventBatchWriter now supplies CustomFields["EntityId"] to AuditLogger for GUID and string envelope IDs, with canonical GUID formatting and GUID precedence. No schema change or historical backfill. See CHANGELOG.md.
 
 v1.15.2 release notes follow below:
 

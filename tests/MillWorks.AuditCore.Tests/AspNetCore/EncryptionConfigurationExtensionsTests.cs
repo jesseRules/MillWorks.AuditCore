@@ -78,7 +78,7 @@ public sealed class EncryptionConfigurationExtensionsTests
     }
 
     [Test]
-    public void UseFieldEncryption_WithFileStorage_AutoGenDisabled_ThrowsWhenNoKeys()
+    public async Task UseFieldEncryption_WithFileStorage_AutoGenDisabled_ThrowsWhenNoKeys()
     {
         var keyPath = Path.Combine(Path.GetTempPath(), $"keys-{Guid.NewGuid()}");
         try
@@ -88,8 +88,7 @@ public sealed class EncryptionConfigurationExtensionsTests
 
             using var provider = _services.BuildServiceProvider();
             var keyProvider = provider.GetRequiredService<IEncryptionKeyProvider>();
-
-            Assert.ThrowsAsync<KeyProviderException>(() => keyProvider.GetCurrentVersionAsync(KeyScope.Global));
+            await Assert.ThrowsAsync<KeyProviderException>(() => keyProvider.GetCurrentVersionAsync(KeyScope.Global));
         }
         finally
         {

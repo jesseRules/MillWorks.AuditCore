@@ -64,7 +64,7 @@ public class RepositoryOptimisticUpdateTests
     }
 
     [Test]
-    public void ExecuteOptimisticUpdateAsync_MaxRetriesExceeded_ThrowsAndLeavesStoredEntityUnchanged()
+    public async Task ExecuteOptimisticUpdateAsync_MaxRetriesExceeded_ThrowsAndLeavesStoredEntityUnchanged()
     {
         var entity = CreateEntity("Original");
         var repository = new TestOptimisticRepository(_context, entity);
@@ -72,8 +72,7 @@ public class RepositoryOptimisticUpdateTests
         repository.QueueSaveException(new DbUpdateConcurrencyException("conflict-2"));
 
         var updateCalls = 0;
-
-        Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(async () =>
             await repository.ExecuteOptimisticUpdateAsync(entity.EventId, e =>
             {
                 updateCalls++;
@@ -87,12 +86,11 @@ public class RepositoryOptimisticUpdateTests
     }
 
     [Test]
-    public void ExecuteOptimisticUpdateAsync_UpdateActionThrows_PropagatesWithoutRetry()
+    public async Task ExecuteOptimisticUpdateAsync_UpdateActionThrows_PropagatesWithoutRetry()
     {
         var entity = CreateEntity("Original");
         var repository = new TestOptimisticRepository(_context, entity);
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await repository.ExecuteOptimisticUpdateAsync(entity.EventId, _ =>
             {
                 throw new InvalidOperationException("boom");
@@ -104,14 +102,13 @@ public class RepositoryOptimisticUpdateTests
     }
 
     [Test]
-    public void ExecuteOptimisticUpdateAsync_CancelledBeforeFirstAttempt_ThrowsOperationCanceledException()
+    public async Task ExecuteOptimisticUpdateAsync_CancelledBeforeFirstAttempt_ThrowsOperationCanceledException()
     {
         var entity = CreateEntity("Original");
         var repository = new TestOptimisticRepository(_context, entity);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await repository.ExecuteOptimisticUpdateAsync(entity.EventId, e => e.EventType = "Updated", cancellationToken: cts.Token));
 
         Assert.That(repository.GetByIdCallCount, Is.EqualTo(0));

@@ -87,12 +87,11 @@ public class AuditMaintenanceServiceSqliteTests
     }
 
     [Test]
-    public void CleanupOldAuditEventsAsync_PreCancelledToken_ThrowsOperationCanceledException()
+    public async Task CleanupOldAuditEventsAsync_PreCancelledToken_ThrowsOperationCanceledException()
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await _service.CleanupOldAuditEventsAsync(30, cts.Token));
     }
 

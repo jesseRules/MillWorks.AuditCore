@@ -169,11 +169,16 @@ public interface IAuditIntegrityRepository : IRepository<AuditIntegrityEntity>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all sequence numbers in order for integrity verification.
+    /// Checks that sequence numbers are distinct and contiguous using database aggregates.
+    /// Empty sequences are valid; the first sequence number need not be 1.
+    /// SQL Server uses a separate read-only SERIALIZABLE transaction, with two-second
+    /// commands, at most two transient retries, and a seven-second overall cancellation
+    /// deadline. Caller transactions are not reused. Failed/incomplete reads throw;
+    /// only a successfully read invalid summary returns false.
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<IEnumerable<long>> GetAllSequenceNumbersAsync(CancellationToken cancellationToken = default);
+    Task<bool> IsSequenceContiguousAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Streams integrity records for the given event IDs in chunks, without buffering the

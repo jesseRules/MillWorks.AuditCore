@@ -24,9 +24,9 @@ public sealed class AuditEventBatchWriterTests
     }
 
     [Test]
-    public void WriteBatchAsync_NullEnvelopes_Throws()
+    public async Task WriteBatchAsync_NullEnvelopes_Throws()
     {
-        Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteBatchAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _writer.WriteBatchAsync(null!, CancellationToken.None));
     }
 
     [Test]

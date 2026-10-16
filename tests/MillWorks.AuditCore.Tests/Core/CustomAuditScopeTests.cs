@@ -291,7 +291,7 @@ public class CustomAuditScopeTests
     /// </summary>
     /// <returns></returns>
     [Test]
-    public Task SaveAsync_WhenLoggerThrowsException_RethrowsException()
+    public async Task SaveAsync_WhenLoggerThrowsException_RethrowsException()
     {
         // Arrange
         var scope = new CustomAuditScope(_testEvent, _mockAuditLogger.Object, _mockLogger.Object);
@@ -301,9 +301,8 @@ public class CustomAuditScopeTests
             .ThrowsAsync(new Exception("Logging failed"));
 
         // Act & Assert
-        var ex = Assert.ThrowsAsync<Exception>(async () => await scope.SaveAsync());
+        var ex = await Assert.ThrowsAsync<Exception>(async () => await scope.SaveAsync());
         Assert.That(ex.Message, Is.EqualTo("Logging failed"));
-        return Task.CompletedTask;
     }
 
     /// <summary>

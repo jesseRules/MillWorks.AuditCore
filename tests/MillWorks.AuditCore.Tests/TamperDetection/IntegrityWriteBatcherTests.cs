@@ -125,8 +125,7 @@ public sealed class IntegrityWriteBatcherTests
         using var cts = new CancellationTokenSource();
 
         var executeTask = StartBatcher(batcher, cts.Token);
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
         });
@@ -149,8 +148,7 @@ public sealed class IntegrityWriteBatcherTests
         using var cts = new CancellationTokenSource();
 
         var executeTask = StartBatcher(batcher, cts.Token);
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
         });
@@ -179,14 +177,14 @@ public sealed class IntegrityWriteBatcherTests
         var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
         using var cts = new CancellationTokenSource();
 
-        var executeTask = StartBatcher(batcher, cts.Token);
+        await StartBatcher(batcher, cts.Token);
 
         // Enqueue one event — won't flush yet (batch not full, interval not elapsed)
         var enqueueTask = batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
 
         // Cancel triggers shutdown flush
         cts.Cancel();
-        await executeTask;
+        await batcher.StopAsync(CancellationToken.None);
 
         // The enqueue should complete after shutdown flush
         var result = await enqueueTask;
@@ -287,12 +285,11 @@ public sealed class IntegrityWriteBatcherTests
         var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
         using var cts = new CancellationTokenSource();
 
-        var executeTask = StartBatcher(batcher, cts.Token);
+        await StartBatcher(batcher, cts.Token);
 
         cts.Cancel();
-        await executeTask;
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await batcher.StopAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
         });
@@ -312,12 +309,11 @@ public sealed class IntegrityWriteBatcherTests
         var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
         using var cts = new CancellationTokenSource();
 
-        var executeTask = StartBatcher(batcher, cts.Token);
+        await StartBatcher(batcher, cts.Token);
 
         cts.Cancel();
-        await executeTask;
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await batcher.StopAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
         });
@@ -336,15 +332,14 @@ public sealed class IntegrityWriteBatcherTests
         var batcher = CreateBatcher(batchSize: 100, flushIntervalMs: 60000);
         using var cts = new CancellationTokenSource();
 
-        var executeTask = StartBatcher(batcher, cts.Token);
+        await StartBatcher(batcher, cts.Token);
 
         var enqueueTask = batcher.EnqueueAsync(CreateTestDto(), CancellationToken.None);
 
         await Task.Delay(50);
         cts.Cancel();
-        await executeTask;
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await batcher.StopAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await enqueueTask;
         });

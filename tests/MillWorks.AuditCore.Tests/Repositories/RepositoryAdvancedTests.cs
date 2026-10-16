@@ -135,7 +135,7 @@ public class RepositoryAdvancedTests
 
         // Act — InMemory provider does not truly reload from storage,
         // but ReloadEntityAsync must not throw.
-        Assert.DoesNotThrowAsync(async () => await _repository.ReloadEntityAsync(entity));
+        await Assert.DoesNotThrowAsync(async () => await _repository.ReloadEntityAsync(entity));
 
         // Assert the call completed without error
         Assert.That(entity, Is.Not.Null);

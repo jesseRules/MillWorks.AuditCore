@@ -58,7 +58,7 @@ public sealed class RepositorySharedContextTransactionTests
         var txA = await repoA.BeginTransactionAsync();
         try
         {
-            var ex = Assert.ThrowsAsync<InvalidOperationException>(
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await repoB.BeginTransactionAsync());
 
             Assert.Multiple(() =>

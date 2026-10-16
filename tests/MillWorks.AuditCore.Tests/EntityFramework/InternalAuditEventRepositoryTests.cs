@@ -268,10 +268,10 @@ public class InternalAuditEventRepositoryTests
     /// AddAsync with null entity throws ArgumentNullException
     /// </summary>
     [Test]
-    public void AddAsync_WithNullEntity_ThrowsArgumentNullException()
+    public async Task AddAsync_WithNullEntity_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _repository.AddAsync(null!));
     }
 
@@ -279,10 +279,10 @@ public class InternalAuditEventRepositoryTests
     /// AddRangeAsync with null entities throws ArgumentNullException
     /// </summary>
     [Test]
-    public void AddRangeAsync_WithNullEntities_ThrowsArgumentNullException()
+    public async Task AddRangeAsync_WithNullEntities_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
             await _repository.AddRangeAsync(null!));
     }
 

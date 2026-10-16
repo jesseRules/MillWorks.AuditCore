@@ -345,7 +345,7 @@ public class AuditLoggerTests
     /// LogAsync_WhenRepositoryThrowsException_LogsErrorAndThrows
     /// </summary>
     [Test]
-    public void LogAsync_WhenRepositoryThrowsException_LogsErrorAndThrows()
+    public async Task LogAsync_WhenRepositoryThrowsException_LogsErrorAndThrows()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -357,9 +357,8 @@ public class AuditLoggerTests
         _mockAuditEventRepository
             .Setup(static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
-
         // Act & Assert
-        Assert.ThrowsAsync<Exception>(async () => await _auditLogger.LogAsync(auditEvent));
+        await Assert.ThrowsAsync<Exception>(async () => await _auditLogger.LogAsync(auditEvent));
 
         _mockLogger.Verify(static x => x.Log(
                 LogLevel.Error,
@@ -377,7 +376,7 @@ public class AuditLoggerTests
     /// ResilientAuditLogger can retry the entire operation.
     /// </summary>
     [Test]
-    public void LogAsync_WhenTamperDetectionFails_RollsBackTransactionAndThrows()
+    public async Task LogAsync_WhenTamperDetectionFails_RollsBackTransactionAndThrows()
     {
         // Arrange
         var auditEvent = new AuditEvent
@@ -398,9 +397,8 @@ public class AuditLoggerTests
             .Setup(static x =>
                 x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Tamper detection failed"));
-
         // Act & Assert — tamper detection failure now propagates (transaction rolled back)
-        Assert.ThrowsAsync<Exception>(async () => await _auditLogger.LogAsync(auditEvent));
+        await Assert.ThrowsAsync<Exception>(async () => await _auditLogger.LogAsync(auditEvent));
     }
 
     /// <summary>

@@ -47,7 +47,8 @@ public sealed class ArchiveCreationBackgroundServiceTests
         await service.StartAsync(cts.Token);
 
         _mockArchivalService.Verify(
-            a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            static a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -65,7 +66,8 @@ public sealed class ArchiveCreationBackgroundServiceTests
         };
 
         _mockArchivalService
-            .Setup(a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(static a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AuditArchivalResult { Success = true });
 
         var service = CreateService(options, fakeTime);
@@ -73,13 +75,14 @@ public sealed class ArchiveCreationBackgroundServiceTests
 
         var executeTask = service.StartAsync(cts.Token);
 
-        await Task.Delay(50);
+        await Task.Delay(50, cts.Token);
         _mockArchivalService.Verify(
-            a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            static a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()),
             Times.Never,
             "Should not archive before startup delay");
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
     }
 
@@ -102,17 +105,19 @@ public sealed class ArchiveCreationBackgroundServiceTests
         };
 
         _mockArchivalService
-            .Setup(a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Callback<DateTimeOffset, string?, CancellationToken>((archiveBefore, _, _) => capturedArchiveBefore = archiveBefore)
+            .Setup(static a => a.ArchiveAuditEventsAsync(It.IsAny<DateTimeOffset>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<DateTimeOffset, string?, CancellationToken>((archiveBefore, _, _) =>
+                capturedArchiveBefore = archiveBefore)
             .ReturnsAsync(new AuditArchivalResult { Success = true });
 
         var service = CreateService(options, fakeTime);
         using var cts = new CancellationTokenSource();
 
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await Task.Delay(200, cts.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
         Assert.That(capturedArchiveBefore, Is.Not.Null);

@@ -1,7 +1,9 @@
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -385,17 +387,92 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         return await query.CountAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// Gets all sequence numbers in order for integrity verification.
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public async Task<IEnumerable<long>> GetAllSequenceNumbersAsync(CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public async Task<bool> IsSequenceContiguousAsync(CancellationToken cancellationToken = default)
     {
-        return await DbSet.AsNoTracking()
-            .OrderBy(static ai => ai.SequenceNumber)
-            .Select(static ai => ai.SequenceNumber)
-            .ToListAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Context.Database.IsSqlServer())
+            return await ReadSequenceSummaryAsync(Context, cancellationToken);
+
+        // Do not inherit an ambient/caller transaction, a possibly weaker isolation level,
+        // or its tracked changes. Each retry gets its own connection, context and transaction.
+        using var suppressed = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Suppress,
+            System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // Reserve the last 250 ms of the seven-second budget for transaction/connection cleanup.
+        deadline.CancelAfter(TimeSpan.FromMilliseconds(6750));
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return await ReadSerializableSequenceSummaryAsync(deadline.Token);
+                }
+                catch (SqlException ex) when (attempt < 2 &&
+                    ex.Number is 1205 or 1222 or -2 && !deadline.IsCancellationRequested)
+                {
+                    // A failed/blocked read is not corruption. Retry only transient database
+                    // failures, never a valid summary that actually reports a gap/duplicate.
+                    await Task.Delay(TimeSpan.FromMilliseconds(100), deadline.Token);
+                }
+            }
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            throw new TimeoutException("Sequence validation did not complete within its seven-second deadline.", ex);
+        }
+    }
+
+    private async Task<bool> ReadSerializableSequenceSummaryAsync(CancellationToken cancellationToken)
+    {
+        // Clone preserves SqlCredential/token authentication as well as connection-string
+        // credentials, even if the original open connection hides its password.
+        await using var connection = (SqlConnection)((ICloneable)Context.Database.GetDbConnection()).Clone();
+        // Do not rebuild ConnectionString: an already-open source can hide its password,
+        // whereas SqlConnection.Clone retains its private authentication state. Ambient
+        // enlistment is suppressed above; opening is bounded by the overall cancellation token.
+
+        // Retain the configured model (including custom schema), logging and interceptors,
+        // but disable provider retries: this method owns the bounded fresh-context retry loop.
+        var sourceOptions = Context.GetService<IDbContextOptions>();
+        var options = new DbContextOptionsBuilder<AuditDbContext>(
+                new DbContextOptions<AuditDbContext>(sourceOptions.Extensions.ToDictionary(e => e.GetType())))
+            .UseSqlServer(connection, sql => sql.CommandTimeout(2)
+                .ExecutionStrategy(dependencies => new NonRetryingExecutionStrategy(dependencies)))
+            .UseModel(Context.Model)
+            .Options;
+        await using var readContext = new AuditDbContext(options);
+        await readContext.Database.OpenConnectionAsync(cancellationToken);
+        // Bound lock waits below the per-command deadline so SQL can report a retryable 1222.
+        await readContext.Database.ExecuteSqlRawAsync("SET LOCK_TIMEOUT 1500;", cancellationToken);
+        await using var transaction = await readContext.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+        var result = await ReadSequenceSummaryAsync(readContext, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    private static async Task<bool> ReadSequenceSummaryAsync(AuditDbContext readContext, CancellationToken cancellationToken)
+    {
+        // One aggregate result instead of transferring the entire sequence column.
+        // Distinct count also detects duplicates when the unique index is absent or damaged.
+        var summary = await readContext.AuditIntegrity.AsNoTracking()
+            .GroupBy(static ai => 1)
+            .Select(static group => new
+            {
+                Count = group.LongCount(),
+                DistinctCount = group.Select(static ai => ai.SequenceNumber).Distinct().LongCount(),
+                Minimum = group.Min(static ai => ai.SequenceNumber),
+                Maximum = group.Max(static ai => ai.SequenceNumber)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // Decimal arithmetic keeps the range calculation safe across the full Int64 domain.
+        return summary == null ||
+               (summary.Count == summary.DistinctCount &&
+                (decimal)summary.Maximum - summary.Minimum + 1 == summary.Count);
     }
 
     /// <inheritdoc />
