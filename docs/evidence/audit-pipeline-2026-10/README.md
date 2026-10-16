@@ -1,9 +1,15 @@
 # Audit pipeline evidence register
 
-This repository-local bundle was assembled on 2026-10-16 from historical MillWorks records.
-No new database probes, tests, API builds, package builds, or deployments were performed.
+The historical portion of this repository-local bundle was assembled on 2026-10-16 from
+MillWorks records without new probes or tests. Subsequent implementation, isolated SQL tests,
+performance profiles, and release work are recorded in the dated sections below.
 Source paths below document origin; reviewers do not need the sibling checkout to read the
 included evidence. The bundle is selected evidence, not a full source snapshot of dev.3.
+
+## Consistent-read package release
+
+[Dev.6 release record](release-dev6/README.md) owns reviewed source inventory, isolated
+build/test/pack commands, package provenance and delivery status.
 
 ## Controlled sequence performance investigation — 2026-10-16
 
@@ -27,7 +33,8 @@ not close package or live-host acceptance.
 22-test run with exact command, source/assembly fingerprints, TRX, generated SQL and fixture
 read statistics. It is separate from the historical counts below. The original introductory
 statement describes the historical bundle assembly, not this later test/observation run.
-Concurrent consistency and running-API acceptance remain open.
+The later consistent-read run below supersedes the concurrency limitation of this earlier
+provider-only run; running-API acceptance remains open.
 
 ## Index verification
 

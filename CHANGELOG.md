@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Sequence validation consistency — pending package release
+### Sequence validation consistency — 1.15.4-dev.6 (release candidate)
 
 - SQL Server sequence summaries now run on a dedicated connection/context in a short SERIALIZABLE transaction, independent of caller and ambient transaction isolation. The aggregate still returns at most one summary row.
 - Bound each command to two seconds, lock waits to 1.5 seconds, and overall validation to a seven-second cancellation deadline. Retry lock timeout, command timeout, and deadlock failures at most twice with fresh contexts; incomplete reads throw instead of becoming corruption findings.

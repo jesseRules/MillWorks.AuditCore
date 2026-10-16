@@ -1,0 +1,719 @@
+{
+  "version": "1.15.4-dev.6",
+  "implementationCommit": "749e6e9488283ca6c62ebbd4b7a67e7742d6d19c",
+  "comparisonBaseline": "1cc9ce2c407b4f58c95ba8d25e67379ca14c9765",
+  "nunitMigrationIncluded": true,
+  "includedRuntimeWork": [
+    "Envelope lookup index and migration",
+    "Aggregate sequence validation with dedicated SERIALIZABLE read, bounded retries, deadline and cancellation",
+    "Transaction exception-preserving cleanup",
+    "Committed dependency/Pkcs pin updates"
+  ],
+  "excludedUnimplementedWork": [
+    "H1 ownership/failure handoff",
+    "H2 contract corrections",
+    "H3a identity changes",
+    "H3 per-event duplicate reporting",
+    "H4 extraction",
+    "H5 sustained-load qualification",
+    "G public results",
+    "Disposition/recovery plan implementation"
+  ],
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "615492a88ab0d2c8a9666f1604a92ce610ec93d77387d972364571f6099f6ab3",
+      "purpose": "Committed baseline change included in the coordinated source release; inspect patch against the baseline."
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "876718ff94da6f5c4c244a8ef0c7eba9f143348b7e3886949f2aed7b274e7561",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/README.md",
+      "sha256": "54b54ea67666d16ae62cca2a8369a23b4394d2accb09310c0a38b1a43c3c5bf1",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/audit-after-statistics.txt",
+      "sha256": "e8942ae9a4c1f97e660dc5286686d6956f229c37b440ae97707b6768b79b9bb6",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/audit-after.sqlplan",
+      "sha256": "65ffd5a7301fde11684650fe27d200694c910997efc88350e3f825489ff3015a",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/audit-before-statistics.txt",
+      "sha256": "a7444b39dbac217f03e8c54ff00622a70a96944d1869a3f9888e7ae248fa6de5",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/audit-index-migration.sql",
+      "sha256": "9449d41461208d2abec6c03e708c4c49f70b91ec34dd5ae770a5880b8afb2b78",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/audit-phase1-results.json",
+      "sha256": "e09b9f6de938e3ef87c37064409daaf02114ba0d28f4d39bd694e7080a0d28a7",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/post-rebuild-record.md",
+      "sha256": "e71b275c2ddf129878683224811a08692ed6b937b92af0e0705811013fd3db3d",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-consistency-2026-10-16/README.md",
+      "sha256": "be96433b477291dea42f225416dbe7993653f53b56fd28adfdad86b80054b167",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-consistency-2026-10-16/build-and-test.log",
+      "sha256": "8969d3ab7df3ae71002beb4063a69fa28af12c0443173e8b415beab7358f4d07",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-consistency-2026-10-16/manifest.json",
+      "sha256": "1650fb66fcc792547ab7186f74e21795af6e6781ce1bd6d82d3ab0102fecd81e",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/README.md",
+      "sha256": "668acaeb80867f71e0a0fcf8c412e939b5f0722bb191f8af2aff2b69d095311d",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/application-index-inventory.json",
+      "sha256": "f5086000ecbc72781072b1918c931ee3b2d11e2bc8adf9e8d6ab31982bbf8f16",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/build-and-profile.log",
+      "sha256": "9726695655cf5677369d8ef4cf6bdff6fcaf3f1a3d6eee3098d23aa31fefb8d9",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/manifest.json",
+      "sha256": "57b8353755e1b35ae7c16b918bf0e1b08a757a5f3b723943e224e40f0152c946",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/observe-application-indexes.py",
+      "sha256": "dcdc9a59fb7369e3f45f03a0d1383740da537d5e028b7d34db89e4a3e2c15b35",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-False-grouped.sqlplan",
+      "sha256": "e8b3aa5222e444eeedc2d3eb128ec30d32359b6f0eea71bfb4b5ec25543afcd2",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-False-row_locks.sqlplan",
+      "sha256": "7eba018dd84ccfb3fe4407b632d4d3e83e97b6902d51c3f8cde2494808f8c6c6",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-False-table_lock.sqlplan",
+      "sha256": "b43ada25833e839921e9daa5d4c01c5777da7f6b70b0c94331ce57ef57df7b23",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-True-grouped.sqlplan",
+      "sha256": "7cf0356163084729db47035a745cef8e59b874cf8e2ffcbe71e3e30510f230e3",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-True-row_locks.sqlplan",
+      "sha256": "99688b92376737d2b2f0bf63b551f02eeb933d5b50c8a6d0e567737d60731205",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-False-unique-True-table_lock.sqlplan",
+      "sha256": "60acc09b42631781e6c44149cbda068638d01b909c1018f91664d318fc413357",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-False-grouped.sqlplan",
+      "sha256": "38907022b6094742d40a450b753d1ced5e4be9c4da087624e9eeb76f4eb5dcb8",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-False-row_locks.sqlplan",
+      "sha256": "6b5d060412a18ecb6280e01ea854f7a04e22db40e7b5c12e3d341b584eb5c5dd",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-False-table_lock.sqlplan",
+      "sha256": "7f7dc34b2155f9eb15515b8ee5cfd95822b7a961ade632af8735e4e984ef67b2",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-True-grouped.sqlplan",
+      "sha256": "9221ca26c762e7a8171f89c500fb73b05d439e9390105bf1c57d3a55152ac9e7",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-True-row_locks.sqlplan",
+      "sha256": "6b1c85196fb6eda46f0c6fbab68406e6069c804c26bf69ebd5d753bfea61ccf4",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-False-pool-True-unique-True-table_lock.sqlplan",
+      "sha256": "02817cdcb821a73e88883e9121e8cb6625665986e81e7ea97a3c5b48731de5b8",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-False-grouped.sqlplan",
+      "sha256": "2f319eec891c7568c5d59f2f3e43948ed82e1639b2ea5081a84f02a3db492c60",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-False-row_locks.sqlplan",
+      "sha256": "79ebf35329cb9b3320894113a695f2ecdc3eb0cd2da8caf4d5ac4b5bc2303448",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-False-table_lock.sqlplan",
+      "sha256": "335e1114f4715fc16c688607ab3096fa6ab77e7bf4d885ac0df85faeb974a60f",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-True-grouped.sqlplan",
+      "sha256": "f3b39dd6f076ad4bf35cf6d7d5f33b6a05f95cb1e975e10130aa2a70d3bd6322",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-True-row_locks.sqlplan",
+      "sha256": "a481372f97b581893fb0a9b5bf39fbd8a2faf984d0eb71b4a340b0f7f8aa59b8",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-False-unique-True-table_lock.sqlplan",
+      "sha256": "6f18461c94c18fc0a6a6c318a7741ada3356006233fce00cb55394815831d465",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-False-grouped.sqlplan",
+      "sha256": "d52ed75ffadc8bb4f6d86fd9395f47b1a9887d4fbd2bd23dd1fa27dfa198256b",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-False-row_locks.sqlplan",
+      "sha256": "02059212a70e6b782c0a1e5db9df2f9fbbd2aa3899df6b5a2117b23256a10013",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-False-table_lock.sqlplan",
+      "sha256": "48034fe85717c5f20ab9161d5ac5083fc7f446f0fd198558b9e9df8ef9af84a1",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-True-grouped.sqlplan",
+      "sha256": "ea2cbecc42c891767f225b096498d1cfb41f3235fa4389e0b8a6823fe10a3be8",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-True-row_locks.sqlplan",
+      "sha256": "0f1ea3905ddc1d4778b5d8f82c5545d693c2ef39fa27f4c82d777de4c5e01683",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-performance-2026-10-16/plans/rcsi-True-pool-True-unique-True-table_lock.sqlplan",
+      "sha256": "81402e2d1a4fef1ba0fd77454db5fc3fd59bb79d1115fbb3a7be86e2a37a3a75",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-sqlserver-2026-10-16/README.md",
+      "sha256": "68c4e1381e8572b9392f849cc7ebd29f5df97ce636e2eab81ed943b72f00cb42",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-sqlserver-2026-10-16/application-cache-observation.json",
+      "sha256": "4330f8764ffa5232bc8e099cf979c39cc8a58d83e5612f7c8a91afba4196fb99",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-sqlserver-2026-10-16/manifest.json",
+      "sha256": "2881ff2c1c1c12fd996afc862994e9a8732df02c6bfcbaefba6969f32bdf3fa3",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/evidence/audit-pipeline-2026-10/sequence-sqlserver-2026-10-16/observe-application-cache.py",
+      "sha256": "939f5815710c63137adf78b906029d0d45ce074be3e93772aeb180f53744d560",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/plans/AuditDispositionRecovery.md",
+      "sha256": "f2777d8d59bdb82895a60112420a2c77768ed10869fe3d0f8de9785ff0ad7918",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/plans/BatchPublishingHardening.md",
+      "sha256": "3af8ee418cd425218a52c6aaf76ee858cce99674caed8d173aee64d1215858f1",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/plans/BatchPublishingRedesign.md",
+      "sha256": "85acb660de903c87f91898cdf351335ac0c87f25e6b96fce9d8e8a427b06430f",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "docs/plans/completed/AuditWritePipelineDurability.md",
+      "sha256": "0b544b50d612e78543b219184d467d56735da236f42dbd6a7e64d40d169fcc47",
+      "purpose": "Plan or retained historical SQL/test/performance evidence; not an implemented hardening claim."
+    },
+    {
+      "path": "samples/MillWorks.AuditCore.SampleProject/MillWorks.AuditCore.SampleProject.csproj",
+      "sha256": "b103ff9065a90aab65e61876bfa28d8f26562f1abf618850561876ebf7070d57",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+      "sha256": "750d58a79cc849f3d984b7229887c2c991ad33b9a4c8c952f97fd2b18fb11270",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+      "sha256": "f2d2d4f0c2111079400db31d6162798ee04521cd5bcf880ba86c67ab62ee3272",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Data/AuditDbContext.cs",
+      "sha256": "f112136e5aab47ac1b46cd7dc86dbdf1c88ac7195d7b932b59943afc5b9e74e6",
+      "purpose": "Incremental envelope covering index and corresponding EF model/snapshot."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/20261008124628_AddAuditLogEnvelopeLookupIndex.Designer.cs",
+      "sha256": "b7a0bada3a7bfb32996ec765603ab98de02d33e8f3dc045ae553d2873a0c9fe0",
+      "purpose": "Incremental envelope covering index and corresponding EF model/snapshot."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/20261008124628_AddAuditLogEnvelopeLookupIndex.cs",
+      "sha256": "8f4927fe28c0ca78fc1d6c7af42a9ac393f4ec7e6036afa1665579f3a4e79a03",
+      "purpose": "Incremental envelope covering index and corresponding EF model/snapshot."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/AuditDbContextModelSnapshot.cs",
+      "sha256": "4928375d7f4e5ca680da984bc970cc5e3b2ab9ee9f843719636e0c551f853e42",
+      "purpose": "Incremental envelope covering index and corresponding EF model/snapshot."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+      "sha256": "55bb40df59278c5c0dbeb34299b810f87a742eab4ca8d290281e3792961f770c",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs",
+      "sha256": "87217161329c50c0ef43ced0b05579edf9bbdd1e5aa3bf11463855219a2e06b3",
+      "purpose": "Committed sequence consistent-read/aggregate or transaction-cleanup behavior; included as source, not a new H1 fix."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Repositories/Interfaces/IAuditIntegrityRepository.cs",
+      "sha256": "f23804960e435a4c665b1fbfa830de76724d38ff02141995ce0faf594f51c6ca",
+      "purpose": "Committed sequence consistent-read/aggregate or transaction-cleanup behavior; included as source, not a new H1 fix."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Repositories/Repository.cs",
+      "sha256": "527ddd0eddf735143a0ffcbfe4539893255cbfb4e9846f40dacc319a73450c21",
+      "purpose": "Committed sequence consistent-read/aggregate or transaction-cleanup behavior; included as source, not a new H1 fix."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+      "sha256": "dfc794b0e6cce09d7c986d3b9b4a1edf20327a95a6470870eba7ea565205c4e5",
+      "purpose": "Committed dependency, package-version, Pkcs pin, or test tooling metadata."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/PciDssValidator.cs",
+      "sha256": "a152d523b56e41960ad00b1aefb8699873a2980bd807a449b74efd89c4694712",
+      "purpose": "Committed baseline change included in the coordinated source release; inspect patch against the baseline."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Soc2Validator.cs",
+      "sha256": "586ced86bcd6b2a73ff726d520c0b979f6bcfd124be8499db8e3bf4dac9a7191",
+      "purpose": "Committed baseline change included in the coordinated source release; inspect patch against the baseline."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/StigValidator.cs",
+      "sha256": "267931f658a30b0e3c0b4e527b65b48c9d6d4b66ae916207fc9976943b2c7615",
+      "purpose": "Committed baseline change included in the coordinated source release; inspect patch against the baseline."
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/TamperDetectionService.cs",
+      "sha256": "fbd7f2d51abc3a3303191cd12777dae460838916dae88ee0fceee841d48a6750",
+      "purpose": "Sequence aggregate contract/caller and incomplete-read propagation."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/AspNetCore/ApplicationBuilderExtensionsTests.cs",
+      "sha256": "faea5c2e5ad5d0018b6640a2ffcb8d3d9987d6cce2cf3ec7568ae5888de9dbfc",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/AspNetCore/DatabaseExtensionsTests.cs",
+      "sha256": "865d40941bcc70838c316e53db7a7f66787b71acbe092238e9eb0e05b5193ff7",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/AspNetCore/EncryptionConfigurationExtensionsTests.cs",
+      "sha256": "f69ac0361efc683bc6b5235421401bf388cca4f6bedb22278f9eabbdf63af775",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/AspNetCore/IntegrityHealthCheckTests.cs",
+      "sha256": "bb5a9607dea4debb14b1a36217988fe7b271512650fc04859a9c6b80243a3569",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/AspNetCore/MillWorksAuditBuilderTests.cs",
+      "sha256": "4f4fb162d664c5f1ac5086393ced20fe2f7ce16c906084f1d659d028857376c8",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Canonicalization/AuditCanonicalizerPropertyTests.cs",
+      "sha256": "636f4e64366cb289d6439dcad7491e4bb5d46190a9ea2e86322a2a61c0954ff8",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Core/ArchiveCreationBackgroundServiceTests.cs",
+      "sha256": "3a9f6842577fbc2ba72feec9be923051c9e292677e1dbce607c21f9aa60e5049",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Core/AuditEventRedactionHelperTests.cs",
+      "sha256": "8170960ebdeb32b56f3a0cd5cb864f15bb8d8e1cb4bec9f1ad6f908cee94b5ac",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Core/CountingHashingStreamTests.cs",
+      "sha256": "1c9aac5d3e6531dc9b7a63380f914bad8672ed53e396c123ab0ead3b33c8bfac",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Core/CustomAuditScopeTests.cs",
+      "sha256": "80993e21ebdf26d00f82ca66d874bf624a8526015d7cd2386eb48f45178a37fe",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs",
+      "sha256": "ecae033446da58ed0c11f09e6cf13bed69bf0642b8f90aeceeba2b08561ae9a6",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/DeadLetterQueue/FileDlqOperationalBoundaryTests.cs",
+      "sha256": "c9fe9c8ee01c97372fde94814a6e4efa133343c18a5bf597ed29a0a8b79bb5fd",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/DeadLetterQueue/RedisAuditDeadLetterQueueTests.cs",
+      "sha256": "04fa096c6c7efe8d77a4977deb8fe51bafcf606ff2fb6c8f8ca05ae8ef4d47bb",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/AuditEnvelopeLookupIndexTests.cs",
+      "sha256": "98e0d1472e4aa1ff9ae1a01f796f5f5129fc2b66dd45bf0eeee64dd7c114cd74",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs",
+      "sha256": "8e1b81bd9f29968be30273ee8654b414650dbc1f41b703c37eae92211853e35d",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/BareConsumerDbContextTests.cs",
+      "sha256": "bd31550ab3619f212a495a87a44cee0588af0c66054e8bfb9d70f4d3cb5d71c4",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/EncryptionInterceptorTests.cs",
+      "sha256": "31ddf0bbe82cfc929d7f5db36d63e278107248053e6697f72d3745737b5affbe",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/FerpaEnforcementTests.cs",
+      "sha256": "d5eec92d18b925ea97c0e4704901c1f297fe3f7acbac707a5f4524c6dd42773e",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/InterceptorSinkRoutingTests.cs",
+      "sha256": "11f75132034c0234829734750ffc981bef7b5c5b26750c542befa57bb90beaa9",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/InternalAuditEventRepositoryTests.cs",
+      "sha256": "1a45f4e0e08a8c13732f04677eb94c3799e0570b42ec566ce27f12ddb4617eb4",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/AuditInterceptorFailClosedSqliteTests.cs",
+      "sha256": "c42f08d61ef0ea90bd4a666a94b9216830fc157dee2722e9ad38b536cafd8f76",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/FerpaConsentUserBridgeTests.cs",
+      "sha256": "4b35708dcfd1fa96e6c596e62b4e1cbabbca1c0308f0030846b6d0e2da25bd17",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/OutboxAtomicityPolicyTests.cs",
+      "sha256": "6a73132646a5f0a89e72cc15b58fc910a681c28df24b2b98bb4f4de47e076936",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/SqlServer/AuditInterceptorFailClosedSqlServerTests.cs",
+      "sha256": "f555c94b295494c42f6ea6f76406498f9ce6cfdeb8b1f78bd7bbcd10b92f7675",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Middleware/AuditContextMiddlewareEdgeCaseTests.cs",
+      "sha256": "01ca3eaab2deb3837ddbb687afb2772398f3c901e2d80193b78ef2847506c131",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Middleware/AuditContextMiddlewareTests.cs",
+      "sha256": "616a495e98f2efd740fdce7c61bd227bf8285909055705007c1fe432959f779a",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "sha256": "b965ba727a4253a73247d5327f475308bf5319793f662b21cb2c052d3eb2aaa2",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Providers/AuditProviderDispatcherTests.cs",
+      "sha256": "d9f441aa6dfde66e411d24d05f522cba62422021f78306c71633f12bacb52b02",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Providers/BaseAuditProviderTests.cs",
+      "sha256": "59aea12dfcc8abd43f363707c41a0f997357c4fcfc43b7a036f55a19607677a0",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Providers/UserAuditProviderTests.cs",
+      "sha256": "84133d1b100e97600aed80b51771d48f164bcab0c1e5e15d3ee284d7be3e6264",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/AuditIntegrityRepositoryTests.cs",
+      "sha256": "bb1ca715ee93a7cdf0aea6347fe40d8fdaf7813dc2cfe203538649458c6ce00f",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.Concurrency.cs",
+      "sha256": "736a837e576e9933ff4da2c5aaeae3ad87cadf1ddb07b82a9d43ddc11c2f9ba5",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.Performance.cs",
+      "sha256": "3c8857c3e7580f63d666cc0a4e98671bf9064b92c6d3f97172f8869eb03ee705",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqlServerTests.cs",
+      "sha256": "3a12039fee984355ccc2580252670935344e76aa54607fa2b651cd1dcdcf8d28",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/AuditSequenceIntegritySqliteTests.cs",
+      "sha256": "36dfe5312eafb5b09eb7917b80060716bc349b97f5d87fb2c752d45735e17916",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/InternalAuditEventRepositoryTests.cs",
+      "sha256": "f6abe7adb7cc375948bdac805243d9c90258dad747662aa115dcf8576bd0b756",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryAdvancedTests.cs",
+      "sha256": "cb6b2ab6f5a86c3c7570a8b2852475a0737b11d24b4d6f1a4f174ccde4f7fd43",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryCrudTests.cs",
+      "sha256": "7b13261968f8a1d712b999526957ceca63e27e95297e4f0abeb7d928e0eb5d21",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryOptimisticUpdateSqliteTests.cs",
+      "sha256": "05b79e5795717f1d26872fe7cfc6c65e681fce83fdf780b8cb5bd14a03783be7",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryOptimisticUpdateTests.cs",
+      "sha256": "031ab0a106973154105da84da5541aaaba65b25452d669285ca8c53fe3cf51e2",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositorySharedContextTransactionTests.cs",
+      "sha256": "75cc8039ac93ad288fc38009e88aa5cbd1f8694dc29a8ee0811509a68730f566",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryTransactionFailureTests.cs",
+      "sha256": "5e255b5e1329f92de2f7cd1825753b3e6b8a0a4f29c74b2391d78d7a7511890e",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Repositories/RepositoryTransactionTests.cs",
+      "sha256": "cb0a1fd4fe704c93c5bc2ab2b032c1a0a6b6017c44b1a67c93eeb6b8a05ee3a6",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditComplianceServiceTests.cs",
+      "sha256": "d0930da554060d3e293ec12c1078faa12912f79d0477f1b1a735ce698961fc1c",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditLoggerTests.cs",
+      "sha256": "bf5550580739ccb5d6764365d632470d9293403781a75238804eead5dc8c70b3",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditMaintenanceServiceSqliteTests.cs",
+      "sha256": "32b2608cf74f410c1bb17c46592d0e410e5a9c869a3e0a9b41e339662dce194b",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditMetaTrackingServiceTests.cs",
+      "sha256": "70bf3b21ff122ecebe7a1b7a06850dca8c9cf3da941bc8bd8bee3e8a4c3268b1",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditSecurityEventServiceTests.cs",
+      "sha256": "87fd23cbbc74db23f2c04c89c36aede4d44c71f18366bf6cd391d1f15f701ed3",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditServiceUnitTests.cs",
+      "sha256": "df8f60c84a3034706987b194db65f8362a7e69277a6e91b99273c2c3600aee4d",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Background/ArchiveVerificationBackgroundServiceTests.cs",
+      "sha256": "b0d1b08d0f6e3a478eacb7ba92f74929679b2b3a963e89a6799580fb2ceaa429",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Background/AuditMaintenanceBackgroundServiceTests.cs",
+      "sha256": "69be636f955c3411d64e80388e87239ec6681fdd6d2f472d28ea007128b95fff",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs",
+      "sha256": "a143dc29ff91b005f187d3430333eb4e078203f34efc26267ecf292b4c41aede",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializerInMemoryTests.cs",
+      "sha256": "4b047cd4370b1fc30a3286a7093cee4d2aeca6902450df39c8f330b372809c4c",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs",
+      "sha256": "4fb58ae14cf5c31dcc53926127b08f37fdcd00c4a182a5dd325f7313dc6b5049",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Encryption/FieldEncryptionServiceTests.cs",
+      "sha256": "3d47eafde2f4189278723aeff9206637b3b26967027ed190bb9d2803325e7773",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Locking/InMemoryDistributedLockServiceTests.cs",
+      "sha256": "9f96e4563ea9884545f1e9cb4c687694fa66c4c3231501ead057e8352462ddc3",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/LogAsyncTraceFixTests.cs",
+      "sha256": "9350698cee2a4b55c5acb043c53fa722fe471d514c7e98fac4a4795df900a010",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Query/AuditReportServiceTests.cs",
+      "sha256": "3e0cb87a090c4de68cbd8647861ecda287b247844a5a5a094d78d48f05da3d60",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/Redis/RedisDistributedLockServiceTests.cs",
+      "sha256": "3fc9cbf5e0f3a5a21bd6bb19bb6705e9f32472253fb815ce77b771513948494f",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/RequestAuditProcessorTests.cs",
+      "sha256": "b1689cfcc31f30a99fd39bf22986519b23e5d9b441835b4aaabec0121328a47e",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs",
+      "sha256": "c39e57d955bc15da7d83cceff8cbea62dd80bc49334086cdade55fa95ec4f4e1",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceDigitalSignatureTests.cs",
+      "sha256": "61efd348e6df6128d4e530419297d2600294a16c167fc0a4268d1f39e19704c3",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceEdgeCaseTests.cs",
+      "sha256": "88dc32c013d082882b6f630a676f7bb6c3e8a3a26bd2f3bdf0272fb49283c220",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs",
+      "sha256": "04a8c0371a25de62188127ecd408c683bb3cf3ad5635256e00d9869859395d7c",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/IdempotencySqliteTests.cs",
+      "sha256": "bfe911d0159c8236d70fb7cc02b2df4c170aa6e020efd692b84464fe0f9cfd0a",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/ImmediateSinkTests.cs",
+      "sha256": "b4d81d5f5abf1aa15d509113710fc192bc94bb7978ef521f1776103f84654044",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Processing/AuditBatchProcessorTests.cs",
+      "sha256": "751990142d7b440f7a80a10968cdd9fa35b0c67787789f9aa06650253d49d9bb",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/SinkSecurityFixesTests.cs",
+      "sha256": "4caf2002c9e1353158d593899f6934f7fabd12fbd1a1263d5952c9ad5740f143",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/TransactionalOutboxSinkTests.cs",
+      "sha256": "0d1d1817653e3a276089f4766bbb09b2c38717f18a81c0616918837caae04842",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEntityBatchWriterTests.cs",
+      "sha256": "f28d4943b15335fa4095636f4a7a0e01d0b0e3ef861cca934be44f292fcb5202",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEventBatchWriterTests.cs",
+      "sha256": "3218e1dfb666f7c11c9a1d4afbbf90b6c44cc103ec05c6bb0c30a1f651b2f0c5",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/TamperDetection/IntegrityWriteBatcherTests.cs",
+      "sha256": "84c4ad0b3baa2c79f830a8f0688da729ea49d82d2c13ab8c8d33566bd7359d7e",
+      "purpose": "Regression/SQL consistency and performance fixtures, plus committed NUnit 5 assertion/lifecycle migration."
+    }
+  ],
+  "releaseMetadataChanges": [
+    "Directory.Build.props",
+    "CHANGELOG.md",
+    "src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+    "src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+    "src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+    "docs/evidence/audit-pipeline-2026-10/README.md",
+    "docs/evidence/audit-pipeline-2026-10/release-dev6/",
+    "docs/plans/completed/AuditWritePipelineDurability.md"
+  ]
+}
