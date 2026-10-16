@@ -174,7 +174,8 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
     }
 
     /// <inheritdoc cref="SaveChangesAsync(CancellationToken)"/>
-    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
     {
         PrepareConcurrencyTokens();
         return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -330,7 +331,7 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
             }
         });
 
-        modelBuilder.Entity<AuditLogSubjectLinkEntity>(entity =>
+        modelBuilder.Entity<AuditLogSubjectLinkEntity>(static entity =>
         {
             entity.HasOne(static link => link.AuditLog)
                 .WithMany(static log => log.SubjectLinks)
@@ -547,15 +548,24 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset,
-                                string>(static v => v.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
-                                static v => DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture)));
+                                string>(
+                                static v => v.ToUniversalTime()
+                                    .ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                                static v => DateTimeOffset.Parse(v,
+                                    System.Globalization.CultureInfo.InvariantCulture)));
                     }
                     else
                     {
                         property.SetValueConverter(
                             new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset?,
-                                string?>(static v => v.HasValue ? v.Value.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture) : null,
-                                static v => v != null ? DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture) : null));
+                                string?>(
+                                static v => v.HasValue
+                                    ? v.Value.ToUniversalTime().ToString("O",
+                                        System.Globalization.CultureInfo.InvariantCulture)
+                                    : null,
+                                static v => v != null
+                                    ? DateTimeOffset.Parse(v, System.Globalization.CultureInfo.InvariantCulture)
+                                    : null));
                     }
                 }
 

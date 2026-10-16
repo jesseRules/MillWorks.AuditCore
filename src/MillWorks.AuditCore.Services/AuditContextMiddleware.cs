@@ -179,7 +179,9 @@ public sealed class AuditContextMiddleware(
     {
         if (context.Request.Headers.TryGetValue(_correlationIdHeader, out var headerValues))
         {
-            foreach (string? candidate in from rawValue in headerValues where !string.IsNullOrWhiteSpace(rawValue) select rawValue?.Trim())
+            foreach (string? candidate in from rawValue in headerValues
+                     where !string.IsNullOrWhiteSpace(rawValue)
+                     select rawValue?.Trim())
             {
                 if (IsSafeCorrelationId(candidate))
                     return candidate;

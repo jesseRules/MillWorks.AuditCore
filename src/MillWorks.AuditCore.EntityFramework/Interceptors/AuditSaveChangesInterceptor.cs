@@ -91,7 +91,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
     /// type and the property. Only populated when at least one policy is registered; the singleton
     /// lifetime makes an instance cache safe (policies are required to be pure).
     /// </summary>
-    private readonly ConcurrentDictionary<(Type EntityType, PropertyInfo Property), PropertyAuditMetadata> _mergedMetadataCache = new();
+    private readonly ConcurrentDictionary<(Type EntityType, PropertyInfo Property), PropertyAuditMetadata>
+        _mergedMetadataCache = new();
 
     // Use HashSet for O(1) lookups instead of multiple 'or' checks
     /// <summary>
@@ -119,9 +120,11 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private static bool HasNoAuditAttribute(Type type) => _noAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
+    private static bool HasNoAuditAttribute(Type type) =>
+        _noAuditTypeCache.GetOrAdd(type, static t => t.GetCustomAttribute<NoAuditAttribute>() != null);
 
-    private static FERPAAttribute? GetFERPAAttribute(Type type) => _ferpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
+    private static FERPAAttribute? GetFERPAAttribute(Type type) =>
+        _ferpaAttributeCache.GetOrAdd(type, static t => t.GetCustomAttribute<FERPAAttribute>());
 
     private static PropertyAuditMetadata GetPropertyMetadata(PropertyInfo? propertyInfo)
     {
@@ -255,14 +258,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         _failurePolicy = failurePolicy ?? new RegulatedEntityFailurePolicy();
         _scopeFactory = scopeFactory;
         _sensitivityPolicies = sensitivityPolicies as IReadOnlyList<IAuditPropertySensitivityPolicy>
-            ?? sensitivityPolicies?.ToList()
-            ?? [];
+                               ?? sensitivityPolicies?.ToList()
+                               ?? [];
         _resourceIdentityPolicies = resourceIdentityPolicies as IReadOnlyList<IAuditResourceIdentityPolicy>
-            ?? resourceIdentityPolicies?.ToList()
-            ?? [];
+                                    ?? resourceIdentityPolicies?.ToList()
+                                    ?? [];
         _subjectIdentityPolicies = subjectIdentityPolicies as IReadOnlyList<IAuditSubjectIdentityPolicy>
-            ?? subjectIdentityPolicies?.ToList()
-            ?? [];
+                                   ?? subjectIdentityPolicies?.ToList()
+                                   ?? [];
     }
 
     /// <summary>
@@ -284,7 +287,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
             throw new NotSupportedException(
                 $"Synchronous SaveChanges is not supported when auditable entities are being saved. " +
-                $"Use SaveChangesAsync instead. Entities: {string.Join(", ", entries.Select(e => e.Entity.GetType().Name).Distinct().Take(5))}");
+                $"Use SaveChangesAsync instead. Entities: {string.Join(", ", entries.Select(static e => e.Entity.GetType().Name).Distinct().Take(5))}");
         }
 
         return base.SavingChanges(eventData, result);
@@ -525,7 +528,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             ["regulation"] = "34 CFR §99.30",
             ["entityType"] = entityTypeName,
             ["userId"] = userId,
-            ["mode"] = ComplianceEnforcementMode.AuditOnly.ToString(),
+            ["mode"] = nameof(ComplianceEnforcementMode.AuditOnly),
             ["reason"] = reason
         };
 
@@ -767,7 +770,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
                 return new AuditEnvelope
                 {
-                    EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, changes, additionalData),
+                    EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action,
+                        changes, additionalData),
                     Kind = AuditEnvelopeKind.EntityChange,
                     EntityName = entityName,
                     EntityId = entityId,
@@ -798,6 +802,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     "changes detected (possible disconnected update pattern). No audit record created.",
                     entityName);
             }
+
             return null;
         }
 
@@ -872,7 +877,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         return new AuditEnvelope
         {
-            EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, null, snapshotJson),
+            EnvelopeId =
+                AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, null, snapshotJson),
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = entityName,
             EntityId = entityId,
@@ -915,8 +921,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         foreach (string propertyName in propertyNames)
         {
             var property = entry.Metadata.FindProperty(propertyName)
-                ?? throw new InvalidOperationException(
-                    $"Audit subject policy property '{entry.Entity.GetType().FullName}.{propertyName}' is not mapped by EF.");
+                           ?? throw new InvalidOperationException(
+                               $"Audit subject policy property '{entry.Entity.GetType().FullName}.{propertyName}' is not mapped by EF.");
             object? value = entry.State == EntityState.Deleted
                 ? entry.Property(property.Name).OriginalValue
                 : entry.Property(property.Name).CurrentValue;
@@ -932,7 +938,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         IAuditTenantContextSource? tenantContextSource)
     {
         var tenantProperty = entry.Metadata.FindProperty("TenantId");
-        object? tenantValue = tenantProperty is null
+        var tenantValue = tenantProperty is null
             ? null
             : entry.State == EntityState.Deleted
                 ? entry.Property(tenantProperty.Name).OriginalValue
@@ -968,7 +974,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             return new AuditGovernanceIdentity(tenantId.Value);
 
         var keyProperty = primaryKey.Properties[0];
-        object? keyValue = entry.State == EntityState.Deleted
+        var keyValue = entry.State == EntityState.Deleted
             ? entry.Property(keyProperty.Name).OriginalValue
             : entry.Property(keyProperty.Name).CurrentValue;
         return keyValue is Guid resourceId && resourceId != Guid.Empty
@@ -1116,7 +1122,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
 
         // Composite key: serialize all values as JSON array
-        var compositeValues = keyProperties.Select(p => p.CurrentValue).ToArray();
+        var compositeValues = keyProperties.Select(static p => p.CurrentValue).ToArray();
         return (null, JsonSerializer.Serialize(compositeValues));
     }
 

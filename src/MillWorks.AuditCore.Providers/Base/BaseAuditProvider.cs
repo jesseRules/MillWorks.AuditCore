@@ -212,7 +212,7 @@ public abstract class BaseAuditProvider : IAuditProvider
         {
             return dict
                 .Where(kvp => !SensitiveProperties.Contains(kvp.Key))
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                .ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
         }
 
         var snapshot = new Dictionary<string, object?>();

@@ -1,0 +1,35 @@
+  Determining projects to restore...
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Calendar/MillWorks.Calendar.csproj (in 129 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Calendar.Conferencing.Zoom/MillWorks.Calendar.Conferencing.Zoom.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog/MillWorks.AppLog.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog.Hosting/MillWorks.AppLog.Hosting.csproj (in 18 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.ApiOrchestration/MillWorks.ApiOrchestration.csproj (in 10 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj (in 186 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.ActivityGraph/MillWorks.ActivityGraph.csproj (in 9 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Extensions.Serilog.AppLog/MillWorks.Extensions.Serilog.AppLog.csproj (in 6 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Extensions.Logging.AppLog/MillWorks.Extensions.Logging.AppLog.csproj (in 3 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Email/MillWorks.Email.csproj (in 3 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.DataView/MillWorks.DataView.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.DataGovernance/MillWorks.DataGovernance.csproj (in 15 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Dashboard/MillWorks.Dashboard.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.ClientPortal/MillWorks.ClientPortal.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow/MillWorks.Workflow.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow.Hosting/MillWorks.Workflow.Hosting.csproj (in 6 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Visualization/MillWorks.Visualization.csproj (in 14 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.TimeTracking/MillWorks.TimeTracking.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Support/MillWorks.Support.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Search/MillWorks.Search.csproj (in 7 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling.Bayesian/MillWorks.Scheduling.Bayesian.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Resource/MillWorks.Resource.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.ReasoningMap/MillWorks.ReasoningMap.csproj (in 3 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Notification/MillWorks.Notification.csproj (in 5 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Notification.Sms.Twilio/MillWorks.Notification.Sms.Twilio.csproj (in 3 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Notebook/MillWorks.Notebook.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.MindMap/MillWorks.MindMap.csproj (in 4 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Mermaid/MillWorks.Mermaid.csproj (in 6 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Lms/MillWorks.Lms.csproj (in 14 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Invitations/MillWorks.Invitations.csproj (in 6 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.Integration/MillWorks.Integration.csproj (in 9 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks/MillWorks.HumanApproval/MillWorks.HumanApproval.csproj (in 14 ms).
+  98 of 131 projects are up-to-date for restore.

@@ -91,6 +91,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     /// Built lazily on first access; maintained incrementally on mutations.
     /// </summary>
     private readonly ConcurrentDictionary<string, DlqFileEntry> _fileIndex = new();
+
     private volatile bool _indexBuilt;
 
     /// <summary>
@@ -100,8 +101,14 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     private sealed record DlqFileEntry(
-        string FilePath, string EventId, DateTimeOffset FailedAt, bool IsProcessed,
-        int RetryCount, string? EventType, string? FailureReason, long FileSize,
+        string FilePath,
+        string EventId,
+        DateTimeOffset FailedAt,
+        bool IsProcessed,
+        int RetryCount,
+        string? EventType,
+        string? FailureReason,
+        long FileSize,
         DateTimeOffset? ProcessedAt = null);
 
     /// <summary>
@@ -520,7 +527,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
             // Use index to find processed events instead of scanning + deserializing every file
             var processedEntries = _fileIndex.Values
                 .Where(e => e.IsProcessed && e.FilePath.StartsWith(_deadLetterPath)
-                            && !e.FilePath.Contains(Path.Combine(_deadLetterPath, "Processed")))
+                                          && !e.FilePath.Contains(Path.Combine(_deadLetterPath, "Processed")))
                 .ToList();
 
             foreach (var entry in processedEntries)
@@ -563,6 +570,7 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                         File.Delete(entry.FilePath);
                         count++;
                     }
+
                     _fileIndex.TryRemove(entry.EventId, out _);
                 }
                 catch (Exception ex)

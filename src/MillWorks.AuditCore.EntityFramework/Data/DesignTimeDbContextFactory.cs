@@ -16,17 +16,16 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuditDbCon
     public AuditDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<AuditDbContext>();
-        
+
         // Try to get connection string from environment variable first
         var connectionString = Environment.GetEnvironmentVariable("AUDIT_MIGRATION_CONNECTION_STRING")
-                               ?? "Server=(localdb)\\mssqllocaldb;Database=MillWorksAudit_Migrations;Trusted_Connection=True;MultipleActiveResultSets=true";
-        
+                               ??
+                               "Server=(localdb)\\mssqllocaldb;Database=MillWorksAudit_Migrations;Trusted_Connection=True;MultipleActiveResultSets=true";
+
         optionsBuilder.UseSqlServer(
-            connectionString, static sqlOptions => 
-            {
-                sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit");
-            });
-        
+            connectionString,
+            static sqlOptions => { sqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "audit"); });
+
         return new AuditDbContext(optionsBuilder.Options);
     }
 }

@@ -1,0 +1,316 @@
+{
+  "sourceCommit": "f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+  "sourceCleanBeforeAndAfter": true,
+  "sdk": "10.0.202",
+  "packCommands": [
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev6-release/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+      "--no-build",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--output",
+      "/tmp/auditcore-dev6-packages",
+      "-p:RepositoryCommit=f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+      "--verbosity",
+      "minimal"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev6-release/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+      "--no-build",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--output",
+      "/tmp/auditcore-dev6-packages",
+      "-p:RepositoryCommit=f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+      "--verbosity",
+      "minimal"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev6-release/src/MillWorks.AuditCore.Providers/MillWorks.AuditCore.Providers.csproj",
+      "--no-build",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--output",
+      "/tmp/auditcore-dev6-packages",
+      "-p:RepositoryCommit=f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+      "--verbosity",
+      "minimal"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev6-release/src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+      "--no-build",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--output",
+      "/tmp/auditcore-dev6-packages",
+      "-p:RepositoryCommit=f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+      "--verbosity",
+      "minimal"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev6-release/src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+      "--no-build",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--output",
+      "/tmp/auditcore-dev6-packages",
+      "-p:RepositoryCommit=f4eb7cd76ed21c1ab6f781fcb87b5d17b2d612d3",
+      "--verbosity",
+      "minimal"
+    ]
+  ],
+  "packages": [
+    {
+      "packageId": "MillWorks.AuditCore",
+      "version": "1.15.4-dev.6",
+      "file": "MillWorks.AuditCore.1.15.4-dev.6.nupkg",
+      "sha256": "0ebbf2d5bbc9e972e5ea14172cb5f7e925c008f887080156448361b2937c0858",
+      "dependencies": [
+        {
+          "id": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Azure.Identity",
+          "version": "1.21.0",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Azure.Security.KeyVault.Secrets",
+          "version": "4.11.2",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.Cryptography.FileSystem",
+          "version": "0.2.1",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.Cryptography.KeyVault",
+          "version": "0.2.1",
+          "exclude": "Build,Analyzers"
+        }
+      ],
+      "dlls": [
+        {
+          "archivePath": "lib/net10.0/MillWorks.AuditCore.AspNetCore.dll",
+          "sha256": "8753a7cd4e8959f56787edab38df76439fa728ed19dc6ea9afaecec82739687e"
+        }
+      ]
+    },
+    {
+      "packageId": "MillWorks.AuditCore.Abstractions",
+      "version": "1.15.4-dev.6",
+      "file": "MillWorks.AuditCore.Abstractions.1.15.4-dev.6.nupkg",
+      "sha256": "e98328d903fd9b5b49f0d83a6cff13c0ab5f096e90f0ab37092d7bf1b6792329",
+      "dependencies": [
+        {
+          "id": "OpenTelemetry.Api",
+          "version": "1.20.0",
+          "exclude": "Build,Analyzers"
+        }
+      ],
+      "dlls": [
+        {
+          "archivePath": "lib/net10.0/MillWorks.AuditCore.Abstractions.dll",
+          "sha256": "d2f0db15cfbfdb23b440205e50e26259f05a4491a90ea6c83f79f69a66f9492e"
+        }
+      ]
+    },
+    {
+      "packageId": "MillWorks.AuditCore.EntityFramework",
+      "version": "1.15.4-dev.6",
+      "file": "MillWorks.AuditCore.EntityFramework.1.15.4-dev.6.nupkg",
+      "sha256": "5ceff62ac7ddaaeed2f0caf3447bcd892f5c9ca9ae3c80eab31d405ddcf16ba5",
+      "dependencies": [
+        {
+          "id": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.EntityFrameworkCore",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.EntityFrameworkCore.Abstractions",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.EntityFrameworkCore.Relational",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.EntityFrameworkCore.SqlServer",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.Extensions.Options",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "System.Security.Cryptography.Pkcs",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        }
+      ],
+      "dlls": [
+        {
+          "archivePath": "lib/net10.0/MillWorks.AuditCore.EntityFramework.dll",
+          "sha256": "db2c866846448e96152f850b1e40a5e5cc0c953baa4896263e4bd414216a8b9f"
+        }
+      ]
+    },
+    {
+      "packageId": "MillWorks.AuditCore.Providers",
+      "version": "1.15.4-dev.6",
+      "file": "MillWorks.AuditCore.Providers.1.15.4-dev.6.nupkg",
+      "sha256": "8b9eea5143801c6d781003945204c1f05c3705ef519e17a92f9a175a8e63b209",
+      "dependencies": [
+        {
+          "id": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        }
+      ],
+      "dlls": [
+        {
+          "archivePath": "lib/net10.0/MillWorks.AuditCore.Providers.dll",
+          "sha256": "bfd055c359b5f71368ad760e59ad2f7b8e89e2a3e9dccc63f828a1445443c176"
+        }
+      ]
+    },
+    {
+      "packageId": "MillWorks.AuditCore.Services",
+      "version": "1.15.4-dev.6",
+      "file": "MillWorks.AuditCore.Services.1.15.4-dev.6.nupkg",
+      "sha256": "e84a0f1877b877dba21e0a716a2924b2ce6516ada8067edf0de42764c0b0032c",
+      "dependencies": [
+        {
+          "id": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.AuditCore.Providers",
+          "version": "1.15.4-dev.6",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Azure.Storage.Blobs",
+          "version": "12.30.1",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.EntityFrameworkCore.SqlServer",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.Extensions.Caching.Memory",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.Extensions.Caching.StackExchangeRedis",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "Microsoft.Extensions.Hosting",
+          "version": "10.0.13",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "MillWorks.Cryptography",
+          "version": "0.2.1",
+          "exclude": "Build,Analyzers"
+        },
+        {
+          "id": "StackExchange.Redis",
+          "version": "3.4.5",
+          "exclude": "Build,Analyzers"
+        }
+      ],
+      "dlls": [
+        {
+          "archivePath": "lib/net10.0/MillWorks.AuditCore.Services.dll",
+          "sha256": "de7faead3848c5f60c93f3ec908b5295241bd5bd81d08a7887149d5bc18f36a4"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "MillWorks.AuditCore.1.15.4-dev.6.nupkg",
+      "sha256": "0ebbf2d5bbc9e972e5ea14172cb5f7e925c008f887080156448361b2937c0858"
+    },
+    {
+      "file": "MillWorks.AuditCore.1.15.4-dev.6.snupkg",
+      "sha256": "9e36a342421e2d63ae6d531c28d80e76489ebc572612b3d7ddd219fbbd2406e1"
+    },
+    {
+      "file": "MillWorks.AuditCore.Abstractions.1.15.4-dev.6.nupkg",
+      "sha256": "e98328d903fd9b5b49f0d83a6cff13c0ab5f096e90f0ab37092d7bf1b6792329"
+    },
+    {
+      "file": "MillWorks.AuditCore.Abstractions.1.15.4-dev.6.snupkg",
+      "sha256": "9a7a2d989e6bbdc36db485db82a3d22e9f96f4a483420e59e889cba41ca3d258"
+    },
+    {
+      "file": "MillWorks.AuditCore.EntityFramework.1.15.4-dev.6.nupkg",
+      "sha256": "5ceff62ac7ddaaeed2f0caf3447bcd892f5c9ca9ae3c80eab31d405ddcf16ba5"
+    },
+    {
+      "file": "MillWorks.AuditCore.EntityFramework.1.15.4-dev.6.snupkg",
+      "sha256": "395f0cf006bebe0b3c2f67333a3786e757b3a771a72af7be1516599912a94897"
+    },
+    {
+      "file": "MillWorks.AuditCore.Providers.1.15.4-dev.6.nupkg",
+      "sha256": "8b9eea5143801c6d781003945204c1f05c3705ef519e17a92f9a175a8e63b209"
+    },
+    {
+      "file": "MillWorks.AuditCore.Providers.1.15.4-dev.6.snupkg",
+      "sha256": "578b68253b2fb048f9536b4b8d6d1d1f9e559eaa1c779c4aad9638793f1b763d"
+    },
+    {
+      "file": "MillWorks.AuditCore.Services.1.15.4-dev.6.nupkg",
+      "sha256": "e84a0f1877b877dba21e0a716a2924b2ce6516ada8067edf0de42764c0b0032c"
+    },
+    {
+      "file": "MillWorks.AuditCore.Services.1.15.4-dev.6.snupkg",
+      "sha256": "5d3b8022c0af5591b4d3ac957dc55595f511a62b68fb7cedbcc007441803da3a"
+    }
+  ]
+}

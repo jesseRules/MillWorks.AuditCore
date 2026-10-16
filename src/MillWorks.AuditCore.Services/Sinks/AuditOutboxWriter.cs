@@ -44,13 +44,16 @@ internal sealed class AuditOutboxWriter(
             throw new ArgumentException("Schema name cannot be null or whitespace.", nameof(schema));
 
         if (schema.Length > 128)
-            throw new ArgumentException($"Schema name exceeds maximum length of 128 characters: '{schema}'.", nameof(schema));
+            throw new ArgumentException($"Schema name exceeds maximum length of 128 characters: '{schema}'.",
+                nameof(schema));
 
         foreach (var c in schema)
         {
             var isValid = char.IsLetterOrDigit(c) || c == '_';
             if (!isValid)
-                throw new ArgumentException($"Schema name contains invalid character '{c}': '{schema}'. Only letters, digits, and underscores are allowed.", nameof(schema));
+                throw new ArgumentException(
+                    $"Schema name contains invalid character '{c}': '{schema}'. Only letters, digits, and underscores are allowed.",
+                    nameof(schema));
         }
 
         return schema;
@@ -197,12 +200,12 @@ internal sealed class AuditOutboxWriter(
         DateTimeOffset createdAt)
     {
         return new AuditOutboxEntity
-            {
-                EnvelopeJson = envelopeJson,
-                EnvelopeVersion = envelopeVersion,
-                CreatedAt = createdAt,
-                IdempotencyKey = idempotencyKey,
-            };
+        {
+            EnvelopeJson = envelopeJson,
+            EnvelopeVersion = envelopeVersion,
+            CreatedAt = createdAt,
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     /// <summary>
@@ -242,7 +245,8 @@ internal sealed class AuditOutboxWriter(
             var id = Guid.NewGuid();
             var baseIndex = i * 7;
 
-            valuesClauses.Add($"({{{baseIndex}}}, {{{baseIndex + 1}}}, {{{baseIndex + 2}}}, {{{baseIndex + 3}}}, {{{baseIndex + 4}}}, {{{baseIndex + 5}}}, {{{baseIndex + 6}}})");
+            valuesClauses.Add(
+                $"({{{baseIndex}}}, {{{baseIndex + 1}}}, {{{baseIndex + 2}}}, {{{baseIndex + 3}}}, {{{baseIndex + 4}}}, {{{baseIndex + 5}}}, {{{baseIndex + 6}}})");
             parameters.Add(id);
             parameters.Add(envelopeJson);
             parameters.Add(envelopeVersion);

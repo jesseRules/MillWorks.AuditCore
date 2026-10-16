@@ -1,0 +1,1346 @@
+[
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Accessible/MillWorks.Accessible.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Accessible/MillWorks.Accessible.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Accessible/MillWorks.Accessible.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ActivityGraph/MillWorks.ActivityGraph.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Bayesian/MillWorks.Ai.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Hosting/MillWorks.Ai.Hosting.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml.EntityFramework/MillWorks.Ai.Ml.EntityFramework.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml/MillWorks.Ai.Ml.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml/MillWorks.Ai.Ml.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml/MillWorks.Ai.Ml.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml/MillWorks.Ai.Ml.csproj",
+    "package": "MillWorks.Cryptography.FileSystem",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai/MillWorks.Ai.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Analytics.Bayesian/MillWorks.Analytics.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Analytics.Bayesian/MillWorks.Analytics.Bayesian.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Analytics/MillWorks.Analytics.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Analytics/MillWorks.Analytics.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Analytics/MillWorks.Analytics.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+    "package": "Microsoft.AspNetCore.Authentication.JwtBearer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+    "package": "MillWorks.Cryptography.FileSystem",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ApiOrchestration/MillWorks.ApiOrchestration.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog.Hosting/MillWorks.AppLog.Hosting.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog/MillWorks.AppLog.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Attendance/MillWorks.Attendance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Bayesian/MillWorks.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Calendar/MillWorks.Calendar.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Chat/MillWorks.Chat.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Chat/MillWorks.Chat.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Chat/MillWorks.Chat.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientEmail/MillWorks.ClientEmail.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientFeedback/MillWorks.ClientFeedback.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientFeedback/MillWorks.ClientFeedback.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientFeedback/MillWorks.ClientFeedback.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientPortal/MillWorks.ClientPortal.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Compliance/MillWorks.Compliance.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Compliance/MillWorks.Compliance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Compliance/MillWorks.Compliance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Crm/MillWorks.Crm.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Dashboard/MillWorks.Dashboard.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataGovernance/MillWorks.DataGovernance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataView/MillWorks.DataView.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DecisionModels/MillWorks.DecisionModels.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DecisionModels/MillWorks.DecisionModels.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DecisionModels/MillWorks.DecisionModels.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DecisionModels/MillWorks.DecisionModels.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Diagramming.Persistence/MillWorks.Diagramming.Persistence.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Diagramming/MillWorks.Diagramming.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Document/MillWorks.Document.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Document/MillWorks.Document.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DurableBuffer.DuckDB/MillWorks.DurableBuffer.DuckDB.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Email/MillWorks.Email.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Finance/MillWorks.Finance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Git/MillWorks.Git.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Git/MillWorks.Git.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Glossary.EntityFramework/MillWorks.Glossary.EntityFramework.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Grant/MillWorks.Grant.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Grant/MillWorks.Grant.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Grant/MillWorks.Grant.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.HumanApproval/MillWorks.HumanApproval.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Identity/MillWorks.Identity.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Identity/MillWorks.Identity.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Integration/MillWorks.Integration.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Invitations/MillWorks.Invitations.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Irb/MillWorks.Irb.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Irb/MillWorks.Irb.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Irb/MillWorks.Irb.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.KnowledgeBase/MillWorks.KnowledgeBase.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.KnowledgeBase/MillWorks.KnowledgeBase.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.KnowledgeBase/MillWorks.KnowledgeBase.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Lms/MillWorks.Lms.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Media/MillWorks.Media.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Media/MillWorks.Media.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Media/MillWorks.Media.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Mermaid/MillWorks.Mermaid.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Messaging/MillWorks.Messaging.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Messaging/MillWorks.Messaging.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.MindMap/MillWorks.MindMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notebook/MillWorks.Notebook.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notification/MillWorks.Notification.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.PackageRegistry/MillWorks.PackageRegistry.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.PackageRegistry/MillWorks.PackageRegistry.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.PackageRegistry/MillWorks.PackageRegistry.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Payments/MillWorks.Payments.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Payments/MillWorks.Payments.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Payments/MillWorks.Payments.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project.Bayesian/MillWorks.Project.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project.Bayesian/MillWorks.Project.Bayesian.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project/MillWorks.Project.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project/MillWorks.Project.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project/MillWorks.Project.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Proposal.Bayesian/MillWorks.Proposal.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Proposal/MillWorks.Proposal.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Proposal/MillWorks.Proposal.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Proposal/MillWorks.Proposal.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ReasoningMap/MillWorks.ReasoningMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "package": "MillWorks.Cryptography.FileSystem",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Resource/MillWorks.Resource.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling.Bayesian/MillWorks.Scheduling.Bayesian.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Search/MillWorks.Search.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Semantics/MillWorks.Semantics.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "package": "StackExchange.Redis",
+    "before": "3.4.0",
+    "after": "3.4.5"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Support/MillWorks.Support.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Survey/MillWorks.Survey.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Survey/MillWorks.Survey.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Survey/MillWorks.Survey.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.TimeTracking/MillWorks.TimeTracking.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Todo/MillWorks.Todo.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Todo/MillWorks.Todo.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Todo/MillWorks.Todo.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Tokens/MillWorks.Tokens.csproj",
+    "package": "MillWorks.Cryptography",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Tokens/MillWorks.Tokens.csproj",
+    "package": "MillWorks.Cryptography.Abstractions",
+    "before": "0.2.0",
+    "after": "0.2.1"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.VisitorManagement/MillWorks.VisitorManagement.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Visualization/MillWorks.Visualization.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow.Hosting/MillWorks.Workflow.Hosting.csproj",
+    "package": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow/MillWorks.Workflow.csproj",
+    "package": "Microsoft.EntityFrameworkCore.SqlServer",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ActivityGraph/MillWorks.ActivityGraph.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Hosting/MillWorks.Ai.Hosting.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml.EntityFramework/MillWorks.Ai.Ml.EntityFramework.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai.Ml/MillWorks.Ai.Ml.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Ai/MillWorks.Ai.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ApiOrchestration/MillWorks.ApiOrchestration.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog/MillWorks.AppLog.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Attendance/MillWorks.Attendance.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Attendance/MillWorks.Attendance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Calendar/MillWorks.Calendar.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientEmail/MillWorks.ClientEmail.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientEmail/MillWorks.ClientEmail.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientPortal/MillWorks.ClientPortal.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Crm/MillWorks.Crm.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Crm/MillWorks.Crm.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Dashboard/MillWorks.Dashboard.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataGovernance/MillWorks.DataGovernance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataView/MillWorks.DataView.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Diagramming.Persistence/MillWorks.Diagramming.Persistence.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Email/MillWorks.Email.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Finance/MillWorks.Finance.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Finance/MillWorks.Finance.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.Extensions.Configuration.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Gist/MillWorks.Gist.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.HumanApproval/MillWorks.HumanApproval.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.HumanApproval/MillWorks.HumanApproval.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Integration/MillWorks.Integration.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Invitations/MillWorks.Invitations.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Lms/MillWorks.Lms.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Media/MillWorks.Media.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Mermaid/MillWorks.Mermaid.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.MindMap/MillWorks.MindMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notebook/MillWorks.Notebook.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notification/MillWorks.Notification.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.PackageRegistry/MillWorks.PackageRegistry.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.PackageRegistry/MillWorks.PackageRegistry.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Project.Bayesian/MillWorks.Project.Bayesian.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.RateLimiting/MillWorks.RateLimiting.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ReasoningMap/MillWorks.ReasoningMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Resource/MillWorks.Resource.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling.Bayesian/MillWorks.Scheduling.Bayesian.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling.Bayesian/MillWorks.Scheduling.Bayesian.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Search/MillWorks.Search.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Support/MillWorks.Support.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Survey/MillWorks.Survey.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Survey/MillWorks.Survey.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.TimeTracking/MillWorks.TimeTracking.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.VisitorManagement/MillWorks.VisitorManagement.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.VisitorManagement/MillWorks.VisitorManagement.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Visualization/MillWorks.Visualization.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Visualization/MillWorks.Visualization.csproj",
+    "package": "Microsoft.Extensions.Options",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow.Hosting/MillWorks.Workflow.Hosting.csproj",
+    "package": "Microsoft.Extensions.Logging.Abstractions",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow/MillWorks.Workflow.csproj",
+    "package": "Microsoft.EntityFrameworkCore.Relational",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ActivityGraph/MillWorks.ActivityGraph.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ApiOrchestration/MillWorks.ApiOrchestration.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.AppLog/MillWorks.AppLog.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Calendar/MillWorks.Calendar.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ClientPortal/MillWorks.ClientPortal.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Dashboard/MillWorks.Dashboard.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataGovernance/MillWorks.DataGovernance.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.DataView/MillWorks.DataView.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Email/MillWorks.Email.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.HumanApproval/MillWorks.HumanApproval.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Integration/MillWorks.Integration.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Invitations/MillWorks.Invitations.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Lms/MillWorks.Lms.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Mermaid/MillWorks.Mermaid.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.MindMap/MillWorks.MindMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notebook/MillWorks.Notebook.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Notification/MillWorks.Notification.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.ReasoningMap/MillWorks.ReasoningMap.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Resource/MillWorks.Resource.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Scheduling/MillWorks.Scheduling.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Search/MillWorks.Search.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Support/MillWorks.Support.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.TimeTracking/MillWorks.TimeTracking.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Visualization/MillWorks.Visualization.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  },
+  {
+    "project": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Workflow/MillWorks.Workflow.csproj",
+    "package": "Microsoft.EntityFrameworkCore",
+    "before": "10.0.12",
+    "after": "10.0.13"
+  }
+]

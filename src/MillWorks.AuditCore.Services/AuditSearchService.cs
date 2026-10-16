@@ -34,7 +34,8 @@ public sealed class AuditSearchService(
         request.Limit = QueryLimits.Clamp(request.Limit);
         if (request.Offset < 0) request.Offset = 0;
 
-        logger.LogDebug("Searching audit events with criteria: User={User}, EventType={EventType}, EntityType={EntityType}, StartDate={StartDate}, EndDate={EndDate}",
+        logger.LogDebug(
+            "Searching audit events with criteria: User={User}, EventType={EventType}, EntityType={EntityType}, StartDate={StartDate}, EndDate={EndDate}",
             request.User, request.EventType, request.EntityType, request.StartDate, request.EndDate);
 
         IQueryable<AuditEventEntity> query = BuildSearchQuery(request);

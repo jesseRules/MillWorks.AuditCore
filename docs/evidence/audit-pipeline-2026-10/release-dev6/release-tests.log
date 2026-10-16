@@ -1,0 +1,5 @@
+Test run for /private/tmp/auditcore-dev6-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /tmp/auditcore-dev6-results/release-verification.trx
+
+Passed!  - Failed:     0, Passed:   125, Skipped:     0, Total:   125, Duration: 46 s - MillWorks.AuditCore.Tests.dll (net10.0)

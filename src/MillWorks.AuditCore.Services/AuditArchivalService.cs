@@ -45,6 +45,7 @@ public sealed class AuditArchivalService(
     // is a defensive fallback — if the service isn't available, verification is skipped even when
     // the option is true.
     private readonly SecurityOptions _securityOptions = securityOptions?.Value ?? new SecurityOptions();
+
     /// <summary>
     /// Pipe back-pressure threshold. Once this many unconsumed bytes are buffered in the
     /// producer → consumer pipe, the producer pauses until the uploader drains the buffer.
@@ -751,7 +752,12 @@ public sealed class AuditArchivalService(
         batch.Clear();
     }
 
-    private enum ArrayMode { None, Events, Integrity }
+    private enum ArrayMode
+    {
+        None,
+        Events,
+        Integrity
+    }
 
     /// <summary>
     /// Rolling state carried between <see cref="ParseChunk"/> invocations. Tracks depth
@@ -977,7 +983,8 @@ public sealed class AuditArchivalService(
 
             if (blobServiceClient is null)
             {
-                logger.LogError("Blob storage client is not configured — cannot validate archive {ArchiveId}", archiveId);
+                logger.LogError("Blob storage client is not configured — cannot validate archive {ArchiveId}",
+                    archiveId);
                 return false;
             }
 
@@ -1036,5 +1043,4 @@ public sealed class AuditArchivalService(
             return false;
         }
     }
-
 }
