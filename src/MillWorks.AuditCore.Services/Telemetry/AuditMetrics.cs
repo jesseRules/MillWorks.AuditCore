@@ -29,6 +29,7 @@ public static class AuditMetrics
         public const string EnvelopesDuplicate = "audit.envelopes.duplicate";
         public const string RetryAttempts = "audit.outbox.retry_attempts";
         public const string DlqRouted = "audit.outbox.dlq_routed";
+        public const string HandoffsCompleted = "audit.outbox.handoffs_completed";
         public const string LeasesRecovered = "audit.outbox.drainer.leases_recovered";
         public const string OutboxPendingCount = "audit.outbox.pending_count";
         public const string OutboxInFlightCount = "audit.outbox.inflight_count";
@@ -104,7 +105,10 @@ public static class AuditMetrics
     public static readonly Counter<long> DlqRouted = _meter.CreateCounter<long>(
         Names.DlqRouted,
         unit: "rows",
-        description: "Number of outbox rows that exhausted retries and were routed to DLQ");
+        description: "Confirmed external outbox-failure projection writes, including redeliveries");
+
+    public static readonly Counter<long> HandoffsCompleted = _meter.CreateCounter<long>(
+        Names.HandoffsCompleted, description: "Confirmed SQL handoff acknowledgements; external writes may be redelivered");
 
     public static readonly Counter<long> LeasesRecovered = _meter.CreateCounter<long>(
         Names.LeasesRecovered,

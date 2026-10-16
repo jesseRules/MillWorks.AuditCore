@@ -117,6 +117,19 @@ public class FileBasedAuditDeadLetterQueueTests
     /// StoreFailedEventAsync creates a file successfully
     /// </summary>
     [Test]
+    public async Task OutboxProjectionCannotBeReplayedAsAnAuditEvent()
+    {
+        await _deadLetterQueue.StoreFailedEventAsync(new AuditEvent
+        {
+            EventType = "AuditCore.OutboxFailureProjection.v1", EntityName = "AuditOutboxFailure"
+        });
+        var entry = (await _deadLetterQueue.GetFailedEventsAsync()).Single();
+        Assert.That(await _deadLetterQueue.ReprocessEventAsync(entry.Id), Is.False);
+        var retained = (await _deadLetterQueue.GetFailedEventsAsync()).Single();
+        Assert.Multiple(() => { Assert.That(retained.IsProcessed, Is.False); Assert.That(retained.RetryCount, Is.Zero); });
+    }
+
+    [Test]
     public async Task StoreFailedEventAsync_CreatesFile_Successfully()
     {
         // Arrange

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.15.4-dev.6</Version>
+    <Version>1.15.4-dev.7</Version>
     <PackageId>MillWorks.AuditCore</PackageId>
     <Description>Tamper-evident audit logging and compliance platform for .NET — batteries-included package with EF Core and ASP.NET Core integration</Description>
     <IsPackable>true</IsPackable>

@@ -129,6 +129,7 @@ public sealed class SecurityOptions
 
     /// <summary>
     /// Maximum number of pending outbox rows the drainer reads per cycle. Default 100.
+    /// Guarded state operations cap each claim at 128 rows to bound SQL parameters and recovery work.
     /// Only applies under TransactionalOutbox sink mode.
     /// </summary>
     public int OutboxDrainerBatchSize { get; set; } = 100;

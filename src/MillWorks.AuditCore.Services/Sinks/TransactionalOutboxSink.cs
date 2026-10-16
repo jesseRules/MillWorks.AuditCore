@@ -49,7 +49,7 @@ internal sealed class TransactionalOutboxSink(
     {
         ArgumentNullException.ThrowIfNull(envelope);
 
-        var json = JsonSerializer.Serialize(envelope, _jsonOptions);
+        var json = SerializeValidated(envelope);
         var idempotencyKey = ExtractIdempotencyKey(envelope);
         var inserted = await outboxWriter.WriteAsync(json, CurrentEnvelopeVersion, idempotencyKey, cancellationToken);
 
@@ -86,7 +86,7 @@ internal sealed class TransactionalOutboxSink(
 
         var rows = new List<(string envelopeJson, int envelopeVersion, Guid idempotencyKey)>(envelopes.Count);
         rows.AddRange(from envelope in envelopes
-            let json = JsonSerializer.Serialize(envelope, _jsonOptions)
+            let json = SerializeValidated(envelope)
             let idempotencyKey = ExtractIdempotencyKey(envelope)
             select (json, CurrentEnvelopeVersion, idempotencyKey));
 
@@ -108,6 +108,14 @@ internal sealed class TransactionalOutboxSink(
     /// <item><description>EntityChange: Uses the envelope's EnvelopeId (stable envelope identity).</description></item>
     /// </list>
     /// </summary>
+    private static string SerializeValidated(AuditEnvelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        var json = JsonSerializer.Serialize(envelope, _jsonOptions);
+        Recovery.QueuedEnvelopeValidator.Read(json, CurrentEnvelopeVersion);
+        return json;
+    }
+
     internal static Guid ExtractIdempotencyKey(AuditEnvelope envelope)
     {
         if (envelope is { Kind: AuditEnvelopeKind.ExplicitEvent, ExplicitEventId: not null })

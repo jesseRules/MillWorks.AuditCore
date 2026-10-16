@@ -28,6 +28,5 @@ public static class ApplicationBuilderExtensions
             app.ApplicationServices.RunAuditMigrations();
             return app;
         }
-
     }
 }

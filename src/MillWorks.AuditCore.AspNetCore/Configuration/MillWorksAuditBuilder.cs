@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Services.Sinks.Recovery;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -261,6 +262,9 @@ public sealed class MillWorksAuditBuilder
         Services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         Services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         Services.AddScoped<IAuditOutboxWriter, AuditOutboxWriter>();
+        Services.AddSingleton<OutboxStateStore>();
+        Services.AddScoped<OutboxHandoffDispatcher>();
+        Services.AddScoped<IAuditOutboxRecovery, AuditOutboxRecovery>();
 
         // IAuditSink is selected at resolve time based on SecurityOptions.AuditSinkMode.
         // Default is ImmediateSink; TransactionalOutbox requires UseSecurity() to configure the mode.
@@ -287,7 +291,8 @@ public sealed class MillWorksAuditBuilder
         Services.AddScoped<IAuditSearchService, AuditSearchService>();
         Services.AddScoped<IAuditReportService, AuditReportService>();
         Services.AddScoped<IAuditArchivalService, AuditArchivalService>();
-        Services.AddScoped<IAuditMaintenanceService, MillWorks.AuditCore.Services.Maintenance.AuditMaintenanceService>();
+        Services
+            .AddScoped<IAuditMaintenanceService, MillWorks.AuditCore.Services.Maintenance.AuditMaintenanceService>();
         Services.AddScoped<IAuditMetaTrackingService, AuditMetaTrackingService>();
 
         // DatabaseInitializationService self-gates on EntityFrameworkOptions.MigrateOnStartup /
@@ -329,8 +334,7 @@ public sealed class MillWorksAuditBuilder
 
         // Resolve-time forwarder so the remaining bare SecurityOptions consumer
         // (FerpaValidator) keeps working until that call site flips to IOptions<SecurityOptions>.
-        Services.AddSingleton<SecurityOptions>(
-            static sp => sp.GetRequiredService<IOptions<SecurityOptions>>().Value);
+        Services.AddSingleton<SecurityOptions>(static sp => sp.GetRequiredService<IOptions<SecurityOptions>>().Value);
 
         // Security event service (required by tamper detection)
         Services.AddScoped<IAuditSecurityEventService, AuditSecurityEventService>();
@@ -427,8 +431,8 @@ public sealed class MillWorksAuditBuilder
         // Resolve-time forwarder so bare ComplianceOptions consumers (e.g., the
         // AuditSaveChangesInterceptor factory's sp.GetService<ComplianceOptions>() lookup)
         // keep working until every call site flips.
-        Services.AddSingleton<ComplianceOptions>(
-            static sp => sp.GetRequiredService<IOptions<ComplianceOptions>>().Value);
+        Services.AddSingleton<ComplianceOptions>(static sp =>
+            sp.GetRequiredService<IOptions<ComplianceOptions>>().Value);
 
         // Register IMemoryCache if not already registered (needed by ConsentVerificationService)
         Services.AddMemoryCache();
@@ -581,8 +585,7 @@ public sealed class MillWorksAuditBuilder
         // Validate that the pass-through redactor is not registered unless explicitly allowed.
         // The pass-through redactor performs no redaction and will persist
         // PHI/PII/secrets in cleartext — this is unsafe for any environment handling real data.
-        var redactorDescriptor = Services.FirstOrDefault(
-            static s => s.ServiceType == typeof(IAuditFieldRedactor));
+        var redactorDescriptor = Services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditFieldRedactor));
 
         if (redactorDescriptor?.ImplementationType == typeof(PassThroughAuditFieldRedactor)
             && !Options.AllowPassThroughRedactor)

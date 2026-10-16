@@ -95,7 +95,8 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             return new ChainValidationResult
             {
                 IsValid = false,
-                Message = $"First record sequence {records[0].SequenceNumber} does not match requested start {startSequence} (possible truncation)"
+                Message =
+                    $"First record sequence {records[0].SequenceNumber} does not match requested start {startSequence} (possible truncation)"
             };
         }
 
@@ -104,7 +105,8 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
             return new ChainValidationResult
             {
                 IsValid = false,
-                Message = $"Last record sequence {records[^1].SequenceNumber} does not match requested end {endSequence} (possible truncation)"
+                Message =
+                    $"Last record sequence {records[^1].SequenceNumber} does not match requested end {endSequence} (possible truncation)"
             };
         }
 
@@ -404,14 +406,14 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         deadline.CancelAfter(TimeSpan.FromMilliseconds(6750));
         try
         {
-            for (var attempt = 0; ; attempt++)
+            for (var attempt = 0;; attempt++)
             {
                 try
                 {
                     return await ReadSerializableSequenceSummaryAsync(deadline.Token);
                 }
                 catch (SqlException ex) when (attempt < 2 &&
-                    ex.Number is 1205 or 1222 or -2 && !deadline.IsCancellationRequested)
+                                              ex.Number is 1205 or 1222 or -2 && !deadline.IsCancellationRequested)
                 {
                     // A failed/blocked read is not corruption. Retry only transient database
                     // failures, never a valid summary that actually reports a gap/duplicate.
@@ -419,7 +421,8 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
                 }
             }
         }
-        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested &&
+                                                    deadline.IsCancellationRequested)
         {
             throw new TimeoutException("Sequence validation did not complete within its seven-second deadline.", ex);
         }
@@ -438,9 +441,9 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         // but disable provider retries: this method owns the bounded fresh-context retry loop.
         var sourceOptions = Context.GetService<IDbContextOptions>();
         var options = new DbContextOptionsBuilder<AuditDbContext>(
-                new DbContextOptions<AuditDbContext>(sourceOptions.Extensions.ToDictionary(e => e.GetType())))
-            .UseSqlServer(connection, sql => sql.CommandTimeout(2)
-                .ExecutionStrategy(dependencies => new NonRetryingExecutionStrategy(dependencies)))
+                new DbContextOptions<AuditDbContext>(sourceOptions.Extensions.ToDictionary(static e => e.GetType())))
+            .UseSqlServer(connection, static sql => sql.CommandTimeout(2)
+                .ExecutionStrategy(static dependencies => new NonRetryingExecutionStrategy(dependencies)))
             .UseModel(Context.Model)
             .Options;
         await using var readContext = new AuditDbContext(options);
@@ -454,7 +457,8 @@ public sealed class AuditIntegrityRepository(AuditDbContext context)
         return result;
     }
 
-    private static async Task<bool> ReadSequenceSummaryAsync(AuditDbContext readContext, CancellationToken cancellationToken)
+    private static async Task<bool> ReadSequenceSummaryAsync(AuditDbContext readContext,
+        CancellationToken cancellationToken)
     {
         // One aggregate result instead of transferring the entire sequence column.
         // Distinct count also detects duplicates when the unique index is absent or damaged.

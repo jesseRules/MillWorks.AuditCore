@@ -18,7 +18,7 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("audit")
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -720,6 +720,12 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(1);
 
+                    b.Property<Guid?>("FailureCycleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FailureTenantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("IdempotencyKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -736,6 +742,9 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
 
                     b.Property<DateTimeOffset?>("NextRetryAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ResolutionId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
@@ -755,6 +764,135 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasDatabaseName("IX_AuditOutbox_Claimable");
 
                     b.ToTable("AuditOutbox", "audit");
+                });
+
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxFailureHandoff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ClaimToken")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("EnvelopeJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("FailureCycleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("NextRetryAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("OutboxRowId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutboxRowId", "FailureCycleId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "NextRetryAt", "LeaseExpiresAt", "CreatedAt");
+
+                    b.ToTable("AuditOutboxFailureHandoffs", "audit");
+                });
+
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("VerifyUntil")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VerifyUntil");
+
+                    b.ToTable("AuditOutboxOperations", "audit");
+                });
+
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxResolution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FailureCycleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OutboxRowId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutboxRowId", "FailureCycleId");
+
+                    b.ToTable("AuditOutboxResolutions", "audit");
                 });
 
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditSecurityEventEntity", b =>
@@ -913,6 +1051,15 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .IsRequired();
 
                     b.Navigation("AuditLog");
+                });
+
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxFailureHandoff", b =>
+                {
+                    b.HasOne("MillWorks.AuditCore.EntityFramework.Entities.AuditOutboxEntity", null)
+                        .WithMany()
+                        .HasForeignKey("OutboxRowId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditSecurityEventEntity", b =>

@@ -57,7 +57,8 @@ public static class ServiceCollectionExtensions
             services.AddHttpContextAccessor();
 
             services.TryAddEnumerable(
-                ServiceDescriptor.Singleton<IValidateOptions<AuditMiddlewareOptions>, AuditMiddlewareOptionsValidator>());
+                ServiceDescriptor
+                    .Singleton<IValidateOptions<AuditMiddlewareOptions>, AuditMiddlewareOptionsValidator>());
 
             services.AddOptions<AuditMiddlewareOptions>()
                 .BindConfiguration("Audit")

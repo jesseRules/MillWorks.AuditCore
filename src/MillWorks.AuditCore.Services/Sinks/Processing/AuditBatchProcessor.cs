@@ -22,6 +22,7 @@ internal sealed class AuditBatchProcessor(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(rows);
+        cancellationToken.ThrowIfCancellationRequested();
         if (rows.Count == 0)
             return BatchProcessingResult.Empty;
 
@@ -96,8 +97,10 @@ internal sealed class AuditBatchProcessor(
         {
             writeOutcomes = await writeBatchAsync(envelopes, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             logger.LogWarning(ex,
                 "{WriterName} batch writer threw for {Count} envelopes, marking all as retryable",
                 writerName, envelopes.Count);

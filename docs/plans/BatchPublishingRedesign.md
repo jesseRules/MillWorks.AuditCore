@@ -122,8 +122,8 @@ Sequence-query history, index/deployment evidence, and remaining acceptance belo
 | Public `PublishBatchAsync` | Returns `Task`; public sink acceptance semantics remain unchanged | Slice G deferred; define a consumer need before designing a return-type change |
 | Immediate batch atomicity | Entity/event writers execute independently; one subset may persist before another fails | Correct public single-transaction/no-partial-success documentation (H2) |
 | Explicit-event identity | Outbox prefers ExplicitEventId; event writer stores EnvelopeId as EventId | H3a will require ExplicitEventId for both; EnvelopeId remains result correlation |
-| Internal processing | Writers return envelope outcomes; processor correlates row outcomes; drainer applies completion/retry/failure | Stale-owner transitions and mixed duplicate classifications need H1/H3 follow-up |
-| Outbox state | `Pending=0, InFlight=1, Completed=2, Failed=3`; row claims and expiring leases | Enforce ownership on outcome/recovery updates (H1); claims alone are insufficient |
+| Internal processing | Writers return envelope outcomes; processor correlates row outcomes; drainer applies completion/retry/failure | H1 guarded transitions implemented and locally verified; H3 mixed duplicate classification remains planned |
+| Outbox state | `Pending=0, InFlight=1, Completed=2, Failed=3`; row claims and expiring leases | H1 guarded ownership updates are implemented locally; migrate and replace all old drainers before relying on them |
 | Idempotency | Stable envelope identity, explicit-event PK, outbox unique key, entity envelope/property replay checks | Envelope lookup index verified October 9; see durability plan |
 | Observability | Outcome, retry, lease, row-age, and queue-depth instruments implemented | Load targets below remain unverified |
 
@@ -808,9 +808,10 @@ Phase 1 ────────────────────────
 
 ### Recommendation
 
-Prioritize [H1 stale-owner enforcement](BatchPublishingHardening.md#h1--enforce-claim-ownership-at-the-database-boundary),
-the highest-severity open correctness item, followed by H2/H3. Keep Slice G deferred until a
-consumer need is demonstrated. H4/H5 dependencies and acceptance are owned by the hardening plan.
+[H1](BatchPublishingHardening.md#h1--enforce-claim-ownership-at-the-database-boundary) is implemented
+and locally verified; its package/host rollout gates remain separate. Next source work is H2,
+then H3a/H3. Keep Slice G deferred until a consumer need is demonstrated. H4/H5 retain their
+independent scope and acceptance gates in the hardening plan.
 
 ---
 
@@ -940,3 +941,17 @@ Original slice rollback considerations:
 | Per-envelope failure visibility | None | Internal envelope/row outcomes implemented; public results deferred (Slice G) |
 | Concurrent drainer safety | Distributed lock | Row claims delivered; guarded ownership transitions remain H1 |
 | Batch/result correlation | Implicit ordering / ad-hoc row pairing | Stable `EnvelopeId` end-to-end |
+
+
+### H1 source verification update — 2026-10-16
+
+[H1 implementation and evidence](../evidence/audit-pipeline-2026-10/h1-ownership-2026-10-16/README.md)
+records 299 passing tests and 19 expected provider skips, new ownership/commit-evidence/failure-
+projection schema, and authorized source recovery. This does not implement H2/H3a/H3, qualify
+H5 load targets, or establish that an existing host has loaded the new source.
+
+### H1 local package release — 2026-10-16
+
+[Dev.7](../evidence/audit-pipeline-2026-10/release-dev7/README.md) contains H1 and is published
+to both local feeds after full Release verification: 2,536 passed, zero failed. Jesse will
+commit this working tree before H2 begins. Host rollout and H3a/H3 remain separate work.

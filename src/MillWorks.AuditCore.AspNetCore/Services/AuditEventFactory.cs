@@ -51,14 +51,14 @@ public sealed class AuditEventFactory(
 
         // Use AuditContext if available (populated by middleware)
         EnrichFromAuditContext(auditEvent);
-        
+
         // Fallback to direct HTTP context if needed
         if (string.IsNullOrEmpty(auditEvent.CustomFields.GetValueOrDefault("UserId")?.ToString()))
         {
             logger.LogDebug("User has no custom fields");
             EnrichWithUserContext(auditEvent);
         }
-        
+
         EnrichWithRequestContext(auditEvent);
 
         return auditEvent;
@@ -90,7 +90,8 @@ public sealed class AuditEventFactory(
     /// <summary>
     /// Create an operation event (for long-running operations)
     /// </summary>
-    public AuditEvent CreateOperationEvent(string operationType, Guid operationId, string status, object? metadata = null)
+    public AuditEvent CreateOperationEvent(string operationType, Guid operationId, string status,
+        object? metadata = null)
     {
         string eventType = $"{operationType}.{status}";
         var auditEvent = CreateEvent(eventType, metadata);
@@ -126,22 +127,22 @@ public sealed class AuditEventFactory(
     {
         if (auditContext.UserId.HasValue)
             auditEvent.CustomFields["UserId"] = auditContext.UserId.Value;
-        
+
         if (!string.IsNullOrEmpty(auditContext.AspNetUserId))
             auditEvent.CustomFields["AspNetUserId"] = auditContext.AspNetUserId;
-        
+
         if (!string.IsNullOrEmpty(auditContext.UserEmail))
         {
             auditEvent.CustomFields["UserEmail"] = auditContext.UserEmail;
             auditEvent.Environment.UserName = auditContext.UserEmail;
         }
-        
+
         if (!string.IsNullOrEmpty(auditContext.UserFullName))
             auditEvent.CustomFields["UserFullName"] = auditContext.UserFullName;
-        
+
         if (auditContext.TenantId.HasValue)
             auditEvent.CustomFields["TenantId"] = auditContext.TenantId.Value;
-        
+
         if (auditContext.OperationId.HasValue)
             auditEvent.CustomFields["ParentOperationId"] = auditContext.OperationId.Value;
 
@@ -158,8 +159,8 @@ public sealed class AuditEventFactory(
     private AuditEnvironment CreateEnvironment(string callerMemberName)
     {
         string userName = auditContext.UserEmail
-            ?? httpContextAccessor.HttpContext?.User.Identity?.Name
-            ?? "System";
+                          ?? httpContextAccessor.HttpContext?.User.Identity?.Name
+                          ?? "System";
 
         return new AuditEnvironment
         {

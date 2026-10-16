@@ -154,7 +154,8 @@ public sealed class AuditEventRepository(AuditDbContext context)
     }
 
     /// <inheritdoc />
-    public async Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds, CancellationToken cancellationToken = default)
+    public async Task<HashSet<Guid>> GetExistingEventIdsAsync(IEnumerable<Guid> eventIds,
+        CancellationToken cancellationToken = default)
     {
         var idList = eventIds.ToList();
         if (idList.Count == 0)
@@ -165,7 +166,7 @@ public sealed class AuditEventRepository(AuditDbContext context)
             .Select(static ae => ae.EventId)
             .ToListAsync(cancellationToken);
 
-        return [..existing];
+        return [.. existing];
     }
 
     /// <summary>

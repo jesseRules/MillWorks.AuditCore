@@ -61,7 +61,9 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
     /// <summary>
     /// Creates a new instance with default safe fields only.
     /// </summary>
-    public DefaultAuditFieldRedactor() : this(null) { }
+    public DefaultAuditFieldRedactor() : this(null)
+    {
+    }
 
     /// <summary>
     /// Creates a new instance with configurable additional safe fields.
@@ -95,6 +97,7 @@ public sealed class DefaultAuditFieldRedactor : IAuditFieldRedactor
 
             redacted[key] = _safeFields.Contains(key) ? value : RedactionMask;
         }
+
         return redacted;
     }
 

@@ -6,6 +6,14 @@ performance profiles, and release work are recorded in the dated sections below.
 Source paths below document origin; reviewers do not need the sibling checkout to read the
 included evidence. The bundle is selected evidence, not a full source snapshot of dev.3.
 
+## H1 ownership/failure recovery implementation
+
+[H1 verification](h1-ownership-2026-10-16/README.md) records 299 passing tests, 19 expected
+provider-specific skips, real SQL overlap/commit-fault coverage, and incremental migrations.
+The subsequent [dev.7 local release](release-dev7/README.md) records a full Release build/test
+(2,536 passed), source/package fingerprints and delivery to both local feeds. Host rollout
+and running-host qualification remain open.
+
 ## Consistent-read package release
 
 [Dev.6 release record](release-dev6/README.md) owns reviewed source inventory, isolated

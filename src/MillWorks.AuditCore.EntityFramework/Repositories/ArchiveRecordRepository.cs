@@ -214,8 +214,10 @@ public sealed class ArchiveRecordRepository(AuditDbContext context)
         var completedCount = await completedQuery.CountAsync(cancellationToken);
         if (completedCount > 0)
         {
-            stats["AverageArchiveSizeBytes"] = (long)await completedQuery.AverageAsync(static ar => ar.SizeBytes, cancellationToken);
-            stats["AverageEventsPerArchive"] = (int)await completedQuery.AverageAsync(static ar => ar.EventCount, cancellationToken);
+            stats["AverageArchiveSizeBytes"] =
+                (long)await completedQuery.AverageAsync(static ar => ar.SizeBytes, cancellationToken);
+            stats["AverageEventsPerArchive"] =
+                (int)await completedQuery.AverageAsync(static ar => ar.EventCount, cancellationToken);
         }
 
         // Oldest and newest archives

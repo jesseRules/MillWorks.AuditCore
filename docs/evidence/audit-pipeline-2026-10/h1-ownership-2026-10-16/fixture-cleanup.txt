@@ -1,0 +1,1 @@
+Read-only verification on localhost:1435 after the passing run: no AuditCoreOutboxH1_* or MillWorksAuditCoreOutboxTests databases remained. No application database was inspected or changed.

@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Services.Sinks.Recovery;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
@@ -146,7 +147,7 @@ public sealed class OutboxDrainerIntegrationTests
             rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
-        var sp = BuildDrainerServiceProvider(opts, throwOnPublish: false);
+        using var sp = BuildDrainerServiceProvider(opts, throwOnPublish: false);
 
         // Verify the AuditDbContext can see the row
         using (var verifyScope = sp.CreateScope())
@@ -160,11 +161,12 @@ public sealed class OutboxDrainerIntegrationTests
 
         var logMessages = new System.Collections.Concurrent.ConcurrentBag<string>();
         var drainerLogger = new TestOutputLogger<AuditOutboxDrainer>(logMessages);
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             drainerLogger,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
@@ -178,7 +180,7 @@ public sealed class OutboxDrainerIntegrationTests
             }
         }, TaskScheduler.Default);
 
-        // Poll until the row changes or timeout
+        // Poll until a terminal outcome; InFlight only proves acquisition, not completion.
         AuditOutboxStatus finalStatus = AuditOutboxStatus.Pending;
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (DateTime.UtcNow < deadline)
@@ -187,7 +189,7 @@ public sealed class OutboxDrainerIntegrationTests
             using var checkScope = sp.CreateScope();
             var auditCtx = checkScope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var checkRow = await auditCtx.AuditOutbox.FirstOrDefaultAsync(cancellationToken: cts.Token);
-            if (checkRow is not null && checkRow.Status != AuditOutboxStatus.Pending)
+            if (checkRow is not null && checkRow.Status is AuditOutboxStatus.Completed or AuditOutboxStatus.Failed)
             {
                 TestContext.Out.WriteLine($"Row changed: Status={checkRow.Status}, AttemptCount={checkRow.AttemptCount}");
                 finalStatus = checkRow.Status;
@@ -209,7 +211,7 @@ public sealed class OutboxDrainerIntegrationTests
             using var checkScope = sp.CreateScope();
             var auditCtx = checkScope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var checkRow = await auditCtx.AuditOutbox.FirstAsync();
-            Assert.Fail($"Drainer did not process the row within 5s. AttemptCount={checkRow.AttemptCount}, LastError={checkRow.LastError ?? "null"}, LogCount={logMessages.Count}");
+            Assert.Fail($"Drainer did not reach a terminal outcome within 5s. AttemptCount={checkRow.AttemptCount}, LastError={checkRow.LastError ?? "null"}, LogCount={logMessages.Count}");
         }
 
         var row = await consumerCtx.Database
@@ -267,13 +269,14 @@ public sealed class OutboxDrainerIntegrationTests
         });
         meterListener.Start();
 
-        var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true);
+        using var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true);
 
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -292,8 +295,8 @@ public sealed class OutboxDrainerIntegrationTests
                 "Row should be marked Failed after exhausting retries");
             Assert.That(row.AttemptCount, Is.EqualTo(5),
                 "AttemptCount should equal MaxAttempts");
-            Assert.That(dlqRoutedCount, Is.EqualTo(1),
-                "audit.outbox.dlq_routed counter should increment exactly once");
+            Assert.That(dlqRoutedCount, Is.Zero,
+                "No external DLQ is configured; retaining a handoff is not successful routing");
         });
     }
 
@@ -326,13 +329,14 @@ public sealed class OutboxDrainerIntegrationTests
         opts.OutboxDrainerMaxAttempts = 5;
         opts.OutboxDrainerRetryBackoff = [TimeSpan.FromHours(1)]; // Long backoff so it won't be retried
 
-        var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true);
+        using var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true);
 
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         // First poll: should fail and set NextRetryAt
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
@@ -355,12 +359,13 @@ public sealed class OutboxDrainerIntegrationTests
         });
 
         // Start drainer again and verify it does NOT process the row (backoff not expired)
-        var sp2 = BuildDrainerServiceProvider(opts, throwOnPublish: true);
-        var drainer2 = new AuditOutboxDrainer(
+        using var sp2 = BuildDrainerServiceProvider(opts, throwOnPublish: true);
+        using var drainer2Observer = new AuditOutboxQueueObserver();
+        using var drainer2 = new AuditOutboxDrainer(
             sp2.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainer2Observer);
 
         using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         _ = drainer2.StartAsync(cts2.Token);
@@ -432,17 +437,22 @@ public sealed class OutboxDrainerIntegrationTests
         // Entity writer throws on batch size > 1, causing entity rows to retry until exhausted
         var entityWriter = new BatchFailingEntityBatchWriter();
         var eventWriter = new CountingAuditEventBatchWriter();
-        var sp = BuildDrainerServiceProviderWithCustomServices(opts, entityWriter, eventWriter);
+        using var sp = BuildDrainerServiceProviderWithCustomServices(opts, entityWriter, eventWriter);
 
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(800));
+        // Observe completion of the production retry loop; a fixed 800 ms delay is not
+        // evidence that five guarded SQL attempts and their receipt commits have finished.
+        while (await consumerCtx.Database.SqlQueryRaw<int>(
+                   "SELECT COUNT(*) AS [Value] FROM [dbo].[AuditOutbox] WHERE [Status] IN (2,3)").SingleAsync(cts.Token) < 4)
+            await Task.Delay(TimeSpan.FromMilliseconds(20), cts.Token);
         await drainer.StopAsync(CancellationToken.None);
 
         // Core invariant: explicit events processed exactly once, not duplicated when entity batch fails
@@ -497,13 +507,14 @@ public sealed class OutboxDrainerIntegrationTests
 
         var opts = CreateSecurityOptions();
         var capturedEnvelopes = new System.Collections.Concurrent.ConcurrentBag<AuditEnvelope>();
-        var sp = BuildDrainerServiceProviderWithEnvelopeCapture(opts, capturedEnvelopes);
+        using var sp = BuildDrainerServiceProviderWithEnvelopeCapture(opts, capturedEnvelopes);
 
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -557,13 +568,14 @@ public sealed class OutboxDrainerIntegrationTests
         opts.OutboxDrainerMaxAttempts = 5;
 
         var dlq = new RecordingDlq();
-        var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true, dlq: dlq);
+        using var sp = BuildDrainerServiceProvider(opts, throwOnPublish: true, dlq: dlq);
 
-        var drainer = new AuditOutboxDrainer(
+        using var drainerObserver = new AuditOutboxQueueObserver();
+        using var drainer = new AuditOutboxDrainer(
             sp.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<AuditOutboxDrainer>.Instance,
             Options.Create(opts),
-            new AuditOutboxQueueObserver());
+            drainerObserver);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         _ = drainer.StartAsync(cts.Token);
@@ -615,7 +627,7 @@ public sealed class OutboxDrainerIntegrationTests
         OutboxDrainerCircuitBreakerSleep = TimeSpan.FromSeconds(1),
     };
 
-    private IServiceProvider BuildDrainerServiceProvider(
+    private ServiceProvider BuildDrainerServiceProvider(
         SecurityOptions opts,
         bool throwOnPublish,
         RecordingDlq? dlq = null)
@@ -652,6 +664,8 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
+        services.AddSingleton<OutboxStateStore>();
+        services.AddScoped<OutboxHandoffDispatcher>();
 
         if (dlq is not null)
         {
@@ -661,7 +675,7 @@ public sealed class OutboxDrainerIntegrationTests
         return services.BuildServiceProvider();
     }
 
-    private IServiceProvider BuildDrainerServiceProviderWithCustomServices(
+    private ServiceProvider BuildDrainerServiceProviderWithCustomServices(
         SecurityOptions opts,
         IAuditEntityBatchWriter entityBatchWriter,
         IAuditEventBatchWriter eventBatchWriter)
@@ -688,11 +702,13 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
+        services.AddSingleton<OutboxStateStore>();
+        services.AddScoped<OutboxHandoffDispatcher>();
 
         return services.BuildServiceProvider();
     }
 
-    private IServiceProvider BuildDrainerServiceProviderWithEnvelopeCapture(
+    private ServiceProvider BuildDrainerServiceProviderWithEnvelopeCapture(
         SecurityOptions opts,
         System.Collections.Concurrent.ConcurrentBag<AuditEnvelope> capturedEnvelopes)
     {
@@ -718,6 +734,8 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
+        services.AddSingleton<OutboxStateStore>();
+        services.AddScoped<OutboxHandoffDispatcher>();
 
         return services.BuildServiceProvider();
     }
@@ -769,6 +787,14 @@ public sealed class OutboxDrainerIntegrationTests
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<AuditOutboxOperation>().ToTable("AuditOutboxOperations", "dbo");
+            modelBuilder.Entity<AuditOutboxResolution>().ToTable("AuditOutboxResolutions", "dbo");
+            modelBuilder.Entity<AuditOutboxFailureHandoff>(e =>
+            {
+                e.ToTable("AuditOutboxFailureHandoffs", "dbo");
+                e.HasIndex(x => new { x.OutboxRowId, x.FailureCycleId }).IsUnique();
+                e.HasOne<AuditOutboxEntity>().WithMany().HasForeignKey(x => x.OutboxRowId).OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<AuditOutboxEntity>(e =>
             {
                 e.ToTable("AuditOutbox", "dbo");

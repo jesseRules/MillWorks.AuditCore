@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Outbox H1 ownership and failure recovery — 1.15.4-dev.7 (published to local feeds)
+
+- Fresh acquisition tokens and independent untracked state scopes guard claim, grouped outcomes, bounded recovery, operator resolution and projection acknowledgement. Current tokens may finish after expiry until conditional recovery wins.
+- Durable immutable operation receipts verify uncertain SQL commits without repeated state mutation. Terminal source failure and its per-cycle external DLQ projection commit atomically; projection retry never republishes audit work.
+- Add host-authorized inspection, replay, skip and post-window cleanup, preserving actor/time/reason evidence. Built-in DLQs and the generic processor exclude ordinary replay of diagnostic projections. Routing metrics count confirmed external writes.
+- Add `20261016210852_AddOutboxOwnershipEvidence` and `20261016211640_RetainOutboxFailureSources`; existing migrations are unchanged. Apply before starting the new drainer and coordinate host retention/authorization. Local verification: 299 passed, 19 expected provider skips.
+- Published all five dev.7 packages and symbols to both established local feeds from the uncommitted working tree. Full Release verification: 2,536 passed, zero failed; 23 console skips plus nine explicit opt-outs recorded in TRX. Source/package fingerprints and commands: `docs/evidence/audit-pipeline-2026-10/release-dev7/README.md`. Distributed dev.6 is unchanged; host rollout, external copied-data handling and H2/H3a/H3 remain open.
+
 ### Sequence validation consistency — 1.15.4-dev.6 (release candidate)
 
 - SQL Server sequence summaries now run on a dedicated connection/context in a short SERIALIZABLE transaction, independent of caller and ambient transaction isolation. The aggregate still returns at most one summary row.

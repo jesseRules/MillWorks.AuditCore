@@ -1,6 +1,6 @@
 # Batch Publishing Hardening
 
-**Status:** Planned; implementation not started
+**Status:** H1 implemented, verified and published to local feeds as dev.7; host rollout pending. H2/H3a/H3/H4/H5 remain planned; G deferred.
 **Date:** 2026-10-16
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
@@ -42,9 +42,9 @@ or a generic outbox engine.
 
 ### Decisions to settle before the affected implementation
 
-- H1: specify the transition-receipt schema, stable operation identity, transaction boundary,
-  verification query, and retention. Cleared claim tokens cannot alone prove a completion
-  committed when its acknowledgement was lost. Include dispatcher acknowledgements and recovery.
+- H1 decisions and schema are recorded in the [implementation contract](BatchPublishingH1Implementation.md).
+  Operation receipts, uncertain-commit verification, handoff cycles, authorization and retention
+  are implemented and locally tested; host rollout gates remain open.
 - H3a: conflict rejection is confirmed by Jesse on 2026-10-16. Define versioned canonical
   fingerprint fields, storage, normalization, and redaction/enrichment timing; exclude
   EnvelopeId and transport retry metadata. Do not retain a first-committed-wins branch that
@@ -59,7 +59,7 @@ or a generic outbox engine.
 
 | Slice | Priority | Dependency | Status | Deliverable |
 |-------|----------|------------|--------|-------------|
-| H1 | High | None | Planned | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
+| H1 | High | None | Implemented in AuditCore; rollout gates open | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
 | H2 | Medium | None | Planned | Accurate immediate/outbox batch contract and failure examples |
 | H3a | Medium | None | Planned | One logical explicit-event identity across both sink modes |
 | H3 | Medium | H3a | Planned | Accurate duplicate/new-event outcomes and metrics |
@@ -75,6 +75,21 @@ fallbacks or adding compatibility shims solely for old behavior. Track completio
 per slice; this document does not authorize or record a deployment.
 
 ## H1 — Enforce claim ownership at the database boundary
+
+### Implementation result — 2026-10-16
+
+[Evidence](../evidence/audit-pipeline-2026-10/h1-ownership-2026-10-16/README.md): **299 passed,
+zero failed, 19 expected provider-specific skips** across 318 discovered cases. Both SQL Server
+RCSI modes and SQLite exercise production state operations. The
+[implementation contract](BatchPublishingH1Implementation.md) records concrete schema,
+transaction/receipt, authorization, external projection and retention decisions.
+Two new migrations were generated and applied to disposable SQL databases; no application
+migration, package release or host deployment occurred during that H1 implementation run.
+Subsequently, [dev.7 was published to both local feeds](../evidence/audit-pipeline-2026-10/release-dev7/README.md)
+after full Release verification (2,536 passed, zero failed); host deployment remains open.
+The checklist below records local
+library acceptance, not deployed-host acceptance. Coordinated host cleanup/authorization,
+external copied-data handling and replacement of all old drainers remain rollout gates.
 
 ### Problem
 
@@ -122,7 +137,7 @@ best effort and cannot supply the missing guarantee.
    authorize stale-token writes; include this distinction in tests.
 5. Use a transactional failure-handoff table in the audit/outbox database. In one database
    transaction, conditionally change the current InFlight row to Failed and insert one durable
-   handoff keyed uniquely by OutboxRowId, containing the original envelope, reason, and stable
+   handoff keyed uniquely by `(OutboxRowId, FailureCycleId)`, containing the original envelope, reason, and stable
    handoff ID. Commit both or neither; a rejected original claim must insert nothing. The
    original drainer never calls an external DLQ directly. Add this incremental schema change
    to H1 and stop old drainers before rollout. Dispatch follows the state machine below. The
@@ -212,54 +227,54 @@ conditional acknowledgements. Neither counter promises exactly-once routing.
 
 ### Acceptance
 
-- [ ] SQL faults before and after commit distinguish rollback/retry from receipt-verified
+- [x] SQL faults before and after commit distinguish rollback/retry from receipt-verified
       success for claims, outcome groups, recovery, and handoff acknowledgements; no double
       attempt increment or duplicate intent follows an ambiguous acknowledgement.
-- [ ] Recovery uses bounded batches and the documented time authority; cleanup preserves
+- [x] Recovery uses bounded batches and the documented time authority; cleanup preserves
       receipts still needed for operation verification.
-- [ ] Validate deserialized version, kind, identity, and required fields before writers run.
+- [x] Validate deserialized version, kind, identity, and required fields before writers run.
       Unsupported/malformed queued envelopes retain a guarded terminal failure/handoff;
       no guessed identity, false acknowledgement, or endless deserialization retry loop.
 
-- [ ] Deterministic two-context tests pause worker A, expire/recover/reclaim with B, then
+- [x] Deterministic two-context tests pause worker A, expire/recover/reclaim with B, then
       resume A; A cannot overwrite B's state or clear B's lease.
-- [ ] An expired but otherwise current InFlight claim can complete; recovery winning first
+- [x] An expired but otherwise current InFlight claim can complete; recovery winning first
       rejects that completion. A batch taking longer than LeaseDuration can still finish.
-- [ ] The same-instance reclaim case rejects the old claim, proving tokens change per claim.
-- [ ] A second portable claim by the same instance does not return the first claim's rows.
-- [ ] Neither outbox-state nor audit-write change trackers hold `AuditOutboxEntity` after
+- [x] The same-instance reclaim case rejects the old claim, proving tokens change per claim.
+- [x] A second portable claim by the same instance does not return the first claim's rows.
+- [x] Neither outbox-state nor audit-write change trackers hold `AuditOutboxEntity` after
       claim, recovery, or outcome application; writer SaveChanges cannot flush outbox state.
-- [ ] Grouped completion/retry/failure tests verify bounded normal-path command counts,
+- [x] Grouped completion/retry/failure tests verify bounded normal-path command counts,
       partial ownership loss, and exact applied/rejected IDs rather than counts alone.
-- [ ] DLQ metric tests cover no registered DLQ, enqueue failure, success, and lost ownership;
+- [x] DLQ metric tests cover no registered DLQ, enqueue failure, success, and lost ownership;
       only confirmed successful routing increments `audit.outbox.dlq_routed`.
-- [ ] Recovery racing completion/reclaim cannot revert current state; affected-row counts
+- [x] Recovery racing completion/reclaim cannot revert current state; affected-row counts
       and metrics match actual transitions.
-- [ ] Retry exhaustion, invalid-envelope failure, cancellation, and DLQ handoff failure
+- [x] Retry exhaustion, invalid-envelope failure, cancellation, and DLQ handoff failure
       retain a durable disposition without allowing stale workers to finalize newer claims.
-- [ ] Failure transition plus handoff insertion is atomic, unique by source row, and rejects
+- [x] Failure transition plus handoff insertion is atomic, unique by source row/failure cycle, and rejects
       stale claims. Barrier/fault-injection tests cover before commit, after commit/before
       enqueue, after enqueue/before acknowledgement, and acknowledgement versus recovery.
-- [ ] Missing DLQ and repeated delivery failure leave an inspectable/retryable durable payload;
+- [x] Missing DLQ and repeated delivery failure leave an inspectable/retryable durable payload;
       retention cannot delete it. Restart recovers dispatch claims without replaying audit writes.
-- [ ] Exercise the real SQL Server claim/apply/recovery path against a disposable database,
+- [x] Exercise the real SQL Server claim/apply/recovery path against a disposable database,
       plus the supported portable path. Tests must call production operations rather than
       reproduce their logic in test code. Use explicit barriers instead of timing sleeps.
-- [ ] SQL Server fault injection immediately before commit proves rollback/retry; a fault
+- [x] SQL Server fault injection immediately before commit proves rollback/retry; a fault
       immediately after commit proves durable-marker verification without a second mutation.
       Cover claim, grouped outcomes, failure/handoff insertion, and handoff acknowledgement;
       include later state changes and retry of the same operation identity.
-- [ ] Unsupported version/kind, missing serialized identities, malformed JSON, and invalid
+- [x] Unsupported version/kind, missing serialized identities, malformed JSON, and invalid
       kind-specific payloads become retained failures without invoking writers or false success.
-- [ ] Authorized replay/skip records actor/time/reason and rejects unauthorized/cross-tenant
+- [x] Authorized replay/skip records actor/time/reason and rejects unauthorized/cross-tenant
       actions; race operator resolution with dispatch and cleanup. DLQ retry never republishes
       audit writes, and successful DLQ projection alone does not resolve the source failure.
       Terminal → authorized replay → terminal again preserves both failure cycles and cannot
       reuse an old Delivered marker as a new handoff acknowledgement.
-- [ ] Cleanup preserves unresolved failed rows, pending/dispatching projections, live claims,
+- [x] Cleanup preserves unresolved failed rows, pending/dispatching projections, live claims,
       and markers required for uncertain-commit verification. Test authorized expiry/resolution
       and disposition-driven suppression of copies separately from age-only cleanup.
-- [ ] Replay after audit persistence but before completion remains idempotent. Repeated
+- [x] Replay after audit persistence but before completion remains idempotent. Repeated
       processing is allowed; duplicate durable audit records and stale state updates are not.
 
 ## H2 — Correct public batch acceptance and failure documentation
@@ -475,7 +490,8 @@ DLQ delivery, content-conflict rejection, and durable verification of uncertain 
 Before coding, record the exact files/migrations, SQL transition-marker/result schema,
 canonical fingerprint and identity scope, replay/skip authorization contract, projection
 suppression races, retry bounds/settings, shared-package adoption decision, and cleanup
-windows. These choices remain explicit design work; they are not implemented by this review.
+windows. H1 choices are now implemented and recorded in its implementation contract/evidence. H3a/H3
+canonical identity and outcome-contract choices remain design work for those slices.
 Coordinate [H1 retention](../../../MillWorks/Plan/DataLifecycle/03-Audit-Retention-And-Volume.md#terminal-outbox-recovery-coordination-reviewed-2026-10-16)
 and [Item10 consumer proof](../../../MillWorks/MillWorks.Compliance/Plans/Item10-AuditTransactionalOutbox.md#auditcore-hardening-dependencies-reviewed-2026-10-16)
 before closing the relevant slices.

@@ -1,0 +1,5 @@
+!verification.trx
+!build-and-test.log
+!migration-generation.log
+!retention-fk-migration-generation.log
+!migration-script-generation.log

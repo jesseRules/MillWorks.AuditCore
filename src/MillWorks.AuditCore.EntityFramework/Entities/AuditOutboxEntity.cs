@@ -61,8 +61,7 @@ public sealed class AuditOutboxEntity
     public Guid IdempotencyKey { get; set; }
 
     /// <summary>
-    /// Unique identifier of the drainer instance that claimed this row for processing.
-    /// Format: <c>{hostname}:{pid}:{guid-suffix}</c>. Null when row is not claimed.
+    /// Fresh acquisition token. Successive claims by the same drainer use different values.
     /// </summary>
     [MaxLength(100)]
     public string? LeaseOwner { get; set; }
@@ -72,6 +71,12 @@ public sealed class AuditOutboxEntity
     /// the row if the original drainer crashed or is unresponsive.
     /// </summary>
     public DateTimeOffset? LeaseExpiresAt { get; set; }
+
+    /// <summary>Current terminal-failure cycle; a replay failing again gets a new cycle.</summary>
+    public Guid? FailureCycleId { get; set; }
+    public Guid? FailureTenantId { get; set; }
+    /// <summary>Explicit operator resolution. Null on an unresolved failure.</summary>
+    public Guid? ResolutionId { get; set; }
 }
 
 /// <summary>
@@ -89,8 +94,8 @@ public enum AuditOutboxStatus
     Completed = 2,
 
     /// <summary>
-    /// Drainer exhausted retries. Envelope routed to DLQ; business row
-    /// persisted (soft-failure mode of outbox pattern).
+    /// Retained terminal failure. External DLQ delivery is separately retryable and may not
+    /// yet have occurred; it does not resolve this source failure.
     /// </summary>
     Failed = 3,
 }

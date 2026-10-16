@@ -118,6 +118,21 @@ public class DeadLetterQueueProcessorTests
     }
 
     [Test]
+    public async Task ProcessOnceAsync_DoesNotAutomaticallyReplayOutboxProjections()
+    {
+        _mockDeadLetterQueue.Setup(x => x.GetStatisticsAsync()).ReturnsAsync(new DeadLetterStatistics());
+        _mockDeadLetterQueue.Setup(x => x.GetFailedEventsAsync(100)).ReturnsAsync([
+            new DeadLetterAuditEvent
+            {
+                OriginalEvent = new MillWorks.AuditCore.Abstractions.Models.AuditEvent
+                { EventType = "AuditCore.OutboxFailureProjection.v1" }
+            }
+        ]);
+        await _processor.ProcessOnceAsync(CancellationToken.None);
+        _mockDeadLetterQueue.Verify(x => x.ReprocessEventAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Test]
     public async Task ProcessOnceAsync_AcquiresDistributedLockBeforeReprocessing()
     {
         var lockAcquired = false;

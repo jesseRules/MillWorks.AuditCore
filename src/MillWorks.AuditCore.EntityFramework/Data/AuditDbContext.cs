@@ -13,7 +13,7 @@ namespace MillWorks.AuditCore.EntityFramework.Data;
 /// <summary>
 /// Partial class for audit-related database configuration
 /// </summary>
-public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, IAuditProviderDispatchSource
+public partial class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, IAuditProviderDispatchSource
 {
     /// <summary>
     /// Thread-safe bypass flag using AsyncLocal for per-execution-context isolation
@@ -161,6 +161,10 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
     /// drained by <c>AuditOutboxDrainer</c> to the audit DbContext.
     /// </summary>
     public virtual DbSet<AuditOutboxEntity> AuditOutbox { get; set; } = null!;
+
+    public DbSet<AuditOutboxOperation> AuditOutboxOperations => Set<AuditOutboxOperation>();
+    public DbSet<AuditOutboxFailureHandoff> AuditOutboxFailureHandoffs => Set<AuditOutboxFailureHandoff>();
+    public DbSet<AuditOutboxResolution> AuditOutboxResolutions => Set<AuditOutboxResolution>();
 
     /// <summary>
     /// Saves changes with concurrency token preparation and audit interception.
@@ -517,6 +521,8 @@ public class AuditDbContext : DbContext, IAuditBypassable, IAuditContextSource, 
                     .HasDefaultValueSql("GETUTCDATE()");
             }
         });
+
+        ConfigureOutboxRecovery(modelBuilder, isSqlite);
 
         // SQLite does not understand SQL Server column types from [Column(TypeName)] attributes.
         // Override them to SQLite-compatible types.

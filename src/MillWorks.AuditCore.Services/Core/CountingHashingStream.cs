@@ -56,7 +56,8 @@ internal sealed class CountingHashingStream(
         _bytesWritten += count;
     }
 
-    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer,
+        CancellationToken cancellationToken = default)
     {
         await inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
         hash.AppendData(buffer.Span);

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using MillWorks.AuditCore.Services.Sinks.Recovery;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -125,7 +126,8 @@ public sealed class DeadLetterQueueProcessor : BackgroundService
 
         var events = await dlq.GetFailedEventsAsync(maxCount);
         var eventsToRetry = events
-            .Where(e => !e.IsProcessed && e.RetryCount < maxRetries)
+            .Where(e => !e.IsProcessed && e.RetryCount < maxRetries &&
+                e.OriginalEvent?.EventType != OutboxHandoffDispatcher.ProjectionEventType)
             .ToList();
 
         var successCount = 0;

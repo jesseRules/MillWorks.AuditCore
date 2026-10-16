@@ -385,3 +385,18 @@ successful MillWorks.Api restore with five dev.6 packages. Required older depend
 were aligned in their actual owning MillWorks projects without suppressing downgrade checks.
 The API has not been compiled/restarted by this release task; populated loaded-runtime capture
 and three completed host scans remain open.
+
+
+### H1 library implementation update — 2026-10-16
+
+The separate [H1 hardening implementation](../BatchPublishingH1Implementation.md) now has
+[retained local verification](../../evidence/audit-pipeline-2026-10/h1-ownership-2026-10-16/README.md):
+299 passed, zero failed and 19 expected provider-specific skips. Guarded ownership, durable
+commit evidence, retained failure/handoff state and authorized replay/skip/cleanup are
+implemented in the working tree. H1 has new migrations and is not in the published dev.6
+sequence package. Its host rollout gates and H2/H3a/H3 remain open; the sequence runtime
+acceptance checklist above is unchanged.
+
+H1 was subsequently packaged as [dev.7 and published to both local feeds](../../evidence/audit-pipeline-2026-10/release-dev7/README.md)
+after full Release verification (2,536 passed, zero failed). Consumer updates and host rollout
+were not performed; this does not close the sequence runtime acceptance above.

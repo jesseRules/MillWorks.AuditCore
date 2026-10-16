@@ -205,6 +205,9 @@ public sealed class RedisAuditDeadLetterQueue : IDisposable, IAuditDeadLetterQue
                 return false;
             }
 
+            if (evt.OriginalEvent?.EventType == MillWorks.AuditCore.Services.Sinks.Recovery.OutboxHandoffDispatcher.ProjectionEventType)
+                return false; // Recovery is authorized against the retained source row.
+
             // Update retry information
             evt.RetryCount++;
             evt.LastRetryAt = DateTimeOffset.UtcNow;

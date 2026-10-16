@@ -126,6 +126,9 @@ public sealed class InMemoryAuditDeadLetterQueue(
             return false;
         }
 
+        if (deadLetterEvent.OriginalEvent?.EventType == MillWorks.AuditCore.Services.Sinks.Recovery.OutboxHandoffDispatcher.ProjectionEventType)
+            return false; // Recovery is authorized against the retained source row.
+
         deadLetterEvent.RetryCount++;
         deadLetterEvent.LastRetryAt = DateTimeOffset.UtcNow;
 

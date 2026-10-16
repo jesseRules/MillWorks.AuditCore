@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <!-- Default version; synchronize any project-level Version overrides for coordinated releases. -->
-        <Version>1.15.4-dev.6</Version>
+        <Version>1.15.4-dev.7</Version>
         <AssemblyVersion>1.15.4.0</AssemblyVersion>
         <FileVersion>1.15.4.0</FileVersion>
 
@@ -19,7 +19,9 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.4-dev.6: ships consistent SQL Server sequence summaries using dedicated SERIALIZABLE reads, bounded retries/timeouts, and cancellation without false corruption findings. Includes the envelope lookup migration, transaction cleanup, dependency updates and committed NUnit 5 migration from the reviewed source release. Isolated correctness/performance verification is recorded in docs/evidence/audit-pipeline-2026-10; populated-host and three-scan acceptance remain open. Batch hardening H1-H3 remains unimplemented.
+        <PackageReleaseNotes>v1.15.4-dev.7: adds H1 guarded outbox ownership, durable failure handoffs, uncertain-commit verification, and host-authorized recovery. Includes two incremental migrations which must precede the new drainer; host authorization and retention coordination remain rollout requirements. H2/H3a/H3 remain planned. Local prerelease built from the uncommitted working tree; see the release-dev7 evidence register.
+
+v1.15.4-dev.6: ships consistent SQL Server sequence summaries using dedicated SERIALIZABLE reads, bounded retries/timeouts, and cancellation without false corruption findings. Includes the envelope lookup migration, transaction cleanup, dependency updates and committed NUnit 5 migration from the reviewed source release. Isolated correctness/performance verification is recorded in docs/evidence/audit-pipeline-2026-10; populated-host and three-scan acceptance remain open. Batch hardening H1-H3 remains unimplemented.
 
 Earlier development release notes follow below:
 

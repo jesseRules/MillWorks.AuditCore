@@ -388,6 +388,9 @@ public sealed class FileBasedAuditDeadLetterQueue : IAuditDeadLetterQueue
                 return false;
             }
 
+            if (deadLetterEvent.OriginalEvent?.EventType == MillWorks.AuditCore.Services.Sinks.Recovery.OutboxHandoffDispatcher.ProjectionEventType)
+                return false; // Recovery is authorized against the retained source row.
+
             // Update retry information before releasing lock
             deadLetterEvent.RetryCount++;
             deadLetterEvent.LastRetryAt = DateTimeOffset.UtcNow;

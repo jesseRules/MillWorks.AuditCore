@@ -30,6 +30,23 @@ public sealed class AuditBatchProcessorTests
     }
 
     [Test]
+    public async Task ProcessBatchAsync_ShutdownCancellationDoesNotBecomeRetryWork()
+    {
+        using var canceled = new CancellationTokenSource();
+        _entityWriterMock.Setup(x => x.WriteBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Returns(() => { canceled.Cancel(); throw new OperationCanceledException(canceled.Token); });
+        var rows = new[]
+        {
+            new ClaimedOutboxRow { RowId = Guid.NewGuid(), AttemptCount = 0, CreatedAt = TestTime,
+                Envelope = new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Test", Action = AuditAction.Created } },
+            new ClaimedOutboxRow { RowId = Guid.NewGuid(), AttemptCount = 0, CreatedAt = TestTime,
+                Envelope = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "Test", Action = AuditAction.Created } }
+        };
+        await Assert.ThatAsync(() => _processor.ProcessBatchAsync(rows, canceled.Token), Throws.InstanceOf<OperationCanceledException>());
+        _eventWriterMock.VerifyNoOtherCalls();
+    }
+
+    [Test]
     public async Task ProcessBatchAsync_NullRows_Throws()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(() =>

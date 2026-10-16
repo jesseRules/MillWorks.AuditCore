@@ -1,20 +1,16 @@
 using System.Diagnostics;
-using System.Text.Json;
+using MillWorks.AuditCore.Abstractions.Dto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using MillWorks.AuditCore.Abstractions.Diagnostics;
-using MillWorks.AuditCore.Abstractions.Dto;
-using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
-using MillWorks.AuditCore.Services.Core;
 using MillWorks.AuditCore.Services.Database.Options;
-using MillWorks.AuditCore.Services.DeadLetterQueue.Interfaces;
 using MillWorks.AuditCore.Services.DistributedLocking.Interfaces;
 using MillWorks.AuditCore.Services.Sinks.Processing;
+using MillWorks.AuditCore.Services.Sinks.Recovery;
 using MillWorks.AuditCore.Services.Telemetry;
 
 namespace MillWorks.AuditCore.Services.Sinks;
@@ -32,31 +28,8 @@ public sealed class AuditOutboxDrainer(
 {
     private const string _leaderLockName = "AuditOutboxDrainer:Leader";
 
-    private readonly string _leaseOwnerId = GenerateLeaseOwnerId();
     private DateTimeOffset _lastLeaseRecoveryTime = DateTimeOffset.MinValue;
     private DateTimeOffset _lastQueueSampleTime = DateTimeOffset.MinValue;
-
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
-    private static string GenerateLeaseOwnerId()
-    {
-        const int maxLength = 100;
-        const int suffixLength = 8;
-        const int separatorCount = 2;
-
-        var hostname = Environment.MachineName;
-        var pid = Environment.ProcessId.ToString();
-        var suffix = Guid.NewGuid().ToString("N")[..suffixLength];
-
-        var hostnameMaxLength = maxLength - pid.Length - suffixLength - separatorCount;
-        if (hostname.Length > hostnameMaxLength)
-            hostname = hostname[..hostnameMaxLength];
-
-        return $"{hostname}:{pid}:{suffix}";
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -69,9 +42,9 @@ public sealed class AuditOutboxDrainer(
         }
 
         logger.LogInformation(
-            "AuditOutboxDrainer starting (poll={Poll}ms, batch={Batch}, maxAttempts={MaxAttempts}, leaseOwner={LeaseOwner})",
+            "AuditOutboxDrainer starting (poll={Poll}ms, batch={Batch}, maxAttempts={MaxAttempts})",
             opts.OutboxDrainerPollInterval.TotalMilliseconds, opts.OutboxDrainerBatchSize,
-            opts.OutboxDrainerMaxAttempts, _leaseOwnerId);
+            opts.OutboxDrainerMaxAttempts);
 
         var consecutiveFailures = 0;
 
@@ -99,6 +72,8 @@ public sealed class AuditOutboxDrainer(
                 }
 
                 var processed = await DrainBatchAsync(scope.ServiceProvider, stoppingToken);
+                await scope.ServiceProvider.GetRequiredService<OutboxHandoffDispatcher>().DispatchAsync(
+                    Math.Min(opts.OutboxDrainerBatchSize, OutboxStateStore.MaxBatchSize), opts.OutboxDrainerLeaseDuration, stoppingToken);
                 if (processed > 0)
                     consecutiveFailures = 0;
             }
@@ -106,6 +81,7 @@ public sealed class AuditOutboxDrainer(
             {
                 break;
             }
+            catch (Exception) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 consecutiveFailures++;
@@ -131,320 +107,67 @@ public sealed class AuditOutboxDrainer(
         logger.LogInformation("AuditOutboxDrainer stopped");
     }
 
-    private async Task<int> DrainBatchAsync(IServiceProvider sp, CancellationToken ct)
+    internal async Task<int> DrainBatchAsync(IServiceProvider sp, CancellationToken ct)
     {
-        var drainStopwatch = Stopwatch.StartNew();
-        using var activity = AuditActivitySource.Source.StartActivity(
-            AuditActivitySource.Operations.OutboxDrain, ActivityKind.Internal);
-
+        var stopwatch = Stopwatch.StartNew();
         var opts = options.Value;
-        var auditCtx = sp.GetRequiredService<AuditDbContext>();
-        var processor = sp.GetRequiredService<IAuditBatchProcessor>();
-        var dlq = sp.GetService<IAuditDeadLetterQueue>();
-
-        var claimedRows = await ClaimBatchAsync(auditCtx, opts, ct);
-        if (claimedRows.Count == 0)
-        {
-            activity?.SetTag(AuditActivitySource.Tags.BatchSize, 0);
-            return 0;
-        }
-
-        activity?.SetTag(AuditActivitySource.Tags.BatchSize, claimedRows.Count);
-
-        var (validRows, invalidRows) = DeserializeClaimedRows(claimedRows);
-
-        foreach (var (row, ex) in invalidRows)
-            await ApplyFailedOutcomeAsync(row, ex.Message, dlq, opts, activity);
-
-        if (validRows.Count > 0)
-        {
-            var result = await processor.ProcessBatchAsync(validRows, ct);
-            await ApplyOutcomesAsync(claimedRows, result.Outcomes, dlq, opts, activity);
-        }
-
-        await auditCtx.SaveChangesAsync(ct);
-
-        drainStopwatch.Stop();
-        AuditMetrics.OutboxDrainDuration.Record(drainStopwatch.Elapsed.TotalMilliseconds);
-
-        var processed = validRows.Count;
-        activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, processed);
-        activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
-        logger.LogDebug("Drained {Processed}/{Total} outbox rows ({InvalidCount} invalid)",
-            processed, claimedRows.Count, invalidRows.Count);
-
-        return processed;
-    }
-
-    private (List<ClaimedOutboxRow> valid, List<(AuditOutboxEntity row, Exception ex)> invalid) DeserializeClaimedRows(
-        List<AuditOutboxEntity> rows)
-    {
-        var valid = new List<ClaimedOutboxRow>(rows.Count);
-        var invalid = new List<(AuditOutboxEntity, Exception)>();
-
-        foreach (var row in rows)
+        var state = sp.GetRequiredService<OutboxStateStore>();
+        var claimed = await state.ClaimAsync(Guid.NewGuid(), Math.Min(opts.OutboxDrainerBatchSize,
+            OutboxStateStore.MaxBatchSize), opts.OutboxDrainerLeaseDuration, ct);
+        if (claimed.Claims.Length == 0) return 0;
+        var valid = new List<ClaimedOutboxRow>();
+        var changes = new List<OutboxChange>();
+        foreach (var row in claimed.Claims)
         {
             try
             {
-                if (row.EnvelopeVersion != TransactionalOutboxSink.CurrentEnvelopeVersion)
-                    throw new InvalidOperationException(
-                        $"Envelope version mismatch: row has v{row.EnvelopeVersion}, expected v{TransactionalOutboxSink.CurrentEnvelopeVersion}");
-
-                var envelope = JsonSerializer.Deserialize<AuditEnvelope>(row.EnvelopeJson, _jsonOptions)
-                    ?? throw new InvalidOperationException("Envelope deserialized to null");
-
                 valid.Add(new ClaimedOutboxRow
                 {
-                    RowId = row.Id,
-                    Envelope = envelope,
-                    AttemptCount = row.AttemptCount,
-                    CreatedAt = row.CreatedAt
+                    RowId = row.Id, Envelope = QueuedEnvelopeValidator.Read(row.EnvelopeJson, row.EnvelopeVersion),
+                    AttemptCount = row.AttemptCount, CreatedAt = row.CreatedAt
                 });
             }
-            catch (Exception ex)
+            catch (InvalidDataException ex)
             {
-                invalid.Add((row, ex));
+                changes.Add(new(row.Id, row.Token, AuditOutboxStatus.Failed, ReasonCode: ex.Message));
             }
         }
-
-        return (valid, invalid);
-    }
-
-    private async Task ApplyOutcomesAsync(
-        List<AuditOutboxEntity> allRows,
-        IReadOnlyList<RowOutcome> outcomes,
-        IAuditDeadLetterQueue? dlq,
-        SecurityOptions opts,
-        Activity? activity)
-    {
-        var rowLookup = allRows.ToDictionary(static r => r.Id);
-
-        foreach (var outcome in outcomes)
+        if (valid.Count != 0)
         {
-            if (!rowLookup.TryGetValue(outcome.RowId, out var row))
+            var result = await sp.GetRequiredService<IAuditBatchProcessor>().ProcessBatchAsync(valid, ct);
+            var expected = valid.Select(x => x.RowId).ToHashSet();
+            if (result.Outcomes.Count != expected.Count || result.Outcomes.Select(x => x.RowId).Distinct().Count() != expected.Count ||
+                result.Outcomes.Any(x => !expected.Contains(x.RowId) || !Enum.IsDefined(x.Status)))
+                throw new InvalidOperationException("Processor must return exactly one outcome per claimed input row.");
+            var rows = claimed.Claims.ToDictionary(x => x.Id);
+            foreach (var outcome in result.Outcomes)
             {
-                logger.LogError("RowOutcome for unknown RowId {RowId}", outcome.RowId);
-                continue;
-            }
-
-            switch (outcome.Status)
-            {
-                case RowStatus.Succeeded:
-                case RowStatus.Duplicate:
-                    ApplySuccessOutcome(row, outcome.Status == RowStatus.Duplicate);
-                    break;
-
-                case RowStatus.RetryLater:
-                    await ApplyRetryOutcomeAsync(row, outcome, dlq, opts, activity);
-                    break;
-
-                case RowStatus.Failed:
-                    await ApplyFailedOutcomeAsync(row, outcome.ErrorMessage ?? "Unknown error", dlq, opts, activity);
-                    break;
-            }
-        }
-    }
-
-    private void ApplySuccessOutcome(AuditOutboxEntity row, bool isDuplicate)
-    {
-        row.Status = AuditOutboxStatus.Completed;
-        row.CompletedAt = DateTimeOffset.UtcNow;
-        row.LeaseOwner = null;
-        row.LeaseExpiresAt = null;
-
-        if (isDuplicate)
-            logger.LogDebug("Row {RowId} completed as duplicate", row.Id);
-    }
-
-    private async Task ApplyRetryOutcomeAsync(
-        AuditOutboxEntity row,
-        RowOutcome outcome,
-        IAuditDeadLetterQueue? dlq,
-        SecurityOptions opts,
-        Activity? activity)
-    {
-        row.AttemptCount++;
-        row.LastError = TruncateError(outcome.ErrorMessage);
-
-        if (row.AttemptCount >= opts.OutboxDrainerMaxAttempts)
-        {
-            await ApplyExhaustedOutcomeAsync(row, outcome.ErrorMessage ?? "Unknown error", dlq, opts, activity);
-            return;
-        }
-
-        row.Status = AuditOutboxStatus.Pending;
-        row.LeaseOwner = null;
-        row.LeaseExpiresAt = null;
-
-        var backoff = outcome.RetryAfter ?? GetBackoffWithJitter(row.AttemptCount - 1, opts);
-        row.NextRetryAt = DateTimeOffset.UtcNow.Add(backoff);
-
-        logger.LogWarning(
-            "Outbox row {RowId} attempt {Attempt}/{MaxAttempts} failed, will retry after {Backoff}s: {Error}",
-            row.Id, row.AttemptCount, opts.OutboxDrainerMaxAttempts, backoff.TotalSeconds, outcome.ErrorMessage);
-    }
-
-    private async Task ApplyFailedOutcomeAsync(
-        AuditOutboxEntity row,
-        string errorMessage,
-        IAuditDeadLetterQueue? dlq,
-        SecurityOptions opts,
-        Activity? activity)
-    {
-        row.AttemptCount++;
-        row.LastError = TruncateError(errorMessage);
-        await ApplyExhaustedOutcomeAsync(row, errorMessage, dlq, opts, activity);
-    }
-
-    private async Task ApplyExhaustedOutcomeAsync(
-        AuditOutboxEntity row,
-        string errorMessage,
-        IAuditDeadLetterQueue? dlq,
-        SecurityOptions opts,
-        Activity? activity)
-    {
-        row.Status = AuditOutboxStatus.Failed;
-        row.LeaseOwner = null;
-        row.LeaseExpiresAt = null;
-
-        AuditMetrics.DlqRouted.Add(1);
-        activity?.AddEvent(new ActivityEvent(
-            AuditActivitySource.Events.OutboxExhausted,
-            tags: new ActivityTagsCollection { { AuditActivitySource.Tags.OutboxRowId, row.Id.ToString() } }));
-
-        if (dlq is not null)
-        {
-            try
-            {
-                var failedEvent = new AuditEvent
+                var row = rows[outcome.RowId];
+                var status = outcome.Status switch
                 {
-                    EventType = "OutboxDrainFailed",
-                    EntityName = $"AuditOutbox:{row.Id}",
-                    Action = Abstractions.Enums.AuditAction.Unknown,
+                    RowStatus.Succeeded or RowStatus.Duplicate => AuditOutboxStatus.Completed,
+                    RowStatus.RetryLater when row.AttemptCount + 1 < opts.OutboxDrainerMaxAttempts => AuditOutboxStatus.Pending,
+                    _ => AuditOutboxStatus.Failed
                 };
-                failedEvent.CustomFields["EnvelopeJson"] = row.EnvelopeJson;
-                failedEvent.CustomFields["RowId"] = row.Id;
-                failedEvent.CustomFields["AttemptCount"] = row.AttemptCount;
-
-                await dlq.StoreFailedEventAsync(
-                    failedEvent, new InvalidOperationException(errorMessage),
-                    $"Outbox drain exhausted {opts.OutboxDrainerMaxAttempts} attempts");
-            }
-            catch (Exception dlqEx)
-            {
-                logger.LogError(dlqEx, "Failed to enqueue row {RowId} to DLQ", row.Id);
+                var next = status == AuditOutboxStatus.Pending
+                    ? DateTimeOffset.UtcNow + (outcome.RetryAfter ?? GetBackoffWithJitter(row.AttemptCount, opts))
+                    : (DateTimeOffset?)null;
+                changes.Add(new(row.Id, row.Token, status, next, "write_failed"));
             }
         }
-
-        logger.LogWarning("Outbox row {RowId} marked Failed after {Attempts} attempts: {Error}",
-            row.Id, row.AttemptCount, errorMessage);
-    }
-
-    private static string? TruncateError(string? error) =>
-        error?.Length > 2000 ? SensitiveContentSanitizer.TruncateSafe(error, 2000) : error;
-
-    private async Task<List<AuditOutboxEntity>> ClaimBatchAsync(
-        AuditDbContext auditCtx, SecurityOptions opts, CancellationToken ct)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var leaseExpiry = now.Add(opts.OutboxDrainerLeaseDuration);
-        var isSqlServer = auditCtx.Database.ProviderName == "Microsoft.EntityFrameworkCore.SqlServer";
-
-        var claimed = isSqlServer
-            ? await ClaimBatchSqlServerAsync(auditCtx, opts.OutboxDrainerBatchSize, now, leaseExpiry, ct)
-            : await ClaimBatchPortableAsync(auditCtx, opts.OutboxDrainerBatchSize, now, leaseExpiry, ct);
-
-        if (claimed.Count > 0)
-            logger.LogDebug("Claimed {Count} outbox rows with lease until {LeaseExpiry:O}", claimed.Count, leaseExpiry);
-
-        return claimed;
-    }
-
-    private async Task<List<AuditOutboxEntity>> ClaimBatchSqlServerAsync(
-        AuditDbContext auditCtx, int batchSize, DateTimeOffset now, DateTimeOffset leaseExpiry, CancellationToken ct)
-    {
-        var entityType = auditCtx.Model.FindEntityType(typeof(AuditOutboxEntity))!;
-        var schema = entityType.GetSchema() ?? "audit";
-        var sql = $@"
-            UPDATE TOP (@p0) [{schema}].[AuditOutbox]
-            SET [Status] = @p1, [LeaseOwner] = @p2, [LeaseExpiresAt] = @p3
-            OUTPUT INSERTED.Id, INSERTED.EnvelopeJson, INSERTED.EnvelopeVersion,
-                   INSERTED.Status, INSERTED.CreatedAt, INSERTED.CompletedAt,
-                   INSERTED.NextRetryAt, INSERTED.AttemptCount, INSERTED.LastError,
-                   INSERTED.IdempotencyKey, INSERTED.LeaseOwner, INSERTED.LeaseExpiresAt
-            WHERE [Status] = @p4
-              AND ([NextRetryAt] IS NULL OR [NextRetryAt] <= @p5)
-              AND ([LeaseExpiresAt] IS NULL OR [LeaseExpiresAt] < @p5)";
-
-        var claimed = await auditCtx.AuditOutbox
-            .FromSqlRaw(sql, batchSize, (int)AuditOutboxStatus.InFlight, _leaseOwnerId, leaseExpiry,
-                (int)AuditOutboxStatus.Pending, now)
-            .AsNoTracking()
-            .ToListAsync(ct);
-
-        foreach (var row in claimed)
-            auditCtx.Attach(row);
-
-        return claimed;
-    }
-
-    private async Task<List<AuditOutboxEntity>> ClaimBatchPortableAsync(
-        AuditDbContext auditCtx, int batchSize, DateTimeOffset now, DateTimeOffset leaseExpiry, CancellationToken ct)
-    {
-        var candidateIds = await auditCtx.AuditOutbox
-            .Where(o => o.Status == AuditOutboxStatus.Pending && (o.NextRetryAt == null || o.NextRetryAt <= now))
-            .OrderBy(static o => o.CreatedAt)
-            .Take(batchSize)
-            .Select(static o => o.Id)
-            .ToListAsync(ct);
-
-        if (candidateIds.Count == 0)
-            return [];
-
-        var updatedCount = await auditCtx.AuditOutbox
-            .Where(o => candidateIds.Contains(o.Id) && o.Status == AuditOutboxStatus.Pending)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(static o => o.Status, AuditOutboxStatus.InFlight)
-                .SetProperty(static o => o.LeaseOwner, _leaseOwnerId)
-                .SetProperty(static o => o.LeaseExpiresAt, leaseExpiry), ct);
-
-        if (updatedCount == 0)
-            return [];
-
-        return await auditCtx.AuditOutbox
-            .Where(o => o.LeaseOwner == _leaseOwnerId && o.Status == AuditOutboxStatus.InFlight)
-            .ToListAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        var applied = await state.ApplyAsync(Guid.NewGuid(), changes, ct);
+        AuditMetrics.OutboxDrainDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
+        logger.LogDebug("Applied {Applied} outbox outcomes; {Rejected} claims no longer owned",
+            applied.Applied.Length, applied.Rejected.Length);
+        return applied.Applied.Length;
     }
 
     private async Task RecoverExpiredLeasesAsync(IServiceProvider sp, CancellationToken ct)
     {
-        var auditCtx = sp.GetRequiredService<AuditDbContext>();
-        var now = DateTimeOffset.UtcNow;
-
-        var expiredRows = await auditCtx.AuditOutbox
-            .Where(o => o.Status == AuditOutboxStatus.InFlight && o.LeaseExpiresAt != null && o.LeaseExpiresAt < now)
-            .ToListAsync(ct);
-
-        if (expiredRows.Count == 0)
-            return;
-
-        foreach (var row in expiredRows)
-        {
-            var previousOwner = row.LeaseOwner;
-            var previousExpiry = row.LeaseExpiresAt;
-
-            row.Status = AuditOutboxStatus.Pending;
-            row.LeaseOwner = null;
-            row.LeaseExpiresAt = null;
-
-            logger.LogWarning(
-                "Recovered outbox row {RowId} from expired lease (owner={LeaseOwner}, expired={LeaseExpiry:O}). AttemptCount unchanged at {AttemptCount}.",
-                row.Id, previousOwner, previousExpiry, row.AttemptCount);
-        }
-
-        await auditCtx.SaveChangesAsync(ct);
-        AuditMetrics.LeasesRecovered.Add(expiredRows.Count);
-        logger.LogInformation("Recovered {Count} outbox rows from expired leases", expiredRows.Count);
+        var result = await sp.GetRequiredService<OutboxStateStore>().RecoverAsync(Guid.NewGuid(),
+            Math.Min(options.Value.OutboxDrainerBatchSize, OutboxStateStore.MaxBatchSize), ct);
+        AuditMetrics.LeasesRecovered.Add(result.Applied.Length);
     }
 
     private async Task SampleQueueDepthIfDueAsync(SecurityOptions opts, CancellationToken ct)
