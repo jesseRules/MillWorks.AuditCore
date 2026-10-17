@@ -34,7 +34,9 @@ Consuming apps install `MillWorks.AuditCore` (the top-level umbrella package —
 
 ### Versioning
 
-All 5 packages share a single version number managed in `Directory.Build.props`:
+All five packages share a coordinated version. The default is in `Directory.Build.props`;
+currently EntityFramework, Services and AspNetCore also have project-level `<Version>`
+overrides that must be synchronized for each release.
 
 ```xml
 <Version>1.9.3</Version>
@@ -42,7 +44,8 @@ All 5 packages share a single version number managed in `Directory.Build.props`:
 <FileVersion>1.9.3.0</FileVersion>
 ```
 
-Bump this ONE place to update all projects.
+Update the shared default and all three overrides together, and verify every packaged
+version and internal dependency before publication.
 
 ---
 
@@ -138,7 +141,7 @@ dotnet run
 
 ### How to Bump
 
-Edit `Directory.Build.props` — all 5 packages inherit the version:
+Edit `Directory.Build.props` and synchronize the three project overrides listed above:
 
 ```xml
 <Version>1.2.0</Version>
@@ -168,7 +171,8 @@ NuGet aggressively caches packages. If you pack `1.1.0`, change code, and pack `
 
 **Solutions:**
 1. **Always bump the version** when you change code (even just the patch)
-2. **Clear the NuGet cache** if you must repack the same version: `dotnet nuget locals all --clear`
+2. **Never replace a distributed version with different bits.** Clearing a local cache does
+   not make version reuse safe; allocate a new version instead.
 3. **Use pre-release suffixes** during active development: `1.2.0-dev.1`, `1.2.0-dev.2`, etc.
 
 ---
