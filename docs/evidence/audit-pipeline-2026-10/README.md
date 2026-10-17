@@ -120,3 +120,12 @@ and loss of new-event classification after a late conflict. Fourteen new SQL cas
 from ten failures to all passing, with RCSI off/on. Final verification: **322 focused and
 2,443 broad passes, zero failures**. Before/after reports, exact commands and source hashes
 are retained. No package, schema or host change occurred; existing rollout gates remain open.
+
+### Dev.8 local package release — 2026-10-16
+
+[Release-dev8](release-dev8/README.md): all five packages and symbols published to both local
+feeds from source/version commit `6f560a1`. **2,644 SQL-enabled regression passes and 416 final
+committed-source passes, zero failures**; package-only consumer checks passed. Manifests retain
+source/DLL/PDB hashes, migration and dependency checks, exact commands and delivery receipts.
+All 679 pre-existing feed artifacts remained unchanged. Local publication closes H2/H3a/H3
+package delivery; host rollout, H4/H5 and sequence runtime acceptance remain separate.

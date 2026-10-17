@@ -1,6 +1,6 @@
 # Batch Publishing Hardening
 
-**Status:** H1 implemented, verified and published to local feeds as dev.7; host rollout pending. H2 implemented and locally verified (not packaged); H3a library implemented and SQL verified; host rollout pending; H3 implemented and verified; unshipped; H4/H5 remain planned; G deferred.
+**Status:** H1 delivered in dev.7; reviewed H2/H3a/H3 changes are verified and published to both local feeds as dev.8. Host rollout pending; H4/H5 remain planned; G deferred.
 **Date:** 2026-10-16
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
@@ -60,9 +60,9 @@ or a generic outbox engine.
 | Slice | Priority | Dependency | Status | Deliverable |
 |-------|----------|------------|--------|-------------|
 | H1 | High | None | Implemented in AuditCore; rollout gates open | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
-| H2 | Medium | None | Implemented and locally verified; not packaged | Accurate immediate/outbox batch contract and failure examples |
-| H3a | Medium | None | Library implemented and SQL verified; host rollout pending | One logical explicit-event identity across both sink modes |
-| H3 | Medium | H3a | Implemented and verified; unshipped | Accurate duplicate/new-event outcomes and metrics |
+| H2 | Medium | None | Verified and published locally in dev.8; host rollout pending | Accurate immediate/outbox batch contract and failure examples |
+| H3a | Medium | None | SQL verified and published locally in dev.8; host rollout pending | One logical explicit-event identity across both sink modes |
+| H3 | Medium | H3a | Verified and published locally in dev.8; host rollout pending | Accurate duplicate/new-event outcomes and metrics |
 | H4 | Refactor | H1 | Planned; independently deferrable | Internal outbox repository with ownership-aware operations |
 | H5 | Qualification | H1–H3 (including H3a); sequence acceptance tracked separately | Planned | Reproducible throughput, latency, memory, and reconciliation evidence |
 | G | Optional API | H1–H3 (including H3a) and demonstrated consumer need | Deferred | Public per-envelope result contract, if justified |
@@ -286,7 +286,7 @@ conditional acknowledgements. Neither counter promises exactly-once routing.
 Both sinks reject null entries before writer calls. Public/implementation XML and README
 now describe partial commits, returned failure IDs, interrupted calls, stable-identity retry,
 and acceptance inside the consumer transaction. No public signature, transaction or schema
-change; not packaged or deployed. Published dev.7 remains unchanged. The following records
+change; published locally in dev.8, with host rollout pending. Published dev.7 remains unchanged. The following records
 H2's implemented requirements and local acceptance.
 
 The former `IAuditSink.PublishBatchAsync` contract promised one transaction and no partial
@@ -406,7 +406,7 @@ identity determines the winner. Preserve every EnvelopeId in outcome correlation
 
 **Implementation:** [H3 contract](BatchPublishingH3Implementation.md). Exact per-event metadata,
 validation, metrics and bounded contract-defect escalation are implemented and verified:
-[2,442 broad and 155 focused passes](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md), zero failures. No package or host deployment occurred.
+[2,442 broad and 155 focused passes](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md), zero failures. The library is now published locally in dev.8; host deployment remains pending.
 
 The prior logger persisted mixed replay/new batches safely but returned aggregate success,
 causing existing events to be counted as new. The new EventOutcomes metadata preserves the
@@ -451,7 +451,7 @@ longer become false unverified failures, and late fallback conflicts preserve ea
 classifications. [Before/after proof and regression evidence](../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
 records 10 failing new SQL cases before correction, all 14 passing afterward, 322 focused
 passes and 2,443 broad passes, zero final failures. Genuine missing evidence remains rejected.
-H2/H3a/H3 remain unshipped; host rollout and H4/H5 are unchanged.
+H2/H3a/H3 are now published locally as dev.8; host rollout and H4/H5 remain separate.
 
 ## H4 — Extract ownership-aware outbox persistence
 
@@ -553,3 +553,12 @@ Mark H1–H3 (including H3a) complete only with their implementation and regress
 independently if deferred, and leave G explicitly deferred unless its consumer gate is met.
 Synchronize the redesign status and the linked durability acceptance record without rewriting
 historical results or equating package delivery with runtime acceptance.
+
+## Local release closeout — dev.8
+
+[Release evidence](../evidence/audit-pipeline-2026-10/release-dev8/README.md) records source commit
+`6f560a1`, 2,644 SQL-enabled regression passes, 416 final committed-source passes, package-only
+consumer validation and hash-verified delivery of all five packages/symbols to both local
+feeds. No failures; 679 existing feed artifacts remained unchanged. This closes local package
+delivery for H2/H3a/H3. Host producer/authorization/receipt/queue-data preparation and activation
+remain open, as do H4/H5 and optional G. No API build/restart or runtime acceptance occurred.

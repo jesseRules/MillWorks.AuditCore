@@ -45,6 +45,8 @@ nupkgs/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 *.trx
+# Curated release proof is retained for review, unlike transient test output.
+!docs/evidence/audit-pipeline-2026-10/release-dev8/*.trx
 coverage*/
 
 # Endurance / soak run artifacts (Phase 6.5). The soak harness writes

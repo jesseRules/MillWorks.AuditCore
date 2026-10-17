@@ -811,7 +811,7 @@ Phase 1 ────────────────────────
 [H1](BatchPublishingHardening.md#h1--enforce-claim-ownership-at-the-database-boundary) is implemented
 and locally verified; dev.7 is on both local feeds and host rollout remains open.
 [H2](BatchPublishingHardening.md#h2--correct-public-batch-acceptance-and-failure-documentation)
-is implemented and locally verified but not packaged. H3a library implementation and SQL verification are complete; host rollout gates remain open.
+is implemented, verified and published locally as dev.8. H3a library implementation and SQL verification are complete; host rollout gates remain open.
 See the [H3a contract](BatchPublishingH3aImplementation.md). H3 exact internal outcomes are implemented and verified (2,442 broad and 155 focused passes); see its
 [contract](BatchPublishingH3Implementation.md).
 Keep Slice G deferred until a consumer need is demonstrated. H4/H5 retain their independent scope and acceptance gates in the hardening plan.
@@ -972,7 +972,7 @@ deployment occurred. H3a/H3 were still planned at that historical checkpoint; su
 [H3 verification](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md) records
 2,442 broad regression passes and 155 focused passes, zero failures, including real SQL mixed
 races with RCSI off/on. Exact per-event outcomes, metrics, malformed-result recovery and bounded
-contract-defect escalation are implemented. H2/H3a/H3 are unshipped; host rollout, H4/H5 and
+contract-defect escalation are implemented. H2/H3a/H3 are now published locally as dev.8; host rollout, H4/H5 and
 optional G remain separate. The [H3 contract](BatchPublishingH3Implementation.md) records the
 required custom logger metadata and operational behavior.
 
@@ -982,3 +982,10 @@ required custom logger metadata and operational behavior.
 close the receipt/source read race and late-conflict classification loss. Fourteen new SQL
 cases, 322 focused tests and 2,443 broad regressions pass, zero final failures. Earlier
 verification above is historical. No publication, schema or host rollout occurred.
+
+### Local package delivery — dev.8
+
+[Dev.8 release evidence](../evidence/audit-pipeline-2026-10/release-dev8/README.md) closes local
+package delivery for reviewed H2/H3a/H3. Source commit `6f560a1`, 2,644 regression passes, 416
+final committed-source passes, package-only consumer checks and both feed receipts are retained.
+Host activation and its producer/authorization/migration/queue-data gates remain open.

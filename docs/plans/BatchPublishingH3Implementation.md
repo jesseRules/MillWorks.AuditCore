@@ -1,7 +1,9 @@
 # H3 — Exact internal publishing outcomes
 
 **Status, 2026-10-16:** Implemented and verified: [2,442 broad and 155 focused passes](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md), zero failures.
-H2/H3a/H3 remain unshipped. H4/H5, host rollout and public sink result slice G are separate.
+H2/H3a/H3 are [published locally as dev.8](../evidence/audit-pipeline-2026-10/release-dev8/README.md)
+from commit `6f560a1`; release verification passed 2,644 regressions and 416 final checks, zero failures.
+H4/H5, host rollout and public sink result slice G remain separate.
 
 **Post-review verification:** Both reproduced concurrency findings are resolved. The new SQL
 cases changed from 10 failures/four passes to all 14 passing; wider verification records

@@ -96,7 +96,7 @@ per-envelope failure feedback. Keep the original inputs for reconciliation/retry
 caller's policy; do not infer that every event failed or that cancellation undid persistence.
 This API does not yet expose the proposed public per-envelope result contract.
 
-### Logical event identity (unreleased H3a)
+### Logical event identity (dev.8)
 
 Explicit-event envelopes require a non-empty `ExplicitEventId`. Use a new logical ID for a
 new event and preserve that ID, occurrence time and semantic content across retries.
@@ -110,9 +110,10 @@ resource authority. No permissive policy is installed by default. Custom loggers
 writers must implement the new identity-aware capabilities. Apply the receipt migration and
 review queued version-1 data before activating queue version 2; no automatic data reset or
 historical fingerprint backfill is provided. See the [H3a implementation and rollout contract](docs/plans/BatchPublishingH3aImplementation.md).
-SQL Server verification is complete; host rollout remains pending. Published dev.7 does not contain H3a.
+SQL Server verification is complete; host rollout remains pending. The reviewed H2/H3a/H3
+changes are [published locally as dev.8](docs/evidence/audit-pipeline-2026-10/release-dev8/README.md).
 
-### Exact batch outcomes (unreleased H3)
+### Exact batch outcomes (dev.8)
 
 Envelope loggers must supply one `EventOutcomes` entry per logical event, including exact
 Persisted, Duplicate or Failed classifications. Custom `IAuditEnvelopeBatchLogger`

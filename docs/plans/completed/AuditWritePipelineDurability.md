@@ -425,3 +425,11 @@ acceptance, perform a deployment, or implement H4/H5. H2/H3a/H3 remain unshipped
 The subsequent [H3a/H3 review fixes](../../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
 are verified: 322 focused and 2,443 broad passes, zero failures. They correct two concurrency
 interleavings without schema or deployment changes; sequence host-scan acceptance remains open.
+
+### Reviewed H2/H3a/H3 local release — dev.8
+
+[Dev.8](../../evidence/audit-pipeline-2026-10/release-dev8/README.md) is published to both local
+feeds from commit `6f560a1`, after 2,644 regression and 416 final committed-source passes,
+zero failures, plus package-only consumer verification. Existing packages were preserved.
+This closes local delivery of the reviewed hardening changes; no host update, migration or
+API build/restart occurred. Sequence populated-runtime and three-scan acceptance remain open.

@@ -3,7 +3,8 @@
 **Status, 2026-10-16:** Library implementation and focused SQL verification complete:
 [178 identity/ownership passes and 114 final identity passes](../evidence/audit-pipeline-2026-10/h3a-verification-2026-10-16/README.md),
 zero failures. The broader local regression previously passed 2,420 cases. Host rollout remains
-open. H2/H3a are uncommitted and unshipped; this is not release or host acceptance.
+open. H2/H3a/H3 source and dev.8 metadata are committed as `6f560a1` and
+[published to both local feeds](../evidence/audit-pipeline-2026-10/release-dev8/README.md). This is local release acceptance; host acceptance remains open.
 
 **Post-review correction:** The split receipt/source read race is fixed with a bounded evidence
 recheck. [Retained review verification](../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
@@ -111,6 +112,6 @@ subsequent implementation is tracked in the [H3 contract](BatchPublishingH3Imple
   owning audit/consumer database. Verify schema names, host authorization, custom capability
   conformance, retention/holds and DLQ copies before activation. Rollback must preserve identity
   evidence/schema and avoid running an older key-only drainer against the new protocol.
-- Publish only under a fresh unused package version after verification. Distributed dev.7 is
-  immutable; current H2/H3a source is not included in it. No package publication, consumer
-  update, API build/restart or deployment has been performed for H3a.
+- Local release completed as dev.8 from commit `6f560a1`, with 2,644 regression and 416 final
+  committed-source passes plus package-only consumer validation. Dev.7 remains immutable.
+  Host consumer update, API build/restart and deployment have not been performed for H3a.
