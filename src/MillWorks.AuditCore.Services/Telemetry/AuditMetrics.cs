@@ -56,6 +56,8 @@ public static class AuditMetrics
         public const string Timeout = "timeout";
         public const string Constraint = "constraint";
         public const string Serialization = "serialization";
+        public const string IdentityConflict = "identity_conflict";
+        public const string IdentityUnverified = "identity_unverified";
         public const string Unknown = "unknown";
     }
 
@@ -125,6 +127,8 @@ public static class AuditMetrics
     /// </summary>
     public static string ClassifyError(Exception? ex)
     {
+        if (ex is Sinks.Identity.AuditIdentityConflictException identity)
+            return identity.Unverified ? ErrorTypes.IdentityUnverified : ErrorTypes.IdentityConflict;
         if (ex is null)
             return ErrorTypes.Unknown;
 

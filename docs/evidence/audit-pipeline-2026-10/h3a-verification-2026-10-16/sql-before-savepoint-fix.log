@@ -1,0 +1,607 @@
+Waiting for heavy-work lane: /Users/jesse/RiderProjects/MillWorks.ScanWorker/MillWorks.ScanWorker.Tests/MillWorks.ScanWorker.Tests.csproj (owner PID 5046)
+Test run for /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed ConcurrentOutboxContendersNeverAcknowledgeChangedContent(True,False) [17 ms]
+  Error Message:
+     Assert.That(errors.Count(e => e is null), Is.EqualTo(changed ? 1 : 2))
+  Expected: 2
+  But was:  0
+
+  Stack Trace:
+     at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+1)    at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+
+  Failed ConcurrentOutboxContendersNeverAcknowledgeChangedContent(True,True) [5 ms]
+  Error Message:
+     Assert.That(errors.Count(e => e is null), Is.EqualTo(changed ? 1 : 2))
+  Expected: 1
+  But was:  0
+
+  Stack Trace:
+     at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+1)    at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+
+  Failed ConsumerRollbackRemovesSourceAndIdentity(True) [5 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_cb9fa38cdf0842e39321b6eced04cdf1' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: de02519d-98b2-48c1-b338-7dbeb67bef59
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConsumerRollbackRemovesSourceAndIdentity(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 111
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConsumerRollbackRemovesSourceAndIdentity(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 111
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed ReEnvelopeReplayAndChangedContentUseTheSameProtocol(True) [8 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_c5930b2633884730a41d501d1e7d9643' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: de02519d-98b2-48c1-b338-7dbeb67bef59
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ReEnvelopeReplayAndChangedContentUseTheSameProtocol(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 98
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ReEnvelopeReplayAndChangedContentUseTheSameProtocol(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 98
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed ConflictInLaterRawChunkRollsBackTheEntirePublicationCall [7 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_0a9b22c1717c4adf8a03b174ef9c0713' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: de02519d-98b2-48c1-b338-7dbeb67bef59
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConflictInLaterRawChunkRollsBackTheEntirePublicationCall() in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 121
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConflictInLaterRawChunkRollsBackTheEntirePublicationCall() in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 121
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed ConcurrentOutboxContendersNeverAcknowledgeChangedContent(True,False) [6 ms]
+  Error Message:
+     Assert.That(errors.Count(e => e is null), Is.EqualTo(changed ? 1 : 2))
+  Expected: 2
+  But was:  0
+
+  Stack Trace:
+     at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+1)    at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+
+  Failed ConcurrentOutboxContendersNeverAcknowledgeChangedContent(True,True) [5 ms]
+  Error Message:
+     Assert.That(errors.Count(e => e is null), Is.EqualTo(changed ? 1 : 2))
+  Expected: 1
+  But was:  0
+
+  Stack Trace:
+     at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+1)    at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConcurrentOutboxContendersNeverAcknowledgeChangedContent(Boolean raw, Boolean changed) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 140
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+
+  Failed ConsumerRollbackRemovesSourceAndIdentity(True) [4 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_0e371256075b4d77bb54969676fe87fd' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: a2612a1b-e842-4900-9282-f017dbba3f7c
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConsumerRollbackRemovesSourceAndIdentity(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 111
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConsumerRollbackRemovesSourceAndIdentity(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 111
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed ReEnvelopeReplayAndChangedContentUseTheSameProtocol(True) [5 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_193b6de7ffc048bea922b8b5cc8e4ae1' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: a2612a1b-e842-4900-9282-f017dbba3f7c
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ReEnvelopeReplayAndChangedContentUseTheSameProtocol(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 98
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ReEnvelopeReplayAndChangedContentUseTheSameProtocol(Boolean raw) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 98
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed ConflictInLaterRawChunkRollsBackTheEntirePublicationCall [3 ms]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : The identifier that starts with 'AuditIdentity_e53e0748365b4654b8669ae178586640' is too long. Maximum length is 32.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 15.00.2000
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: 103
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: a2612a1b-e842-4900-9282-f017dbba3f7c
+  Class: 15
+  LineNumber: 1
+  Number: 103
+  Procedure: 
+  Server: 127.0.0.1,1435
+  State: 2
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  Stack Trace:
+     at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConflictInLaterRawChunkRollsBackTheEntirePublicationCall() in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 121
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, SqlCommand command, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryAsync(IAsyncResult asyncResult)
+   at Microsoft.Data.SqlClient.SqlCommand.<>c.<InternalExecuteNonQueryAsync>b__193_1(IAsyncResult asyncResult)
+   at System.Threading.Tasks.TaskFactory`1.FromAsyncCoreLogic(IAsyncResult iar, Func`2 endFunction, Action`1 endAction, Task`1 promise, Boolean requiresSynchronization)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTransaction.CreateSavepointAsync(String name, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteViaRawSqlAsync(DbContext db, IReadOnlyList`1 rows, CancellationToken ct) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs:line 21
+   at MillWorks.AuditCore.Services.Sinks.AuditOutboxWriter.WriteBatchAsync(IReadOnlyList`1 rows, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs:line 115
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 108
+   at MillWorks.AuditCore.Services.Sinks.TransactionalOutboxSink.PublishBatchAsync(IReadOnlyList`1 envelopes, CancellationToken cancellationToken) in /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs:line 111
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 175
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.Outbox(Boolean raw, IReadOnlyList`1 envelopes, Boolean rollback) in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 178
+   at MillWorks.AuditCore.Tests.Identity.EnvelopeIdentitySqlServerTests.ConflictInLaterRawChunkRollsBackTheEntirePublicationCall() in /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs:line 121
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [7 ms]
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [6 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(True) [< 1 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(False) [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","failure") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","failure") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_ack") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_ack") [< 1 ms]
+  Skipped IncrementalMigrationsPreserveOldRowsAndSupportGuardedFailure [< 1 ms]
+Results File: /tmp/auditcore-h3a-sql/h3a-sql.trx
+
+Failed!  - Failed:    10, Passed:   166, Skipped:    19, Total:   195, Duration: 33 s - MillWorks.AuditCore.Tests.dll (net10.0)

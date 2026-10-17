@@ -33,6 +33,7 @@ public sealed class AuditEnvelopeTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
         };
@@ -91,6 +92,7 @@ public sealed class AuditEnvelopeTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login",

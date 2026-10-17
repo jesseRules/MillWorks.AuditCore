@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MillWorks.AuditCore.Abstractions.Enums;
+using MillWorks.AuditCore.Abstractions.Models;
 using MillWorks.AuditCore.Abstractions.Exceptions;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 using MillWorks.AuditCore.EntityFramework.Data;
@@ -139,13 +141,13 @@ public sealed class OutboxAtomicityPolicyTests
         {
             var written = await writer.WriteBatchAsync(
                 [
-                    ("{\"a\":1}", 1, key),
-                    ("{\"a\":2}", 1, key)
+                    (EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key),
+                    (EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key)
                 ]);
 
             Assert.That(written, Is.EqualTo(1));
 
-            var replayWritten = await writer.WriteBatchAsync([("{\"a\":3}", 1, key)]);
+            var replayWritten = await writer.WriteBatchAsync([(EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key)]);
             Assert.That(replayWritten, Is.Zero,
                 "A retry while the first outbox row remains Added in the change tracker must be idempotent");
         }
@@ -161,21 +163,16 @@ public sealed class OutboxAtomicityPolicyTests
 
         await using var ctx = NewMappedContext(interceptor: null);
         await ctx.Database.EnsureCreatedAsync();
-        ctx.AuditOutbox.Add(new AuditOutboxEntity
-        {
-            EnvelopeJson = "{\"existing\":true}",
-            EnvelopeVersion = 1,
-            IdempotencyKey = key
-        });
-        await ctx.SaveChangesAsync();
-
         await using var scope = _sinkServices.CreateAsyncScope();
         var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
         var writer = scope.ServiceProvider.GetRequiredService<IAuditOutboxWriter>();
 
         using (accessor.SetCurrent(ctx))
         {
-            var written = await writer.WriteBatchAsync([("{\"replay\":true}", 1, key)]);
+            await writer.WriteBatchAsync([(EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key)]);
+            await ctx.SaveChangesAsync();
+            ctx.ChangeTracker.Clear();
+            var written = await writer.WriteBatchAsync([(EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key)]);
             Assert.That(written, Is.Zero);
         }
 
@@ -194,12 +191,52 @@ public sealed class OutboxAtomicityPolicyTests
 
         using (accessor.SetCurrent(ctx))
         {
+            var key = Guid.NewGuid();
             var ex = await Assert.ThrowsAsync<AuditOutboxAtomicityException>(
-                async () => await writer.WriteBatchAsync([("{\"a\":1}", 1, Guid.NewGuid())]));
+                async () => await writer.WriteBatchAsync([(EnvelopeJson(key), TransactionalOutboxSink.CurrentEnvelopeVersion, key)]));
 
             Assert.That(ex!.Message, Does.Contain("mapped to schema"));
         }
     }
+
+    [Test]
+    public async Task PublishBatchAsync_AcceptedBeforeConsumerSave_CanStillRollBack()
+    {
+        await using (var setup = NewMappedContext(interceptor: null))
+            await setup.Database.EnsureCreatedAsync();
+
+        await using (var scope = _sinkServices.CreateAsyncScope())
+        await using (var ctx = NewMappedContext(interceptor: null))
+        await using (var transaction = await ctx.Database.BeginTransactionAsync())
+        {
+            var accessor = scope.ServiceProvider.GetRequiredService<IConsumerDbContextAccessor>();
+            var sink = scope.ServiceProvider.GetRequiredService<IAuditSink>();
+            ctx.BusinessRecords.Add(new BusinessRecord { Name = "accepted then rolled back" });
+            using (accessor.SetCurrent(ctx))
+                await sink.PublishBatchAsync(
+                [
+                    new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Patient", Action = AuditAction.Created },
+                    new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "Patient", EventType = "Test.Event", Action = AuditAction.Created }
+                ]);
+
+            Assert.That(ctx.ChangeTracker.Entries<AuditOutboxEntity>().Count(), Is.EqualTo(2));
+            Assert.That(await ctx.AuditOutbox.CountAsync(), Is.Zero,
+                "Successful sink return can precede even the consumer SaveChanges.");
+            await ctx.SaveChangesAsync();
+            Assert.That(await ctx.AuditOutbox.CountAsync(), Is.EqualTo(2));
+            await transaction.RollbackAsync();
+        }
+
+        await using var verify = NewMappedContext(interceptor: null);
+        Assert.That(await verify.BusinessRecords.CountAsync(), Is.Zero);
+        Assert.That(await verify.AuditOutbox.CountAsync(), Is.Zero);
+        Assert.That(await verify.AuditEvents.CountAsync(), Is.Zero);
+    }
+
+    private static string EnvelopeJson(Guid id) => System.Text.Json.JsonSerializer.Serialize(
+        new AuditEnvelope { EnvelopeId = id, Kind = AuditEnvelopeKind.EntityChange,
+            EntityName = "Patient", Action = AuditAction.Created },
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
 
     // ── Harness ──────────────────────────────────────────────────────────────
 
@@ -210,6 +247,7 @@ public sealed class OutboxAtomicityPolicyTests
         services.AddSingleton(Options.Create(new EntityFrameworkOptions { Schema = "audit" }));
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         services.AddScoped<IAuditOutboxWriter, AuditOutboxWriter>();
+        services.AddSingleton<IAuditEnvelopeWriteAuthorization>(MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
         services.AddScoped<IAuditSink, TransactionalOutboxSink>();
         return services.BuildServiceProvider();
     }

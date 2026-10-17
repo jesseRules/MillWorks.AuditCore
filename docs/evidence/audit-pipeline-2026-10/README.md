@@ -6,6 +6,13 @@ performance profiles, and release work are recorded in the dated sections below.
 Source paths below document origin; reviewers do not need the sibling checkout to read the
 included evidence. The bundle is selected evidence, not a full source snapshot of dev.3.
 
+## H2 batch acceptance contract
+
+[H2 verification](h2-acceptance-2026-10-16/README.md) records 62 passing focused tests and
+2550 passing full Release regression tests, zero failures. It covers null rejection,
+partial commits, interruption and outbox rollback. H2 source is not packaged or deployed;
+the dev.7 local release remains unchanged.
+
 ## H1 ownership/failure recovery implementation
 
 [H1 verification](h1-ownership-2026-10-16/README.md) records 299 passing tests, 19 expected
@@ -83,3 +90,33 @@ the historical one. Missing historical commands remain an explicit provenance ga
 - `audit-index-migration.sql`: derived from `/Users/jesse/RiderProjects/MillWorks/Plan/SharedSqlHostIsolation/Evidence/2026-10-09/audit-index-migration.sql`; original SHA-256 `9449d41461208d2abec6c03e708c4c49f70b91ec34dd5ae770a5880b8afb2b78`.
 - `audit-phase1-results.json`: derived from `/Users/jesse/RiderProjects/MillWorks/Plan/SharedSqlHostIsolation/Evidence/2026-10-09/audit-phase1.trx`; original SHA-256 `7c25d738baea676462b1ca2a72fb9216c57676245773165a8b5deea7f89d78eb`.
 - `post-rebuild-record.md`: derived from `/Users/jesse/RiderProjects/MillWorks/Plan/SharedSqlHostIsolation/SqlStallRecovery-2026-10-11.md`; original SHA-256 `1beb3d981e5ac7bb65224258e23bde8026bca0feedcc2b029e49c5b23256e84a`.
+
+### H3a implementation work — 2026-10-16
+
+[Initial discovery and producer inventory](h3a-design-2026-10-16/README.md) is now a historical
+baseline. Global EventId scope is confirmed, and the [implementation contract](../../plans/BatchPublishingH3aImplementation.md)
+records canonical comparison, receipt schema, host authorization, extension capabilities and
+queue-version transition. SQL Server verification completed after Docker was restored. Host producer/data inventory and rollout remain open. H3's precise mixed-batch
+new/duplicate reporting remains separate. No H3a package has been published.
+
+[H3a retained verification](h3a-verification-2026-10-16/README.md): 2,420 regression passes and
+88 final focused passes, zero failures. SQL verification now records 178 identity/ownership passes (19 expected provider skips) and
+114 final identity passes (zero skips), zero failures. Exact filters and source fingerprints
+are retained in that record.
+
+### H3 exact outcomes — 2026-10-16
+
+[H3 implementation and verification](h3-outcomes-2026-10-16/README.md): **2,442 broad passes and
+155 focused passes, zero failures**. The focused run includes 28 real SQL identity cases with
+RCSI off/on. Exact metadata, metrics, recoverable malformed-result handling and bounded drainer
+contract-defect escalation are implemented. Reports retain the earlier two obsolete test
+expectations and their correction. No package or host update occurred; H4/H5 and host gates
+remain separate.
+
+### H3a/H3 post-review fixes — 2026-10-16
+
+[Two review findings resolved](h3-review-fixes-2026-10-16/README.md): receipt/source read races
+and loss of new-event classification after a late conflict. Fourteen new SQL cases changed
+from ten failures to all passing, with RCSI off/on. Final verification: **322 focused and
+2,443 broad passes, zero failures**. Before/after reports, exact commands and source hashes
+are retained. No package, schema or host change occurred; existing rollout gates remain open.

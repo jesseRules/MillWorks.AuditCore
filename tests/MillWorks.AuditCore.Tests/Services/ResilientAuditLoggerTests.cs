@@ -103,6 +103,59 @@ public class ResilientAuditLoggerTests
     /// LogAsync succeeds on first attempt and calls inner logger once
     /// </summary>
     [Test]
+    public async Task EnvelopeContractDefectIsNotRetriedOrSentToDeadLetterQueue()
+    {
+        var envelope = new AuditEnvelope
+        {
+            Kind = MillWorks.AuditCore.Abstractions.Enums.AuditEnvelopeKind.ExplicitEvent,
+            Action = MillWorks.AuditCore.Abstractions.Enums.AuditAction.Unknown,
+            EntityName = "Test", EventType = "Test", ExplicitEventId = Guid.NewGuid()
+        };
+        _mockInnerLogger.Setup(x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BatchAuditResult.Succeeded(1)); // capability result lacks exact metadata
+        await Assert.ThrowsAsync<MillWorks.AuditCore.Services.Sinks.Processing.AuditBatchContractException>(
+            () => _resilientLogger.LogEnvelopeBatchAsync([envelope]));
+        _mockInnerLogger.Verify(x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockDeadLetterQueue.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task ConfirmedMixedConflictResultIsPreservedWithoutRetryOrDeadLetterConversion()
+    {
+        var original = new AuditEnvelope
+        {
+            Kind = MillWorks.AuditCore.Abstractions.Enums.AuditEnvelopeKind.ExplicitEvent,
+            Action = MillWorks.AuditCore.Abstractions.Enums.AuditAction.Unknown,
+            EntityName = "Test", EventType = "Test", ExplicitEventId = Guid.NewGuid()
+        };
+        var rejected = original with { EnvelopeId = Guid.NewGuid(), ExplicitEventId = Guid.NewGuid() };
+        var conflict = new MillWorks.AuditCore.Services.Sinks.Identity.AuditIdentityConflictException([rejected.ExplicitEventId!.Value]);
+        var expected = new BatchAuditResult
+        {
+            Success = false, EventCount = 2, Exception = conflict,
+            FailedEvents = [MillWorks.AuditCore.Services.Sinks.Writers.AuditEventBatchWriter.MapToAuditEvent(rejected)],
+            EventOutcomes = [new(original.ExplicitEventId!.Value, AuditEventWriteStatus.Persisted),
+                new(rejected.ExplicitEventId.Value, AuditEventWriteStatus.Failed, conflict)]
+        };
+        _mockInnerLogger.Setup(x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+        var actual = await _resilientLogger.LogEnvelopeBatchAsync([original, rejected]);
+        Assert.That(actual, Is.SameAs(expected));
+        Assert.That(actual.EventOutcomes!.Single(x => x.EventId == original.ExplicitEventId).Status, Is.EqualTo(AuditEventWriteStatus.Persisted));
+        _mockInnerLogger.Verify(x => x.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockDeadLetterQueue.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task EmptyEnvelopeBatchReturnsAnExactEmptyResult()
+    {
+        var result = await _resilientLogger.LogEnvelopeBatchAsync([]);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.EventCount, Is.Zero);
+        Assert.That(result.EventOutcomes, Is.Empty);
+    }
+
+    [Test]
     public async Task LogAsync_SuccessfulFirstAttempt_CallsInnerLoggerOnce()
     {
         // Arrange

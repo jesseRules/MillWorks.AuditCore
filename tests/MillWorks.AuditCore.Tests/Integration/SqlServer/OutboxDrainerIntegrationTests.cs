@@ -82,7 +82,7 @@ public sealed class OutboxDrainerIntegrationTests
             NullLogger<AuditOutboxWriter>.Instance);
         var sink = new TransactionalOutboxSink(
             writer,
-            NullLogger<TransactionalOutboxSink>.Instance);
+            NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         // The mapped context creates the AuditOutbox table. The bare context below does NOT
         // map AuditOutboxEntity, so the writer takes the raw-SQL escape-hatch path (policy
@@ -144,7 +144,7 @@ public sealed class OutboxDrainerIntegrationTests
         await consumerCtx.Database.ExecuteSqlRawAsync(
             "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
             "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            rowId, rowId, envelopeJson, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         using var sp = BuildDrainerServiceProvider(opts, throwOnPublish: false);
@@ -249,7 +249,7 @@ public sealed class OutboxDrainerIntegrationTests
         await consumerCtx.Database.ExecuteSqlRawAsync(
             "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
             "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4); // 4 attempts already, 1 more = 5 = max
+            rowId, rowId, envelopeJson, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 4); // 4 attempts already, 1 more = 5 = max
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
@@ -323,7 +323,7 @@ public sealed class OutboxDrainerIntegrationTests
         await consumerCtx.Database.ExecuteSqlRawAsync(
             "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
             "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            rowId, rowId, envelopeJson, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
@@ -395,6 +395,7 @@ public sealed class OutboxDrainerIntegrationTests
         var explicitEvent1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EventType = "UserLogin",
             EntityName = "Session",
             Action = AuditAction.Created,
@@ -403,6 +404,7 @@ public sealed class OutboxDrainerIntegrationTests
         var explicitEvent2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EventType = "UserLogout",
             EntityName = "Session",
             Action = AuditAction.Deleted,
@@ -430,7 +432,7 @@ public sealed class OutboxDrainerIntegrationTests
             await consumerCtx.Database.ExecuteSqlRawAsync(
                 "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
                 "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-                rowId, rowId, json, 1, 0, DateTimeOffset.UtcNow, 0);
+                rowId, rowId, json, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 0);
         }
 
         var opts = CreateSecurityOptions();
@@ -503,7 +505,7 @@ public sealed class OutboxDrainerIntegrationTests
         await consumerCtx.Database.ExecuteSqlRawAsync(
             "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
             "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 0);
+            rowId, rowId, envelopeJson, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 0);
 
         var opts = CreateSecurityOptions();
         var capturedEnvelopes = new System.Collections.Concurrent.ConcurrentBag<AuditEnvelope>();
@@ -562,7 +564,7 @@ public sealed class OutboxDrainerIntegrationTests
         await consumerCtx.Database.ExecuteSqlRawAsync(
             "INSERT INTO [dbo].[AuditOutbox] (Id, IdempotencyKey, EnvelopeJson, EnvelopeVersion, Status, CreatedAt, AttemptCount) " +
             "VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6})",
-            rowId, rowId, envelopeJson, 1, 0, DateTimeOffset.UtcNow, 4);
+            rowId, rowId, envelopeJson, TransactionalOutboxSink.CurrentEnvelopeVersion, 0, DateTimeOffset.UtcNow, 4);
 
         var opts = CreateSecurityOptions();
         opts.OutboxDrainerMaxAttempts = 5;
@@ -800,7 +802,7 @@ public sealed class OutboxDrainerIntegrationTests
                 e.ToTable("AuditOutbox", "dbo");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.EnvelopeJson).IsRequired();
-                e.Property(x => x.EnvelopeVersion).HasDefaultValue(1);
+                e.Property(x => x.EnvelopeVersion).HasDefaultValue(TransactionalOutboxSink.CurrentEnvelopeVersion);
                 e.Property(x => x.Status).HasDefaultValue(AuditOutboxStatus.Pending);
                 e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 e.Property(x => x.NextRetryAt);

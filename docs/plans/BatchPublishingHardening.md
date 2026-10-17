@@ -1,6 +1,6 @@
 # Batch Publishing Hardening
 
-**Status:** H1 implemented, verified and published to local feeds as dev.7; host rollout pending. H2/H3a/H3/H4/H5 remain planned; G deferred.
+**Status:** H1 implemented, verified and published to local feeds as dev.7; host rollout pending. H2 implemented and locally verified (not packaged); H3a library implemented and SQL verified; host rollout pending; H3 implemented and verified; unshipped; H4/H5 remain planned; G deferred.
 **Date:** 2026-10-16
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
@@ -49,9 +49,9 @@ or a generic outbox engine.
   fingerprint fields, storage, normalization, and redaction/enrichment timing; exclude
   EnvelopeId and transport retry metadata. Do not retain a first-committed-wins branch that
   reports changed content as a duplicate.
-- H3a: record whether logical EventId uniqueness is global or tenant-scoped using the actual
-  trusted tenant model and database key. A tenant-scoped decision requires coordinated
-  indexes/keys/queries, not just an application predicate.
+- H3a: Jesse confirmed global EventId uniqueness on 2026-10-16, preserving existing keys.
+  Canonical comparison, authorization and schema are specified in the
+  [implementation contract](BatchPublishingH3aImplementation.md). SQL verification is complete; host rollout remains open.
 - H3: choose the internal per-input outcome shape and enforce its cardinality independently
   of deferred public G, as required below.
 
@@ -60,9 +60,9 @@ or a generic outbox engine.
 | Slice | Priority | Dependency | Status | Deliverable |
 |-------|----------|------------|--------|-------------|
 | H1 | High | None | Implemented in AuditCore; rollout gates open | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
-| H2 | Medium | None | Planned | Accurate immediate/outbox batch contract and failure examples |
-| H3a | Medium | None | Planned | One logical explicit-event identity across both sink modes |
-| H3 | Medium | H3a | Planned | Accurate duplicate/new-event outcomes and metrics |
+| H2 | Medium | None | Implemented and locally verified; not packaged | Accurate immediate/outbox batch contract and failure examples |
+| H3a | Medium | None | Library implemented and SQL verified; host rollout pending | One logical explicit-event identity across both sink modes |
+| H3 | Medium | H3a | Implemented and verified; unshipped | Accurate duplicate/new-event outcomes and metrics |
 | H4 | Refactor | H1 | Planned; independently deferrable | Internal outbox repository with ownership-aware operations |
 | H5 | Qualification | H1–H3 (including H3a); sequence acceptance tracked separately | Planned | Reproducible throughput, latency, memory, and reconciliation evidence |
 | G | Optional API | H1–H3 (including H3a) and demonstrated consumer need | Deferred | Public per-envelope result contract, if justified |
@@ -279,42 +279,59 @@ conditional acknowledgements. Neither counter promises exactly-once routing.
 
 ## H2 — Correct public batch acceptance and failure documentation
 
-`IAuditSink.PublishBatchAsync` currently promises a single transaction and no partial success.
-`ImmediateSink` runs entity and explicit-event writers independently; one can commit before
-another fails. Correct the XML documentation and consumer-facing examples to describe this
-behavior. Keep `AuditWriteException.FailedEnvelopeIds` documented as the failure correlation
-mechanism. Explain preservation of stable identities when retrying. Reject null batch entries
-with an argument exception before invoking either writer or staging any outbox rows; apply
-this consistently to immediate and transactional outbox sinks.
+### Implementation result — 2026-10-16
 
-Same-kind batches also need coverage of partial outcomes. The current entity writer retries
-an entire atomic attempt in a fresh scope after duplicate-key races; it does **not** currently
-fall back to independent per-envelope commits. Test that actual behavior, including a replayed
-subset plus new envelopes and exhausted retry failure, without documenting a nonexistent
-fallback. Explicit-event logger race fallback does perform per-event writes and can persist
-an earlier event before a later event fails; cover that production path as well.
+[H2 evidence](../evidence/audit-pipeline-2026-10/h2-acceptance-2026-10-16/README.md):
+**62 focused tests passed** and **2,550 full Release regression tests passed**, zero failures.
+Both sinks reject null entries before writer calls. Public/implementation XML and README
+now describe partial commits, returned failure IDs, interrupted calls, stable-identity retry,
+and acceptance inside the consumer transaction. No public signature, transaction or schema
+change; not packaged or deployed. Published dev.7 remains unchanged. The following records
+H2's implemented requirements and local acceptance.
 
-Outbox acceptance occurs inside the consumer transaction. Successful return does not mean
-that transaction has committed or that the audit record is already queryable. Do not add a
-cross-writer transaction as an incidental documentation fix; that would require a separate
-transaction-design proposal if a consumer actually requires it.
+The former `IAuditSink.PublishBatchAsync` contract promised one transaction and no partial
+success. XML and README now describe the independent immediate writers, returned
+`AuditWriteException.FailedEnvelopeIds`, unchanged identities on retry, and the possibility
+of committed work without complete feedback after a writer exception or cancellation.
+Null batch entries now raise an argument exception before either writer or outbox staging.
 
-- [ ] A mixed-kind regression test makes one writer succeed and the other fail, verifies the
+SQLite regressions exercise entity replay/new batches, whole-attempt duplicate retries and
+exhaustion without fresh-row commits. They force the actual explicit-event logger through
+both duplicate catches into per-event fallback, then verify a later write failure or
+cancellation leaves the earlier event committed. Mixed-kind tests verify both returned
+failure directions and exception propagation after an earlier commit.
+
+Outbox acceptance is tested before consumer SaveChanges and followed through save and
+rollback: successful publication does not commit the consumer transaction or make the final
+audit record queryable. No cross-writer transaction was introduced.
+
+- [x] A mixed-kind regression test makes one writer succeed and the other fail, verifies the
       reported failed IDs, and confirms the successful subset is not described as rolled back.
-- [ ] Same-kind regressions cover entity replay/new outcomes and atomic failed attempts,
+- [x] Same-kind regressions cover entity replay/new outcomes and atomic failed attempts,
       plus explicit-event per-event fallback where an earlier write persists before failure.
-- [ ] Null at the start/middle/end throws before any persistence in either sink; valid inputs
-      retain their original order/correlation and empty batches remain supported.
-- [ ] Document writer exceptions/cancellation separately from returned failure outcomes;
+- [x] Null at the start/middle/end throws before any persistence in either sink; valid inputs
+      retain relative order within each writer and original ID correlation; empty batches remain supported.
+- [x] Document writer exceptions/cancellation separately from returned failure outcomes;
       avoid promising complete per-envelope feedback on an interrupted call.
-- [ ] Public docs, sink docs, and plan examples agree about immediate and outbox acceptance.
+- [x] Public docs, sink docs, and plan examples agree about immediate and outbox acceptance.
 
 ## H3a — Unify explicit-event persistence identity
 
+### Implementation discovery — 2026-10-16
+
+[Source discovery and producer inventory](../evidence/audit-pipeline-2026-10/h3a-design-2026-10-16/README.md)
+confirm globally unique current keys, key-only duplicate handling at multiple persistence
+boundaries, and ten explicitly typed MillWorks API producers missing ExplicitEventId in the
+bounded scan. Global scope is confirmed. The [implementation contract](BatchPublishingH3aImplementation.md)
+records the source changes and host gates. [Retained verification](../evidence/audit-pipeline-2026-10/h3a-verification-2026-10-16/README.md)
+records 178 identity/ownership passes and 114 final identity passes, zero failures. Library
+verification is complete; host producer/data inventory, package release and activation remain open.
+
+
 The outbox deduplicates explicit events by `ExplicitEventId`, but `AuditEventBatchWriter`
-currently persists `EventId = EnvelopeId`. Immediate mode can therefore store one logical
-explicit event twice when it is re-enveloped with distinct EnvelopeIds, and the stored record
-loses the caller's original EventId. Fix this before H3 defines EventId-to-envelope mappings.
+previously persisted `EventId = EnvelopeId`. The previous immediate path could store one logical explicit event twice when re-enveloped
+with distinct EnvelopeIds. The implemented mapper now preserves the caller's required
+ExplicitEventId; H3 will build exact outcome reporting on that identity.
 
 For explicit events, require a non-null, non-empty `ExplicitEventId` and persist that value as
 `AuditEvent.EventId`; use the same value as the outbox idempotency key. EnvelopeId remains the
@@ -322,8 +339,8 @@ per-envelope result correlation identity. Validate before writes, update every p
 serialization fixture, and manual-envelope example, and remove the backwards-compatibility
 fallback to EnvelopeId. Entity-change envelopes continue to use EnvelopeId for idempotency.
 Do not silently rewrite existing persisted EventIds. Inventory local queued envelopes and
-persisted records before rollout; handle any incompatible local data explicitly under the
-greenfield reset/migration policy rather than keeping a permanent runtime fallback.
+persisted records before rollout; handle incompatible data through a reviewed drain/migration disposition. No reset, deletion
+or EventId rewrite is authorized by this work.
 
 ### Conflicting reuse of an explicit-event identity
 
@@ -334,8 +351,9 @@ not Duplicate and must not overwrite the accepted event. Apply the rule in immed
 outbox modes, within a batch, across concurrent requests, and after drain. Return a stable,
 payload-safe conflict classification; a corrected/different event needs a new logical ID.
 
-Before implementation, define the canonical fingerprint/comparison version and immutable
-semantic fields, identity scope, stored comparison evidence, and retention window. An
+The [implementation contract](BatchPublishingH3aImplementation.md) defines canonical comparison
+version 1, immutable semantic fields, global scope, stored receipts and indefinite retention
+until coordinated disposition exists. SQL races and entity repair/cleanup overlap are now verified with RCSI off/on. An
 explicit event re-enveloped under a different EnvelopeId must still compare equal when its
 logical content matches; transport/claim metadata is not logical event content. Include the
 relevant tenant, actor, governance/subject metadata and event payload in the contract rather
@@ -359,33 +377,40 @@ result and never become duplicate successes. If the candidate fails without any 
 winner, none of those references can be reported as successful. Across concurrent submissions, the unique persisted
 identity determines the winner. Preserve every EnvelopeId in outcome correlation.
 
-- [ ] One ExplicitEventId with different EnvelopeIds produces one durable event in immediate
+- [x] One ExplicitEventId with different EnvelopeIds produces one durable event in immediate
       mode and one logical outbox entry in outbox mode; replay after drain remains idempotent.
-- [ ] Stored EventId equals the caller's ExplicitEventId; round-trip serialization preserves
+- [x] Stored EventId equals the caller's ExplicitEventId; round-trip serialization preserves
       both IDs; new logical EventIds remain distinct even when event content matches.
-- [ ] Missing/empty ExplicitEventId is rejected before persistence in both modes; all producers
-      and fixtures supply it. Entity-change identity selection is unchanged; specify its content-comparison/repair contract above.
-- [ ] Mixed/repeated logical IDs within one batch map deterministic per-input outcomes back
+- [x] Missing/empty ExplicitEventId is rejected before persistence in both modes; repository
+      fixtures supply it. Entity identity and its comparison/repair contract are specified.
+- [ ] Before host activation, update all host producers (including the ten known missing-ID
+      initializers), inventory target-typed/external producers and queued/persisted data, wire
+      trusted authorization and consumer receipt mapping, and apply owning migrations.
+      Preserve retry identity/time; no reset or historical proof backfill is authorized.
+- [x] Mixed/repeated logical IDs within one batch map deterministic per-input outcomes back
       to EnvelopeId without assuming one EventId maps to only one envelope. Duplicate
       EnvelopeIds are rejected before writes under the policy above, rather than causing a dictionary exception.
 
-- [ ] Identical canonical content under one scoped ExplicitEventId is replay; different
+- [x] Identical canonical content under one scoped ExplicitEventId is replay; different
       content is a stable conflict in same-batch, persisted, queued, post-drain, and concurrent
       cases in both modes. Stored content remains unchanged; a failed/conflicting candidate
       cannot make later references false successes. Cover differently ordered JSON properties,
       distinct EnvelopeIds, changed tenant/actor/payload, and authorization before disclosure.
-- [ ] Identity scope, canonical comparison version/fields, stored evidence, schema, and
+- [x] Identity scope, canonical comparison version/fields, stored evidence, schema, and
       cleanup window are specified and exercised under real uniqueness races. Entity-change
       partial replay repair remains supported without permitting conflicting original values.
-- [ ] Repeated EnvelopeIds are rejected before writes; distinct EnvelopeIds sharing a logical
+- [x] Repeated EnvelopeIds are rejected before writes; distinct EnvelopeIds sharing a logical
       event receive correlated outcomes. Public examples require a new logical ID for new content.
 
 ## H3 — Preserve duplicate classification within mixed event batches
 
-`AuditLogger.LogBatchAsync` now persists the new events in a replay/new batch safely, but
-returns ordinary batch success after that fallback. `AuditEventBatchWriter` consequently maps
-both existing and newly persisted events to Success, so duplicate metrics are understated.
-This is an outcome/reporting gap, distinct from the original fixed silent-loss bug.
+**Implementation:** [H3 contract](BatchPublishingH3Implementation.md). Exact per-event metadata,
+validation, metrics and bounded contract-defect escalation are implemented and verified:
+[2,442 broad and 155 focused passes](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md), zero failures. No package or host deployment occurred.
+
+The prior logger persisted mixed replay/new batches safely but returned aggregate success,
+causing existing events to be counted as new. The new EventOutcomes metadata preserves the
+observed persistence result through each recovery path and maps it back to EnvelopeId.
 
 Add deterministic per-event outcome information on the internal logger/writer path, keyed by
 persisted EventId (the ExplicitEventId established by H3a) and mapped back to each input
@@ -396,13 +421,13 @@ successful writes exist by then. Preserve classifications through the concurrent
 fallback. Any logger used by this internal path must supply the required outcome contract;
 record and update custom implementations affected by that contract.
 
-- [ ] New-only, duplicate-only, mixed replay/new, and concurrent-insert fallback tests verify
+- [x] New-only, duplicate-only, mixed replay/new, and concurrent-insert fallback tests verify
       persistence and exact internal per-envelope classifications.
-- [ ] Processor metrics distinguish newly published, content-verified duplicate, conflict,
+- [x] Processor metrics distinguish newly published, content-verified duplicate, conflict,
       and failed envelopes in mixed batches; key existence alone is not verified replay.
-- [ ] Partial failures and replay after an interrupted fallback do not lose events or label
+- [x] Partial failures and replay after an interrupted fallback do not lose events or label
       an unpersisted new event as successful.
-- [ ] Callers, implementations, and fixtures use the chosen outcome contract; no legacy
+- [x] Callers, implementations, and fixtures use the chosen outcome contract; no legacy
       aggregate-only branch invents individual duplicate statuses.
 
 ### Internal result validation
@@ -415,9 +440,18 @@ claims recoverable, report the defect, and rely on idempotency if writes already
 Define bounded operational escalation for a persistently broken processor rather than silently
 looping forever. Known invalid-envelope terminal outcomes remain a separate path.
 
-- [ ] Missing, duplicate, contradictory, and unknown outcomes cannot falsely complete/fail
+- [x] Missing, duplicate, contradictory, and unknown outcomes cannot falsely complete/fail
       rows or increment attempts twice; committed audit writes survive recoverable replay.
-- [ ] These checks run on the internal processor/writer contracts even when G is deferred.
+- [x] These checks run on the internal processor/writer contracts even when G is deferred.
+
+### H3a/H3 review corrections — 2026-10-16
+
+Both code-review findings are resolved: concurrent commits between receipt/source reads no
+longer become false unverified failures, and late fallback conflicts preserve earlier new
+classifications. [Before/after proof and regression evidence](../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
+records 10 failing new SQL cases before correction, all 14 passing afterward, 322 focused
+passes and 2,443 broad passes, zero final failures. Genuine missing evidence remains rejected.
+H2/H3a/H3 remain unshipped; host rollout and H4/H5 are unchanged.
 
 ## H4 — Extract ownership-aware outbox persistence
 

@@ -120,7 +120,7 @@ public sealed partial class OutboxOwnershipTests(string provider, bool rcsi)
         Action = AuditAction.Unknown, ExplicitEventId = Guid.NewGuid(),
         GovernanceIdentity = new(_tenant)
     }, QueuedEnvelopeValidator.Json);
-    private async Task<Guid[]> Seed(int count = 1, string? json = null, int version = 1)
+    private async Task<Guid[]> Seed(int count = 1, string? json = null, int version = TransactionalOutboxSink.CurrentEnvelopeVersion)
     {
         await using var db = Db();
         var rows = Enumerable.Range(0, count).Select(i => new AuditOutboxEntity

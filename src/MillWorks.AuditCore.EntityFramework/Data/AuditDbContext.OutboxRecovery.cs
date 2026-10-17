@@ -9,6 +9,12 @@ public partial class AuditDbContext
 {
     private void ConfigureOutboxRecovery(ModelBuilder modelBuilder, bool isSqlite)
     {
+        modelBuilder.Entity<AuditEnvelopeIdentity>(e =>
+        {
+            e.ToTable("AuditEnvelopeIdentities", _schema);
+            e.HasKey(x => new { x.Channel, x.LogicalId });
+            e.HasIndex(x => x.TenantId);
+        });
         modelBuilder.Entity<AuditOutboxOperation>(e =>
         {
             e.ToTable("AuditOutboxOperations", _schema);
@@ -36,7 +42,7 @@ public partial class AuditDbContext
         var converter = new ValueConverter<DateTimeOffset, string>(
             x => x.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss.FFFFFFFzzz", CultureInfo.InvariantCulture),
             x => DateTimeOffset.Parse(x, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal));
-        foreach (var type in new[] { typeof(AuditOutboxEntity), typeof(AuditOutboxOperation),
+        foreach (var type in new[] { typeof(AuditEnvelopeIdentity), typeof(AuditOutboxEntity), typeof(AuditOutboxOperation),
                      typeof(AuditOutboxFailureHandoff), typeof(AuditOutboxResolution) })
         foreach (var property in modelBuilder.Entity(type).Metadata.GetProperties())
             if ((Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType) == typeof(DateTimeOffset))

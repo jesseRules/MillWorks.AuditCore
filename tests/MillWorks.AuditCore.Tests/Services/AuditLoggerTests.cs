@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
@@ -588,6 +588,7 @@ public class AuditLoggerTests
         var envelope = new AuditEnvelope
         {
             Kind = MillWorks.AuditCore.Abstractions.Enums.AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "DataBreachReportEntity",
             EntityId = stringKey ? null : id,
             EntityIdString = stringKey ? expectedId : "ignored-string-key",

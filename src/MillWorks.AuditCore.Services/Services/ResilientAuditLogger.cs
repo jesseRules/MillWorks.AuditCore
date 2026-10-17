@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -35,7 +35,7 @@ public sealed class ResilientAuditLogger(
     IServiceScopeFactory scopeFactory,
     ILogger<ResilientAuditLogger> logger,
     IAuditDiagnostics? diagnostics = null)
-    : IAuditLogger
+    : IAuditLogger, IAuditEnvelopeBatchLogger
 {
     /// <summary>
     /// Maximum number of retries for logging
@@ -114,13 +114,15 @@ public sealed class ResilientAuditLogger(
                 activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
                 return;
             }
+            catch (Sinks.Processing.AuditBatchContractException) { throw; }
+            catch (Sinks.Identity.AuditIdentityConflictException) { throw; }
             catch (OperationCanceledException)
             {
                 activity?.SetTag(AuditActivitySource.Tags.Outcome, "cancelled");
                 // Don't retry or send to DLQ on cancellation - just propagate
                 throw;
             }
-            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex) && auditEvent.SourceEnvelope is null)
             {
                 // Duplicate key error - event was already saved
                 logger.LogWarning(
@@ -176,6 +178,15 @@ public sealed class ResilientAuditLogger(
     /// Logs a batch of audit events with resilience and dead letter queue fallback.
     /// Retries the entire batch on failure. On exhaustion, sends each event individually to DLQ.
     /// </summary>
+    public Task<BatchAuditResult> LogEnvelopeBatchAsync(IReadOnlyList<AuditEnvelope> envelopes,
+        CancellationToken cancellationToken = default)
+    {
+        Sinks.Identity.AuditEnvelopeContent.ValidateBatch(envelopes);
+        if (envelopes.Count == 0)
+            return Task.FromResult(new BatchAuditResult { Success = true, EventCount = 0, EventOutcomes = [] });
+        return LogBatchAsync(envelopes.Select(Sinks.Writers.AuditEventBatchWriter.MapToAuditEvent).ToList(), cancellationToken);
+    }
+
     public async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(auditEvents);
@@ -221,24 +232,28 @@ public sealed class ResilientAuditLogger(
                 {
                     var attemptLogger = scope.ServiceProvider.GetRequiredService<AuditLogger>();
                     result = await attemptLogger.LogBatchAsync(auditEvents, cancellationToken);
+                    if (auditEvents.All(e => e.SourceEnvelope is not null))
+                        Sinks.Writers.AuditEventBatchWriter.ValidateResult(result, auditEvents.Select(e => e.EventId));
                 }
 
-                if (retry > 0)
+                if (retry > 0 && result.Success)
                 {
                     logger.LogInformation("Successfully logged batch of {Count} audit events after {Attempts} attempts",
                         auditEvents.Count, retry + 1);
                 }
 
-                activity?.SetTag(AuditActivitySource.Tags.Outcome, "success");
+                activity?.SetTag(AuditActivitySource.Tags.Outcome, result.Success ? "success" : "failure");
                 activity?.SetTag(AuditActivitySource.Tags.ProcessedCount, auditEvents.Count);
                 return result;
             }
+            catch (Sinks.Processing.AuditBatchContractException) { throw; }
+            catch (Sinks.Identity.AuditIdentityConflictException) { throw; }
             catch (OperationCanceledException)
             {
                 activity?.SetTag(AuditActivitySource.Tags.Outcome, "cancelled");
                 throw;
             }
-            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
+            catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex) && auditEvents.All(e => e.SourceEnvelope is null))
             {
                 logger.LogWarning("Batch contains duplicate keys. Treating as success.");
                 activity?.SetTag(AuditActivitySource.Tags.Outcome, "duplicate");
@@ -281,7 +296,12 @@ public sealed class ResilientAuditLogger(
             }
         }
 
-        return BatchAuditResult.Failed(auditEvents, lastException!);
+        return new BatchAuditResult
+        {
+            Success = false, EventCount = auditEvents.Count, FailedEvents = auditEvents, Exception = lastException,
+            EventOutcomes = auditEvents.All(e => e.SourceEnvelope is not null)
+                ? auditEvents.Select(e => new AuditEventOutcome(e.EventId, AuditEventWriteStatus.Failed, lastException, true)).ToArray() : null
+        };
     }
 
     /// <summary>

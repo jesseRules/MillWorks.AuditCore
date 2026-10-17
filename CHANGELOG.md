@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Local release candidate — 1.15.4-dev.8
+
+- Coordinates all five packages at a fresh version for the reviewed H2/H3a/H3 changes below, including the split-read and late-conflict fixes. Build/package verification and local-feed publication are in progress.
+- Includes `20261016230118_AddAuditEnvelopeIdentities`. Before host activation, supply stable producer IDs/time and trusted write authorization, map/apply receipts in owning databases, update custom logger/outbox contracts, and review queue-version-1 data before enabling version 2. Existing H1 migrations and rollout gates still apply.
+- No MillWorks host update or API build/restart is part of this package release. Source and package provenance will be retained in `docs/evidence/audit-pipeline-2026-10/release-dev8/README.md`.
+
+### H3a/H3 review corrections (verified; unshipped)
+
+- Recheck missing receipt evidence when source rows become visible between reads, so a concurrent atomic winner is classified as verified replay or content conflict instead of unverified historical data. Preserve unknown-history rejection.
+- Preserve confirmed new/duplicate outcomes when per-event fallback discovers a late conflict. Return that conflict in complete metadata, continue unresolved inputs, and keep resilient tracing consistent with the failed result.
+- Added SQL regressions for both RCSI modes and immediate/mapped outbox paths. All 14 new SQL cases pass after the fixes; 10 failed against the reviewed source. Wider verification: 322 focused and 2,443 broad passes, zero failures. Evidence: `docs/evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md`.
+
+### H3 exact internal outcomes (verified; not packaged or deployed)
+
+- Require exact per-event metadata on the envelope logger capability. Preserve new versus content-verified duplicate outcomes through single-item, mixed and concurrent-insert recovery paths; map aliases back to EnvelopeId without aggregate guesses.
+- Validate complete logger/writer/processor results before result-derived transitions or outcome counters. Contract defects leave claims recoverable, bypass ordinary failure/DLQ conversion, and fault the drainer after its configured defect threshold.
+- Verification: 2,442 broad regressions and 155 focused tests passed, zero failures; the focused run includes real SQL RCSI off/on. Reports and exact commands: `docs/evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md`.
+- Tag identity conflicts and unverifiable identities separately in failed-envelope metrics. Add real SQL mixed-batch race tests for both RCSI settings, SQLite fallback/replay/metrics coverage, malformed-result checks and bounded escalation coverage. See `docs/plans/BatchPublishingH3Implementation.md`.
+
+### H3a logical event identity (verified; not packaged or deployed)
+
+- Require ExplicitEventId for explicit envelopes, persist it as EventId, and reserve EnvelopeId for correlation. Compare versioned canonical semantic content through atomic identity receipts; changed or unverifiable reuse fails closed.
+- Add the incremental identity-receipt migration, mandatory host authorization and explicit custom logger/outbox capabilities. Queue format advances to version 2; historical rows are not rewritten or backfilled.
+- Respect SQL Server's 32-character savepoint limit; verify raw-call rollback preserves earlier caller transaction work and SERIALIZABLE entity repair blocks concurrent cleanup.
+- Preserve comparison context through ordinary DLQ serialization and retain cross-store identity conflicts through the H1 failure path. SQL verification passed with RCSI off/on (178 identity/ownership and 114 final focused passes, zero failures); producer/data rollout gates remain open; see `docs/plans/BatchPublishingH3aImplementation.md`. Published dev.7 remains unchanged.
+
+### H2 batch acceptance and failure contract (not packaged or deployed)
+
+- Reject null batch entries with an argument exception before either immediate writer or the outbox writer runs. Empty batches and valid input order/identity remain supported.
+- Correct sink/logger contracts and README examples: immediate writers commit independently, explicit-event race recovery may partially persist, and outbox acceptance does not commit the consumer transaction. Document returned failed IDs separately from interrupted calls and preserve identities on retry.
+- Add real SQLite partial-commit, retry-exhaustion, fallback-interruption and consumer-rollback coverage. Retained commands/results: `docs/evidence/audit-pipeline-2026-10/h2-acceptance-2026-10-16/README.md`. Published dev.7 packages are unchanged; a future publication requires a fresh unused version. H3a/H3 remain open.
+
 ### Outbox H1 ownership and failure recovery — 1.15.4-dev.7 (published to local feeds)
 
 - Fresh acquisition tokens and independent untracked state scopes guard claim, grouped outcomes, bounded recovery, operator resolution and projection acknowledgement. Current tokens may finish after expiry until conditional recovery wins.

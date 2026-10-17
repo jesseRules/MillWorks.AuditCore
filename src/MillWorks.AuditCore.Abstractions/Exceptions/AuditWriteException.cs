@@ -27,7 +27,10 @@ public sealed class AuditWriteException(
     public int FailedCount { get; } = failedCount;
 
     /// <summary>
-    /// Envelope IDs that failed, for correlation with retry logic.
+    /// Envelope IDs whose returned writer outcomes reported failure, for correlation with
+    /// the original inputs. Preserve their identities when retrying. Earlier successful writes
+    /// are not rolled back; a failed outcome is not proof that the identity is absent.
+    /// Writer exceptions/cancellation can instead propagate without this correlation result.
     /// </summary>
     public IReadOnlyList<Guid> FailedEnvelopeIds { get; } = failedEnvelopeIds;
 

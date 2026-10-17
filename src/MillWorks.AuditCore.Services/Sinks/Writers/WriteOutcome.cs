@@ -28,6 +28,8 @@ internal sealed class WriteOutcome
     /// </summary>
     public bool IsDuplicate { get; init; }
 
+    public bool IsConflict { get; init; }
+
     /// <summary>
     /// True if the failure is transient and the envelope may succeed on retry.
     /// </summary>
@@ -49,6 +51,10 @@ internal sealed class WriteOutcome
     /// </summary>
     public static WriteOutcome Duplicate(Guid envelopeId) =>
         new() { EnvelopeId = envelopeId, Succeeded = true, IsDuplicate = true };
+
+    public static WriteOutcome Conflict(Guid envelopeId, Identity.AuditIdentityConflictException exception) =>
+        new() { EnvelopeId = envelopeId, Succeeded = false, IsConflict = true,
+            ErrorMessage = exception.Message, Exception = exception, IsRetryable = false };
 
     /// <summary>
     /// Creates a failed outcome with the given error.

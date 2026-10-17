@@ -51,6 +51,7 @@ public abstract class SqliteIntegrationFixture : IDisposable
     public void CleanupData()
     {
         using var context = CreateContext();
+        context.Database.ExecuteSqlRaw("DELETE FROM \"AuditEnvelopeIdentities\"");
         // Delete child tables first to respect Restrict FK constraints
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditIntegrity\"");
         context.Database.ExecuteSqlRaw("DELETE FROM \"AuditIntegrityWorkItems\"");

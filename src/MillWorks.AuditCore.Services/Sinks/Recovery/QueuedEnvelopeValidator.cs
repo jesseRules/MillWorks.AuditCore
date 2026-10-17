@@ -25,7 +25,8 @@ internal static class QueuedEnvelopeValidator
                 (envelope.Kind == AuditEnvelopeKind.ExplicitEvent && string.IsNullOrWhiteSpace(envelope.EventType)) ||
                 (envelope.PropertyChanges?.Any(x => x is null || string.IsNullOrWhiteSpace(x.PropertyName)) ?? false))
                 throw new InvalidDataException("invalid_contract");
-            // H3a will tighten explicit-event identity when its producers/fixtures change together.
+            Identity.AuditEnvelopeContent.Validate(envelope);
+            _ = Identity.AuditEnvelopeContent.Fingerprint(envelope);
             return envelope;
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException or FormatException)

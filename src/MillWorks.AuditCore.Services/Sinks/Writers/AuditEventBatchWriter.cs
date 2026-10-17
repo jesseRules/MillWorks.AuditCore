@@ -16,100 +16,82 @@ internal sealed class AuditEventBatchWriter(
         IReadOnlyList<AuditEnvelope> envelopes,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(envelopes);
-
-        if (envelopes.Count == 0)
-            return [];
-
-        var auditEvents = new List<AuditEvent>(envelopes.Count);
-        var envelopeByEventIndex = new List<AuditEnvelope>(envelopes.Count);
-
-        foreach (var envelope in envelopes)
+        Identity.AuditEnvelopeContent.ValidateBatch(envelopes);
+        if (envelopes.Count == 0) return [];
+        var fingerprints = envelopes.ToDictionary(e => e.EnvelopeId, Identity.AuditEnvelopeContent.Fingerprint);
+        var outcomes = new Dictionary<Guid, WriteOutcome>();
+        var groups = envelopes.GroupBy(e => e.ExplicitEventId!.Value).ToDictionary(g => g.Key, g => g.ToList());
+        if (auditLogger is not IAuditEnvelopeBatchLogger envelopeLogger)
+            throw new InvalidOperationException("The configured audit logger must implement IAuditEnvelopeBatchLogger.");
+        var pending = new Dictionary<Guid, AuditEnvelope>();
+        foreach (var (id, group) in groups)
         {
-            if (envelope is null)
+            var candidate = group[0];
+            pending.Add(id, candidate);
+            foreach (var reference in group.Skip(1))
+                if (fingerprints[reference.EnvelopeId] != fingerprints[candidate.EnvelopeId])
+                    outcomes.Add(reference.EnvelopeId, WriteOutcome.Conflict(reference.EnvelopeId,
+                        new Identity.AuditIdentityConflictException([id])));
+        }
+        while (pending.Count > 0)
+        {
+            BatchAuditResult result;
+            try { result = await envelopeLogger.LogEnvelopeBatchAsync(pending.Values.ToList(), cancellationToken); }
+            catch (Identity.AuditIdentityConflictException conflict)
+            {
+                var affected = conflict.LogicalIds.Where(pending.ContainsKey).ToArray();
+                if (affected.Length == 0) throw;
+                foreach (var id in affected)
+                {
+                    foreach (var input in groups[id].Where(e => !outcomes.ContainsKey(e.EnvelopeId)))
+                        outcomes.Add(input.EnvelopeId, WriteOutcome.Conflict(input.EnvelopeId, conflict));
+                    pending.Remove(id);
+                }
                 continue;
-
-            auditEvents.Add(MapToAuditEvent(envelope));
-            envelopeByEventIndex.Add(envelope);
+            }
+            var exact = ValidateResult(result, pending.Keys);
+            foreach (var (id, candidate) in pending)
+            {
+                var item = exact[id];
+                foreach (var input in groups[id].Where(e => !outcomes.ContainsKey(e.EnvelopeId)))
+                {
+                    var outcome = item.Status == AuditEventWriteStatus.Failed && item.Exception is Identity.AuditIdentityConflictException conflict
+                        ? WriteOutcome.Conflict(input.EnvelopeId, conflict)
+                        : item.Status == AuditEventWriteStatus.Failed
+                        ? WriteOutcome.Failed(input.EnvelopeId, item.Exception?.Message ?? "Batch write failed", item.IsRetryable, item.Exception)
+                        : item.Status == AuditEventWriteStatus.Duplicate || input != groups[id][0]
+                            ? WriteOutcome.Duplicate(input.EnvelopeId) : WriteOutcome.Success(input.EnvelopeId);
+                    outcomes.Add(input.EnvelopeId, outcome);
+                }
+            }
+            pending.Clear();
         }
-
-        if (auditEvents.Count == 0)
-            return [];
-
-        var batchResult = await auditLogger.LogBatchAsync(auditEvents, cancellationToken);
-
-        var outcomes = new List<WriteOutcome>(envelopeByEventIndex.Count);
-
-        if (batchResult.Success)
-        {
-            if (batchResult.IsDuplicate)
-            {
-                logger.LogDebug(
-                    "Duplicate key detected for {EventCount} explicit event(s), treating as success",
-                    auditEvents.Count);
-
-                foreach (var envelope in envelopeByEventIndex)
-                {
-                    outcomes.Add(WriteOutcome.Duplicate(envelope.EnvelopeId));
-                }
-            }
-            else
-            {
-                logger.LogDebug("Wrote {EventCount} explicit event(s)", auditEvents.Count);
-
-                foreach (var envelope in envelopeByEventIndex)
-                {
-                    outcomes.Add(WriteOutcome.Success(envelope.EnvelopeId));
-                }
-            }
-        }
-        else
-        {
-            logger.LogWarning(batchResult.Exception, "Failed to write {EventCount} explicit event(s)", auditEvents.Count);
-
-            var errorMessage = batchResult.Exception?.Message ?? "Batch write failed";
-
-            // If FailedEvents is empty, treat it as total failure (all events failed).
-            // This handles cases like connection failures where no per-event details exist.
-            if (batchResult.FailedEvents.Count == 0)
-            {
-                foreach (var envelope in envelopeByEventIndex)
-                {
-                    outcomes.Add(WriteOutcome.Failed(envelope.EnvelopeId, errorMessage, isRetryable: true, batchResult.Exception));
-                }
-            }
-            else
-            {
-                // Partial failure: correlate failed events by EventId.
-                // Assumes FailedEvents contains the same AuditEvent instances (or matching EventIds)
-                // that were passed to LogBatchAsync.
-                var failedEventIds = batchResult.FailedEvents
-                    .Select(static e => e.EventId)
-                    .ToHashSet();
-
-                for (var i = 0; i < envelopeByEventIndex.Count; i++)
-                {
-                    var envelope = envelopeByEventIndex[i];
-                    var auditEvent = auditEvents[i];
-
-                    outcomes.Add(failedEventIds.Contains(auditEvent.EventId)
-                        ? WriteOutcome.Failed(envelope.EnvelopeId, errorMessage, isRetryable: true,
-                            batchResult.Exception)
-                        : WriteOutcome.Success(envelope.EnvelopeId));
-                }
-            }
-        }
-
-        return outcomes;
+        logger.LogDebug("Classified {EnvelopeCount} explicit envelope outcome(s)", envelopes.Count);
+        return envelopes.Select(e => outcomes[e.EnvelopeId]).ToList();
     }
 
-    private static AuditEvent MapToAuditEvent(AuditEnvelope envelope)
+    internal static Dictionary<Guid, AuditEventOutcome> ValidateResult(BatchAuditResult result, IEnumerable<Guid> expected)
+    {
+        var ids = expected.ToHashSet();
+        var items = result?.EventOutcomes;
+        if (result is null || (result.Success && result.Exception is not null) || result.FailedEvents is null || result.FailedEvents.Any(x => x is null) || items is null || items.Count != ids.Count || result.EventCount != ids.Count ||
+            items.Any(x => x is null || !ids.Contains(x.EventId) || !Enum.IsDefined(x.Status) ||
+                (x.Status != AuditEventWriteStatus.Failed && (x.Exception is not null || x.IsRetryable))) ||
+            items.Select(x => x.EventId).Distinct().Count() != ids.Count ||
+            result.Success != items.All(x => x.Status != AuditEventWriteStatus.Failed) ||
+            result.IsDuplicate != (items.Count > 0 && items.All(x => x.Status == AuditEventWriteStatus.Duplicate)) ||
+            !result.FailedEvents.Select(x => x.EventId).Order().SequenceEqual(
+                items.Where(x => x.Status == AuditEventWriteStatus.Failed).Select(x => x.EventId).Order()))
+            throw new Processing.AuditBatchContractException("Envelope logger must return exactly one consistent outcome per logical event.");
+        return items.ToDictionary(x => x.EventId);
+    }
+
+    internal static AuditEvent MapToAuditEvent(AuditEnvelope envelope)
     {
         var auditEvent = new AuditEvent
         {
-            // Use EnvelopeId as EventId to ensure idempotency: replaying the same
-            // envelope produces the same EventId, which the PK constraint catches.
-            EventId = envelope.EnvelopeId,
+            SourceEnvelope = envelope,
+            EventId = envelope.ExplicitEventId!.Value,
             EventType = envelope.EventType ?? string.Empty,
             EntityName = envelope.EntityName,
             Action = envelope.Action,
@@ -119,6 +101,14 @@ internal sealed class AuditEventBatchWriter(
             UserAgent = envelope.UserAgent,
             AspNetUserId = envelope.UserId
         };
+
+        if (envelope.GovernanceIdentity is { } governance)
+        {
+            auditEvent.CustomFields["TenantId"] = governance.TenantId;
+            auditEvent.CustomFields["AuditGovernanceIdentity"] = governance;
+        }
+        if (envelope.SubjectReferences is { Count: > 0 })
+            auditEvent.CustomFields["AuditSubjectReferences"] = envelope.SubjectReferences;
 
         if (envelope.EntityId is { } entityId)
         {

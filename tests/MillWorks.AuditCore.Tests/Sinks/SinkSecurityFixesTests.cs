@@ -30,7 +30,7 @@ public sealed class SinkSecurityFixesTests
     {
         var entityWriter = CreateSuccessEntityWriter();
         var eventWriter = CreateSuccessEventWriter();
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
@@ -50,7 +50,7 @@ public sealed class SinkSecurityFixesTests
                 envelopes.Select(e => WriteOutcome.Failed(e.EnvelopeId, "DB connection lost", isRetryable: true)).ToList());
 
         var eventWriter = CreateSuccessEventWriter();
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
@@ -77,11 +77,11 @@ public sealed class SinkSecurityFixesTests
             .ReturnsAsync((IReadOnlyList<AuditEnvelope> envelopes, CancellationToken _) =>
                 envelopes.Select(e => WriteOutcome.Failed(e.EnvelopeId, "Constraint violation")).ToList());
 
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
-            new() { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
+            new() { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
         };
 
         var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
@@ -111,7 +111,7 @@ public sealed class SinkSecurityFixesTests
             });
 
         var eventWriter = CreateSuccessEventWriter();
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = Enumerable.Range(0, 4)
             .Select(i => new AuditEnvelope
@@ -146,12 +146,12 @@ public sealed class SinkSecurityFixesTests
             .ReturnsAsync((IReadOnlyList<AuditEnvelope> envelopes, CancellationToken _) =>
                 envelopes.Select(e => WriteOutcome.Failed(e.EnvelopeId, "Failed")).ToList());
 
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
             new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Patient", Action = AuditAction.Created },
-            new() { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
+            new() { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" }
         };
 
         var ex = await Assert.ThrowsAsync<AuditWriteException>(() => sink.PublishBatchAsync(envelopes));
@@ -168,7 +168,7 @@ public sealed class SinkSecurityFixesTests
                 envelopes.Select(e => WriteOutcome.Duplicate(e.EnvelopeId)).ToList());
 
         var eventWriter = CreateSuccessEventWriter();
-        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter.Object, eventWriter.Object, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
@@ -202,19 +202,11 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public void ExtractIdempotencyKey_ExplicitEventWithoutExplicitEventId_FallsBackToEnvelopeId()
+    public void ExtractIdempotencyKey_ExplicitEventWithoutExplicitEventId_IsRejected()
     {
         var envelope = new AuditEnvelope
-        {
-            Kind = AuditEnvelopeKind.ExplicitEvent,
-            EntityName = "User.Login",
-            Action = AuditAction.Unknown,
-            EventType = "Login"
-        };
-
-        var key = TransactionalOutboxSink.ExtractIdempotencyKey(envelope);
-
-        Assert.That(key, Is.EqualTo(envelope.EnvelopeId));
+        { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "User.Login", Action = AuditAction.Unknown, EventType = "Login" };
+        Assert.Throws<ArgumentException>(() => TransactionalOutboxSink.ExtractIdempotencyKey(envelope));
     }
 
     [Test]
@@ -254,7 +246,7 @@ public sealed class SinkSecurityFixesTests
     public async Task TransactionalOutboxSink_ExplicitEventWithId_UsesCorrectIdempotencyKey()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var explicitEventId = Guid.NewGuid();
         var envelope = new AuditEnvelope
@@ -276,7 +268,7 @@ public sealed class SinkSecurityFixesTests
     #region Finding 3: AuditBatchProcessor verifies cardinality
 
     [Test]
-    public async Task AuditBatchProcessor_WriterReturnsTooFewOutcomes_FailsMissingRows()
+    public async Task AuditBatchProcessor_WriterReturnsTooFewOutcomes_ThrowsContractDefect()
     {
         var entityWriter = new Mock<IAuditEntityBatchWriter>();
         entityWriter
@@ -312,15 +304,9 @@ public sealed class SinkSecurityFixesTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var result = await processor.ProcessBatchAsync([row1, row2, row3], CancellationToken.None);
+        await Assert.ThrowsAsync<AuditBatchContractException>(() =>
+            processor.ProcessBatchAsync([row1, row2, row3], CancellationToken.None));
 
-        Assert.That(result.Outcomes, Has.Count.EqualTo(3));
-        var succeeded = result.Outcomes.Where(o => o.Status == RowStatus.Succeeded).ToList();
-        var failed = result.Outcomes.Where(o => o.Status == RowStatus.Failed).ToList();
-
-        Assert.That(succeeded, Has.Count.EqualTo(1));
-        Assert.That(failed, Has.Count.EqualTo(2));
-        Assert.That(failed.All(f => f.ErrorMessage!.Contains("Writer did not return outcome")), Is.True);
     }
 
     [Test]
@@ -353,7 +339,7 @@ public sealed class SinkSecurityFixesTests
     }
 
     [Test]
-    public async Task AuditBatchProcessor_WriterReturnsEmpty_AllRowsFail()
+    public async Task AuditBatchProcessor_WriterReturnsEmpty_ThrowsContractDefect()
     {
         var entityWriter = new Mock<IAuditEntityBatchWriter>();
         entityWriter
@@ -372,10 +358,9 @@ public sealed class SinkSecurityFixesTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var result = await processor.ProcessBatchAsync([row], CancellationToken.None);
+        await Assert.ThrowsAsync<AuditBatchContractException>(() =>
+            processor.ProcessBatchAsync([row], CancellationToken.None));
 
-        Assert.That(result.Outcomes, Has.Count.EqualTo(1));
-        Assert.That(result.Outcomes[0].Status, Is.EqualTo(RowStatus.Failed));
     }
 
     #endregion
@@ -508,7 +493,7 @@ public sealed class SinkSecurityFixesTests
         return mock;
     }
 
-    private sealed class RecordingWriter : IAuditOutboxWriter
+    private sealed class RecordingWriter : IAuditIdentityAwareOutboxWriter
     {
         public Guid? LastIdempotencyKey { get; private set; }
 

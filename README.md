@@ -50,6 +50,80 @@ Integrity modes and sink modes:
 | **Strict (TransactionalOutbox sink)** | Audit envelope is staged in the saving consumer's transaction via outbox row; chain-extension happens after commit via background drainer. |
 | **Batched (IntegrityWriteBatcher)** | High-throughput batched integrity-chain extension. Independent of sink mode. |
 
+### Batch acceptance and retries
+
+`IAuditSink.PublishBatchAsync` returns `Task`; acceptance depends on the configured sink.
+A null batch or null entry is rejected before either immediate writer or the outbox writer
+runs. An empty batch is a no-op. Valid inputs retain their identities and relative order
+within each writer; immediate mode groups entity changes and explicit events rather than
+executing every input in its original cross-kind order.
+
+| Sink | Successful return | Failure or cancellation |
+|---|---|---|
+| Immediate | Both writers returned successful outcomes, including idempotent duplicates. | Writers commit independently. Successful writes can remain after another subset fails. |
+| Transactional outbox | Rows were accepted inside the consumer transaction. | That transaction can still roll back. Final audit persistence happens asynchronously after commit. |
+
+Immediate entity-change attempts are atomic. A duplicate-key race retries the batch in a
+fresh scope and rechecks persisted keys, up to three attempts; it does not switch to independent
+per-envelope commits. Explicit-event duplicate-race recovery can switch to per-event writes,
+so an earlier event may commit before a later event fails.
+
+When writers return failure outcomes, immediate mode throws `AuditWriteException`.
+`FailedEnvelopeIds` identifies those reported failures; successful subsets are not rolled
+back. A reported failure is not proof the identity is absent (for example, the failed entity
+attempt can include a previously persisted replay). Preserve the original payloads,
+`EnvelopeId`s, and `ExplicitEventId`s when retrying the same work:
+
+```csharp
+// batch contains the original, stable envelopes supplied by the producer.
+try
+{
+    await sink.PublishBatchAsync(batch, cancellationToken);
+}
+catch (AuditWriteException error)
+{
+    var failedIds = error.FailedEnvelopeIds.ToHashSet();
+    var retryCandidates = batch.Where(e => failedIds.Contains(e.EnvelopeId)).ToArray();
+    // Apply the caller's retry/failure policy to retryCandidates, retaining the same IDs.
+    // Do not recreate envelopes or assume the successful subset was rolled back.
+    throw;
+}
+```
+
+A writer can instead throw an infrastructure exception or cancellation before returning
+outcomes. Those exceptions propagate, may leave earlier commits, and do not supply complete
+per-envelope failure feedback. Keep the original inputs for reconciliation/retry under the
+caller's policy; do not infer that every event failed or that cancellation undid persistence.
+This API does not yet expose the proposed public per-envelope result contract.
+
+### Logical event identity (unreleased H3a)
+
+Explicit-event envelopes require a non-empty `ExplicitEventId`. Use a new logical ID for a
+new event and preserve that ID, occurrence time and semantic content across retries.
+`EnvelopeId` correlates individual inputs; it is not the stored explicit EventId. Identity
+remains globally unique across tenants. Identical canonical content is replay; changed
+content under the same ID is a conflict. Missing historical comparison evidence is unverified,
+not a successful duplicate. Repeated EnvelopeIds are rejected before batch writes.
+
+Hosts must register `IAuditEnvelopeWriteAuthorization` using trusted current actor/tenant/
+resource authority. No permissive policy is installed by default. Custom loggers and outbox
+writers must implement the new identity-aware capabilities. Apply the receipt migration and
+review queued version-1 data before activating queue version 2; no automatic data reset or
+historical fingerprint backfill is provided. See the [H3a implementation and rollout contract](docs/plans/BatchPublishingH3aImplementation.md).
+SQL Server verification is complete; host rollout remains pending. Published dev.7 does not contain H3a.
+
+### Exact batch outcomes (unreleased H3)
+
+Envelope loggers must supply one `EventOutcomes` entry per logical event, including exact
+Persisted, Duplicate or Failed classifications. Custom `IAuditEnvelopeBatchLogger`
+implementations must populate this metadata; aggregate-only results are rejected. The sink
+still returns `Task`, so public per-envelope result slice G remains deferred.
+
+Malformed internal results leave claimed outbox rows recoverable and do not become terminal
+write failures. Repeated contract defects log at Critical severity and fault the drainer after
+`OutboxDrainerCircuitBreakerThreshold` observations; the host's background-service exception
+policy handles escalation. See the [H3 result and recovery contract](docs/plans/BatchPublishingH3Implementation.md).
+
 ### Field-Level Encryption
 AES-256-GCM encryption for sensitive entity fields, applied transparently through EF Core value converters. Mark properties with `[EncryptedField]` or `[SensitiveData(AutoEncrypt = true)]`. Encrypted fields are redacted in audit snapshots (recorded as `[ENCRYPTED]` or masked) to prevent sensitive values from appearing in the audit log. Key management supports Azure Key Vault for cloud deployments or file-based key storage for DMZ and air-gapped environments. Per-field key derivation ensures compromise of one field does not expose others.
 
@@ -631,7 +705,7 @@ When the EF interceptor fails to build audit log records for a regulated entity,
 
 **Sink mode behavior.** `FailClosedForRegulated` works under both sink modes:
 
-- Under `AuditSinkMode.Immediate` (default), audit-build or audit-publish failures are visible inside the interceptor's `try` block, so they rethrow `AuditIntegrityException` and the consumer's `SaveChangesAsync` rolls back the business write. The audit-side write happens on a separate connection — it never lands.
+- Under `AuditSinkMode.Immediate` (default), audit-build or audit-publish failures are visible inside the interceptor's `try` block, so they rethrow `AuditIntegrityException` and the consumer's `SaveChangesAsync` rolls back the business write. Audit-side writes use separate persistence scopes; earlier successful audit writes can remain even when a later audit failure rolls back the business write.
 - Under `AuditSinkMode.TransactionalOutbox`, the same rethrow happens on outbox-write failure (which propagates through the interceptor's `try`). The added value of outbox is durability across audit-subsystem crashes — once the outbox row commits with the consumer transaction, a later drainer crash does not lose the envelope. Use this mode when zero-loss durability is required (HIPAA / FERPA / PCI-DSS or any posture where audit-subsystem failures must not lose envelopes).
 
 **Scope.** `FailureMode` governs the **EF interceptor audit-build path only**. The following audit paths are **not** affected by `AuditFailureMode` and retain their own failure semantics:

@@ -10,12 +10,14 @@ namespace MillWorks.AuditCore.Services.Sinks;
 /// <summary>
 /// Default <see cref="IAuditSink"/>: persists each envelope synchronously on
 /// publish. Routes envelopes by <see cref="AuditEnvelopeKind"/> to the appropriate
-/// batch writer, then combines outcomes internally.
+/// batch writer, then combines outcomes internally. Writers commit independently; a later
+/// failure or cancellation does not roll back earlier audit writes.
 /// </summary>
 internal sealed class ImmediateSink(
     IAuditEntityBatchWriter entityBatchWriter,
     IAuditEventBatchWriter eventBatchWriter,
-    ILogger<ImmediateSink> logger) : IAuditSink
+    ILogger<ImmediateSink> logger,
+    IAuditEnvelopeWriteAuthorization? authorization = null) : IAuditSink
 {
     /// <inheritdoc />
     public async Task PublishAsync(
@@ -31,17 +33,20 @@ internal sealed class ImmediateSink(
         IReadOnlyList<AuditEnvelope> envelopes,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(envelopes);
+        Identity.AuditEnvelopeContent.ValidateBatch(envelopes);
+        foreach (var envelope in envelopes) _ = Identity.AuditEnvelopeContent.Fingerprint(envelope);
         if (envelopes.Count == 0)
             return;
 
+        await using var permit = await AuditEnvelopeWriteAuthority.AcquireAsync(authorization, envelopes, cancellationToken);
         var entityChanges = new List<AuditEnvelope>();
         var explicitEvents = new List<AuditEnvelope>();
 
-        foreach (var envelope in envelopes)
+        for (var index = 0; index < envelopes.Count; index++)
         {
+            var envelope = envelopes[index];
             if (envelope is null)
-                continue;
+                throw new ArgumentException($"Batch entry at index {index} must not be null.", nameof(envelopes));
 
             switch (envelope.Kind)
             {
@@ -68,6 +73,9 @@ internal sealed class ImmediateSink(
             ? await eventBatchWriter.WriteBatchAsync(explicitEvents, cancellationToken)
             : [];
 
+        WriteOutcomeValidation.Validate(entityOutcomes, entityChanges.Select(e => e.EnvelopeId));
+        WriteOutcomeValidation.Validate(eventOutcomes, explicitEvents.Select(e => e.EnvelopeId));
+        await permit.CheckCurrentAsync(cancellationToken);
         var allOutcomes = CombineOutcomes(entityOutcomes, eventOutcomes);
 
         var failedOutcomes = allOutcomes.Where(static o => !o.Succeeded).ToList();

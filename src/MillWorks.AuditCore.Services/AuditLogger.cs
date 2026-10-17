@@ -24,7 +24,7 @@ namespace MillWorks.AuditCore.Services.Core;
 /// <c>ResilientAuditLogger</c> scope-per-retry verification without spinning up a full
 /// DbContext/repository graph.
 /// </summary>
-public class AuditLogger(
+public partial class AuditLogger(
     ILogger<AuditLogger> logger,
     IAuditEventFactory eventFactory,
     IAuditEventRepository auditEventRepository,
@@ -53,9 +53,14 @@ public class AuditLogger(
     /// Logs an audit event asynchronously
     /// </summary>
     public virtual async Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
+        => await LogSingleCoreAsync(auditEvent, cancellationToken);
+
+    private async Task<bool> LogSingleCoreAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
     {
         try
         {
+            auditEvent = RestoreEnvelopeEvent(auditEvent);
+            if ((await StageEnvelopeIdentitiesAsync([auditEvent], cancellationToken)).Contains(auditEvent.EventId)) return true;
             // Convert to database entity
             var entity = ConvertToEntity(auditEvent);
 
@@ -130,14 +135,31 @@ public class AuditLogger(
                 "Logged audit event of type {EventType} with ID {EventId}",
                 auditEvent.EventType,
                 auditEvent.EventId);
+            return false;
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
+            // SaveChanges rolled back these inserts. Acknowledging a verified replay must
+            // not leave them staged for a later save on this scoped context.
+            foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State != EntityState.Added) continue;
+                var owned = entry.Entity switch
+                {
+                    AuditEventEntity e => e.EventId == auditEvent.EventId,
+                    AuditEnvelopeIdentity e => e.Channel == "event" && e.LogicalId == auditEvent.EventId,
+                    AuditIntegrityWorkItemEntity e => e.EventId == auditEvent.EventId,
+                    _ => false
+                };
+                if (owned) entry.State = EntityState.Detached;
+            }
+            await VerifyEnvelopeDuplicatesAsync([auditEvent], cancellationToken);
             // Duplicate key error - this can happen in race conditions or retries
             // Treat as success (idempotent operation)
             logger.LogDebug(
                 "Duplicate key for event {EventId}. Treating as success.",
                 auditEvent.EventId);
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -158,23 +180,35 @@ public class AuditLogger(
 
 
     /// <summary>
-    /// Logs a batch of audit events atomically.
+    /// Logs a batch of audit events, with duplicate-key recovery that may commit individual
+    /// events. A later exception or cancellation does not roll back earlier fallback commits.
     /// </summary>
     public virtual async Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default)
     {
+        auditEvents = auditEvents.Select(RestoreEnvelopeEvent).ToList();
         if (auditEvents.Count == 0)
-            return BatchAuditResult.Succeeded(0);
+            return CompletedBatch(auditEvents, []);
 
         // Single event: delegate to existing LogAsync to avoid regression risk
         if (auditEvents.Count == 1)
         {
+            if (auditEvents[0].SourceEnvelope is not null)
+            {
+                var duplicate = await LogSingleCoreAsync(auditEvents[0], cancellationToken);
+                return CompletedBatch(auditEvents, duplicate ? [auditEvents[0].EventId] : []);
+            }
             await LogAsync(auditEvents[0], cancellationToken);
             return BatchAuditResult.Succeeded(1);
         }
 
+        var duplicateIds = new HashSet<Guid>();
         try
         {
-            var entities = auditEvents.Select(ConvertToEntity).ToList();
+            var durable = await StageEnvelopeIdentitiesAsync(auditEvents, cancellationToken);
+            duplicateIds.UnionWith(durable);
+            var candidates = auditEvents.Where(e => !durable.Contains(e.EventId)).ToList();
+            if (candidates.Count == 0) return CompletedBatch(auditEvents, duplicateIds);
+            var entities = candidates.Select(ConvertToEntity).ToList();
 
             if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
             {
@@ -212,7 +246,7 @@ public class AuditLogger(
             }
 
             logger.LogDebug("Logged batch of {Count} audit events", auditEvents.Count);
-            return BatchAuditResult.Succeeded(auditEvents.Count);
+            return CompletedBatch(auditEvents, duplicateIds);
         }
         catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex))
         {
@@ -233,18 +267,24 @@ public class AuditLogger(
             var allEventIds = auditEvents.Select(static e => e.EventId).ToList();
             var existingIds = await auditEventRepository.GetExistingEventIdsAsync(allEventIds, cancellationToken);
 
+            await VerifyEnvelopeDuplicatesAsync(auditEvents.Where(e => existingIds.Contains(e.EventId)).ToList(), cancellationToken);
             var newEvents = auditEvents.Where(e => !existingIds.Contains(e.EventId)).ToList();
-            var duplicateCount = existingIds.Count;
+            duplicateIds.UnionWith(existingIds);
+            var duplicateCount = duplicateIds.Count;
 
             if (newEvents.Count == 0)
             {
                 logger.LogDebug("All {Count} events in batch were duplicates", auditEvents.Count);
-                return BatchAuditResult.Duplicate(auditEvents.Count);
+                return CompletedBatch(auditEvents, duplicateIds);
             }
 
             // Insert new events — if this batch also fails with duplicate key, fall back to per-event
             try
             {
+                var durableNew = await StageEnvelopeIdentitiesAsync(newEvents, cancellationToken);
+                duplicateIds.UnionWith(durableNew);
+                newEvents = newEvents.Where(e => !durableNew.Contains(e.EventId)).ToList();
+                if (newEvents.Count == 0) return CompletedBatch(auditEvents, duplicateIds);
                 var newEntities = newEvents.Select(ConvertToEntity).ToList();
                 foreach (var e in newEntities)
                     e.IntegrityStatus = IntegrityStatus.Completed;
@@ -279,7 +319,7 @@ public class AuditLogger(
                 logger.LogDebug(
                     "Batch fallback complete: {NewCount} new, {DuplicateCount} duplicates",
                     newEvents.Count, duplicateCount);
-                return BatchAuditResult.Succeeded(auditEvents.Count);
+                return CompletedBatch(auditEvents, duplicateIds);
             }
             catch (DbUpdateException retryEx) when (DuplicateKeyDetector.IsDuplicateKey(retryEx))
             {
@@ -290,23 +330,34 @@ public class AuditLogger(
                     entry.State = EntityState.Detached;
                 }
 
+                var conflicts = new Dictionary<Guid, Sinks.Identity.AuditIdentityConflictException>();
                 foreach (var auditEvent in newEvents)
                 {
-                    bool wasDuplicate = await TryLogSingleEventAsync(auditEvent, cancellationToken);
-                    if (wasDuplicate)
-                        duplicateCount++;
+                    try
+                    {
+                        bool wasDuplicate = await TryLogSingleEventAsync(auditEvent, cancellationToken);
+                        if (wasDuplicate) duplicateIds.Add(auditEvent.EventId);
+                    }
+                    catch (Sinks.Identity.AuditIdentityConflictException conflict)
+                        when (conflict.LogicalIds.Count == 1 && conflict.LogicalIds[0] == auditEvent.EventId)
+                    {
+                        // Prior per-event commits are already confirmed. Keep their
+                        // classifications and continue only with unresolved inputs.
+                        conflicts.Add(auditEvent.EventId, conflict);
+                    }
+                    duplicateCount = duplicateIds.Count;
                 }
 
                 if (duplicateCount == auditEvents.Count)
                 {
                     logger.LogDebug("All {Count} events in batch were duplicates after retry", auditEvents.Count);
-                    return BatchAuditResult.Duplicate(auditEvents.Count);
+                    return CompletedBatch(auditEvents, duplicateIds);
                 }
 
                 logger.LogDebug(
                     "Batch fallback complete after retry: {NewCount} new, {DuplicateCount} duplicates",
-                    auditEvents.Count - duplicateCount, duplicateCount);
-                return BatchAuditResult.Succeeded(auditEvents.Count);
+                    auditEvents.Count - duplicateCount - conflicts.Count, duplicateCount);
+                return CompletedBatch(auditEvents, duplicateIds, conflicts);
             }
         }
         catch (OperationCanceledException)
@@ -329,6 +380,7 @@ public class AuditLogger(
     {
         try
         {
+            if ((await StageEnvelopeIdentitiesAsync([auditEvent], cancellationToken)).Contains(auditEvent.EventId)) return true;
             var entity = ConvertToEntity(auditEvent);
 
             if (_securityOptions.EnableTamperDetection && tamperDetectionService is not null)
@@ -369,6 +421,7 @@ public class AuditLogger(
                 if (entry.State == EntityState.Added)
                     entry.State = EntityState.Detached;
             }
+            await VerifyEnvelopeDuplicatesAsync([auditEvent], cancellationToken);
             return true; // Was a duplicate
         }
     }

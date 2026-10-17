@@ -1,0 +1,147 @@
+{
+  "scope": "Source initializer inventory only; no database/runtime inventory or deployment claimed. Target-typed initializers and external producers require separate inventory.",
+  "auditCoreBaseline": "76af4a9a54660dee606169fab967d8cdcad1874f",
+  "hostBaseline": "b45f25e6113bac221a8f89b79f6b33b6ab1c39f4",
+  "initializers": [
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs",
+      "line": 274,
+      "explicitEventIdSupplied": true,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "71ea4ef5e851dedf54ab4f20c70a0dd4f34e20075a7a50212bad94c0d2d1d879"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+      "line": 28,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": false,
+      "sourceSha256": "1d1a6d87d8b34035fb3314c0cb524c4f64effb3d979e0730889f82b9a46792e6"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+      "line": 63,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": false,
+      "sourceSha256": "1d1a6d87d8b34035fb3314c0cb524c4f64effb3d979e0730889f82b9a46792e6"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Document/DocumentDlpAuditSinkBridge.cs",
+      "line": 27,
+      "explicitEventIdSupplied": true,
+      "envelopeIdSupplied": true,
+      "governanceIdentitySupplied": true,
+      "occurredAtSupplied": true,
+      "sourceSha256": "7749dbbc80c0b85c338309f8bb6c7b14d71923d2db5b13a78308f20c25244bde"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Compliance/ComplianceEvidencePackageBridge.cs",
+      "line": 34,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "c70baf9aa40ae40f92a597c8acd179c6aecee1722b75bb814b9feac72781acf9"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelArtifactRetentionAuditBridge.cs",
+      "line": 23,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "cf64da0590d1e271e550c85f26f03d4e0560f98422567b8276bd9edea491335c"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelTrainingOperationsAdminBridge.cs",
+      "line": 164,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "d03de417f5907ec3322222e446e4d9c04c310e2e90171b258155562493ba6134"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/VisitorManagement/VisitorProtectedReferenceService.cs",
+      "line": 137,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "c08d1c455f533d7a8ba9d73a19358dc4e2c663fce5efa3881e6dfc4840a8e815"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/MlDatasetSnapshotAuditBridge.cs",
+      "line": 24,
+      "explicitEventIdSupplied": true,
+      "envelopeIdSupplied": true,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "d101834fb6585c48fe9c55634683f44cd579946994a35ae982363c1101bde37c"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelWorkbenchAuditBridge.cs",
+      "line": 20,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "815fde69c0483a016ea385c78648d5c59562f79533c2355685f00f73213d8266"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelGovernanceAuditBridge.cs",
+      "line": 65,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "99be380ddb2f721f6b332f0752afd172891c2b675e13129446e2f062ca9a2969"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 75,
+      "explicitEventIdSupplied": true,
+      "envelopeIdSupplied": true,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": true,
+      "sourceSha256": "1cead135cdd351d50ca0d9212728137c830932ecc224cc723a60bb8a3435e123"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 133,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": false,
+      "sourceSha256": "1cead135cdd351d50ca0d9212728137c830932ecc224cc723a60bb8a3435e123"
+    },
+    {
+      "repository": "MillWorks",
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 159,
+      "explicitEventIdSupplied": false,
+      "envelopeIdSupplied": false,
+      "governanceIdentitySupplied": false,
+      "occurredAtSupplied": false,
+      "sourceSha256": "1cead135cdd351d50ca0d9212728137c830932ecc224cc723a60bb8a3435e123"
+    }
+  ]
+}

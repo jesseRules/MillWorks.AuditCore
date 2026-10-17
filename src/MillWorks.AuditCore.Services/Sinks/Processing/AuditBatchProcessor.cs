@@ -26,6 +26,9 @@ internal sealed class AuditBatchProcessor(
         if (rows.Count == 0)
             return BatchProcessingResult.Empty;
 
+        if (rows.Any(r => r is null || r.Envelope is null) || rows.Select(r => r.RowId).Distinct().Count() != rows.Count ||
+            rows.Select(r => r.Envelope.EnvelopeId).Distinct().Count() != rows.Count)
+            throw new AuditBatchContractException("Claimed inputs must have unique row and envelope identities.");
         var now = timeProvider.GetUtcNow();
 
         var entityChangeRows = new List<ClaimedOutboxRow>();
@@ -97,6 +100,7 @@ internal sealed class AuditBatchProcessor(
         {
             writeOutcomes = await writeBatchAsync(envelopes, cancellationToken);
         }
+        catch (AuditBatchContractException) { throw; }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
@@ -185,44 +189,8 @@ internal sealed class AuditBatchProcessor(
         IReadOnlyList<WriteOutcome> writeOutcomes,
         Dictionary<Guid, ClaimedOutboxRow> envelopeIdToRow)
     {
-        var rowOutcomes = new List<RowOutcome>(envelopeIdToRow.Count);
-        var coveredEnvelopeIds = new HashSet<Guid>();
-
-        foreach (var wo in writeOutcomes)
-        {
-            if (!envelopeIdToRow.TryGetValue(wo.EnvelopeId, out var row))
-            {
-                logger.LogError(
-                    "WriteOutcome for unknown EnvelopeId {EnvelopeId}; cannot map to row",
-                    wo.EnvelopeId);
-                continue;
-            }
-
-            coveredEnvelopeIds.Add(wo.EnvelopeId);
-            var rowOutcome = MapSingleOutcome(wo, row.RowId);
-            rowOutcomes.Add(rowOutcome);
-        }
-
-        if (coveredEnvelopeIds.Count < envelopeIdToRow.Count)
-        {
-            var missingCount = envelopeIdToRow.Count - coveredEnvelopeIds.Count;
-            logger.LogError(
-                "Writer returned {ReturnedCount}/{ExpectedCount} outcomes; {MissingCount} row(s) missing. " +
-                "Failing missing rows to avoid InFlight limbo.",
-                writeOutcomes.Count, envelopeIdToRow.Count, missingCount);
-
-            foreach (var (envelopeId, row) in envelopeIdToRow)
-            {
-                if (!coveredEnvelopeIds.Contains(envelopeId))
-                {
-                    rowOutcomes.Add(RowOutcome.Failed(
-                        row.RowId,
-                        $"Writer did not return outcome for EnvelopeId {envelopeId}"));
-                }
-            }
-        }
-
-        return rowOutcomes;
+        WriteOutcomeValidation.Validate(writeOutcomes, envelopeIdToRow.Keys);
+        return writeOutcomes.Select(wo => MapSingleOutcome(wo, envelopeIdToRow[wo.EnvelopeId].RowId)).ToList();
     }
 
     private static RowOutcome MapSingleOutcome(WriteOutcome wo, Guid rowId)

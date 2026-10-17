@@ -322,8 +322,8 @@ public sealed class AuditEntityBatchWriterTests
     public async Task WriteBatchAsync_PartialReplay_PersistsMissingPropertyAndSubjectLink()
     {
         var envelope = ReplayEnvelope();
-        var partial = ReplayEnvelope(envelope.EnvelopeId, firstPropertyOnly: true);
-        await _writer.WriteBatchAsync([partial], CancellationToken.None);
+        await _writer.WriteBatchAsync([envelope], CancellationToken.None);
+        await DeleteOneProperty(envelope.EnvelopeId);
 
         var outcomes = await _writer.WriteBatchAsync([envelope], CancellationToken.None);
         Assert.That(outcomes[0].Succeeded, Is.True);
@@ -340,13 +340,9 @@ public sealed class AuditEntityBatchWriterTests
     public async Task WriteBatchAsync_RepeatedEnvelopeInBatch_WritesEachRowOnce(bool withoutProperties)
     {
         var envelope = ReplayEnvelope(withoutProperties: withoutProperties);
-        var outcomes = await _writer.WriteBatchAsync([envelope, envelope], CancellationToken.None);
-        Assert.That(outcomes, Has.Count.EqualTo(2));
-        Assert.That(outcomes.All(static outcome => outcome.Succeeded), Is.True);
+        await Assert.ThrowsAsync<ArgumentException>(() => _writer.WriteBatchAsync([envelope, envelope], CancellationToken.None));
         using var scope = _provider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
-        Assert.That(await db.AuditLogs.CountAsync(), Is.EqualTo(withoutProperties ? 1 : 2));
-        Assert.That(await db.AuditLogSubjectLinks.CountAsync(), Is.EqualTo(withoutProperties ? 1 : 2));
+        Assert.That(await scope.ServiceProvider.GetRequiredService<AuditDbContext>().AuditLogs.CountAsync(), Is.Zero);
     }
 
     [Test]
@@ -365,10 +361,12 @@ public sealed class AuditEntityBatchWriterTests
     {
         var envelope = ReplayEnvelope();
         var fresh = ReplayEnvelope();
-        var partial = ReplayEnvelope(envelope.EnvelopeId, firstPropertyOnly: true);
-        // Commit a competing row after the writer's lookup but before its INSERT.
+        // A competing full commit followed by loss of one fan-out row retains original identity evidence.
         _saveInterceptor.BeforeSave = async () =>
-            await _writer.WriteBatchAsync([partial], CancellationToken.None);
+        {
+            await _writer.WriteBatchAsync([envelope], CancellationToken.None);
+            await DeleteOneProperty(envelope.EnvelopeId);
+        };
 
         var outcomes = await _writer.WriteBatchAsync([envelope, fresh], CancellationToken.None);
 
@@ -394,6 +392,40 @@ public sealed class AuditEntityBatchWriterTests
         Assert.That(outcomes[0].IsRetryable, Is.True);
         Assert.That(_saveInterceptor.SaveCount, Is.EqualTo(4));
         Assert.That(await db.AuditLogs.CountAsync(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_ExhaustedDuplicateRetries_LeavesReplayAndRollsBackEveryNewRow()
+    {
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX TestEntityName ON AuditLogs(EntityType)");
+        var replay = ReplayEnvelope(withoutProperties: true);
+        await _writer.WriteBatchAsync([replay], CancellationToken.None);
+        var before = _saveInterceptor.SaveCount;
+        var fresh = new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Visit", Action = AuditAction.Created };
+        var collision = ReplayEnvelope(withoutProperties: true);
+
+        var outcomes = await _writer.WriteBatchAsync([replay, fresh, collision], CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_saveInterceptor.SaveCount - before, Is.EqualTo(3));
+            Assert.That(outcomes.Select(o => o.EnvelopeId), Is.EqualTo(new[] { replay.EnvelopeId, fresh.EnvelopeId, collision.EnvelopeId }));
+            Assert.That(outcomes.All(o => !o.Succeeded && o.IsRetryable), Is.True);
+        });
+        Assert.That(await db.AuditLogs.Select(r => r.EnvelopeId).ToListAsync(),
+            Is.EqualTo(new Guid?[] { replay.EnvelopeId }),
+            "Each failed attempt must roll back the fresh Visit row; the prior replay remains committed.");
+    }
+
+    private async Task DeleteOneProperty(Guid envelopeId)
+    {
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        var id = await db.AuditLogs.Where(x => x.EnvelopeId == envelopeId && x.PropertyName == "Name").Select(x => x.Id).SingleAsync();
+        await db.AuditLogSubjectLinks.Where(x => x.AuditLogId == id).ExecuteDeleteAsync();
+        await db.AuditLogs.Where(x => x.Id == id).ExecuteDeleteAsync();
     }
 
     private static AuditEnvelope ReplayEnvelope(

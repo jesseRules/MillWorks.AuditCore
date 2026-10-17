@@ -14,7 +14,9 @@ public interface IAuditLogger
     Task LogAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Logs a batch of audit events atomically (single transaction, single lock acquisition).
+    /// Logs a batch of audit events. The default implementation first attempts a batch write;
+    /// duplicate-key races can fall back to individual commits. An exception or cancellation
+    /// may leave earlier events persisted without a complete per-event result.
     /// </summary>
     Task<BatchAuditResult> LogBatchAsync(IReadOnlyList<AuditEvent> auditEvents, CancellationToken cancellationToken = default);
 

@@ -28,7 +28,7 @@ public sealed class AuditOutboxEntity
     /// Increment when the envelope schema changes incompatibly.
     /// </summary>
     [Required]
-    public int EnvelopeVersion { get; set; } = 1;
+    public int EnvelopeVersion { get; set; } = 2;
 
     [Required]
     public AuditOutboxStatus Status { get; set; } = AuditOutboxStatus.Pending;

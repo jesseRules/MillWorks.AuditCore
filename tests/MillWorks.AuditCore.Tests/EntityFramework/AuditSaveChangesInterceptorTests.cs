@@ -72,6 +72,7 @@ public class AuditSaveChangesInterceptorTests
         services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();
         services.AddScoped<IAuditEventBatchWriter, AuditEventBatchWriter>();
         services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
+        services.AddSingleton<MillWorks.AuditCore.Services.Sinks.IAuditEnvelopeWriteAuthorization>(MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
         services.AddScoped<IAuditSink, ImmediateSink>();
 
         _provider = services.BuildServiceProvider();

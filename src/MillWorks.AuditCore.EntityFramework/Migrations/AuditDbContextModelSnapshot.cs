@@ -184,6 +184,39 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditEnvelopeIdentity", b =>
+                {
+                    b.Property<string>("Channel")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("LogicalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AcceptedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("ContentVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Channel", "LogicalId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("AuditEnvelopeIdentities", "audit");
+                });
+
             modelBuilder.Entity("MillWorks.AuditCore.EntityFramework.Entities.AuditEventEntity", b =>
                 {
                     b.Property<Guid>("EventId")

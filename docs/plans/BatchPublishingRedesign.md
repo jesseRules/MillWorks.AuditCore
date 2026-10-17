@@ -22,7 +22,7 @@ A–F record delivered infrastructure. The subsequent implementation review iden
 stale-owner enforcement on outbox transitions, an overstatement of immediate-batch atomicity
 in the public documentation, and lost individual duplicate classifications in mixed replay/new
 explicit-event batches, plus a mismatch between explicit-event outbox and persistence IDs.
-These are planned as H1–H3 (including identity prerequisite H3a) in
+These are tracked as H1–H3 (including identity prerequisite H3a) in
 [Batch Publishing Hardening](BatchPublishingHardening.md). H4 tracks repository extraction;
 H5 tracks load qualification; optional G remains deferred behind a consumer need.
 The cross-plan review on 2026-10-16 adds retained failed-row authority, a separately retryable
@@ -119,10 +119,10 @@ Sequence-query history, index/deployment evidence, and remaining acceptance belo
 
 | Aspect | Implemented behavior | Remaining decision/work |
 |--------|----------------------|-------------------------|
-| Public `PublishBatchAsync` | Returns `Task`; public sink acceptance semantics remain unchanged | Slice G deferred; define a consumer need before designing a return-type change |
-| Immediate batch atomicity | Entity/event writers execute independently; one subset may persist before another fails | Correct public single-transaction/no-partial-success documentation (H2) |
-| Explicit-event identity | Outbox prefers ExplicitEventId; event writer stores EnvelopeId as EventId | H3a will require ExplicitEventId for both; EnvelopeId remains result correlation |
-| Internal processing | Writers return envelope outcomes; processor correlates row outcomes; drainer applies completion/retry/failure | H1 guarded transitions implemented and locally verified; H3 mixed duplicate classification remains planned |
+| Public `PublishBatchAsync` | Returns `Task`; H2 clarifies sink acceptance and partial-success semantics | Slice G deferred; define a consumer need before designing a return-type change |
+| Immediate batch atomicity | Entity/event writers execute independently; one subset may persist before another fails | H2 implemented: corrected documentation, null validation and partial-success regressions |
+| Explicit-event identity | H3a requires ExplicitEventId for both outbox and persistence; EnvelopeId remains correlation | Library verified; producer/authorization/data rollout gates remain open |
+| Internal processing | H3 preserves exact event outcomes; validates logger/writer/processor results and metrics; H1 guards row transitions | Library verified; custom capability implementations require exact metadata; host rollout remains open |
 | Outbox state | `Pending=0, InFlight=1, Completed=2, Failed=3`; row claims and expiring leases | H1 guarded ownership updates are implemented locally; migrate and replace all old drainers before relying on them |
 | Idempotency | Stable envelope identity, explicit-event PK, outbox unique key, entity envelope/property replay checks | Envelope lookup index verified October 9; see durability plan |
 | Observability | Outcome, retry, lease, row-age, and queue-depth instruments implemented | Load targets below remain unverified |
@@ -809,9 +809,12 @@ Phase 1 ────────────────────────
 ### Recommendation
 
 [H1](BatchPublishingHardening.md#h1--enforce-claim-ownership-at-the-database-boundary) is implemented
-and locally verified; its package/host rollout gates remain separate. Next source work is H2,
-then H3a/H3. Keep Slice G deferred until a consumer need is demonstrated. H4/H5 retain their
-independent scope and acceptance gates in the hardening plan.
+and locally verified; dev.7 is on both local feeds and host rollout remains open.
+[H2](BatchPublishingHardening.md#h2--correct-public-batch-acceptance-and-failure-documentation)
+is implemented and locally verified but not packaged. H3a library implementation and SQL verification are complete; host rollout gates remain open.
+See the [H3a contract](BatchPublishingH3aImplementation.md). H3 exact internal outcomes are implemented and verified (2,442 broad and 155 focused passes); see its
+[contract](BatchPublishingH3Implementation.md).
+Keep Slice G deferred until a consumer need is demonstrated. H4/H5 retain their independent scope and acceptance gates in the hardening plan.
 
 ---
 
@@ -955,3 +958,27 @@ H5 load targets, or establish that an existing host has loaded the new source.
 [Dev.7](../evidence/audit-pipeline-2026-10/release-dev7/README.md) contains H1 and is published
 to both local feeds after full Release verification: 2,536 passed, zero failed. Jesse will
 commit this working tree before H2 begins. Host rollout and H3a/H3 remain separate work.
+
+### H2 acceptance contract — 2026-10-16
+
+[H2 verification](../evidence/audit-pipeline-2026-10/h2-acceptance-2026-10-16/README.md) records
+62 passing focused tests and 2550 passing full Release regressions, zero failures. Both
+sinks now reject null entries before writer calls; docs explain partial commits, interrupted
+calls, stable-identity retries and consumer-transaction acceptance. No new package or host
+deployment occurred. H3a/H3 were still planned at that historical checkpoint; subsequent verification is below.
+
+### H3 exact outcomes — 2026-10-16
+
+[H3 verification](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md) records
+2,442 broad regression passes and 155 focused passes, zero failures, including real SQL mixed
+races with RCSI off/on. Exact per-event outcomes, metrics, malformed-result recovery and bounded
+contract-defect escalation are implemented. H2/H3a/H3 are unshipped; host rollout, H4/H5 and
+optional G remain separate. The [H3 contract](BatchPublishingH3Implementation.md) records the
+required custom logger metadata and operational behavior.
+
+### H3a/H3 post-review verification — 2026-10-16
+
+[Review fixes and evidence](../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
+close the receipt/source read race and late-conflict classification loss. Fourteen new SQL
+cases, 322 focused tests and 2,443 broad regressions pass, zero final failures. Earlier
+verification above is historical. No publication, schema or host rollout occurred.

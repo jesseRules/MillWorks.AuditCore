@@ -400,3 +400,28 @@ acceptance checklist above is unchanged.
 H1 was subsequently packaged as [dev.7 and published to both local feeds](../../evidence/audit-pipeline-2026-10/release-dev7/README.md)
 after full Release verification (2,536 passed, zero failed). Consumer updates and host rollout
 were not performed; this does not close the sequence runtime acceptance above.
+
+### H2 batch contract follow-up — 2026-10-16
+
+[H2 is locally complete](../../evidence/audit-pipeline-2026-10/h2-acceptance-2026-10-16/README.md):
+62 focused tests and 2,550 full Release regressions passed, zero failures. Null validation and
+acceptance/failure documentation changed; no package, schema or host deployment occurred.
+H3a/H3 and the sequence runtime acceptance above remain open.
+
+### H3a identity work — 2026-10-16
+
+The separate [H3a library implementation](../BatchPublishingH3aImplementation.md) is verified,
+including SQL Server tests with RCSI off/on. Host rollout remains open. It adds comparison receipts and queue
+version 2 and requires coordinated host producer/authorization/data preparation. It does not
+close or repeat the sequence runtime acceptance above. No H3a release occurred.
+
+### H3 outcome reporting — 2026-10-16
+
+[H3 is implemented and verified](../BatchPublishingH3Implementation.md): 2,442 broad and 155
+focused tests passed, zero failures, including SQL mixed-batch races. This closes the library's
+mixed-batch reporting and result-validation work. It does not close sequence host-scan
+acceptance, perform a deployment, or implement H4/H5. H2/H3a/H3 remain unshipped.
+
+The subsequent [H3a/H3 review fixes](../../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
+are verified: 322 focused and 2,443 broad passes, zero failures. They correct two concurrency
+interleavings without schema or deployment changes; sequence host-scan acceptance remains open.

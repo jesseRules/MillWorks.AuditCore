@@ -21,7 +21,7 @@ public sealed class TransactionalOutboxSinkTests
     public async Task PublishAsync_SerializesEnvelopeToJson()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelope = new AuditEnvelope
         {
@@ -58,7 +58,7 @@ public sealed class TransactionalOutboxSinkTests
     public async Task PublishAsync_NullEnvelope_Throws()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
         await Assert.ThrowsAsync<ArgumentNullException>(
             async () => await sink.PublishAsync(null!));
     }
@@ -67,16 +67,43 @@ public sealed class TransactionalOutboxSinkTests
     public async Task PublishBatchAsync_NullEnvelopes_Throws()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
         await Assert.ThrowsAsync<ArgumentNullException>(
             async () => await sink.PublishBatchAsync(null!));
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task PublishBatchAsync_NullEntry_DoesNotStageAnyRows(int index)
+    {
+        var writer = new RecordingWriter();
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
+        AuditEnvelope[] envelopes =
+        [
+            new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Patient", Action = AuditAction.Created },
+            new() { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "Login", EventType = "Login", Action = AuditAction.Unknown },
+            new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Visit", Action = AuditAction.Created }
+        ];
+        envelopes[index] = null!;
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => sink.PublishBatchAsync(envelopes));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error!.ParamName, Is.EqualTo("envelopes"));
+            Assert.That(error.Message, Does.Contain($"index {index}"));
+            Assert.That(writer.BatchCallCount, Is.Zero);
+            Assert.That(writer.CallCount, Is.Zero);
+            Assert.That(writer.AllRows, Is.Empty);
+        });
     }
 
     [Test]
     public async Task PublishBatchAsync_EmptyList_NoOps()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         await sink.PublishBatchAsync([]);
 
@@ -88,7 +115,7 @@ public sealed class TransactionalOutboxSinkTests
     public async Task PublishBatchAsync_MultipleEnvelopes_WritesAllInSingleBatch()
     {
         var writer = new RecordingWriter();
-        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance);
+        var sink = new TransactionalOutboxSink(writer, NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
@@ -109,6 +136,7 @@ public sealed class TransactionalOutboxSinkTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Login",
                 Action = AuditAction.Unknown,
                 EventType = "User.Login",
@@ -128,6 +156,8 @@ public sealed class TransactionalOutboxSinkTests
             .Select(r => JsonSerializer.Deserialize<AuditEnvelope>(r.json, options)!)
             .ToList();
 
+        Assert.That(deserialized.Select(e => e.EnvelopeId), Is.EqualTo(envelopes.Select(e => e.EnvelopeId)));
+        Assert.That(writer.AllRows.Select(r => r.idempotencyKey), Is.EqualTo(envelopes.Select(TransactionalOutboxSink.ExtractIdempotencyKey)));
         Assert.That(deserialized[0].EntityName, Is.EqualTo("Patient"));
         Assert.That(deserialized[0].CorrelationId, Is.EqualTo("batch-1"));
         Assert.That(deserialized[1].EntityName, Is.EqualTo("Visit"));
@@ -202,7 +232,7 @@ public sealed class TransactionalOutboxSinkTests
         Assert.That(accessor.HasCurrent, Is.False);
     }
 
-    private sealed class RecordingWriter : IAuditOutboxWriter
+    private sealed class RecordingWriter : IAuditIdentityAwareOutboxWriter
     {
         public int CallCount { get; private set; }
         public int BatchCallCount { get; private set; }

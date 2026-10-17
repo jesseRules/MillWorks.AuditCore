@@ -1,0 +1,43 @@
+  MillWorks.AuditCore.Abstractions -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/bin/Release/net10.0/MillWorks.AuditCore.Abstractions.dll
+  MillWorks.AuditCore.EntityFramework -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/bin/Release/net10.0/MillWorks.AuditCore.EntityFramework.dll
+  MillWorks.AuditCore.Providers -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Providers/bin/Release/net10.0/MillWorks.AuditCore.Providers.dll
+  MillWorks.AuditCore.Services -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Services/bin/Release/net10.0/MillWorks.AuditCore.Services.dll
+  MillWorks.AuditCore.AspNetCore -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.AspNetCore/bin/Release/net10.0/MillWorks.AuditCore.AspNetCore.dll
+  MillWorks.AuditCore.Tests -> /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll
+Test run for /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Skipped Soak_100kAuditEvents_ChainRemainsValidAndMemoryStaysBounded [12 ms]
+  Skipped ProfileSequenceSummary(False,False) [1 ms]
+  Skipped ProfileSequenceSummary(False,True) [1 ms]
+  Skipped ProfileSequenceSummary(True,False) [1 ms]
+  Skipped ProfileSequenceSummary(True,True) [1 ms]
+  Skipped ProfileSequenceSummary(False,False,True) [2 ms]
+  Skipped ProfileSequenceSummary(False,True,True) [2 ms]
+  Skipped ProfileSequenceSummary(True,False,True) [2 ms]
+  Skipped ProfileSequenceSummary(True,True,True) [2 ms]
+  Skipped ExecuteOptimisticUpdateAsync_ConcurrencyConflict_Throws [< 1 ms]
+  Skipped SaveChangesWithRetryAsync_PermanentFailure_Throws [< 1 ms]
+  Skipped CleanupOldAuditEventsAsync_DeletesBeforeCutoff [< 1 ms]
+  Skipped CleanupOldAuditEventsAsync_NothingOldEnough_DeletesNothing [< 1 ms]
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [18 ms]
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [10 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(True) [< 1 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(False) [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","claim") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","failure") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","failure") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","recover") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","recover") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_claim") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_ack") [1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_ack") [< 1 ms]
+  Skipped IncrementalMigrationsPreserveOldRowsAndSupportGuardedFailure [1 ms]
+Results File: /tmp/auditcore-h2-regression/h2-regression.trx
+
+Passed!  - Failed:     0, Passed:  2550, Skipped:    23, Total:  2573, Duration: 5 m 11 s - MillWorks.AuditCore.Tests.dll (net10.0)

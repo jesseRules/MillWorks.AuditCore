@@ -40,7 +40,7 @@ public sealed class AuditBatchProcessorTests
             new ClaimedOutboxRow { RowId = Guid.NewGuid(), AttemptCount = 0, CreatedAt = TestTime,
                 Envelope = new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Test", Action = AuditAction.Created } },
             new ClaimedOutboxRow { RowId = Guid.NewGuid(), AttemptCount = 0, CreatedAt = TestTime,
-                Envelope = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "Test", Action = AuditAction.Created } }
+                Envelope = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "Test", Action = AuditAction.Created } }
         };
         await Assert.ThatAsync(() => _processor.ProcessBatchAsync(rows, canceled.Token), Throws.InstanceOf<OperationCanceledException>());
         _eventWriterMock.VerifyNoOtherCalls();
@@ -96,6 +96,7 @@ public sealed class AuditBatchProcessorTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "UserLogin",
@@ -130,6 +131,7 @@ public sealed class AuditBatchProcessorTests
         var eventEnvelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Export",
             Action = AuditAction.Unknown,
             EventType = "DataExport",
@@ -192,6 +194,7 @@ public sealed class AuditBatchProcessorTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "Login",
@@ -285,7 +288,7 @@ public sealed class AuditBatchProcessorTests
     {
         var entity1 = new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "A", Action = AuditAction.Created };
         var entity2 = new AuditEnvelope { Kind = AuditEnvelopeKind.EntityChange, EntityName = "B", Action = AuditAction.Updated };
-        var event1 = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "Audit.Event", Action = AuditAction.Unknown, EventType = "X" };
+        var event1 = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "Audit.Event", Action = AuditAction.Unknown, EventType = "X" };
 
         var row1 = new ClaimedOutboxRow { RowId = Guid.NewGuid(), Envelope = entity1, AttemptCount = 0, CreatedAt = TestTime };
         var row2 = new ClaimedOutboxRow { RowId = Guid.NewGuid(), Envelope = entity2, AttemptCount = 0, CreatedAt = TestTime };

@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -60,13 +61,14 @@ public sealed class IdempotencyTests
     }
 
     [Test]
-    public void ExtractIdempotencyKey_ExplicitEvent_ReturnsEnvelopeId()
+    public void ExtractIdempotencyKey_ExplicitEvent_ReturnsExplicitEventId()
     {
         var envelopeId = Guid.NewGuid();
         var envelope = new AuditEnvelope
         {
             EnvelopeId = envelopeId,
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -74,7 +76,8 @@ public sealed class IdempotencyTests
 
         var key = TransactionalOutboxSink.ExtractIdempotencyKey(envelope);
 
-        Assert.That(key, Is.EqualTo(envelopeId));
+        Assert.That(key, Is.EqualTo(envelope.ExplicitEventId));
+        Assert.That(key, Is.Not.EqualTo(envelopeId));
     }
 
     [Test]
@@ -106,6 +109,7 @@ public sealed class IdempotencyTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -155,9 +159,7 @@ public sealed class IdempotencyTests
     [Test]
     public async Task AuditEventBatchWriter_SuccessfulWrite_ReturnsSuccess()
     {
-        var mockLogger = Mock.Of<IAuditLogger>(l =>
-            l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()) ==
-            Task.FromResult(BatchAuditResult.Succeeded(1)));
+        var mockLogger = EnvelopeLogger(BatchAuditResult.Succeeded(1));
 
         var logger = NullLogger<AuditEventBatchWriter>.Instance;
         var writer = new AuditEventBatchWriter(mockLogger, logger);
@@ -165,6 +167,7 @@ public sealed class IdempotencyTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -180,9 +183,7 @@ public sealed class IdempotencyTests
     [Test]
     public async Task AuditEventBatchWriter_DuplicateDetected_ReturnsDuplicateOutcome()
     {
-        var mockLogger = Mock.Of<IAuditLogger>(l =>
-            l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()) ==
-            Task.FromResult(BatchAuditResult.Duplicate(1)));
+        var mockLogger = EnvelopeLogger(BatchAuditResult.Duplicate(1));
 
         var logger = NullLogger<AuditEventBatchWriter>.Instance;
         var writer = new AuditEventBatchWriter(mockLogger, logger);
@@ -190,6 +191,7 @@ public sealed class IdempotencyTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -206,18 +208,16 @@ public sealed class IdempotencyTests
     [Test]
     public async Task AuditEventBatchWriter_MultipleDuplicates_AllReturnDuplicate()
     {
-        var mockLogger = Mock.Of<IAuditLogger>(l =>
-            l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()) ==
-            Task.FromResult(BatchAuditResult.Duplicate(3)));
+        var mockLogger = EnvelopeLogger(BatchAuditResult.Duplicate(3));
 
         var logger = NullLogger<AuditEventBatchWriter>.Instance;
         var writer = new AuditEventBatchWriter(mockLogger, logger);
 
         var envelopes = new[]
         {
-            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "E1", Action = AuditAction.Unknown, EventType = "T1" },
-            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "E2", Action = AuditAction.Unknown, EventType = "T2" },
-            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "E3", Action = AuditAction.Unknown, EventType = "T3" }
+            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "E1", Action = AuditAction.Unknown, EventType = "T1" },
+            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "E2", Action = AuditAction.Unknown, EventType = "T2" },
+            new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "E3", Action = AuditAction.Unknown, EventType = "T3" }
         };
 
         var outcomes = await writer.WriteBatchAsync(envelopes, CancellationToken.None);
@@ -343,9 +343,9 @@ public sealed class IdempotencyTests
         AuditEvent? capturedEvent = null;
 
         var mockLogger = new Mock<IAuditLogger>();
-        mockLogger.Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((events, _) => capturedEvent = events.FirstOrDefault())
-            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+        mockLogger.As<IAuditEnvelopeBatchLogger>().Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((events, _) => capturedEvent = events.Select(AuditEventBatchWriter.MapToAuditEvent).FirstOrDefault())
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
 
         var logger = NullLogger<AuditEventBatchWriter>.Instance;
         var writer = new AuditEventBatchWriter(mockLogger.Object, logger);
@@ -353,6 +353,7 @@ public sealed class IdempotencyTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -366,18 +367,18 @@ public sealed class IdempotencyTests
 
         // Same envelope should produce same EventId
         Assert.That(secondEventId, Is.EqualTo(firstEventId));
-        Assert.That(firstEventId, Is.EqualTo(envelope.EnvelopeId));
+        Assert.That(firstEventId, Is.EqualTo(envelope.ExplicitEventId));
     }
 
     [Test]
-    public async Task AuditEventBatchWriter_DifferentEnvelopes_ProduceDifferentEventIds()
+    public async Task AuditEventBatchWriter_DifferentLogicalIds_ProduceDifferentEventIds()
     {
         AuditEvent? capturedEvent = null;
 
         var mockLogger = new Mock<IAuditLogger>();
-        mockLogger.Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((events, _) => capturedEvent = events.FirstOrDefault())
-            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+        mockLogger.As<IAuditEnvelopeBatchLogger>().Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((events, _) => capturedEvent = events.Select(AuditEventBatchWriter.MapToAuditEvent).FirstOrDefault())
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
 
         var logger = NullLogger<AuditEventBatchWriter>.Instance;
         var writer = new AuditEventBatchWriter(mockLogger.Object, logger);
@@ -385,6 +386,7 @@ public sealed class IdempotencyTests
         var envelope1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -393,6 +395,7 @@ public sealed class IdempotencyTests
         var envelope2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login"
@@ -444,4 +447,12 @@ public sealed class IdempotencyTests
     }
 
     #endregion
+    private static IAuditLogger EnvelopeLogger(BatchAuditResult result)
+    {
+        var mock = new Mock<IAuditLogger>();
+        mock.As<IAuditEnvelopeBatchLogger>().Setup(l => l.LogEnvelopeBatchAsync(
+            It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>())).ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, result));
+        return mock.Object;
+    }
+
 }

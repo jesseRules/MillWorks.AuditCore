@@ -29,7 +29,7 @@ public sealed class ImmediateSinkTests
         _sink = new ImmediateSink(
             _entityBatchWriter,
             _eventBatchWriter,
-            NullLogger<ImmediateSink>.Instance);
+            NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
     }
 
     private sealed class RecordingEntityBatchWriter : IAuditEntityBatchWriter
@@ -109,6 +109,7 @@ public sealed class ImmediateSinkTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login",
@@ -139,13 +140,37 @@ public sealed class ImmediateSinkTests
             EntityName = "X",
             Action = AuditAction.Created,
         };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishAsync(envelope));
+        await Assert.ThrowsAsync<ArgumentException>(() => _sink.PublishAsync(envelope));
     }
 
     [Test]
     public async Task PublishBatchAsync_NullEnvelopes_Throws()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(() => _sink.PublishBatchAsync(null!, CancellationToken.None));
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task PublishBatchAsync_NullEntry_RejectsWholeBatchBeforeCallingWriters(int index)
+    {
+        AuditEnvelope[] envelopes =
+        [
+            new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Patient", Action = AuditAction.Created },
+            new() { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "Login", EventType = "Login", Action = AuditAction.Unknown },
+            new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "Visit", Action = AuditAction.Created }
+        ];
+        envelopes[index] = null!;
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => _sink.PublishBatchAsync(envelopes));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error!.ParamName, Is.EqualTo("envelopes"));
+            Assert.That(error.Message, Does.Contain($"index {index}"));
+            Assert.That(_entityBatchWriter.BatchCallCount, Is.Zero);
+            Assert.That(_eventBatchWriter.BatchCallCount, Is.Zero);
+        });
     }
 
     [Test]
@@ -198,6 +223,7 @@ public sealed class ImmediateSinkTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Login",
                 Action = AuditAction.Unknown,
                 EventType = "User.Login",
@@ -205,6 +231,7 @@ public sealed class ImmediateSinkTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Logout",
                 Action = AuditAction.Unknown,
                 EventType = "User.Logout",
@@ -232,6 +259,7 @@ public sealed class ImmediateSinkTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Login",
                 Action = AuditAction.Unknown,
                 EventType = "User.Login",
@@ -245,6 +273,7 @@ public sealed class ImmediateSinkTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Logout",
                 Action = AuditAction.Unknown,
                 EventType = "User.Logout",
@@ -253,6 +282,10 @@ public sealed class ImmediateSinkTests
 
         await _sink.PublishBatchAsync(envelopes, CancellationToken.None);
 
+        Assert.That(_entityBatchWriter.AllEnvelopes.Select(e => e.EnvelopeId),
+            Is.EqualTo(new[] { envelopes[0].EnvelopeId, envelopes[2].EnvelopeId }));
+        Assert.That(_eventBatchWriter.AllEnvelopes.Select(e => e.EnvelopeId),
+            Is.EqualTo(new[] { envelopes[1].EnvelopeId, envelopes[3].EnvelopeId }));
         Assert.That(_entityBatchWriter.BatchCallCount, Is.EqualTo(1), "Entity changes batched once");
         Assert.That(_entityBatchWriter.AllEnvelopes, Has.Count.EqualTo(2));
         Assert.That(_eventBatchWriter.BatchCallCount, Is.EqualTo(1), "Explicit events batched once");
@@ -277,7 +310,7 @@ public sealed class ImmediateSinkTests
                 Action = AuditAction.Created,
             },
         };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _sink.PublishBatchAsync(envelopes, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => _sink.PublishBatchAsync(envelopes, CancellationToken.None));
     }
 
     [Test]
@@ -287,12 +320,12 @@ public sealed class ImmediateSinkTests
 
         var entityWriter = new OrderTrackingEntityBatchWriter(writeOrder);
         var eventWriter = new OrderTrackingEventBatchWriter(writeOrder);
-        var sink = new ImmediateSink(entityWriter, eventWriter, NullLogger<ImmediateSink>.Instance);
+        var sink = new ImmediateSink(entityWriter, eventWriter, NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
         var envelopes = new List<AuditEnvelope>
         {
             new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "A", Action = AuditAction.Created },
-            new() { Kind = AuditEnvelopeKind.ExplicitEvent, EntityName = "B", Action = AuditAction.Unknown, EventType = "B" },
+            new() { Kind = AuditEnvelopeKind.ExplicitEvent, ExplicitEventId = Guid.NewGuid(), EntityName = "B", Action = AuditAction.Unknown, EventType = "B" },
             new() { Kind = AuditEnvelopeKind.EntityChange, EntityName = "C", Action = AuditAction.Updated },
         };
 

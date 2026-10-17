@@ -1,0 +1,242 @@
+{
+  "head": "76af4a9a54660dee606169fab967d8cdcad1874f",
+  "workingTree": "uncommitted H2 and H3a; no package produced",
+  "files": [
+    {
+      "path": "src/MillWorks.AuditCore.Abstractions/Exceptions/AuditWriteException.cs",
+      "sha256": "64b187082fbaf61c09a19c608f0499eea2622aecf233ee7ea514fa57242d01e9"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Abstractions/Interfaces/IAuditSink.cs",
+      "sha256": "63b4e8f67f4675c53a6a13e59e9fcc4353bf04307318f369cc0ad4cc936e168b"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+      "sha256": "62701ed9b25412548a254ca1b1f352b22e16c3ad46b31ed65d0271dfaee2f53f"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Abstractions/Models/AuditEvent.cs",
+      "sha256": "1dcabe5b6be17e83bcb918a2f454413865a26216a74f80e6066c29b686cb6fca"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Data/AuditDbContext.OutboxRecovery.cs",
+      "sha256": "92d0c43eae841b292abbcfe3b99f721e71caf776d4be268901af3266f0d3ca93"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Entities/AuditEnvelopeIdentity.cs",
+      "sha256": "1d8ace83602154c7035753b657c646f6e07aa8b25cd34b10ab3b750cc12af27f"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Entities/AuditOutboxEntity.cs",
+      "sha256": "e023e9083dad068168f56aa161f59efeaabf85c31e2ec18d601fa22646bad99e"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditSaveChangesInterceptor.cs",
+      "sha256": "ec98f22b64a80a55e923fce3dc84a31d42309c5b889e014d9702ca01a7143d8f"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/20261016230118_AddAuditEnvelopeIdentities.Designer.cs",
+      "sha256": "18210006b6966cbf5a1fd6bb547b1a86300e78174412e797704378fd81bd876a"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/20261016230118_AddAuditEnvelopeIdentities.cs",
+      "sha256": "b55eb1a43ed15fa4010e7929cac496310a5c5465ecdc1d66f0b564ae94b6e55c"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.EntityFramework/Migrations/AuditDbContextModelSnapshot.cs",
+      "sha256": "9978759f79155c79a6ae99c600d7fb872917733f6e5122aa392961c4970783c8"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/AuditLogger.Identity.cs",
+      "sha256": "fa77f0d0dc350394991ccf89a8afb2b3574e2a35faa666e47889c1f081dde39d"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/AuditLogger.cs",
+      "sha256": "a1d04484767d9bbb22284346a5a065ab3180dccf4fe3133780b36650d594a9da"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/IAuditLogger.cs",
+      "sha256": "5500a4ae005156fffb945741125355a21a0bd286ee9c3bd3abcc54fabc5269fd"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Interfaces/IAuditEnvelopeBatchLogger.cs",
+      "sha256": "8a0167d9998cba9c63c6f907429e61127b23b4b3dc459796c9067f703e04984d"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Services/ResilientAuditLogger.cs",
+      "sha256": "b27c9879f7295d3d3ae8dd88f3b3ebebdb124a82d3a571adb340c07aa18df0e7"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/AuditOutboxDrainer.cs",
+      "sha256": "2044de0ef045b4ac54bc9867727c77907c4aaf9dd3bacc6a2135456ac4fa186c"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.IdentitySql.cs",
+      "sha256": "64e4f43ac3a62c824f6150a3cc59eb33478934119a3542daad1e6c1ef974f4f3"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/AuditOutboxWriter.cs",
+      "sha256": "f358a5ff0e85d84160df1bccdd22d099cac888390bc7db26ebcdc6c78253dc15"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/IAuditEnvelopeWriteAuthorization.cs",
+      "sha256": "86a23c495cd33996c266efd5c43a578c043c4fcd44b94a2c969c6b2480048fef"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/IAuditOutboxWriter.cs",
+      "sha256": "3fda1e0f5403e5d729e35a1d2e38c756d3e4d5d77db7b8f6abb8a65c39716e05"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Identity/AuditEnvelopeContent.cs",
+      "sha256": "871fdf865bf18da85a7e4fb9c448f30b0d4101d26f17c79ccf5b43b5c36cfd03"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Identity/AuditIdentityConflictException.cs",
+      "sha256": "d77f24682dc6fbf0ba95c46d55dcda6a3a0f92b1a51abbbdb229b153a526634b"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Identity/AuditIdentityLedger.cs",
+      "sha256": "7b3e1fd6e8f09de91d5542425ce773196fedf4f6553dc0ec963f5802316427b8"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/ImmediateSink.cs",
+      "sha256": "1a5e76f6a1700ed858944f73aa607edd8aec3c0b506f70fa17545d065355b96d"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Recovery/QueuedEnvelopeValidator.cs",
+      "sha256": "8c9bd44a678a267ad97d5b42f14b5f60fcd296548d19d9063df8389dfe0a38c5"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/TransactionalOutboxSink.cs",
+      "sha256": "83c8bb03d66e74330930f92ae1d17d35865b9761677d0fbb49178b19fde74dd2"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Writers/AuditEntityBatchWriter.cs",
+      "sha256": "dc0a7a4cfa64c453afb0150baffc37195be9f2cc65674e270a3c032c8e04d1a3"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Writers/AuditEventBatchWriter.cs",
+      "sha256": "00c6b8300daa3c467a9cff74b420a2d213fe2c818eb6cd15d8cb3b8912c65aa8"
+    },
+    {
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Writers/WriteOutcome.cs",
+      "sha256": "db1ec0aaca9721622e13d4541d7305d6773b7c6555bab6b385cbbca998f4c648"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Abstractions/AuditEnvelopeTests.cs",
+      "sha256": "a7966031f4ebded77434371e4e42ff8b36c49391f4c5cac8d5bf3523f6996827"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorEdgeCaseTests.cs",
+      "sha256": "2990d516435b0c98118332f1cd2257d951f6d6b70ef3d3c4a768d9817934af0c"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs",
+      "sha256": "34f13270bbeb655727bd6389de272d96ac621b6c15d7107243a72ce0d76b40b1"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/BareConsumerDbContextTests.cs",
+      "sha256": "4bce158ee92ba6a28ed7ce61998500bd9d931ec0acd4d811a46b1523e4eb32d0"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/FerpaEnforcementTests.cs",
+      "sha256": "0133c6e1157bc0e6ce9115a28dcefff25f514adae241cc10728dc1a573224609"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/FerpaInterceptorTests.cs",
+      "sha256": "b239dd12d875235dad14bdd124c6cf3cb179c1f2a567d778be695b0558705321"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/InterceptorCorrelationTests.cs",
+      "sha256": "0d87576d433ce899abac3c184af843cabf413db37073f9600af5ffb3024d25dc"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/InterceptorSensitivityPolicyTests.cs",
+      "sha256": "6db188d1c426b4f306508d29b34ebdcd9d3987c7c8add7bd3bcd330a80ff8cba"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/EntityFramework/ProviderDispatchTests.cs",
+      "sha256": "73cc80df39f358e5d78f73b0a5a07c72d787c77399b71b1eef04d16ec6a09aa6"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Helpers/TestAuditWriteAuthorization.cs",
+      "sha256": "08ca82fe957d42f96a0ff8a557c553baac92c8df5e85d450d8442b162a2f2fba"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Identity/AuditEnvelopeContentTests.cs",
+      "sha256": "71916d9e431d6d4e1e0cdaa7cb33a2767fb635f07946e3d23ea015c032f650e1"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs",
+      "sha256": "c049de7ecb572900db2953ace1b3a893cc415378af084956021302e1c7f4af2c"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/BatchSinkAcceptanceSqliteTests.cs",
+      "sha256": "62ee98be73f635a00809fe0f07070384f1594cf0dc136e4d640f1b84dbeab2dd"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/CorrelationIntegrationTests.cs",
+      "sha256": "8412ac8439710970696f1792e62053388a0bef89f90e030af8c9d002d212176c"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/EnvelopeIdentitySqliteTests.cs",
+      "sha256": "4c4db54b87d7d8021cd85e26709460b5aadf71cd0477554b10a8b82ce38866d5"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/FerpaConsentUserBridgeTests.cs",
+      "sha256": "e6c6c759d41c98cb5962b1154b2467cd1e4d040d3415b5737d9dd1cfda9b6d25"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/OutboxAtomicityPolicyTests.cs",
+      "sha256": "29e133c88dea90dea6576a2aebddd8b4f6ae55cade57bf0e9c1eb2a7723203e9"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs",
+      "sha256": "63311d871ac4d901df96aafdfc3e1911221929a09e331d7c1a73487097e3df34"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Integration/SqliteIntegrationFixture.cs",
+      "sha256": "24bb3f2f60e436661bec54124a35e64b0a05ab1fb84363800e25e84644f40cc7"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Services/AuditLoggerTests.cs",
+      "sha256": "55a1c6828599cfb8bb51d3c299dc627b6535b2f2ab2ae787ab9b56d2e6ab56c0"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/IdempotencyTests.cs",
+      "sha256": "91353a0806471b0065063b4e3cdcbb9eded23af4fe51dbefd0474cda151e7111"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/ImmediateSinkIsolationTests.cs",
+      "sha256": "91d3e3d0e69c05796bea8aacfcdec9f6ecad9e989b22f25f98292ccf5a5f8c4d"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/ImmediateSinkTests.cs",
+      "sha256": "82855cbef98e430d8c78bae4268b0e18440c800fbf0b6949c0da59152005dc77"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/OutboxOwnershipTests.cs",
+      "sha256": "6a158e2ed9b225956b684ec6707b3af59d6f243077cc71e9b0712130cc1bdbc1"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Processing/AuditBatchProcessorTests.cs",
+      "sha256": "399d6f0b8c2f5dbef852ad3056867f03bcb25624fbeabbe4ca8b111e03ebe297"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/SinkSecurityFixesTests.cs",
+      "sha256": "0dacff1747469b54d50b7bf0a5aa5bdc32a4725c57c56b79b55f5886a2293c50"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/TransactionalOutboxSinkTests.cs",
+      "sha256": "049761c5a886b1f60b4af3615c5e101bfc1dbeb78dde9668f3defe06a17add5e"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEntityBatchWriterTests.cs",
+      "sha256": "ededa2d1f03388dab163acead59b6ed805fe04b0434faed1cf3353bec390903f"
+    },
+    {
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEventBatchWriterTests.cs",
+      "sha256": "5d6435848ad1470206104f6792ec7bdac37be6fba2e6850c2f1d568c1261b2aa"
+    }
+  ]
+}

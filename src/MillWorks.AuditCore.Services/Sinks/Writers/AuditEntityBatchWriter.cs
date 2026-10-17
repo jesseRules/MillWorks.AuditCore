@@ -20,7 +20,8 @@ internal sealed class AuditEntityBatchWriter(
         IReadOnlyList<AuditEnvelope> envelopes,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(envelopes);
+        Identity.AuditEnvelopeContent.ValidateBatch(envelopes);
+        foreach (var envelope in envelopes) _ = Identity.AuditEnvelopeContent.Fingerprint(envelope);
 
         if (envelopes.Count == 0)
             return [];
@@ -31,6 +32,15 @@ internal sealed class AuditEntityBatchWriter(
             try
             {
                 return await WriteAttemptAsync(envelopes, cancellationToken);
+            }
+            catch (Identity.AuditIdentityConflictException conflict)
+            {
+                var rejected = conflict.LogicalIds.ToHashSet();
+                var remaining = envelopes.Where(e => !rejected.Contains(e.EnvelopeId)).ToList();
+                var successful = remaining.Count == 0 ? [] : await WriteBatchAsync(remaining, cancellationToken);
+                var byId = successful.ToDictionary(o => o.EnvelopeId);
+                return envelopes.Select(e => rejected.Contains(e.EnvelopeId)
+                    ? WriteOutcome.Conflict(e.EnvelopeId, conflict) : byId[e.EnvelopeId]).ToList();
             }
             catch (DbUpdateException ex) when (DuplicateKeyDetector.IsDuplicateKey(ex) && attempt < maxAttempts)
             {
@@ -56,8 +66,22 @@ internal sealed class AuditEntityBatchWriter(
         IReadOnlyList<AuditEnvelope> envelopes,
         CancellationToken cancellationToken)
     {
+        using var ambient = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeOption.Suppress,
+            System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+        await using var strategyScope = scopeFactory.CreateAsyncScope();
+        var strategy = strategyScope.ServiceProvider.GetRequiredService<AuditDbContext>().Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => WriteScopedAttemptAsync(envelopes, cancellationToken));
+    }
+
+    private async Task<IReadOnlyList<WriteOutcome>> WriteScopedAttemptAsync(
+        IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken)
+    {
         await using var scope = scopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+        // Keep original-content comparison and partial fan-out repair consistent with SQL cleanup.
+        await using var transaction = dbContext.Database.IsSqlServer()
+            ? await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken) : null;
+        await Identity.AuditIdentityLedger.StageAsync(dbContext, "entity", envelopes, cancellationToken);
         var auditLogSet = dbContext.Set<AuditLogEntity>();
         var envelopeIds = envelopes.Where(static e => e is not null)
             .Select(static e => e.EnvelopeId).Distinct().ToArray();
@@ -147,6 +171,7 @@ internal sealed class AuditEntityBatchWriter(
                 written, envelopes.Count);
         }
 
+        if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         // Never acknowledge staged rows until the entire transaction has committed.
         return outcomes;
     }

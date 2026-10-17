@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using MillWorks.AuditCore.Abstractions.Enums;
 using MillWorks.AuditCore.Abstractions.Models;
@@ -12,15 +13,42 @@ namespace MillWorks.AuditCore.Tests.Sinks.Writers;
 public sealed class AuditEventBatchWriterTests
 {
     private Mock<IAuditLogger> _auditLogger = null!;
+    private Mock<IAuditEnvelopeBatchLogger> _envelopeLogger = null!;
     private AuditEventBatchWriter _writer = null!;
 
     [SetUp]
     public void SetUp()
     {
         _auditLogger = new Mock<IAuditLogger>();
+        _envelopeLogger = _auditLogger.As<IAuditEnvelopeBatchLogger>();
         _writer = new AuditEventBatchWriter(
             _auditLogger.Object,
             NullLogger<AuditEventBatchWriter>.Instance);
+    }
+
+    [TestCase("aggregate")]
+    [TestCase("aggregate_exception")]
+    [TestCase("missing")]
+    [TestCase("duplicate")]
+    [TestCase("unknown")]
+    [TestCase("unrecognized")]
+    [TestCase("contradictory")]
+    public async Task MalformedExactResultsAreContractDefects(string defect)
+    {
+        var first = new AuditEnvelope { Kind = AuditEnvelopeKind.ExplicitEvent, Action = AuditAction.Unknown, ExplicitEventId = Guid.NewGuid(), EntityName = "Test", EventType = "Test" };
+        var second = first with { EnvelopeId = Guid.NewGuid(), ExplicitEventId = Guid.NewGuid() };
+        var one = new AuditEventOutcome(first.ExplicitEventId!.Value, AuditEventWriteStatus.Persisted);
+        var two = new AuditEventOutcome(second.ExplicitEventId!.Value, AuditEventWriteStatus.Persisted);
+        _envelopeLogger.Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BatchAuditResult { Success = true, EventCount = 2, Exception = defect == "aggregate_exception" ? new Exception("contradictory") : null, EventOutcomes = defect switch
+            {
+                "aggregate" => null, "aggregate_exception" => [one, two], "missing" => [one], "duplicate" => [one, one],
+                "unknown" => [one, two with { EventId = Guid.NewGuid() }],
+                "unrecognized" => [one, two with { Status = (AuditEventWriteStatus)999 }],
+                _ => [one, two with { IsRetryable = true }]
+            }});
+        await Assert.ThrowsAsync<MillWorks.AuditCore.Services.Sinks.Processing.AuditBatchContractException>(
+            () => _writer.WriteBatchAsync([first, second], default));
     }
 
     [Test]
@@ -35,23 +63,24 @@ public sealed class AuditEventBatchWriterTests
         var outcomes = await _writer.WriteBatchAsync([], CancellationToken.None);
 
         Assert.That(outcomes, Is.Empty);
-        _auditLogger.VerifyNoOtherCalls();
+        _envelopeLogger.VerifyNoOtherCalls();
     }
 
     [Test]
-    public async Task WriteBatchAsync_SingleEnvelope_CallsLogBatchAsync()
+    public async Task WriteBatchAsync_SingleEnvelope_CallsLogEnvelopeBatchAsync()
     {
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login",
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
 
         var outcomes = await _writer.WriteBatchAsync([envelope], CancellationToken.None);
 
@@ -59,8 +88,8 @@ public sealed class AuditEventBatchWriterTests
         Assert.That(outcomes[0].EnvelopeId, Is.EqualTo(envelope.EnvelopeId));
         Assert.That(outcomes[0].Succeeded, Is.True);
 
-        _auditLogger.Verify(
-            l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 1), It.IsAny<CancellationToken>()),
+        _envelopeLogger.Verify(
+            l => l.LogEnvelopeBatchAsync(It.Is<IReadOnlyList<AuditEnvelope>>(e => e.Count == 1), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -72,6 +101,7 @@ public sealed class AuditEventBatchWriterTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Login",
                 Action = AuditAction.Unknown,
                 EventType = "User.Login",
@@ -79,6 +109,7 @@ public sealed class AuditEventBatchWriterTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.Logout",
                 Action = AuditAction.Unknown,
                 EventType = "User.Logout",
@@ -86,15 +117,16 @@ public sealed class AuditEventBatchWriterTests
             new()
             {
                 Kind = AuditEnvelopeKind.ExplicitEvent,
+                ExplicitEventId = Guid.NewGuid(),
                 EntityName = "User.PasswordChange",
                 Action = AuditAction.Unknown,
                 EventType = "User.PasswordChange",
             },
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BatchAuditResult.Succeeded(3));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(3)));
 
         var outcomes = await _writer.WriteBatchAsync(envelopes, CancellationToken.None);
 
@@ -105,8 +137,8 @@ public sealed class AuditEventBatchWriterTests
         var envelopeIds = envelopes.Select(e => e.EnvelopeId).ToHashSet();
         Assert.That(outcomeIds, Is.EquivalentTo(envelopeIds));
 
-        _auditLogger.Verify(
-            l => l.LogBatchAsync(It.Is<IReadOnlyList<AuditEvent>>(e => e.Count == 3), It.IsAny<CancellationToken>()),
+        _envelopeLogger.Verify(
+            l => l.LogEnvelopeBatchAsync(It.Is<IReadOnlyList<AuditEnvelope>>(e => e.Count == 3), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -119,6 +151,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login",
@@ -133,17 +166,18 @@ public sealed class AuditEventBatchWriterTests
         };
 
         AuditEvent? capturedEvent = null;
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((events, _) => capturedEvent = events.FirstOrDefault())
-            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((events, _) => capturedEvent = events.Select(AuditEventBatchWriter.MapToAuditEvent).FirstOrDefault())
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
 
         await _writer.WriteBatchAsync([envelope], CancellationToken.None);
 
         Assert.That(capturedEvent, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(capturedEvent!.EventType, Is.EqualTo("User.Login"));
+            Assert.That(capturedEvent!.EventId, Is.EqualTo(envelope.ExplicitEventId));
+            Assert.That(capturedEvent.EventType, Is.EqualTo("User.Login"));
             Assert.That(capturedEvent.EntityName, Is.EqualTo("User.Login"));
             Assert.That(capturedEvent.Action, Is.EqualTo(AuditAction.Unknown));
             Assert.That(capturedEvent.StartDate, Is.EqualTo(occurredAt));
@@ -164,16 +198,17 @@ public sealed class AuditEventBatchWriterTests
         var envelope = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "User.Login",
             Action = AuditAction.Unknown,
             EventType = "User.Login",
         };
 
         AuditEvent? capturedEvent = null;
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((events, _) => capturedEvent = events.FirstOrDefault())
-            .ReturnsAsync(BatchAuditResult.Succeeded(1));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((events, _) => capturedEvent = events.Select(AuditEventBatchWriter.MapToAuditEvent).FirstOrDefault())
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
 
         await _writer.WriteBatchAsync([envelope], CancellationToken.None);
 
@@ -188,6 +223,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Event1",
             Action = AuditAction.Unknown,
             EventType = "Event1",
@@ -195,15 +231,16 @@ public sealed class AuditEventBatchWriterTests
         var envelope2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Event2",
             Action = AuditAction.Unknown,
             EventType = "Event2",
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((IReadOnlyList<AuditEvent> events, CancellationToken _) =>
-                BatchAuditResult.Failed(events.ToList(), new InvalidOperationException("DB connection lost")));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> events, CancellationToken _) =>
+                TestEnvelopeBatchResults.Create(events, BatchAuditResult.Failed(events.Select(AuditEventBatchWriter.MapToAuditEvent).ToList(), new InvalidOperationException("DB connection lost"))));
 
         var outcomes = await _writer.WriteBatchAsync([envelope1, envelope2], CancellationToken.None);
 
@@ -219,6 +256,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Event1",
             Action = AuditAction.Unknown,
             EventType = "Event1",
@@ -226,14 +264,15 @@ public sealed class AuditEventBatchWriterTests
         var envelope2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Event2",
             Action = AuditAction.Unknown,
             EventType = "Event2",
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BatchAuditResult.Failed([], new InvalidOperationException("Connection refused")));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Failed([], new InvalidOperationException("Connection refused"))));
 
         var outcomes = await _writer.WriteBatchAsync([envelope1, envelope2], CancellationToken.None);
 
@@ -251,6 +290,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Success1",
             Action = AuditAction.Unknown,
             EventType = "Success1",
@@ -258,6 +298,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Failed1",
             Action = AuditAction.Unknown,
             EventType = "Failed1",
@@ -265,18 +306,19 @@ public sealed class AuditEventBatchWriterTests
         var envelope3 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "Success2",
             Action = AuditAction.Unknown,
             EventType = "Success2",
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .Callback<IReadOnlyList<AuditEvent>, CancellationToken>((e, _) => events.AddRange(e))
-            .ReturnsAsync((IReadOnlyList<AuditEvent> capturedEvents, CancellationToken _) =>
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((e, _) => events.AddRange(e.Select(AuditEventBatchWriter.MapToAuditEvent)))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> capturedEvents, CancellationToken _) =>
             {
-                var failed = capturedEvents.Where(e => e.EventType == "Failed1").ToList();
-                return BatchAuditResult.Failed(failed, new InvalidOperationException("Partial failure"));
+                var failed = capturedEvents.Where(e => e.EventType == "Failed1").Select(AuditEventBatchWriter.MapToAuditEvent).ToList();
+                return TestEnvelopeBatchResults.Create(capturedEvents, BatchAuditResult.Failed(failed, new InvalidOperationException("Partial failure")));
             });
 
         var outcomes = await _writer.WriteBatchAsync([envelope1, envelope2, envelope3], CancellationToken.None);
@@ -298,6 +340,7 @@ public sealed class AuditEventBatchWriterTests
         var envelope1 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "A",
             Action = AuditAction.Unknown,
             EventType = "A",
@@ -305,14 +348,15 @@ public sealed class AuditEventBatchWriterTests
         var envelope2 = new AuditEnvelope
         {
             Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
             EntityName = "B",
             Action = AuditAction.Unknown,
             EventType = "B",
         };
 
-        _auditLogger
-            .Setup(l => l.LogBatchAsync(It.IsAny<IReadOnlyList<AuditEvent>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(BatchAuditResult.Succeeded(2));
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) => TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(2)));
 
         var outcomes = await _writer.WriteBatchAsync([envelope1, envelope2], CancellationToken.None);
 

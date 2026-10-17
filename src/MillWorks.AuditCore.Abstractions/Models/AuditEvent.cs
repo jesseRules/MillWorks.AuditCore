@@ -9,6 +9,12 @@ namespace MillWorks.AuditCore.Abstractions.Models;
 /// </summary>
 public sealed class AuditEvent
 {
+    // Retained by DLQ serialization so replay cannot lose semantic identity evidence.
+    // Owning loggers validate the ID and rebuild persisted fields from this envelope.
+    [JsonInclude]
+    [JsonPropertyName("audit_envelope")]
+    internal AuditEnvelope? SourceEnvelope { get; init; }
+
     /// <summary>
     /// Unique identifier for this audit event instance.
     /// </summary>

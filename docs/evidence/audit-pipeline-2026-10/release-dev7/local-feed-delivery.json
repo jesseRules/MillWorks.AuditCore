@@ -1,0 +1,86 @@
+{
+  "recordedUtc": "2026-10-16T21:56:44.122715+00:00",
+  "version": "1.15.4-dev.7",
+  "deliveries": [
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.1.15.4-dev.7.nupkg",
+      "sha256": "ef2a25cec6a70b7c7ccb95f49109696f82513d673afe6eb1599fb5ebb65b9584"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.1.15.4-dev.7.snupkg",
+      "sha256": "4bf4e25febcfd8a6bfe4058a98e0871825df64c969eaf9bd211850345fb4eac5"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.nupkg",
+      "sha256": "18447456ec8a36fcc193c2cffd9b95a1f9b008d04e04fb3e15ab3a6aa628648a"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.snupkg",
+      "sha256": "080e5e2e02939b55b12be6a42a72cb7b17041e069d2a622bf8f62518185708eb"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.nupkg",
+      "sha256": "bdabbda0a784864c90f92946ec1834972cf846a856265d63813a8de88da6d3dd"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.snupkg",
+      "sha256": "f03758149c2165d1d09493238d6d2b69c36f39bd69c9779c7c59230a31d17659"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Providers.1.15.4-dev.7.nupkg",
+      "sha256": "bf0b15d573599dd482f9a407ec27c98a80f7690b30697234534e098c3dd1e97d"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Providers.1.15.4-dev.7.snupkg",
+      "sha256": "2d815f6f10d5793bde8176554f6831a9c36858a12b199e062c04d8a516d1d12d"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Services.1.15.4-dev.7.nupkg",
+      "sha256": "6860b1b40e1940dc89e975f389cd5758540f752f2ba13654543258117c1a93ea"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Services.1.15.4-dev.7.snupkg",
+      "sha256": "ea9f0a196feb17f0e8cb853555359b0318769a83a10845b9bcf49ff069fe3288"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.1.15.4-dev.7.nupkg",
+      "sha256": "ef2a25cec6a70b7c7ccb95f49109696f82513d673afe6eb1599fb5ebb65b9584"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.1.15.4-dev.7.snupkg",
+      "sha256": "4bf4e25febcfd8a6bfe4058a98e0871825df64c969eaf9bd211850345fb4eac5"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.nupkg",
+      "sha256": "18447456ec8a36fcc193c2cffd9b95a1f9b008d04e04fb3e15ab3a6aa628648a"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.snupkg",
+      "sha256": "080e5e2e02939b55b12be6a42a72cb7b17041e069d2a622bf8f62518185708eb"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.nupkg",
+      "sha256": "bdabbda0a784864c90f92946ec1834972cf846a856265d63813a8de88da6d3dd"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.snupkg",
+      "sha256": "f03758149c2165d1d09493238d6d2b69c36f39bd69c9779c7c59230a31d17659"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Providers.1.15.4-dev.7.nupkg",
+      "sha256": "bf0b15d573599dd482f9a407ec27c98a80f7690b30697234534e098c3dd1e97d"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Providers.1.15.4-dev.7.snupkg",
+      "sha256": "2d815f6f10d5793bde8176554f6831a9c36858a12b199e062c04d8a516d1d12d"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Services.1.15.4-dev.7.nupkg",
+      "sha256": "6860b1b40e1940dc89e975f389cd5758540f752f2ba13654543258117c1a93ea"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Services.1.15.4-dev.7.snupkg",
+      "sha256": "ea9f0a196feb17f0e8cb853555359b0318769a83a10845b9bcf49ff069fe3288"
+    }
+  ]
+}

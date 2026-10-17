@@ -1,0 +1,84 @@
+{
+  "recordedUtc": "2026-10-16T22:35:00.391401+00:00",
+  "baselineCommit": "76af4a9a54660dee606169fab967d8cdcad1874f",
+  "dirty": true,
+  "sdk": "10.0.202",
+  "runs": {
+    "focused": {
+      "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build -- --configuration Release --no-restore --filter 'FullyQualifiedName~BatchSinkAcceptanceSqliteTests|FullyQualifiedName~ImmediateSinkTests|FullyQualifiedName~TransactionalOutboxSinkTests|FullyQualifiedName~AuditEntityBatchWriterTests|FullyQualifiedName~AuditLoggerBatchDuplicateSqliteTests|FullyQualifiedName~OutboxAtomicityPolicyTests' --logger 'trx;LogFileName=h2-focused.trx' --results-directory /tmp/auditcore-h2-results",
+      "exitCode": 0,
+      "outcomes": {
+        "Passed": 62
+      },
+      "rawTrxCounters": {
+        "total": "62",
+        "executed": "62",
+        "passed": "62",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "skipReasons": {},
+      "consoleSummary": "Passed!  - Failed:     0, Passed:    62, Skipped:     0, Total:    62, Duration: 2 s - MillWorks.AuditCore.Tests.dll (net10.0)"
+    },
+    "regression": {
+      "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build --sql -- --configuration Release --no-restore --logger 'trx;LogFileName=h2-regression.trx' --results-directory /tmp/auditcore-h2-regression",
+      "exitCode": 0,
+      "outcomes": {
+        "Passed": 2550,
+        "NotExecuted": 32
+      },
+      "rawTrxCounters": {
+        "total": "2582",
+        "executed": "2550",
+        "passed": "2550",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "skipReasons": {
+        "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name.": 8,
+        "SQL execution-strategy fault coverage.": 14,
+        "Native SQLite consumer mapping.": 2,
+        "Real SQL lock overlap.": 2,
+        "ExecuteDeleteAsync is not supported by the InMemory EF provider \u2014 covered by SQLite integration tests": 2,
+        "Owning SQL Server incremental migration.": 1,
+        "OneTimeSetUp: SetUp : Phase 6.5 endurance soak is opt-in. Set AUDITCORE_RUN_ENDURANCE=1 to run; use `dotnet test -e AUDITCORE_RUN_ENDURANCE=1 ...` so the value reaches the NUnit worker.": 1,
+        "Requires relational provider to simulate concurrency failures": 1,
+        "Requires relational provider for concurrency tokens": 1
+      },
+      "consoleSummary": "Passed!  - Failed:     0, Passed:  2550, Skipped:    23, Total:  2573, Duration: 5 m 11 s - MillWorks.AuditCore.Tests.dll (net10.0)"
+    }
+  },
+  "assemblyHashes": {
+    "src/MillWorks.AuditCore.Services/bin/Release/net10.0/MillWorks.AuditCore.Services.dll": "143bfafdda28dd1bf6a362a0910778e198d18092fe251d7728338af78ad5424b",
+    "src/MillWorks.AuditCore.AspNetCore/bin/Release/net10.0/MillWorks.AuditCore.AspNetCore.dll": "a955dcc4493922933e333743e6c2c9d1e41dd2d13ffa9aa59045e1177fbb1ec8",
+    "src/MillWorks.AuditCore.EntityFramework/bin/Release/net10.0/MillWorks.AuditCore.EntityFramework.dll": "9c2bde68fe45cd760c2fe0a00aba94d3e5bfe54b2c6a7f5daf77f6acb1b00ad8",
+    "src/MillWorks.AuditCore.Providers/bin/Release/net10.0/MillWorks.AuditCore.Providers.dll": "a60a9e0e3ebfbdcb6db9c77511c324af8f40f8476665be2d8448da98d176f48a",
+    "src/MillWorks.AuditCore.Abstractions/bin/Release/net10.0/MillWorks.AuditCore.Abstractions.dll": "574e330af839598ada157f34ff13af4bd6a1b0cd620583d347189bceabb0fd97"
+  },
+  "schemaChanged": false,
+  "publicSignaturesChanged": false,
+  "packaged": false,
+  "deployed": false
+}

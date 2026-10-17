@@ -1,0 +1,16 @@
+  The package MillWorks.AuditCore.Abstractions.1.15.4-dev.7 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.nupkg'.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.7.snupkg'.
+  The package MillWorks.AuditCore.1.15.4-dev.7 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.1.15.4-dev.7.nupkg'.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.1.15.4-dev.7.snupkg'.
+  The package MillWorks.AuditCore.EntityFramework.1.15.4-dev.7 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.nupkg'.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.7.snupkg'.
+  The package MillWorks.AuditCore.Providers.1.15.4-dev.7 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Providers.1.15.4-dev.7.nupkg'.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Providers.1.15.4-dev.7.snupkg'.
+  The package MillWorks.AuditCore.Services.1.15.4-dev.7 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Services.1.15.4-dev.7.nupkg'.
+  Successfully created package '/tmp/auditcore-dev7-packages/MillWorks.AuditCore.Services.1.15.4-dev.7.snupkg'.
+Verified five packages, five symbol packages, metadata, internal versions, DLL hashes and both H1 migrations.

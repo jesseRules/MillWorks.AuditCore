@@ -106,6 +106,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         typeof(AuditArchiveRecordEntity),
         typeof(AuditSecurityEventEntity),
         typeof(AuditOutboxEntity),
+        typeof(AuditEnvelopeIdentity),
         typeof(AuditIntegrityWorkItemEntity)
     ];
 

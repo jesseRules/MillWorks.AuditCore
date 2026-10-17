@@ -47,6 +47,7 @@ public sealed class AuditOutboxDrainer(
             opts.OutboxDrainerMaxAttempts);
 
         var consecutiveFailures = 0;
+        var consecutiveContractFailures = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -75,13 +76,23 @@ public sealed class AuditOutboxDrainer(
                 await scope.ServiceProvider.GetRequiredService<OutboxHandoffDispatcher>().DispatchAsync(
                     Math.Min(opts.OutboxDrainerBatchSize, OutboxStateStore.MaxBatchSize), opts.OutboxDrainerLeaseDuration, stoppingToken);
                 if (processed > 0)
+                {
+                    consecutiveContractFailures = 0;
                     consecutiveFailures = 0;
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
             catch (Exception) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (AuditBatchContractException ex)
+            {
+                consecutiveContractFailures++;
+                logger.LogCritical(ex, "Outbox result contract failed ({Count}/{Limit}); claims remain recoverable",
+                    consecutiveContractFailures, Math.Max(1, opts.OutboxDrainerCircuitBreakerThreshold));
+                if (consecutiveContractFailures >= Math.Max(1, opts.OutboxDrainerCircuitBreakerThreshold)) throw;
+            }
             catch (Exception ex)
             {
                 consecutiveFailures++;
@@ -136,9 +147,12 @@ public sealed class AuditOutboxDrainer(
         {
             var result = await sp.GetRequiredService<IAuditBatchProcessor>().ProcessBatchAsync(valid, ct);
             var expected = valid.Select(x => x.RowId).ToHashSet();
-            if (result.Outcomes.Count != expected.Count || result.Outcomes.Select(x => x.RowId).Distinct().Count() != expected.Count ||
-                result.Outcomes.Any(x => !expected.Contains(x.RowId) || !Enum.IsDefined(x.Status)))
-                throw new InvalidOperationException("Processor must return exactly one outcome per claimed input row.");
+            if (result?.Outcomes is null || result.Outcomes.Any(x => x is null) || result.Outcomes.Count != expected.Count || result.Outcomes.Select(x => x.RowId).Distinct().Count() != expected.Count ||
+                result.Outcomes.Any(x => !expected.Contains(x.RowId) || !Enum.IsDefined(x.Status) ||
+                    (x.Status == RowStatus.RetryLater) != x.IsRetryable ||
+                    (x.Status != RowStatus.RetryLater && x.RetryAfter is not null) ||
+                    (x.Status is RowStatus.Succeeded or RowStatus.Duplicate && (x.Exception is not null || x.ErrorMessage is not null))))
+                throw new AuditBatchContractException("Processor must return exactly one outcome per claimed input row.");
             var rows = claimed.Claims.ToDictionary(x => x.Id);
             foreach (var outcome in result.Outcomes)
             {
@@ -152,7 +166,10 @@ public sealed class AuditOutboxDrainer(
                 var next = status == AuditOutboxStatus.Pending
                     ? DateTimeOffset.UtcNow + (outcome.RetryAfter ?? GetBackoffWithJitter(row.AttemptCount, opts))
                     : (DateTimeOffset?)null;
-                changes.Add(new(row.Id, row.Token, status, next, "write_failed"));
+                var reason = outcome.Exception is Identity.AuditIdentityConflictException conflict
+                    ? conflict.Unverified ? "audit_identity_unverified" : "audit_identity_conflict"
+                    : "write_failed";
+                changes.Add(new(row.Id, row.Token, status, next, reason));
             }
         }
         ct.ThrowIfCancellationRequested();
