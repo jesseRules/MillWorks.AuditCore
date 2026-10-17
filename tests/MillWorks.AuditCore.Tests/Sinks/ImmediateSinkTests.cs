@@ -32,6 +32,28 @@ public sealed class ImmediateSinkTests
             NullLogger<ImmediateSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
     }
 
+    [Test]
+    public async Task IdentityFailureDiagnosticsIdentifyTheEnvelopeWithoutPayloadValues()
+    {
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.EntityChange, EntityName = "PermissionClaim", Action = AuditAction.Created,
+            AdditionalData = "secret-never-log"
+        };
+        var writer = new Mock<IAuditEntityBatchWriter>();
+        writer.Setup(w => w.WriteBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { WriteOutcome.Failed(envelope.EnvelopeId, "audit_identity_unverified", false,
+                new MillWorks.AuditCore.Services.Sinks.Identity.AuditIdentityConflictException([envelope.EnvelopeId], unverified: true)) });
+        var logger = new Mock<Microsoft.Extensions.Logging.ILogger<ImmediateSink>>();
+        var sink = new ImmediateSink(writer.Object, _eventBatchWriter, logger.Object,
+            MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
+        await Assert.ThrowsAsync<MillWorks.AuditCore.Abstractions.Exceptions.AuditWriteException>(() => sink.PublishAsync(envelope));
+        var messages = logger.Invocations.Where(static call => call.Method.Name == "Log")
+            .Select(static call => call.Arguments[2]?.ToString() ?? "").ToArray();
+        Assert.That(messages.Any(message => message.Contains(envelope.EnvelopeId.ToString()) && message.Contains("PermissionClaim")), Is.True);
+        Assert.That(messages.All(static message => !message.Contains("secret-never-log")), Is.True);
+    }
+
     private sealed class RecordingEntityBatchWriter : IAuditEntityBatchWriter
     {
         public int BatchCallCount { get; private set; }

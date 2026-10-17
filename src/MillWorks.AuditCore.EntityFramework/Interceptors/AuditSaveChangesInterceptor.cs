@@ -332,6 +332,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         int result,
         CancellationToken cancellationToken = default)
     {
+        AuditMutationIdentity.Complete(eventData.Context);
         await DispatchProvidersAsync(eventData.Context, cancellationToken);
         return await base.SavedChangesAsync(eventData, result, cancellationToken);
     }
@@ -714,6 +715,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var entityType = entry.Entity.GetType();
         var entityName = entityType.Name;
         var action = MapAction(entry.State);
+        var mutation = AuditMutationIdentity.Capture(entry.Context, entry.Entity);
         var (entityId, entityIdString) = GetPrimaryKeyValue(entry);
         var ferpaAttr = GetFERPAAttribute(entityType);
 
@@ -771,8 +773,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
                 return new AuditEnvelope
                 {
-                    EnvelopeId = AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action,
-                        changes, additionalData),
+                    EnvelopeId = mutation.Id,
                     Kind = AuditEnvelopeKind.EntityChange,
                     EntityName = entityName,
                     EntityId = entityId,
@@ -814,7 +815,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var snapshot = new Dictionary<string, object?>();
         foreach (var prop in properties)
         {
-            var rawValue = entry.State == EntityState.Deleted
+            var rawValue = AuditMutationIdentity.IsUnresolvedKey(entry.Context, entry.Entity, prop.Metadata.Name)
+                ? null : entry.State == EntityState.Deleted
                 ? prop.OriginalValue
                 : prop.CurrentValue;
             var meta = ResolvePropertyMetadata(entityType, prop.Metadata.PropertyInfo);
@@ -878,8 +880,7 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         return new AuditEnvelope
         {
-            EnvelopeId =
-                AuditEnvelope.ComputeDeterministicId(entityName, entityId, entityIdString, action, null, snapshotJson),
+            EnvelopeId = mutation.Id,
             Kind = AuditEnvelopeKind.EntityChange,
             EntityName = entityName,
             EntityId = entityId,
@@ -924,7 +925,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             var property = entry.Metadata.FindProperty(propertyName)
                            ?? throw new InvalidOperationException(
                                $"Audit subject policy property '{entry.Entity.GetType().FullName}.{propertyName}' is not mapped by EF.");
-            object? value = entry.State == EntityState.Deleted
+            object? value = AuditMutationIdentity.IsUnresolvedKey(entry.Context, entry.Entity, property.Name)
+                ? null : entry.State == EntityState.Deleted
                 ? entry.Property(property.Name).OriginalValue
                 : entry.Property(property.Name).CurrentValue;
             if (value is Guid subjectId && subjectId != Guid.Empty)
@@ -939,7 +941,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         IAuditTenantContextSource? tenantContextSource)
     {
         var tenantProperty = entry.Metadata.FindProperty("TenantId");
-        var tenantValue = tenantProperty is null
+        var tenantValue = tenantProperty is null ||
+            AuditMutationIdentity.IsUnresolvedKey(entry.Context, entry.Entity, tenantProperty.Name)
             ? null
             : entry.State == EntityState.Deleted
                 ? entry.Property(tenantProperty.Name).OriginalValue
@@ -975,7 +978,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             return new AuditGovernanceIdentity(tenantId.Value);
 
         var keyProperty = primaryKey.Properties[0];
-        var keyValue = entry.State == EntityState.Deleted
+        var keyValue = AuditMutationIdentity.IsUnresolvedKey(entry.Context, entry.Entity, keyProperty.Name)
+            ? null : entry.State == EntityState.Deleted
             ? entry.Property(keyProperty.Name).OriginalValue
             : entry.Property(keyProperty.Name).CurrentValue;
         return keyValue is Guid resourceId && resourceId != Guid.Empty
@@ -1107,7 +1111,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             .Where(static p => p.Metadata.IsPrimaryKey())
             .ToList();
 
-        if (keyProperties.Count == 0)
+        if (keyProperties.Count == 0 || keyProperties.Any(p =>
+                AuditMutationIdentity.IsUnresolvedKey(entry.Context, entry.Entity, p.Metadata.Name)))
             return (null, null);
 
         if (keyProperties.Count == 1)

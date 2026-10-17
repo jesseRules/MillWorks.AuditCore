@@ -1,0 +1,9 @@
+{
+  "sampleLimit": 100,
+  "historicalSnapshotsMatchingCurrentRoleClaims": 100,
+  "recomputedEnvelopeIdsMatch": 100,
+  "temporaryNegativeKeySnapshots": 100,
+  "queryWasReadOnly": true,
+  "payloadsRetained": false,
+  "doesNotIdentifyExactRuntimeExceptionId": true
+}

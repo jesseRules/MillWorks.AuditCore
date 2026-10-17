@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RestoreSources>/tmp/auditcore-dev9-packages;/Users/jesse/LocalNuGetPackages;https://api.nuget.org/v3/index.json</RestoreSources>
+    <RestorePackagesPath>/tmp/auditcore-dev9-consumer/packages</RestorePackagesPath>
+    <RestoreFallbackFolders>/Users/jesse/.nuget/packages</RestoreFallbackFolders>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MillWorks.AuditCore" Version="1.15.4-dev.9" />
+  </ItemGroup>
+</Project>

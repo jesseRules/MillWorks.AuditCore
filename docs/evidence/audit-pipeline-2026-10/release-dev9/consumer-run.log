@@ -1,0 +1,7 @@
+MillWorks.AuditCore.Abstractions: 1.15.4-dev.9+18090b6977a46ff76eac8d34a14843e9b685f1c3
+MillWorks.AuditCore.EntityFramework: 1.15.4-dev.9+18090b6977a46ff76eac8d34a14843e9b685f1c3
+MillWorks.AuditCore.Services: 1.15.4-dev.9+18090b6977a46ff76eac8d34a14843e9b685f1c3
+MillWorks.AuditCore.Providers: 1.15.4-dev.9+18090b6977a46ff76eac8d34a14843e9b685f1c3
+MillWorks.AuditCore.AspNetCore: 1.15.4-dev.9+18090b6977a46ff76eac8d34a14843e9b685f1c3
+Package-only consumer verified all five dev.9 dependencies and new public contracts.
+Mutation token capture/serialization/restoration verified with packaged SQL model metadata; no database opened.

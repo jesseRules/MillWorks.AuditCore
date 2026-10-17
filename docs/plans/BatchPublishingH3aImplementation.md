@@ -15,9 +15,10 @@ rows without receipts remain unverified; no version/schema change is required by
 
 Jesse confirmed global EventId uniqueness, matching the existing database keys. An explicit
 event requires a non-empty ExplicitEventId, persisted as EventId and used as the outbox key.
-EnvelopeId remains per-input correlation. Entity-change identity remains EnvelopeId. No GUID
-generator change is included: new GUIDs avoid accidental collisions, while retries must
-reuse the original identity and semantic content. Repeated EnvelopeIds are rejected across
+EnvelopeId remains per-input correlation. Entity-change identity remains EnvelopeId; the dev.9 correction below changes its producer
+from content-derived IDs to mutation-operation tokens. Explicit-event GUID generation is unchanged: new GUIDs avoid accidental collisions, while
+retries must reuse the original identity and semantic content. Dev.9 introduces UUIDv7
+identities for EF mutation tokens, separately from the explicit-event contract. Repeated EnvelopeIds are rejected across
 the entire batch before writes. The first input for a repeated explicit logical ID is the
 candidate; identical aliases become duplicates only after that candidate is durably present.
 Changed aliases are conflicts, and a failed candidate cannot make aliases successful.
@@ -107,7 +108,8 @@ subsequent implementation is tracked in the [H3 contract](BatchPublishingH3Imple
 - Update all host producers to supply stable ExplicitEventId and occurrence time across retries.
   The bounded [producer inventory](../evidence/audit-pipeline-2026-10/h3a-design-2026-10-16/producer-inventory.json)
   found ten missing IDs in explicitly typed MillWorks API initializers; target-typed/external
-  producers remain a separate inventory gap. No host source has been changed by this work.
+  producers remain a separate inventory gap. MillWorks integration is now in progress;
+  the first scoped authorization implementation is described below.
 - Map the receipt entity in mapped consumer models and apply the receipt migration to every
   owning audit/consumer database. Verify schema names, host authorization, custom capability
   conformance, retention/holds and DLQ copies before activation. Rollback must preserve identity
@@ -115,3 +117,128 @@ subsequent implementation is tracked in the [H3 contract](BatchPublishingH3Imple
 - Local release completed as dev.8 from commit `6f560a1`, with 2,644 regression and 416 final
   committed-source passes plus package-only consumer validation. Dev.7 remains immutable.
   Host consumer update, API build/restart and deployment have not been performed for H3a.
+
+## MillWorks host integration — speech completion
+
+**Status:** Source and regression tests prepared; compilation, test execution and runtime
+acceptance remain pending. No API build/restart or database migration was performed for this item.
+
+The first background producer is `MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs`:
+
+- The authenticated hub's resolver returns an immutable server-owned actor/tenant identity.
+  The registry rejects options that disagree with it before starting the provider, then retains
+  that identity with the session through timeout, stop or disconnect cleanup.
+- The completion envelope carries tenant governance metadata, the session ID as both envelope
+  and explicit event ID, and the retained summary's completion time. No transcript or audio is added.
+- Scoped `SpeechSessionAuditAuthorization` grants only the exact completion envelope for that
+  captured actor, tenant and session. It rejects unbound scopes, substitute envelopes and mixed
+  batches. Outstanding permits expire when the completion binding ends; a later binding cannot
+  revive them. Connection cancellation does not revoke authority to record the observed outcome.
+- Immediate mode publishes directly. Transactional-outbox mode stages the source and identity
+  receipt on an owned `AuditDbContext`, then saves both before releasing the publication binding.
+  This records a completed session observation; it does not claim atomicity with an earlier
+  speech-provider operation. Existing warning-on-failure behavior remains best effort.
+- Added tests cover actor/tenant mismatch, unauthenticated resolution, publication scope and
+  purpose boundaries, cancellation/disposal, disconnected completion, and real package outbox
+  acceptance plus injected save failure using a disposable SQLite database.
+
+Acceptance requires compiling `MillWorks.Api` and `MillWorks.Api.Tests`, then running the
+`AiSpeechIdentityResolverTests`, `AiSpeechSessionRegistryTests` and
+`SpeechSessionAuditAuthorizationTests` fixtures. These changes have not yet been executed.
+The MillWorks `AGENTS.md` requires explicit permission for the API build; AI-dependent test
+compilation must be batched with the user's rebuilds. Do not report old test artifacts as proof.
+
+The host routes through `MillWorksAuditWriteAuthorization`: speech completion uses its
+captured grant; EF change capture uses the active host-composed consumer context as described
+below. Other explicit producers still need individual integration; this is not host rollout
+acceptance.
+During that review, entities whose changes do not merit auditing may be explicitly marked
+`[NoAudit]` as authorized by Jesse. That attribute applies to entity/property change capture;
+explicit usage events require their own keep/remove decision.
+
+### Correction: global speech-only registration rejected EF capture
+
+The user observed `AuditPublicationAuthorizationException` from
+`SpeechSessionAuditAuthorization.AcquireAsync` during startup on the EF interceptor path.
+The initial global registration incorrectly routed every audit producer to the speech-only
+policy. Adjacent recurring-job messages do not identify the failing entity and are not a basis
+for suppressing its audit.
+
+The source correction registers `MillWorksAuditWriteAuthorization` globally and retains the
+same scoped speech policy as a delegated capability. Entity-change envelopes require the
+interceptor's active consumer context, the host's external audit model customizer, a distinct
+tracked mutation per envelope, and matching entity keys, action, actor/request provenance and
+tenant/resource identity. A permit expires if its source context ends or provenance changes.
+An absent tenant remains explicitly confined to that host EF observation; no synthetic tenant,
+public grant or explicit-event fallback is created. Other explicit publishers still fail closed.
+
+Added regression tests cover the actual interceptor startup path, `[NoAudit]` exclusion,
+provenance substitutions, context lifetime, mixed batches and routing speech's scoped grant.
+Speech lifecycle fixtures now use the global router too. Compilation and execution are pending
+the next authorized API/test rebuild; whitespace checks pass. No process restart, audit
+failure-mode relaxation, entity exclusion or database change was used to mask this failure.
+
+### Host blocker: entity-change identities can reuse temporary keys
+
+The user's populated startup run now reaches the entity writer but reports
+`audit_identity_unverified`. [Read-only investigation](../evidence/audit-pipeline-2026-10/host-identity-investigation-2026-10-16/README.md)
+confirms historical role-claim creation rows without receipts and reproduces 100 historical
+EnvelopeIds from their reused EF temporary keys and snapshots. Exact failing runtime IDs
+remain absent from the supplied logs, so the specific attribution is inferred. Host rollout
+remains blocked pending mutation-operation identity handling and the regression/acceptance
+outcomes in that investigation. Do not disable role/permission auditing or infer historical
+fingerprints to close this gate.
+
+### EF mutation identity correction — dev.9 candidate
+
+[Dev.9 is published locally](../evidence/audit-pipeline-2026-10/release-dev9/README.md): 2,664 Release,
+27 focused and four targeted SQL cases passed, zero failures. MillWorks references and exact
+package resolution are updated. Jesse rebuilt/restarted the host: populated startup now has
+78 new role-claim creation records with 78 identity receipts and no observed identity errors.
+Focused host verification now passes all 54 cases (zero failures/skips) after correcting
+missing test DI registrations and Jesse rebuilding the tests.
+[Evidence](../evidence/audit-pipeline-2026-10/release-dev9/host-rebuilt-verification.json) records the boundary; no source commit was made by the agent. Regression verification against the old producer
+failed two cases (reused temporary keys and repeated value transitions) and passed the existing
+failed-save retry case. This is reproduction evidence, not acceptance of the new implementation.
+
+- `AuditMutationIdentity.Capture(context, entity)` assigns a UUIDv7 mutation identity to the
+  tracked entity in that context lease. Failed/cancelled saves retain it. Successful SaveChanges
+  retires pending identities before post-save provider dispatch. Later mutations with the same
+  values and separate creations with reused temporary keys receive different identities.
+- `AuditMutationToken` retains type, action and unresolved primary-key names with the identity.
+  Callers retrying in a replacement context must preserve this token and original semantic
+  inputs/provenance, track the retry, then call `Restore`. Serialize it with a durable command
+  for process-restart retries. It is not proof of business commit; callers must reconcile an
+  uncertain business commit before repeating a mutation. A new context without a restored
+  token is new work. Equal values are never sufficient to infer a retry.
+- Initially temporary generated primary keys remain unknown in captured locators/snapshots,
+  governance resource IDs and subject references, including token restoration after key fixup.
+  Known client-assigned keys remain available. Other semantic inputs, including relationships,
+  must still match: no missing original business input is inferred from a token.
+- The content-hash helper has no remaining callers in the inspected AuditCore/MillWorks source
+  inventory and is removed. Existing stored IDs, receipts, fingerprint version and queue format
+  are unchanged. An old envelope addressed directly still fails as unverified when evidence is
+  missing. No source rows are deleted or granted invented historical fingerprints.
+- Failure diagnostics add bounded envelope/logical IDs, entity names, actions and stable error
+  codes without payload values. Audit-owned receipt, handoff, resolution and subject-index
+  bookkeeping is `[NoAudit]` to prevent recursive capture; business permissions remain audited.
+
+Acceptance gates:
+
+- [x] Focused real-interceptor SQLite lifecycle tests pass (27 focused checks, zero failures/skips): separate mutations, generated keys,
+  failed-save retry, token serialization/restoration, rollback, changed retry, lost audit
+  acknowledgement, historical unverified rows and pooled context lease reuse.
+- [x] Four disposable SQL Server cases pass, zero failures/skips, with RCSI off/on for generated integer/composite keys,
+  retained-token replay after durable audit acceptance and separate subsequent mutations.
+- [x] Release build and broader SQL-enabled regression passed: 2,664 tests, zero failures.
+  No model or migration change was introduced.
+- [x] Publish fresh dev.9 to both local feeds with exact source/test/package fingerprints;
+  preserve every distributed prior artifact and leave the commit to Jesse.
+- [x] Coordinate 21 active MillWorks direct reference projects and host EF provenance policy
+  with mutation tokens; API dependency restore confirms all five delivered package hashes.
+- [x] Complete focused host-test acceptance: after correcting three test service registrations
+  and Jesse rebuilding, all 54 cases pass with zero failures/skips.
+  [Final evidence](../evidence/audit-pipeline-2026-10/release-dev9/host-final-verification.json).
+- [x] Verify populated startup emits newly accepted role-claim audit records with receipts and
+  no unexplained identity failures: 78 new creation rows/78 receipts after the October 17
+  rebuild/restart, zero matching errors in the observed log window. Old history retained.

@@ -1,0 +1,26 @@
+{
+  "baselineCommit": "18090b6977a46ff76eac8d34a14843e9b685f1c3",
+  "provenanceKind": "fingerprinted-working-tree",
+  "committedRelease": false,
+  "sourceManifestSha256": "cdd8a699ba47386257daea79ff5db527bf09fae27868073bffffec0dd11b2e9d",
+  "migrationChange": false,
+  "queueFormatChange": false,
+  "fingerprintVersionChange": false,
+  "nunitMigrationIncluded": "Already in baseline; no new NUnit migration in this change.",
+  "changes": {
+    "Directory.Build.props": "Fresh coordinated dev.9 version and release notes; dev.8 remains immutable.",
+    "src/MillWorks.AuditCore.Abstractions/Models/AuditEnvelope.cs": "Remove unconsumed content-derived identity helper; document operation identity.",
+    "src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditMutationIdentity.cs": "Capture/restore pending mutation tokens, normalize unresolved key provenance, isolate pool leases with weak references.",
+    "src/MillWorks.AuditCore.EntityFramework/Interceptors/AuditSaveChangesInterceptor.cs": "Use mutation IDs, retire on successful saves, omit unresolved temporary keys from captured semantic input.",
+    "src/MillWorks.AuditCore.EntityFramework/Entities/AuditOutboxOperation.cs": "NoAudit for operation receipts, handoffs and resolutions to avoid recursive audit bookkeeping.",
+    "src/MillWorks.AuditCore.EntityFramework/Entities/AuditLogSubjectLinkEntity.cs": "NoAudit for subject-index projections.",
+    "src/MillWorks.AuditCore.Services/Sinks/ImmediateSink.cs": "Bounded payload-safe envelope/logical ID and entity diagnostics.",
+    "src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj": "Coordinate dev.9 project override.",
+    "src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj": "Coordinate dev.9 project override.",
+    "src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj": "Coordinate dev.9 project override.",
+    "tests/MillWorks.AuditCore.Tests/EntityFramework/InterceptorMutationIdentityTests.cs": "15 real-interceptor lifecycle and ledger regression cases.",
+    "tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.cs": "Allow companion partial mutation fixture; no existing test semantics removed.",
+    "tests/MillWorks.AuditCore.Tests/Identity/EnvelopeIdentitySqlServerTests.Mutations.cs": "Four SQL Server integer/composite key cases across both RCSI modes.",
+    "tests/MillWorks.AuditCore.Tests/Sinks/ImmediateSinkTests.cs": "Verify failed envelope identity logging without payload values."
+  }
+}

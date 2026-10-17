@@ -1,0 +1,10 @@
+{
+  "query": "SET NOCOUNT ON; SET LOCK_TIMEOUT 2000;\nSELECT COUNT_BIG(*) AS NewRoleClaimAuditRows, COUNT_BIG(i.LogicalId) AS WithIdentityReceipt, MIN(a.CreatedAt) AS FirstCreatedUtc, MAX(a.CreatedAt) AS LastCreatedUtc\nFROM audit.AuditLogs a LEFT JOIN audit.AuditEnvelopeIdentities i ON i.LogicalId=a.EnvelopeId AND i.Channel='entity'\nWHERE a.CreatedAt >= '2026-10-17T14:39:37' AND a.EntityType='IdentityRoleClaim`1' AND a.Action=1\nFOR JSON PATH, WITHOUT_ARRAY_WRAPPER;\n",
+  "result": {
+    "NewRoleClaimAuditRows": 78,
+    "WithIdentityReceipt": 78,
+    "FirstCreatedUtc": "2026-10-17T14:40:12.9307990Z",
+    "LastCreatedUtc": "2026-10-17T14:40:21.7759410Z"
+  },
+  "readOnly": true
+}

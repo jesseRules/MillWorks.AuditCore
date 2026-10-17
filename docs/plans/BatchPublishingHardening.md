@@ -1,6 +1,6 @@
 # Batch Publishing Hardening
 
-**Status:** H1 delivered in dev.7; reviewed H2/H3a/H3 changes are verified and published to both local feeds as dev.8. Host rollout pending; H4/H5 remain planned; G deferred.
+**Status:** H1 delivered in dev.7; reviewed H2/H3a/H3 changes are verified and published to both local feeds as dev.8. The subsequent [dev.9 local release](../evidence/audit-pipeline-2026-10/release-dev9/README.md) fixes EF mutation identity and restores exact packages in MillWorks. MillWorks now runs dev.9; populated EF startup acceptance passed (78 new rows/78 receipts). All 54 focused host tests pass, zero failures/skips; the dev.9 EF mutation rollout gate is complete. Other producer rollout remains open; H4/H5 remain planned; G deferred.
 **Date:** 2026-10-16
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
@@ -61,7 +61,7 @@ or a generic outbox engine.
 |-------|----------|------------|--------|-------------|
 | H1 | High | None | Implemented in AuditCore; rollout gates open | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
 | H2 | Medium | None | Verified and published locally in dev.8; host rollout pending | Accurate immediate/outbox batch contract and failure examples |
-| H3a | Medium | None | SQL verified and published locally in dev.8; host rollout pending | One logical explicit-event identity across both sink modes |
+| H3a | Medium | None | Explicit identity shipped in dev.8; EF mutation correction shipped in dev.9; host acceptance pending | One logical explicit-event identity across both sink modes |
 | H3 | Medium | H3a | Verified and published locally in dev.8; host rollout pending | Accurate duplicate/new-event outcomes and metrics |
 | H4 | Refactor | H1 | Planned; independently deferrable | Internal outbox repository with ownership-aware operations |
 | H5 | Qualification | H1–H3 (including H3a); sequence acceptance tracked separately | Planned | Reproducible throughput, latency, memory, and reconciliation evidence |

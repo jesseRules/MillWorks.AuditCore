@@ -31,30 +31,10 @@ public sealed record AuditEnvelope
     /// Stable identity for result correlation. This is NOT the same thing as an
     /// explicit event's AuditEvent.EventId and must exist for EntityChange envelopes too.
     /// Producers must preserve EnvelopeId across retries and outbox serialization.
-    /// For EntityChange envelopes, use <see cref="ComputeDeterministicId"/> to derive
-    /// a stable ID from entity identity and change content.
+    /// EntityChange producers use one mutation identity per operation, retained across
+    /// retries. Equal entity keys or values alone do not identify a retry.
     /// </summary>
     public Guid EnvelopeId { get; init; } = Guid.NewGuid();
-
-    /// <summary>
-    /// Computes a deterministic EnvelopeId from entity identity and change content.
-    /// Use this to ensure retries produce the same EnvelopeId for idempotent writes.
-    /// </summary>
-    public static Guid ComputeDeterministicId(
-        string entityName,
-        Guid? entityId,
-        string? entityIdString,
-        AuditAction action,
-        IReadOnlyList<AuditEnvelopePropertyChange>? propertyChanges,
-        string? additionalData)
-    {
-        using var sha = System.Security.Cryptography.SHA256.Create();
-        var input = $"{entityName}|{entityId}|{entityIdString}|{action}|" +
-                    $"{(propertyChanges != null ? string.Join(",", propertyChanges.Select(p => $"{p.PropertyName}:{p.OldValue}:{p.NewValue}")) : "")}|" +
-                    $"{additionalData ?? ""}";
-        var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
-        return new Guid(hash.AsSpan()[..16]);
-    }
 
     /// <summary>
     /// Discriminator identifying the producer path and which optional fields are populated.

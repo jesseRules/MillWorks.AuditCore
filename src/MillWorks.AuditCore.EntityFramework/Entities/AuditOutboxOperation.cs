@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Abstractions.Attributes;
 using System.ComponentModel.DataAnnotations;
 using MillWorks.AuditCore.Abstractions.Interfaces;
 
@@ -5,6 +6,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 
 /// <summary>Immutable SQL commit evidence. Retain until all referenced work is resolved and
 /// the reconciliation window has elapsed; these are not backup-independent disposition receipts.</summary>
+[NoAudit] // Audit-owned evidence/projection; do not recursively audit its bookkeeping.
 public sealed class AuditOutboxOperation : IAppendOnlyEntity
 {
     [Key] public Guid Id { get; set; }
@@ -16,6 +18,7 @@ public sealed class AuditOutboxOperation : IAppendOnlyEntity
 }
 
 /// <summary>External projection of a retained source failure. Delivery never replays the audit event.</summary>
+[NoAudit] // Audit-owned evidence/projection; do not recursively audit its bookkeeping.
 public sealed class AuditOutboxFailureHandoff
 {
     [Key] public Guid Id { get; set; }
@@ -36,6 +39,7 @@ public sealed class AuditOutboxFailureHandoff
 public enum AuditOutboxHandoffStatus { Pending, Dispatching, Delivered, Suppressed }
 
 /// <summary>Retained operator evidence; a successful projection alone is never source resolution.</summary>
+[NoAudit] // Audit-owned evidence/projection; do not recursively audit its bookkeeping.
 public sealed class AuditOutboxResolution : IAppendOnlyEntity
 {
     [Key] public Guid Id { get; set; }

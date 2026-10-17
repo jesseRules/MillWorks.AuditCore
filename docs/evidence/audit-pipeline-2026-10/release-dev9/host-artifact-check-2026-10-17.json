@@ -1,0 +1,47 @@
+{
+  "checkedUtc": "2026-10-17T11:52:47.296258+00:00",
+  "outcome": "stale dev.8 host artifacts; dev.9 host acceptance remains open",
+  "command": "python3 scripts/dev-work.py test MillWorks.Api.Tests/MillWorks.Api.Tests.csproj -- --filter 'FullyQualifiedName~AiSpeechIdentityResolverTests|FullyQualifiedName~AiSpeechSessionRegistryTests|FullyQualifiedName~SpeechSessionAuditAuthorizationTests|FullyQualifiedName~MillWorksAuditWriteAuthorizationTests' --logger 'trx;LogFileName=dev9-host-focused.trx' --results-directory /tmp/auditcore-dev9-host-acceptance",
+  "tests": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "validatesDev9": false,
+    "missingFixture": "MillWorksAuditWriteAuthorizationTests"
+  },
+  "projects": {
+    "MillWorks.Api": {
+      "assemblyModifiedUtc": "2026-10-17T02:22:14.091215+00:00",
+      "auditDependencies": [
+        "MillWorks.AuditCore/1.15.4-dev.8",
+        "MillWorks.AuditCore.Abstractions/1.15.4-dev.8",
+        "MillWorks.AuditCore.EntityFramework/1.15.4-dev.8",
+        "MillWorks.AuditCore.Providers/1.15.4-dev.8",
+        "MillWorks.AuditCore.Services/1.15.4-dev.8"
+      ]
+    },
+    "MillWorks.Api.Tests": {
+      "assemblyModifiedUtc": "2026-10-17T01:58:43.501298+00:00",
+      "auditDependencies": [
+        "MillWorks.AuditCore/1.15.4-dev.8",
+        "MillWorks.AuditCore.Abstractions/1.15.4-dev.8",
+        "MillWorks.AuditCore.EntityFramework/1.15.4-dev.8",
+        "MillWorks.AuditCore.Providers/1.15.4-dev.8",
+        "MillWorks.AuditCore.Services/1.15.4-dev.8"
+      ]
+    }
+  },
+  "apiOutputMatchesDev9": {
+    "MillWorks.AuditCore.AspNetCore.dll": false,
+    "MillWorks.AuditCore.Abstractions.dll": false,
+    "MillWorks.AuditCore.EntityFramework.dll": false,
+    "MillWorks.AuditCore.Providers.dll": false,
+    "MillWorks.AuditCore.Services.dll": false
+  },
+  "runningApi": {
+    "pid": 55153,
+    "startTimeLocal": "Fri Oct 16 21:23:06 2026",
+    "mappedAuditAssemblyPathsObserved": true,
+    "processManagedByAgent": false
+  }
+}

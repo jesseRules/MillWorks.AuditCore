@@ -1,0 +1,6 @@
+MillWorks.AuditCore.Abstractions: 1.15.4-dev.8+6f560a17dd4ced07ff19d410ecc79beb56eda068
+MillWorks.AuditCore.EntityFramework: 1.15.4-dev.8+6f560a17dd4ced07ff19d410ecc79beb56eda068
+MillWorks.AuditCore.Services: 1.15.4-dev.8+6f560a17dd4ced07ff19d410ecc79beb56eda068
+MillWorks.AuditCore.Providers: 1.15.4-dev.8+6f560a17dd4ced07ff19d410ecc79beb56eda068
+MillWorks.AuditCore.AspNetCore: 1.15.4-dev.8+6f560a17dd4ced07ff19d410ecc79beb56eda068
+Package-only consumer verified all five dev.8 dependencies and new public contracts.

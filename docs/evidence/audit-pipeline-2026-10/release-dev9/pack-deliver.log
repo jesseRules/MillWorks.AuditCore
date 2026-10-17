@@ -1,0 +1,20 @@
+  The package MillWorks.AuditCore.Abstractions.1.15.4-dev.9 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.9.nupkg'.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.9.snupkg'.
+  The package MillWorks.AuditCore.EntityFramework.1.15.4-dev.9 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.9.nupkg'.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.9.snupkg'.
+  The package MillWorks.AuditCore.Providers.1.15.4-dev.9 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Providers.1.15.4-dev.9.nupkg'.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Providers.1.15.4-dev.9.snupkg'.
+  The package MillWorks.AuditCore.Services.1.15.4-dev.9 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Services.1.15.4-dev.9.nupkg'.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.Services.1.15.4-dev.9.snupkg'.
+  The package MillWorks.AuditCore.1.15.4-dev.9 is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.1.15.4-dev.9.nupkg'.
+  Successfully created package '/tmp/auditcore-dev9-packages/MillWorks.AuditCore.1.15.4-dev.9.snupkg'.
+Verified five packages, five symbol packages, metadata, internal versions, DLL hashes and all three H1/H3a migrations and source commit.
+Verified symbol PDBs equal the owning Release outputs.
+Preserved 3039 existing feed artifacts.
+Published and hash-verified 10 artifacts in each of the two local feeds.
+Package-only consumer passed before delivery; published only after verification.

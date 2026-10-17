@@ -1,0 +1,547 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="0026ed91-b582-4699-8eec-bc128a614bec" name="@jesses-mbp 2026-10-17 09:58:10" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-17T09:58:10.4191920-05:00" queuing="2026-10-17T09:58:10.4191920-05:00" start="2026-10-17T09:58:08.2983690-05:00" finish="2026-10-17T09:58:18.2516920-05:00" />
+  <TestSettings name="default" id="218b78b6-18cd-4152-baad-f17bcaa83051">
+    <Deployment runDeploymentRoot="_jesses-mbp_2026-10-17_09_58_10" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="d37c33e6-401d-4eb7-8713-3bd4dbfc4082" testId="1a80587c-5b0b-cc75-2267-67d6377b2c37" testName="ContextWithoutHostCompositionAndPublicationWithoutContextAreRejected" computerName="jesses-mbp" duration="00:00:00.0209700" startTime="2026-10-17T09:58:17.8923290-05:00" endTime="2026-10-17T09:58:17.9132990-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d37c33e6-401d-4eb7-8713-3bd4dbfc4082" />
+    <UnitTestResult executionId="dbfcc85f-329f-48a3-b7e6-82ae826de3ce" testId="1d823c8a-6a3b-ad84-3c22-1f0769afbc47" testName="GeneratedKeyProvenanceStaysUnknownAfterStoreKeyFixup" computerName="jesses-mbp" duration="00:00:00.0944820" startTime="2026-10-17T09:58:17.9133870-05:00" endTime="2026-10-17T09:58:18.0078710-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dbfcc85f-329f-48a3-b7e6-82ae826de3ce" />
+    <UnitTestResult executionId="0545b1d1-a681-4ee3-accf-bdb96a5bc974" testId="0dbc8be7-1d6b-d605-2284-5ba73d42d056" testName="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tid&quot;)" computerName="jesses-mbp" duration="00:00:00.0000520" startTime="2026-10-17T09:58:10.3270440-05:00" endTime="2026-10-17T09:58:10.3270950-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0545b1d1-a681-4ee3-accf-bdb96a5bc974" />
+    <UnitTestResult executionId="630008b2-4608-46ad-9a8b-b262dd88afe2" testId="640e49e4-a76b-d4b6-8dcd-d51db4ed7d6a" testName="ResolveAsync_FallsBackToMiddlewareTenantForUntenantedUser" computerName="jesses-mbp" duration="00:00:00.0018870" startTime="2026-10-17T09:58:10.3460530-05:00" endTime="2026-10-17T09:58:10.3479400-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="630008b2-4608-46ad-9a8b-b262dd88afe2" />
+    <UnitTestResult executionId="c4997ecd-b72e-4557-a38a-3bf92d32d63f" testId="ed0a26de-ae79-0eed-beca-97531c144625" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;envelope_id&quot;)" computerName="jesses-mbp" duration="00:00:00.0000980" startTime="2026-10-17T09:58:18.1559210-05:00" endTime="2026-10-17T09:58:18.1560190-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c4997ecd-b72e-4557-a38a-3bf92d32d63f" />
+    <UnitTestResult executionId="24e43796-7f42-4551-8e1d-8a9a80bbffed" testId="5b26dc7c-bceb-ef8c-7528-9f1e7df8808e" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;tenant&quot;)" computerName="jesses-mbp" duration="00:00:00.0003890" startTime="2026-10-17T09:58:18.1508650-05:00" endTime="2026-10-17T09:58:18.1512540-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="24e43796-7f42-4551-8e1d-8a9a80bbffed" />
+    <UnitTestResult executionId="23f075bd-cb5f-47ca-bc02-deebb29c97a2" testId="24f0ba49-cf59-566f-98b5-155806459d7e" testName="UnchangedRowsDuplicateObservationsAndMixedProducerBatchesAreRejected" computerName="jesses-mbp" duration="00:00:00.0207090" startTime="2026-10-17T09:58:18.1193030-05:00" endTime="2026-10-17T09:58:18.1400120-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="23f075bd-cb5f-47ca-bc02-deebb29c97a2" />
+    <UnitTestResult executionId="364fed3c-fe37-48f8-b267-dd8c20bf0dfb" testId="5da21d38-f4a6-c516-87b9-65cc5e89d8b2" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;mutation_id&quot;)" computerName="jesses-mbp" duration="00:00:00.0009140" startTime="2026-10-17T09:58:18.1160690-05:00" endTime="2026-10-17T09:58:18.1169830-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="364fed3c-fe37-48f8-b267-dd8c20bf0dfb" />
+    <UnitTestResult executionId="1503dc34-8e88-4879-a190-c54a5b50bb40" testId="e38307f4-bb51-5e7e-b788-997a34b4f99c" testName="ResolveAsync_RejectsUnauthenticatedIdentityEvenWithValidClaims" computerName="jesses-mbp" duration="00:00:00.0043930" startTime="2026-10-17T09:58:10.3544830-05:00" endTime="2026-10-17T09:58:10.3588760-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1503dc34-8e88-4879-a190-c54a5b50bb40" />
+    <UnitTestResult executionId="bef657bc-704e-41f4-9a9c-30513c070e87" testId="f068f8dd-7075-f8ec-f640-14ef7180040c" testName="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(False)" computerName="jesses-mbp" duration="00:00:01.0456490" startTime="2026-10-17T09:58:15.4379750-05:00" endTime="2026-10-17T09:58:16.4836410-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bef657bc-704e-41f4-9a9c-30513c070e87">
+      <Output>
+        <ErrorInfo>
+          <Message>  Assert.That(await database.AuditOutbox.CountAsync(), Is.EqualTo(rejectSave ? 0 : 1))
+  Expected: 1
+  But was:  0
+</Message>
+          <StackTrace>   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 447
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+
+1)    at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 447
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="507a4fc9-a892-48d8-b22e-19dd442f8474" testId="4e57e97a-c497-72e0-db08-bc96257f0191" testName="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tenantId&quot;)" computerName="jesses-mbp" duration="00:00:00.0559150" startTime="2026-10-17T09:58:10.2694490-05:00" endTime="2026-10-17T09:58:10.3253400-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="507a4fc9-a892-48d8-b22e-19dd442f8474" />
+    <UnitTestResult executionId="720a83e6-7cef-4427-b18b-74a0045c42a5" testId="e13e3ee8-a0eb-3bb9-6046-f82c79c3572e" testName="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(False)" computerName="jesses-mbp" duration="00:00:00.0020360" startTime="2026-10-17T09:58:17.6906810-05:00" endTime="2026-10-17T09:58:17.6927150-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="720a83e6-7cef-4427-b18b-74a0045c42a5" />
+    <UnitTestResult executionId="7ef4195d-03d3-4d71-8eae-de0541902f32" testId="ea24d12b-156d-8efa-5e18-fa0b9960bf4a" testName="MaximumDuration_SendsTimeoutBeforeRemovingSession" computerName="jesses-mbp" duration="00:00:01.0173110" startTime="2026-10-17T09:58:16.5624100-05:00" endTime="2026-10-17T09:58:17.5797330-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7ef4195d-03d3-4d71-8eae-de0541902f32" />
+    <UnitTestResult executionId="74921890-75b6-4cbc-98c5-afe920fa8a6e" testId="06524f85-1c3b-8799-bf28-6988a8c90bae" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;kind&quot;)" computerName="jesses-mbp" duration="00:00:00.0000220" startTime="2026-10-17T09:58:18.1561150-05:00" endTime="2026-10-17T09:58:18.1561360-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="74921890-75b6-4cbc-98c5-afe920fa8a6e" />
+    <UnitTestResult executionId="e4261b77-a176-4f0d-8030-014d704a5744" testId="1325c05a-a025-131a-0531-539367b8ac2c" testName="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(True)" computerName="jesses-mbp" duration="00:00:00.0625980" startTime="2026-10-17T09:58:16.4942080-05:00" endTime="2026-10-17T09:58:16.5568070-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e4261b77-a176-4f0d-8030-014d704a5744">
+      <Output>
+        <ErrorInfo>
+          <Message>  Assert.That(saveFailure.CallCount, Is.EqualTo(rejectSave ? 1 : 0))
+  Expected: 1
+  But was:  0
+</Message>
+          <StackTrace>   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 446
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 462
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+
+1)    at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_OutboxModeCommitsSourceAndReceiptTogether(Boolean rejectSave) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 446
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="aaa99a82-cf0b-4012-ac24-9e9a39acb4ba" testId="12bc17ed-07a7-a8de-d0f1-a2c9c2a85933" testName="DifferentPublicationScopesCannotBorrowAuthority" computerName="jesses-mbp" duration="00:00:00.0011150" startTime="2026-10-17T09:58:18.1630740-05:00" endTime="2026-10-17T09:58:18.1641890-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aaa99a82-cf0b-4012-ac24-9e9a39acb4ba" />
+    <UnitTestResult executionId="b4f1c746-f5a3-4551-8617-7ffff312a73c" testId="13637c28-8822-a37f-29f4-1a9142948830" testName="ResolveAsync_UsesCanonicalTenantClaimWithoutUserLookup" computerName="jesses-mbp" duration="00:00:00.0017580" startTime="2026-10-17T09:58:10.3589250-05:00" endTime="2026-10-17T09:58:10.3606820-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b4f1c746-f5a3-4551-8617-7ffff312a73c" />
+    <UnitTestResult executionId="1ddee726-000d-4d94-b6d0-34551dcbd7e6" testId="f4b601f3-b1ac-08ab-49b2-4eedd16b5baa" testName="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(False)" computerName="jesses-mbp" duration="00:00:00.0266130" startTime="2026-10-17T09:58:18.0289240-05:00" endTime="2026-10-17T09:58:18.0555370-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1ddee726-000d-4d94-b6d0-34551dcbd7e6">
+      <Output>
+        <ErrorInfo>
+          <Message>MillWorks.AuditCore.Abstractions.Exceptions.AuditIntegrityException : Audit integrity failure for Observation (Created): Failed to build audit log records during SaveChanges.
+  EntityName: Observation
+  Action: Created
+  FailureReason: Failed to build audit log records during SaveChanges.
+  ----&gt; System.InvalidOperationException : Unable to resolve service for type 'MillWorks.Api.Infrastructure.Audit.MlDatasetSnapshotAuditAuthorization' while attempting to activate 'MillWorks.Api.Infrastructure.Audit.MillWorksAuditWriteAuthorization'.</Message>
+          <StackTrace>   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.SavingChangesAsync(DbContextEventData eventData, InterceptionResult`1 result, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 168
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated(ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated[T](Func`1 func)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.PerformWork()
+--InvalidOperationException
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateArgumentCallSites(ServiceIdentifier serviceIdentifier, Type implementationType, CallSiteChain callSiteChain, ParameterInfo[] parameters, Boolean throwIfCallSiteNotFound)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateConstructorCallSite(ResultCache lifetime, ServiceIdentifier serviceIdentifier, Type implementationType, CallSiteChain callSiteChain)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateExact(ServiceDescriptor descriptor, ServiceIdentifier serviceIdentifier, CallSiteChain callSiteChain, Int32 slot)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateCallSite(ServiceIdentifier serviceIdentifier, CallSiteChain callSiteChain)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.CreateServiceAccessor(ServiceIdentifier serviceIdentifier)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(ServiceIdentifier serviceIdentifier, ServiceProviderEngineScope serviceProviderEngineScope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService[T](IServiceProvider provider)
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.&lt;&gt;c__DisplayClass6_0.&lt;RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit&gt;b__1(IServiceProvider sp) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 152
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine.&lt;&gt;c__DisplayClass2_0.&lt;RealizeService&gt;b__0(ServiceProviderEngineScope scope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(ServiceIdentifier serviceIdentifier, ServiceProviderEngineScope serviceProviderEngineScope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService[T](IServiceProvider provider)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+1)    at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.SavingChangesAsync(DbContextEventData eventData, InterceptionResult`1 result, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.DbContext.SaveChangesAsync(Boolean acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 168
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(Boolean excluded) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 171
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated(ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated[T](Func`1 func)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.PerformWork()
+--InvalidOperationException
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateArgumentCallSites(ServiceIdentifier serviceIdentifier, Type implementationType, CallSiteChain callSiteChain, ParameterInfo[] parameters, Boolean throwIfCallSiteNotFound)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateConstructorCallSite(ResultCache lifetime, ServiceIdentifier serviceIdentifier, Type implementationType, CallSiteChain callSiteChain)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateExact(ServiceDescriptor descriptor, ServiceIdentifier serviceIdentifier, CallSiteChain callSiteChain, Int32 slot)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteFactory.CreateCallSite(ServiceIdentifier serviceIdentifier, CallSiteChain callSiteChain)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.CreateServiceAccessor(ServiceIdentifier serviceIdentifier)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(ServiceIdentifier serviceIdentifier, ServiceProviderEngineScope serviceProviderEngineScope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService[T](IServiceProvider provider)
+   at MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests.&lt;&gt;c__DisplayClass6_0.&lt;RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit&gt;b__1(IServiceProvider sp) in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Infrastructure/Audit/MillWorksAuditWriteAuthorizationTests.cs:line 152
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.CallSiteRuntimeResolver.VisitCache(ServiceCallSite callSite, RuntimeResolverContext context, ServiceProviderEngineScope serviceProviderEngine, RuntimeResolverLock lockType)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine.&lt;&gt;c__DisplayClass2_0.&lt;RealizeService&gt;b__0(ServiceProviderEngineScope scope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(ServiceIdentifier serviceIdentifier, ServiceProviderEngineScope serviceProviderEngineScope)
+   at Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService[T](IServiceProvider provider)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Interceptors.AuditSaveChangesInterceptor.ProcessAuditableEntriesAsync(DbContext context, List`1 auditableEntries, CancellationToken cancellationToken)
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bda3c468-3b8e-4428-94a2-ff7cdb9328a2" testId="89f0fc9f-a447-95a3-edc0-7e61fd0e4427" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;actor&quot;)" computerName="jesses-mbp" duration="00:00:00.0017270" startTime="2026-10-17T09:58:18.1488750-05:00" endTime="2026-10-17T09:58:18.1506010-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bda3c468-3b8e-4428-94a2-ff7cdb9328a2" />
+    <UnitTestResult executionId="53e6c5fd-4dfc-4ec7-b132-0f34dff6b7d7" testId="44c72427-f0d9-a5ae-04a7-5db2595bc9e3" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;session&quot;)" computerName="jesses-mbp" duration="00:00:00.0001760" startTime="2026-10-17T09:58:18.1553590-05:00" endTime="2026-10-17T09:58:18.1555350-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="53e6c5fd-4dfc-4ec7-b132-0f34dff6b7d7" />
+    <UnitTestResult executionId="3b7f5004-d386-454d-b59a-fd1acfc5f69e" testId="d02b1d2f-783b-723f-0ba0-3f8ee7ae4a26" testName="UnboundScopeRejectsPublication" computerName="jesses-mbp" duration="00:00:00.0011590" startTime="2026-10-17T09:58:18.1673050-05:00" endTime="2026-10-17T09:58:18.1684630-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3b7f5004-d386-454d-b59a-fd1acfc5f69e" />
+    <UnitTestResult executionId="e9ba2a46-5921-4c25-893b-3f3b765e7913" testId="85bf0ccd-f4a3-52c8-4df6-ebbb4bc5fd9e" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;tenant&quot;)" computerName="jesses-mbp" duration="00:00:00.0013590" startTime="2026-10-17T09:58:18.1036400-05:00" endTime="2026-10-17T09:58:18.1049990-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e9ba2a46-5921-4c25-893b-3f3b765e7913" />
+    <UnitTestResult executionId="2583e24c-e411-4222-80ec-9c1679722ab8" testId="38082a48-0be7-44a2-d9c8-6a8473c21978" testName="ResolveAsync_FallsBackToCurrentUserTenantForExistingTokens" computerName="jesses-mbp" duration="00:00:00.0178810" startTime="2026-10-17T09:58:10.3280580-05:00" endTime="2026-10-17T09:58:10.3459390-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2583e24c-e411-4222-80ec-9c1679722ab8" />
+    <UnitTestResult executionId="908be5e1-9dfe-4d9b-93af-9fb31814270c" testId="5f97c2a2-9316-cac7-6e88-5cb6654759cc" testName="EndingCompletionInvalidatesExistingPermitsAndFutureAcquisition" computerName="jesses-mbp" duration="00:00:00.0026260" startTime="2026-10-17T09:58:18.1642270-05:00" endTime="2026-10-17T09:58:18.1668520-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="908be5e1-9dfe-4d9b-93af-9fb31814270c" />
+    <UnitTestResult executionId="71bf8577-f7fb-4611-8850-77794ae567e3" testId="c4f8f9bf-20fd-3ef3-257a-84de0bb4d049" testName="TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce" computerName="jesses-mbp" duration="00:00:00.0092210" startTime="2026-10-17T09:58:17.7298100-05:00" endTime="2026-10-17T09:58:17.7390320-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="71bf8577-f7fb-4611-8850-77794ae567e3">
+      <Output>
+        <ErrorInfo>
+          <Message>  Assert.That(captured, Is.Not.Null)
+  Expected: not null
+  But was:  null
+</Message>
+          <StackTrace>   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 321
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+
+1)    at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 321
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="669c1060-f9f6-436f-bc08-6f94fbee7458" testId="1d919953-59b0-a1f8-a8a3-bb75105520ef" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;correlation&quot;)" computerName="jesses-mbp" duration="00:00:00.0019880" startTime="2026-10-17T09:58:18.1135680-05:00" endTime="2026-10-17T09:58:18.1155560-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="669c1060-f9f6-436f-bc08-6f94fbee7458" />
+    <UnitTestResult executionId="fccd0b49-47dd-4a8c-9f2c-29985d4147bd" testId="afbe5b2d-13ff-b575-3e95-1769332a0286" testName="SlowClient_BackpressuresEventEnumerationInsteadOfBufferingRelayWork" computerName="jesses-mbp" duration="00:00:00.1067050" startTime="2026-10-17T09:58:17.5799240-05:00" endTime="2026-10-17T09:58:17.6866290-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fccd0b49-47dd-4a8c-9f2c-29985d4147bd" />
+    <UnitTestResult executionId="7d31571b-ea45-489f-903f-cacbad0aa4d0" testId="0c7e9f1f-6842-209a-5751-3bddb51fedba" testName="ResolveAsync_RejectsMissingTenantFailClosed" computerName="jesses-mbp" duration="00:00:00.0063460" startTime="2026-10-17T09:58:10.3480610-05:00" endTime="2026-10-17T09:58:10.3544070-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7d31571b-ea45-489f-903f-cacbad0aa4d0" />
+    <UnitTestResult executionId="1811b439-8936-4de5-985d-897154f44e20" testId="2823bad2-2aac-5792-b720-0c07ec785c76" testName="CancellationAndPermitDisposalAreEnforced" computerName="jesses-mbp" duration="00:00:00.0027650" startTime="2026-10-17T09:58:18.1600410-05:00" endTime="2026-10-17T09:58:18.1628060-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1811b439-8936-4de5-985d-897154f44e20" />
+    <UnitTestResult executionId="9c786708-cb86-48b1-88fd-f6bcd079052d" testId="2e01bfeb-82b0-903d-2560-744fdfe16463" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;action&quot;)" computerName="jesses-mbp" duration="00:00:00.0000230" startTime="2026-10-17T09:58:18.1561430-05:00" endTime="2026-10-17T09:58:18.1561660-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9c786708-cb86-48b1-88fd-f6bcd079052d" />
+    <UnitTestResult executionId="338b670b-1da2-4692-b0c4-0708ff890d55" testId="ff67450a-529b-f133-8520-3245dd370843" testName="ChangingTrackedProvenanceInvalidatesOutstandingPermit" computerName="jesses-mbp" duration="00:00:00.1052600" startTime="2026-10-17T09:58:17.7864120-05:00" endTime="2026-10-17T09:58:17.8916750-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="338b670b-1da2-4692-b0c4-0708ff890d55" />
+    <UnitTestResult executionId="fe9e7119-0fe6-4f08-98c4-dcad61329763" testId="655a105e-5143-f062-2ca7-29d3d645a030" testName="ActiveSession_KeepsTransportLimitsCapturedAtStart" computerName="jesses-mbp" duration="00:00:00.0441460" startTime="2026-10-17T09:58:10.3617740-05:00" endTime="2026-10-17T09:58:10.4059210-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fe9e7119-0fe6-4f08-98c4-dcad61329763" />
+    <UnitTestResult executionId="46b693cc-a60b-4673-9a68-3f87be963cc7" testId="96da04ba-29be-88e5-1c4a-b1628c39af5a" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;event_type&quot;)" computerName="jesses-mbp" duration="00:00:00.0000450" startTime="2026-10-17T09:58:18.1560320-05:00" endTime="2026-10-17T09:58:18.1560770-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="46b693cc-a60b-4673-9a68-3f87be963cc7" />
+    <UnitTestResult executionId="0067eabb-8562-4b2f-b115-e5fc642e4ade" testId="e2f41f42-cf91-aaf6-5d0d-e1bb0b854909" testName="IngressLimits_RejectMalformedAndOverRateChunksBeforeProviderDispatch" computerName="jesses-mbp" duration="00:00:00.0052580" startTime="2026-10-17T09:58:16.5571180-05:00" endTime="2026-10-17T09:58:16.5623760-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0067eabb-8562-4b2f-b115-e5fc642e4ade" />
+    <UnitTestResult executionId="3c34f851-c1fe-4a4b-87e5-826b5c7a0709" testId="352cfd0a-382d-54ad-be2b-e4e1bd5643a3" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;entity&quot;)" computerName="jesses-mbp" duration="00:00:00.0010540" startTime="2026-10-17T09:58:18.1070360-05:00" endTime="2026-10-17T09:58:18.1080890-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3c34f851-c1fe-4a4b-87e5-826b5c7a0709" />
+    <UnitTestResult executionId="0df160c1-9e2b-4f73-9475-79684bf2f780" testId="322e24c5-ef67-04d7-4048-13fc71986fb6" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;action&quot;)" computerName="jesses-mbp" duration="00:00:00.0011240" startTime="2026-10-17T09:58:18.1086850-05:00" endTime="2026-10-17T09:58:18.1098100-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0df160c1-9e2b-4f73-9475-79684bf2f780" />
+    <UnitTestResult executionId="7072fa6f-a854-43df-a1ee-3d68db27e138" testId="8c2d425c-820d-8a09-40f0-cc200146d837" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;resource&quot;)" computerName="jesses-mbp" duration="00:00:00.0016940" startTime="2026-10-17T09:58:18.1534970-05:00" endTime="2026-10-17T09:58:18.1551900-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7072fa6f-a854-43df-a1ee-3d68db27e138" />
+    <UnitTestResult executionId="0f361865-e4fd-4b3e-9412-48901698a2ab" testId="9ad1698e-753a-0b06-60ea-a2c3abd258bc" testName="Disconnect_AuthorizesCompletionAfterConnectionCancellation" computerName="jesses-mbp" duration="00:00:05.0302190" startTime="2026-10-17T09:58:10.4060190-05:00" endTime="2026-10-17T09:58:15.4363300-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0f361865-e4fd-4b3e-9412-48901698a2ab">
+      <Output>
+        <ErrorInfo>
+          <Message>System.TimeoutException : The operation has timed out.</Message>
+          <StackTrace>   at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_AuthorizesCompletionAfterConnectionCancellation() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 403
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated(ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated[T](Func`1 func)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.PerformWork()
+1)    at MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests.Disconnect_AuthorizesCompletionAfterConnectionCancellation() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/Hubs/AiSpeechSessionRegistryTests.cs:line 403
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass2_0.&lt;DoIsolated&gt;b__0(Object s)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated(ContextCallback callback, Object state)
+   at NUnit.Framework.Internal.ContextUtils.DoIsolated[T](Func`1 func)
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.PerformWork()
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5a58d4d8-7654-4e4e-a0dc-f682c3bdea7c" testId="772f5f9a-efa2-1083-f837-51fcc654a3f6" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;logical_id&quot;)" computerName="jesses-mbp" duration="00:00:00.0001140" startTime="2026-10-17T09:58:18.1556610-05:00" endTime="2026-10-17T09:58:18.1557750-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5a58d4d8-7654-4e4e-a0dc-f682c3bdea7c" />
+    <UnitTestResult executionId="56c686c0-4f94-4fe5-b616-ab590ce9ab43" testId="68f6a656-ae1d-0d85-f845-71d5ec776604" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;entity_name&quot;)" computerName="jesses-mbp" duration="00:00:00.0000230" startTime="2026-10-17T09:58:18.1560860-05:00" endTime="2026-10-17T09:58:18.1561080-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="56c686c0-4f94-4fe5-b616-ab590ce9ab43" />
+    <UnitTestResult executionId="75621b43-0a30-44dd-b89d-e2194324ec1c" testId="9ad516bd-47b6-234c-8fa7-b7d8f0c89e93" testName="TerminalCleanup_AuditFailureCannotStrandProviderResources" computerName="jesses-mbp" duration="00:00:00.0114910" startTime="2026-10-17T09:58:17.7015930-05:00" endTime="2026-10-17T09:58:17.7130830-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="75621b43-0a30-44dd-b89d-e2194324ec1c" />
+    <UnitTestResult executionId="2ff72bf5-f3d2-44c1-b209-901f50473efb" testId="19a543de-5739-bd7f-e84b-cd8018928a0c" testName="SpeechRoutesToItsCapturedGrantWithoutEntityContext" computerName="jesses-mbp" duration="00:00:00.0018760" startTime="2026-10-17T09:58:18.0937150-05:00" endTime="2026-10-17T09:58:18.0955920-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2ff72bf5-f3d2-44c1-b209-901f50473efb" />
+    <UnitTestResult executionId="54372b12-48c4-403b-bb78-3990a4b6a755" testId="421e8f89-ccb1-ba67-bdf9-c0e61e106536" testName="StartAsync_DisposesShortLivedRouterScopeWithoutDisposingReturnedSession" computerName="jesses-mbp" duration="00:00:00.0036950" startTime="2026-10-17T09:58:17.6866970-05:00" endTime="2026-10-17T09:58:17.6903920-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="54372b12-48c4-403b-bb78-3990a4b6a755" />
+    <UnitTestResult executionId="3a0fedda-e710-4a8f-b03b-9c9fd03a8640" testId="7e6b95e4-ff4b-aaeb-9671-7909c4fc7311" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;key&quot;)" computerName="jesses-mbp" duration="00:00:00.0010250" startTime="2026-10-17T09:58:18.1054440-05:00" endTime="2026-10-17T09:58:18.1064670-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3a0fedda-e710-4a8f-b03b-9c9fd03a8640" />
+    <UnitTestResult executionId="8d9916f8-5cbc-4248-9e97-1b01ae193985" testId="86317ad3-3b52-fa84-54dc-5d00c4ea5892" testName="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;TenantId&quot;)" computerName="jesses-mbp" duration="00:00:00.0009360" startTime="2026-10-17T09:58:10.3260660-05:00" endTime="2026-10-17T09:58:10.3270010-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d9916f8-5cbc-4248-9e97-1b01ae193985" />
+    <UnitTestResult executionId="2a501bf5-135b-491f-94a9-c800e4f02fbd" testId="13629157-60e9-6640-c3fd-0b8d1dfa746f" testName="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(True)" computerName="jesses-mbp" duration="00:00:00.0355760" startTime="2026-10-17T09:58:18.0572830-05:00" endTime="2026-10-17T09:58:18.0928600-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2a501bf5-135b-491f-94a9-c800e4f02fbd" />
+    <UnitTestResult executionId="68d3de79-e174-4cb3-9ae2-d23638ab757d" testId="21ea0cb6-7f51-3701-0b25-3be5a5a4dad8" testName="BoundCompletionAllowsOnlyItsExactEnvelopeAndRejectsMixedBatches" computerName="jesses-mbp" duration="00:00:00.0037740" startTime="2026-10-17T09:58:18.1562090-05:00" endTime="2026-10-17T09:58:18.1599820-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="68d3de79-e174-4cb3-9ae2-d23638ab757d" />
+    <UnitTestResult executionId="a519ebf2-42b6-4111-b649-a6433388a950" testId="600b09db-eb3e-594d-6dc6-6eda03f3c945" testName="BindingRejectsIdentityOrPurposeSubstitution(&quot;missing_tenant&quot;)" computerName="jesses-mbp" duration="00:00:00.0001910" startTime="2026-10-17T09:58:18.1521730-05:00" endTime="2026-10-17T09:58:18.1524700-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a519ebf2-42b6-4111-b649-a6433388a950" />
+    <UnitTestResult executionId="14cb0e18-0fea-4bb3-a36c-718527bdf308" testId="c0bc2470-e687-e632-1adb-f92e21793dd2" testName="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;actor&quot;)" computerName="jesses-mbp" duration="00:00:00.0032090" startTime="2026-10-17T09:58:18.0987730-05:00" endTime="2026-10-17T09:58:18.1019810-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="14cb0e18-0fea-4bb3-a36c-718527bdf308" />
+    <UnitTestResult executionId="6295da50-e4de-4a49-a5df-3886dcec87e9" testId="42bd9d8e-638b-9ffb-e332-05e709167177" testName="TerminalMetrics_UseSampleDurationAndOnlyBoundedProviderModelStatusTags" computerName="jesses-mbp" duration="00:00:00.0239670" startTime="2026-10-17T09:58:17.7507390-05:00" endTime="2026-10-17T09:58:17.7747070-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6295da50-e4de-4a49-a5df-3886dcec87e9" />
+    <UnitTestResult executionId="943a6741-2b5e-4a96-85c4-44a2912dd3e0" testId="33776e6f-80ce-773e-fea2-72a667bfa0ec" testName="StopAndDisconnectRace_StopsAndDisposesProviderExactlyOnce" computerName="jesses-mbp" duration="00:00:00.0057690" startTime="2026-10-17T09:58:17.6946620-05:00" endTime="2026-10-17T09:58:17.7004300-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="943a6741-2b5e-4a96-85c4-44a2912dd3e0" />
+    <UnitTestResult executionId="8fd39fbd-a102-4a8f-b913-8806f75089c5" testId="9958cb0e-b3aa-8759-1eab-a945b7ea2cc0" testName="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(True)" computerName="jesses-mbp" duration="00:00:00.0014850" startTime="2026-10-17T09:58:18.0270260-05:00" endTime="2026-10-17T09:58:18.0285110-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8fd39fbd-a102-4a8f-b913-8806f75089c5" />
+    <UnitTestResult executionId="8b2ea5ac-d2f4-48de-b53e-42ab71f00f90" testId="4c196a76-6eb9-8b47-38f4-1f2ccbe01bfb" testName="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(True)" computerName="jesses-mbp" duration="00:00:00.0017720" startTime="2026-10-17T09:58:17.6928070-05:00" endTime="2026-10-17T09:58:17.6945780-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8b2ea5ac-d2f4-48de-b53e-42ab71f00f90" />
+    <UnitTestResult executionId="6b83535b-ad3f-4fc2-a910-36d8531033cc" testId="b6045697-f309-63e9-facf-aa06818454ad" testName="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(False)" computerName="jesses-mbp" duration="00:00:00.0181710" startTime="2026-10-17T09:58:18.0084510-05:00" endTime="2026-10-17T09:58:18.0266220-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6b83535b-ad3f-4fc2-a910-36d8531033cc" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(False)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="e13e3ee8-a0eb-3bb9-6046-f82c79c3572e">
+      <Execution id="720a83e6-7cef-4427-b18b-74a0045c42a5" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(False)" />
+    </UnitTest>
+    <UnitTest name="ContextWithoutHostCompositionAndPublicationWithoutContextAreRejected" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1a80587c-5b0b-cc75-2267-67d6377b2c37">
+      <Execution id="d37c33e6-401d-4eb7-8713-3bd4dbfc4082" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="ContextWithoutHostCompositionAndPublicationWithoutContextAreRejected" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;correlation&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1d919953-59b0-a1f8-a8a3-bb75105520ef">
+      <Execution id="669c1060-f9f6-436f-bc08-6f94fbee7458" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;correlation&quot;)" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;key&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="7e6b95e4-ff4b-aaeb-9671-7909c4fc7311">
+      <Execution id="3a0fedda-e710-4a8f-b03b-9c9fd03a8640" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;key&quot;)" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_RejectsUnauthenticatedIdentityEvenWithValidClaims" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="e38307f4-bb51-5e7e-b788-997a34b4f99c">
+      <Execution id="1503dc34-8e88-4879-a190-c54a5b50bb40" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_RejectsUnauthenticatedIdentityEvenWithValidClaims" />
+    </UnitTest>
+    <UnitTest name="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(True)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1325c05a-a025-131a-0531-539367b8ac2c">
+      <Execution id="e4261b77-a176-4f0d-8030-014d704a5744" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(True)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;kind&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="06524f85-1c3b-8799-bf28-6988a8c90bae">
+      <Execution id="74921890-75b6-4cbc-98c5-afe920fa8a6e" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;kind&quot;)" />
+    </UnitTest>
+    <UnitTest name="ChangingTrackedProvenanceInvalidatesOutstandingPermit" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="ff67450a-529b-f133-8520-3245dd370843">
+      <Execution id="338b670b-1da2-4692-b0c4-0708ff890d55" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="ChangingTrackedProvenanceInvalidatesOutstandingPermit" />
+    </UnitTest>
+    <UnitTest name="SpeechRoutesToItsCapturedGrantWithoutEntityContext" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="19a543de-5739-bd7f-e84b-cd8018928a0c">
+      <Execution id="2ff72bf5-f3d2-44c1-b209-901f50473efb" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SpeechRoutesToItsCapturedGrantWithoutEntityContext" />
+    </UnitTest>
+    <UnitTest name="TerminalMetrics_UseSampleDurationAndOnlyBoundedProviderModelStatusTags" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="42bd9d8e-638b-9ffb-e332-05e709167177">
+      <Execution id="6295da50-e4de-4a49-a5df-3886dcec87e9" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="TerminalMetrics_UseSampleDurationAndOnlyBoundedProviderModelStatusTags" />
+    </UnitTest>
+    <UnitTest name="UnchangedRowsDuplicateObservationsAndMixedProducerBatchesAreRejected" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="24f0ba49-cf59-566f-98b5-155806459d7e">
+      <Execution id="23f075bd-cb5f-47ca-bc02-deebb29c97a2" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="UnchangedRowsDuplicateObservationsAndMixedProducerBatchesAreRejected" />
+    </UnitTest>
+    <UnitTest name="CancellationAndPermitDisposalAreEnforced" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="2823bad2-2aac-5792-b720-0c07ec785c76">
+      <Execution id="1811b439-8936-4de5-985d-897154f44e20" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="CancellationAndPermitDisposalAreEnforced" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_FallsBackToMiddlewareTenantForUntenantedUser" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="640e49e4-a76b-d4b6-8dcd-d51db4ed7d6a">
+      <Execution id="630008b2-4608-46ad-9a8b-b262dd88afe2" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_FallsBackToMiddlewareTenantForUntenantedUser" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tenantId&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="4e57e97a-c497-72e0-db08-bc96257f0191">
+      <Execution id="507a4fc9-a892-48d8-b22e-19dd442f8474" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tenantId&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;missing_tenant&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="600b09db-eb3e-594d-6dc6-6eda03f3c945">
+      <Execution id="a519ebf2-42b6-4111-b649-a6433388a950" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;missing_tenant&quot;)" />
+    </UnitTest>
+    <UnitTest name="ActiveSession_KeepsTransportLimitsCapturedAtStart" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="655a105e-5143-f062-2ca7-29d3d645a030">
+      <Execution id="fe9e7119-0fe6-4f08-98c4-dcad61329763" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="ActiveSession_KeepsTransportLimitsCapturedAtStart" />
+    </UnitTest>
+    <UnitTest name="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(False)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="f068f8dd-7075-f8ec-f640-14ef7180040c">
+      <Execution id="bef657bc-704e-41f4-9a9c-30513c070e87" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="Disconnect_OutboxModeCommitsSourceAndReceiptTogether(False)" />
+    </UnitTest>
+    <UnitTest name="TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="c4f8f9bf-20fd-3ef3-257a-84de0bb4d049">
+      <Execution id="71bf8577-f7fb-4611-8850-77794ae567e3" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce" />
+    </UnitTest>
+    <UnitTest name="BoundCompletionAllowsOnlyItsExactEnvelopeAndRejectsMixedBatches" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="21ea0cb6-7f51-3701-0b25-3be5a5a4dad8">
+      <Execution id="68d3de79-e174-4cb3-9ae2-d23638ab757d" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BoundCompletionAllowsOnlyItsExactEnvelopeAndRejectsMixedBatches" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;TenantId&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="86317ad3-3b52-fa84-54dc-5d00c4ea5892">
+      <Execution id="8d9916f8-5cbc-4248-9e97-1b01ae193985" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;TenantId&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;actor&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="89f0fc9f-a447-95a3-edc0-7e61fd0e4427">
+      <Execution id="bda3c468-3b8e-4428-94a2-ff7cdb9328a2" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;actor&quot;)" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_FallsBackToCurrentUserTenantForExistingTokens" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="38082a48-0be7-44a2-d9c8-6a8473c21978">
+      <Execution id="2583e24c-e411-4222-80ec-9c1679722ab8" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_FallsBackToCurrentUserTenantForExistingTokens" />
+    </UnitTest>
+    <UnitTest name="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(True)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="9958cb0e-b3aa-8759-1eab-a945b7ea2cc0">
+      <Execution id="8fd39fbd-a102-4a8f-b913-8806f75089c5" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(True)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;envelope_id&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="ed0a26de-ae79-0eed-beca-97531c144625">
+      <Execution id="c4997ecd-b72e-4557-a38a-3bf92d32d63f" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;envelope_id&quot;)" />
+    </UnitTest>
+    <UnitTest name="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(False)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="f4b601f3-b1ac-08ab-49b2-4eedd16b5baa">
+      <Execution id="1ddee726-000d-4d94-b6d0-34551dcbd7e6" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(False)" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;mutation_id&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="5da21d38-f4a6-c516-87b9-65cc5e89d8b2">
+      <Execution id="364fed3c-fe37-48f8-b267-dd8c20bf0dfb" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;mutation_id&quot;)" />
+    </UnitTest>
+    <UnitTest name="MaximumDuration_SendsTimeoutBeforeRemovingSession" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="ea24d12b-156d-8efa-5e18-fa0b9960bf4a">
+      <Execution id="7ef4195d-03d3-4d71-8eae-de0541902f32" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="MaximumDuration_SendsTimeoutBeforeRemovingSession" />
+    </UnitTest>
+    <UnitTest name="GeneratedKeyProvenanceStaysUnknownAfterStoreKeyFixup" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1d823c8a-6a3b-ad84-3c22-1f0769afbc47">
+      <Execution id="dbfcc85f-329f-48a3-b7e6-82ae826de3ce" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="GeneratedKeyProvenanceStaysUnknownAfterStoreKeyFixup" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;event_type&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="96da04ba-29be-88e5-1c4a-b1628c39af5a">
+      <Execution id="46b693cc-a60b-4673-9a68-3f87be963cc7" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;event_type&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;resource&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="8c2d425c-820d-8a09-40f0-cc200146d837">
+      <Execution id="7072fa6f-a854-43df-a1ee-3d68db27e138" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;resource&quot;)" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_UsesCanonicalTenantClaimWithoutUserLookup" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="13637c28-8822-a37f-29f4-1a9142948830">
+      <Execution id="b4f1c746-f5a3-4551-8617-7ffff312a73c" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_UsesCanonicalTenantClaimWithoutUserLookup" />
+    </UnitTest>
+    <UnitTest name="StartAsync_DisposesShortLivedRouterScopeWithoutDisposingReturnedSession" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="421e8f89-ccb1-ba67-bdf9-c0e61e106536">
+      <Execution id="54372b12-48c4-403b-bb78-3990a4b6a755" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="StartAsync_DisposesShortLivedRouterScopeWithoutDisposingReturnedSession" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_RejectsMissingTenantFailClosed" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="0c7e9f1f-6842-209a-5751-3bddb51fedba">
+      <Execution id="7d31571b-ea45-489f-903f-cacbad0aa4d0" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_RejectsMissingTenantFailClosed" />
+    </UnitTest>
+    <UnitTest name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tid&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="0dbc8be7-1d6b-d605-2284-5ba73d42d056">
+      <Execution id="0545b1d1-a681-4ee3-accf-bdb96a5bc974" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechIdentityResolverTests" name="ResolveAsync_AcceptsExistingTenantClaimAliases(&quot;tid&quot;)" />
+    </UnitTest>
+    <UnitTest name="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(False)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="b6045697-f309-63e9-facf-aa06818454ad">
+      <Execution id="6b83535b-ad3f-4fc2-a910-36d8531033cc" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="HostEntityObservationUsesTrackedTenantOrExplicitlyQuarantinedProvenance(False)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;logical_id&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="772f5f9a-efa2-1083-f837-51fcc654a3f6">
+      <Execution id="5a58d4d8-7654-4e4e-a0dc-f682c3bdea7c" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;logical_id&quot;)" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;action&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="322e24c5-ef67-04d7-4048-13fc71986fb6">
+      <Execution id="0df160c1-9e2b-4f73-9475-79684bf2f780" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;action&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;tenant&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="5b26dc7c-bceb-ef8c-7528-9f1e7df8808e">
+      <Execution id="24e43796-7f42-4551-8e1d-8a9a80bbffed" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;tenant&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;session&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="44c72427-f0d9-a5ae-04a7-5db2595bc9e3">
+      <Execution id="53e6c5fd-4dfc-4ec7-b132-0f34dff6b7d7" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;session&quot;)" />
+    </UnitTest>
+    <UnitTest name="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(True)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="4c196a76-6eb9-8b47-38f4-1f2ccbe01bfb">
+      <Execution id="8b2ea5ac-d2f4-48de-b53e-42ab71f00f90" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="StartAsync_RejectsOptionsOutsideResolvedIdentityBeforeStartingProvider(True)" />
+    </UnitTest>
+    <UnitTest name="TerminalCleanup_AuditFailureCannotStrandProviderResources" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="9ad516bd-47b6-234c-8fa7-b7d8f0c89e93">
+      <Execution id="75621b43-0a30-44dd-b89d-e2194324ec1c" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="TerminalCleanup_AuditFailureCannotStrandProviderResources" />
+    </UnitTest>
+    <UnitTest name="SlowClient_BackpressuresEventEnumerationInsteadOfBufferingRelayWork" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="afbe5b2d-13ff-b575-3e95-1769332a0286">
+      <Execution id="fccd0b49-47dd-4a8c-9f2c-29985d4147bd" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="SlowClient_BackpressuresEventEnumerationInsteadOfBufferingRelayWork" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;actor&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="c0bc2470-e687-e632-1adb-f92e21793dd2">
+      <Execution id="14cb0e18-0fea-4bb3-a36c-718527bdf308" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;actor&quot;)" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;tenant&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="85bf0ccd-f4a3-52c8-4df6-ebbb4bc5fd9e">
+      <Execution id="e9ba2a46-5921-4c25-893b-3f3b765e7913" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;tenant&quot;)" />
+    </UnitTest>
+    <UnitTest name="DifferentPublicationScopesCannotBorrowAuthority" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="12bc17ed-07a7-a8de-d0f1-a2c9c2a85933">
+      <Execution id="aaa99a82-cf0b-4012-ac24-9e9a39acb4ba" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="DifferentPublicationScopesCannotBorrowAuthority" />
+    </UnitTest>
+    <UnitTest name="Disconnect_AuthorizesCompletionAfterConnectionCancellation" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="9ad1698e-753a-0b06-60ea-a2c3abd258bc">
+      <Execution id="0f361865-e4fd-4b3e-9412-48901698a2ab" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="Disconnect_AuthorizesCompletionAfterConnectionCancellation" />
+    </UnitTest>
+    <UnitTest name="UnboundScopeRejectsPublication" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="d02b1d2f-783b-723f-0ba0-3f8ee7ae4a26">
+      <Execution id="3b7f5004-d386-454d-b59a-fd1acfc5f69e" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="UnboundScopeRejectsPublication" />
+    </UnitTest>
+    <UnitTest name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;entity&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="352cfd0a-382d-54ad-be2b-e4e1bd5643a3">
+      <Execution id="3c34f851-c1fe-4a4b-87e5-826b5c7a0709" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="SubmittedEnvelopeCannotSubstituteTrackedProvenance(&quot;entity&quot;)" />
+    </UnitTest>
+    <UnitTest name="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(True)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="13629157-60e9-6640-c3fd-0b8d1dfa746f">
+      <Execution id="2a501bf5-135b-491f-94a9-c800e4f02fbd" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests" name="RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(True)" />
+    </UnitTest>
+    <UnitTest name="EndingCompletionInvalidatesExistingPermitsAndFutureAcquisition" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="5f97c2a2-9316-cac7-6e88-5cb6654759cc">
+      <Execution id="908be5e1-9dfe-4d9b-93af-9fb31814270c" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="EndingCompletionInvalidatesExistingPermitsAndFutureAcquisition" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;entity_name&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="68f6a656-ae1d-0d85-f845-71d5ec776604">
+      <Execution id="56c686c0-4f94-4fe5-b616-ab590ce9ab43" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;entity_name&quot;)" />
+    </UnitTest>
+    <UnitTest name="BindingRejectsIdentityOrPurposeSubstitution(&quot;action&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="2e01bfeb-82b0-903d-2560-744fdfe16463">
+      <Execution id="9c786708-cb86-48b1-88fd-f6bcd079052d" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests" name="BindingRejectsIdentityOrPurposeSubstitution(&quot;action&quot;)" />
+    </UnitTest>
+    <UnitTest name="StopAndDisconnectRace_StopsAndDisposesProviderExactlyOnce" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="33776e6f-80ce-773e-fea2-72a667bfa0ec">
+      <Execution id="943a6741-2b5e-4a96-85c4-44a2912dd3e0" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="StopAndDisconnectRace_StopsAndDisposesProviderExactlyOnce" />
+    </UnitTest>
+    <UnitTest name="IngressLimits_RejectMalformedAndOverRateChunksBeforeProviderDispatch" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="e2f41f42-cf91-aaf6-5d0d-e1bb0b854909">
+      <Execution id="0067eabb-8562-4b2f-b115-e5fc642e4ade" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests" name="IngressLimits_RejectMalformedAndOverRateChunksBeforeProviderDispatch" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1a80587c-5b0b-cc75-2267-67d6377b2c37" executionId="d37c33e6-401d-4eb7-8713-3bd4dbfc4082" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1d823c8a-6a3b-ad84-3c22-1f0769afbc47" executionId="dbfcc85f-329f-48a3-b7e6-82ae826de3ce" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0dbc8be7-1d6b-d605-2284-5ba73d42d056" executionId="0545b1d1-a681-4ee3-accf-bdb96a5bc974" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="640e49e4-a76b-d4b6-8dcd-d51db4ed7d6a" executionId="630008b2-4608-46ad-9a8b-b262dd88afe2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ed0a26de-ae79-0eed-beca-97531c144625" executionId="c4997ecd-b72e-4557-a38a-3bf92d32d63f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5b26dc7c-bceb-ef8c-7528-9f1e7df8808e" executionId="24e43796-7f42-4551-8e1d-8a9a80bbffed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="24f0ba49-cf59-566f-98b5-155806459d7e" executionId="23f075bd-cb5f-47ca-bc02-deebb29c97a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5da21d38-f4a6-c516-87b9-65cc5e89d8b2" executionId="364fed3c-fe37-48f8-b267-dd8c20bf0dfb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e38307f4-bb51-5e7e-b788-997a34b4f99c" executionId="1503dc34-8e88-4879-a190-c54a5b50bb40" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f068f8dd-7075-f8ec-f640-14ef7180040c" executionId="bef657bc-704e-41f4-9a9c-30513c070e87" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4e57e97a-c497-72e0-db08-bc96257f0191" executionId="507a4fc9-a892-48d8-b22e-19dd442f8474" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e13e3ee8-a0eb-3bb9-6046-f82c79c3572e" executionId="720a83e6-7cef-4427-b18b-74a0045c42a5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ea24d12b-156d-8efa-5e18-fa0b9960bf4a" executionId="7ef4195d-03d3-4d71-8eae-de0541902f32" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="06524f85-1c3b-8799-bf28-6988a8c90bae" executionId="74921890-75b6-4cbc-98c5-afe920fa8a6e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1325c05a-a025-131a-0531-539367b8ac2c" executionId="e4261b77-a176-4f0d-8030-014d704a5744" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="12bc17ed-07a7-a8de-d0f1-a2c9c2a85933" executionId="aaa99a82-cf0b-4012-ac24-9e9a39acb4ba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13637c28-8822-a37f-29f4-1a9142948830" executionId="b4f1c746-f5a3-4551-8617-7ffff312a73c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f4b601f3-b1ac-08ab-49b2-4eedd16b5baa" executionId="1ddee726-000d-4d94-b6d0-34551dcbd7e6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="89f0fc9f-a447-95a3-edc0-7e61fd0e4427" executionId="bda3c468-3b8e-4428-94a2-ff7cdb9328a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="44c72427-f0d9-a5ae-04a7-5db2595bc9e3" executionId="53e6c5fd-4dfc-4ec7-b132-0f34dff6b7d7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d02b1d2f-783b-723f-0ba0-3f8ee7ae4a26" executionId="3b7f5004-d386-454d-b59a-fd1acfc5f69e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="85bf0ccd-f4a3-52c8-4df6-ebbb4bc5fd9e" executionId="e9ba2a46-5921-4c25-893b-3f3b765e7913" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="38082a48-0be7-44a2-d9c8-6a8473c21978" executionId="2583e24c-e411-4222-80ec-9c1679722ab8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5f97c2a2-9316-cac7-6e88-5cb6654759cc" executionId="908be5e1-9dfe-4d9b-93af-9fb31814270c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c4f8f9bf-20fd-3ef3-257a-84de0bb4d049" executionId="71bf8577-f7fb-4611-8850-77794ae567e3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1d919953-59b0-a1f8-a8a3-bb75105520ef" executionId="669c1060-f9f6-436f-bc08-6f94fbee7458" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="afbe5b2d-13ff-b575-3e95-1769332a0286" executionId="fccd0b49-47dd-4a8c-9f2c-29985d4147bd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0c7e9f1f-6842-209a-5751-3bddb51fedba" executionId="7d31571b-ea45-489f-903f-cacbad0aa4d0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2823bad2-2aac-5792-b720-0c07ec785c76" executionId="1811b439-8936-4de5-985d-897154f44e20" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e01bfeb-82b0-903d-2560-744fdfe16463" executionId="9c786708-cb86-48b1-88fd-f6bcd079052d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ff67450a-529b-f133-8520-3245dd370843" executionId="338b670b-1da2-4692-b0c4-0708ff890d55" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="655a105e-5143-f062-2ca7-29d3d645a030" executionId="fe9e7119-0fe6-4f08-98c4-dcad61329763" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="96da04ba-29be-88e5-1c4a-b1628c39af5a" executionId="46b693cc-a60b-4673-9a68-3f87be963cc7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e2f41f42-cf91-aaf6-5d0d-e1bb0b854909" executionId="0067eabb-8562-4b2f-b115-e5fc642e4ade" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="352cfd0a-382d-54ad-be2b-e4e1bd5643a3" executionId="3c34f851-c1fe-4a4b-87e5-826b5c7a0709" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="322e24c5-ef67-04d7-4048-13fc71986fb6" executionId="0df160c1-9e2b-4f73-9475-79684bf2f780" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8c2d425c-820d-8a09-40f0-cc200146d837" executionId="7072fa6f-a854-43df-a1ee-3d68db27e138" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9ad1698e-753a-0b06-60ea-a2c3abd258bc" executionId="0f361865-e4fd-4b3e-9412-48901698a2ab" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="772f5f9a-efa2-1083-f837-51fcc654a3f6" executionId="5a58d4d8-7654-4e4e-a0dc-f682c3bdea7c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="68f6a656-ae1d-0d85-f845-71d5ec776604" executionId="56c686c0-4f94-4fe5-b616-ab590ce9ab43" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9ad516bd-47b6-234c-8fa7-b7d8f0c89e93" executionId="75621b43-0a30-44dd-b89d-e2194324ec1c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19a543de-5739-bd7f-e84b-cd8018928a0c" executionId="2ff72bf5-f3d2-44c1-b209-901f50473efb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="421e8f89-ccb1-ba67-bdf9-c0e61e106536" executionId="54372b12-48c4-403b-bb78-3990a4b6a755" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e6b95e4-ff4b-aaeb-9671-7909c4fc7311" executionId="3a0fedda-e710-4a8f-b03b-9c9fd03a8640" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="86317ad3-3b52-fa84-54dc-5d00c4ea5892" executionId="8d9916f8-5cbc-4248-9e97-1b01ae193985" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13629157-60e9-6640-c3fd-0b8d1dfa746f" executionId="2a501bf5-135b-491f-94a9-c800e4f02fbd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="21ea0cb6-7f51-3701-0b25-3be5a5a4dad8" executionId="68d3de79-e174-4cb3-9ae2-d23638ab757d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="600b09db-eb3e-594d-6dc6-6eda03f3c945" executionId="a519ebf2-42b6-4111-b649-a6433388a950" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c0bc2470-e687-e632-1adb-f92e21793dd2" executionId="14cb0e18-0fea-4bb3-a36c-718527bdf308" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="42bd9d8e-638b-9ffb-e332-05e709167177" executionId="6295da50-e4de-4a49-a5df-3886dcec87e9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="33776e6f-80ce-773e-fea2-72a667bfa0ec" executionId="943a6741-2b5e-4a96-85c4-44a2912dd3e0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9958cb0e-b3aa-8759-1eab-a945b7ea2cc0" executionId="8fd39fbd-a102-4a8f-b913-8806f75089c5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4c196a76-6eb9-8b47-38f4-1f2ccbe01bfb" executionId="8b2ea5ac-d2f4-48de-b53e-42ab71f00f90" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b6045697-f309-63e9-facf-aa06818454ad" executionId="6b83535b-ad3f-4fc2-a910-36d8531033cc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="54" executed="54" passed="49" failed="5" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>NUnit Adapter 6.3.1.0: Test execution started
+Running selected tests in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll
+   NUnit3TestExecutor discovered 54 of 54 NUnit test cases using Current Discovery mode, Non-Explicit run
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

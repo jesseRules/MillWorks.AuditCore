@@ -1,0 +1,37 @@
+[
+  {
+    "path": "src/MillWorks.AuditCore.Abstractions/bin/Release/net10.0/MillWorks.AuditCore.Abstractions.dll",
+    "sha256": "05d7465127fca9601b79ea7b4e013fef316021171d8aee35007faa8e491751d9",
+    "informationalVersion": [
+      "1.15.4-dev.8+76af4a9a54660dee606169fab967d8cdcad1874f"
+    ]
+  },
+  {
+    "path": "src/MillWorks.AuditCore.AspNetCore/bin/Release/net10.0/MillWorks.AuditCore.AspNetCore.dll",
+    "sha256": "138b1f5e4ebffd4d1c1a5456d6081fc2a6d167ede2dca666128689ee7f6d903b",
+    "informationalVersion": [
+      "1.15.4-dev.8+76af4a9a54660dee606169fab967d8cdcad1874f"
+    ]
+  },
+  {
+    "path": "src/MillWorks.AuditCore.EntityFramework/bin/Release/net10.0/MillWorks.AuditCore.EntityFramework.dll",
+    "sha256": "5e3c4cb077602b8d127572fbd947e2d8489687328fec993b274a3350449bb04b",
+    "informationalVersion": [
+      "1.15.4-dev.8+76af4a9a54660dee606169fab967d8cdcad1874f"
+    ]
+  },
+  {
+    "path": "src/MillWorks.AuditCore.Providers/bin/Release/net10.0/MillWorks.AuditCore.Providers.dll",
+    "sha256": "e04c9c50caa43f8fe426acdbff17b5d1be04f67a1531ad7d9416e2a3fd292aad",
+    "informationalVersion": [
+      "1.15.4-dev.8+76af4a9a54660dee606169fab967d8cdcad1874f"
+    ]
+  },
+  {
+    "path": "src/MillWorks.AuditCore.Services/bin/Release/net10.0/MillWorks.AuditCore.Services.dll",
+    "sha256": "71e0099f52c7c54413e546d08bca860a9af5c02ad367d9150f46cdfed617b31a",
+    "informationalVersion": [
+      "1.15.4-dev.8+76af4a9a54660dee606169fab967d8cdcad1874f"
+    ]
+  }
+]

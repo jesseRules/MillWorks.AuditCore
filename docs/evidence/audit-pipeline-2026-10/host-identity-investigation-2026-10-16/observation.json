@@ -1,0 +1,12 @@
+{
+  "observedUtc": "2026-10-17T02:26:46.325493+00:00",
+  "database": "local MillWorks application database",
+  "readOnly": true,
+  "historicalRoleClaimCreationRowsWithoutReceipts": 32044,
+  "entityReceiptsWithoutSourceRows": 0,
+  "newRoleClaimCreationRowsInLastThreeHoursObserved": 0,
+  "newRoleConcurrencyStampRowsWithReceiptsObserved": 144,
+  "exactRuntimeFailedLogicalIdsAvailable": false,
+  "databaseWritesPerformed": false,
+  "payloadsRetained": false
+}

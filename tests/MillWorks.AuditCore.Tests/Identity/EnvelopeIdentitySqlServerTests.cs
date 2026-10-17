@@ -27,7 +27,7 @@ namespace MillWorks.AuditCore.Tests.Identity;
 [TestFixture(false)]
 [TestFixture(true)]
 [Category("SqlServer")]
-public sealed class EnvelopeIdentitySqlServerTests(bool rcsi)
+public sealed partial class EnvelopeIdentitySqlServerTests(bool rcsi)
 {
     private readonly string _database = "AuditCoreH3a_" + Guid.NewGuid().ToString("N");
     private string _connection = null!;

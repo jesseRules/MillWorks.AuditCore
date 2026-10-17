@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Local prerelease — 1.15.4-dev.9 (published to both local feeds)
+
+- Give each EF entity mutation a GUID identity, retained across failed/cancelled saves and retired after successful SaveChanges. Separate creations with reused temporary keys and separate repeated updates no longer alias prior audit history.
+- Add `AuditMutationIdentity.Capture`/`Restore` and serializable `AuditMutationToken` for caller-owned retries in replacement contexts. Callers must retain tokens and original semantic inputs; equal values cannot identify a retry. Remove the unused content-derived `AuditEnvelope.ComputeDeterministicId` helper after checking AuditCore and MillWorks callers.
+- Capture unresolved generated primary keys as unknown in entity locators, snapshots, governance resource keys and subject references; retain that provenance when restoring a token after store-key fixup. No backfill, ID rewrite, ledger relaxation, migration or queue-format bump.
+- Report failed envelope/logical IDs, entity types, actions and bounded error codes without payload values. Exclude internal audit receipt/handoff/resolution and subject-index bookkeeping from automatic entity-change capture via `[NoAudit]`.
+- Release validation passed 2,664 tests with zero failures, plus 27 focused and four targeted SQL passes. Published all five packages/symbols to both local feeds from the fingerprinted working tree at baseline `18090b6`; changes remain uncommitted for Jesse. MillWorks dependency restore resolves the exact delivered package hashes; Jesse rebuilt/restarted the host: all 54 focused host tests pass, and populated startup has 78 new role-claim creation records with 78 receipts and no matching observed audit errors. Other producer rollout remains separate. See `docs/evidence/audit-pipeline-2026-10/release-dev9/README.md`.
+
 ### Local prerelease — 1.15.4-dev.8 (published to both local feeds)
 
 - Coordinates all five packages at a fresh version for the reviewed H2/H3a/H3 changes below, including the split-read and late-conflict fixes. Published all five packages and symbols to both established local feeds from committed source `6f560a1`; versions and hashes were verified.

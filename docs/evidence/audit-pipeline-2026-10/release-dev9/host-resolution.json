@@ -1,0 +1,11 @@
+{
+  "operation": "restore only; no API build/start",
+  "resolved": {
+    "MillWorks.AuditCore/1.15.4-dev.9": "uUPt9J9E7rxItWsod0U1GBusYhc3d16z9od7cIps+edT2x0j4P1J+g2pwWD9+LtzMyOb9udAKviXFF2BDRzsZw==",
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.9": "5YAVZCOe+Q8ZsOLg3rPXu3tTfYnNV2GuIrl1gqh0J8y9bI2KvNs0Tsv6tyPMo7Tkib7sI+hmW1mHdLkDFbVwYA==",
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.9": "oupTxDFJnxXoDrh9zD2VgrGfck0HM3PH6rqUBj7qVYmDCAoZ+eDHKSV1nEv7S4EGCYnBdfU6cQVbHZHgW4z2/w==",
+    "MillWorks.AuditCore.Providers/1.15.4-dev.9": "oeCTRqMqqpX9H+drY7jGOnFa864JAQ65REQtAnsu+DIXwFDIGiolYBGiNri1rrTd1u4ZCkx/t/EuTUJSiWk/WA==",
+    "MillWorks.AuditCore.Services/1.15.4-dev.9": "F6Z2VvLh4o16PZstzg/pQDGFTtJnyRxuq7hAZ6pT0WZ2PZ445awlokCcMbvkdQDeFkdXwjkpelnLZcX2MB6fmA=="
+  },
+  "matchesPublishedPackageSha512": true
+}

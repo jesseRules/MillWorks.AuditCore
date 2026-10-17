@@ -77,3 +77,9 @@ docs/NextStepsDocument.md
 docs/ProjectReview.md
 docs/TestPlanPhase*.md
 docs/TodoPlan.md
+
+# Curated mutation-identity regression evidence
+!docs/evidence/audit-pipeline-2026-10/mutation-identity-2026-10-16/*.trx
+
+# Curated dev.9 Release regression evidence
+!docs/evidence/audit-pipeline-2026-10/release-dev9/*.trx

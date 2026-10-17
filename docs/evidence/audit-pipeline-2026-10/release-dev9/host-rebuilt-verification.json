@@ -1,0 +1,62 @@
+{
+  "checkedUtc": "2026-10-17T14:59:35.534582+00:00",
+  "apiProcess": {
+    "pid": 47320,
+    "startedLocal": "2026-10-17 09:39:37 -05:00",
+    "afterApiBuild": true,
+    "mappedAuditDlls": [
+      "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.Abstractions.dll",
+      "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.AspNetCore.dll",
+      "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll",
+      "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.Services.dll"
+    ]
+  },
+  "allApiDllsMatchPublishedDev9": true,
+  "apiDllChecks": {
+    "MillWorks.AuditCore.Services.dll": true,
+    "MillWorks.AuditCore.Providers.dll": true,
+    "MillWorks.AuditCore.EntityFramework.dll": true,
+    "MillWorks.AuditCore.Abstractions.dll": true,
+    "MillWorks.AuditCore.AspNetCore.dll": true
+  },
+  "tests": {
+    "passed": 49,
+    "failed": 5,
+    "skipped": 0,
+    "failures": [
+      {
+        "test": "Disconnect_OutboxModeCommitsSourceAndReceiptTogether(False)",
+        "message": "  Assert.That(await database.AuditOutbox.CountAsync(), Is.EqualTo(rejectSave ? 0 : 1))\n  Expected: 1\n  But was:  0\n"
+      },
+      {
+        "test": "Disconnect_OutboxModeCommitsSourceAndReceiptTogether(True)",
+        "message": "  Assert.That(saveFailure.CallCount, Is.EqualTo(rejectSave ? 1 : 0))\n  Expected: 1\n  But was:  0\n"
+      },
+      {
+        "test": "RealInterceptorAuthorizesStartupMutationAndHonorsNoAudit(False)",
+        "message": "MillWorks.AuditCore.Abstractions.Exceptions.AuditIntegrityException : Audit integrity failure for Observation (Created): Failed to build audit log records during SaveChanges.\n  EntityName: Observation\n  Action: Created\n  FailureReason: Failed to build audit log records during SaveChanges.\n  ----> System.InvalidOperationException : Unable to resolve service for type 'MillWorks.Api.Infrastructure.Audit.MlDatasetSnapshotAuditAuthorization' while attempting to activate 'MillWorks.Api.Infrastructure.Audit.MillWorksAuditWriteAuthorization'."
+      },
+      {
+        "test": "TerminalCleanup_PersistsContentFreeUsageAuditExactlyOnce",
+        "message": "  Assert.That(captured, Is.Not.Null)\n  Expected: not null\n  But was:  null\n"
+      },
+      {
+        "test": "Disconnect_AuthorizesCompletionAfterConnectionCancellation",
+        "message": "System.TimeoutException : The operation has timed out."
+      }
+    ],
+    "fixtureFix": "Added missing real MlDatasetSnapshotAuditAuthorization dependency with mock ITenantAccessor in three test service collections; recompilation and rerun pending."
+  },
+  "startupLog": {
+    "path": "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/logs/log20261017_009.txt",
+    "firstObservedTimestamp": "2026-10-17 09:39:39.885 -05:0",
+    "lastObservedTimestamp": "2026-10-17 09:59:34.071 -05:0",
+    "errorCounts": {
+      "audit_identity_unverified": 0,
+      "Audit envelope publication requires host authorization": 0,
+      "ImmediateSink write failed": 0,
+      "Error processing auditable entries": 0
+    }
+  },
+  "agentBuiltOrRestartedApi": false
+}

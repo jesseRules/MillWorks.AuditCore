@@ -6,6 +6,21 @@ performance profiles, and release work are recorded in the dated sections below.
 Source paths below document origin; reviewers do not need the sibling checkout to read the
 included evidence. The bundle is selected evidence, not a full source snapshot of dev.3.
 
+## Current local release and mutation identity correction
+
+[Dev.9 local release](release-dev9/README.md) records 2,664 passing Release tests, zero failures,
+package-only consumer verification, both-feed delivery and exact MillWorks dependency restore.
+It is a fingerprinted working-tree release; source remains uncommitted for Jesse. Jesse rebuilt/restarted MillWorks; all 54 focused host tests pass, and populated startup
+produced 78 new role-claim creation audit rows with 78 receipts and no matching observed
+audit errors. The dev.9 EF mutation rollout gate is complete; other producer onboarding,
+H4/H5 and three completed sequence host scans remain separate.
+[Mutation regression evidence](mutation-identity-2026-10-16/README.md) records the two-failure
+baseline, 27 focused passes and four SQL Server passes. The preceding
+[read-only investigation](host-identity-investigation-2026-10-16/README.md) records the observed
+historical temporary-key mechanism without changing application data.
+
+The sections below retain their dated historical implementation/release baselines.
+
 ## H2 batch acceptance contract
 
 [H2 verification](h2-acceptance-2026-10-16/README.md) records 62 passing focused tests and

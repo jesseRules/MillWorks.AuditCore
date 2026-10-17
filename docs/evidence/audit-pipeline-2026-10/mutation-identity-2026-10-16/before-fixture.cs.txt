@@ -1,0 +1,123 @@
+using MillWorks.AuditCore.EntityFramework.Data;
+using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.Services.Sinks.Identity;
+using MillWorks.AuditCore.Services.Sinks.Writers;
+using MillWorks.AuditCore.Abstractions.Exceptions;
+using MillWorks.AuditCore.Abstractions.Enums;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using MillWorks.AuditCore.Abstractions.Dto;
+using MillWorks.AuditCore.Abstractions.Interfaces;
+using MillWorks.AuditCore.Abstractions.Models;
+using MillWorks.AuditCore.EntityFramework.Interceptors;
+using MillWorks.AuditCore.EntityFramework.Sinks;
+
+namespace MillWorks.AuditCore.Tests.EntityFramework;
+
+[TestFixture]
+public sealed class InterceptorMutationIdentityTests
+{
+    [Test]
+    public async Task SeparateCreationsWithReusedTemporaryKeysHaveDifferentIdentities()
+    {
+        var sink = new CaptureSink();
+        await using var provider = Provider(sink);
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = Options(connection, provider);
+        await using (var setup = new MutationContext(options)) await setup.Database.EnsureCreatedAsync();
+        for (var i = 0; i < 2; i++)
+        {
+            await using var db = new MutationContext(options);
+            var entry = db.Add(new ClaimRow { Value = "same-permission" });
+            entry.Property(x => x.Id).CurrentValue = -123;
+            entry.Property(x => x.Id).IsTemporary = true;
+            await db.SaveChangesAsync();
+        }
+        Assert.That(sink.Envelopes, Has.Count.EqualTo(2));
+        Assert.That(sink.Envelopes[0].EnvelopeId, Is.Not.EqualTo(sink.Envelopes[1].EnvelopeId));
+        Assert.That(sink.Envelopes.All(static e => e.EntityIdString is null), Is.True);
+        Assert.That(sink.Envelopes.All(static e => !e.AdditionalData!.Contains("-123")), Is.True);
+    }
+
+    [Test]
+    public async Task ReturningToTheSameValuesAfterSuccessfulSavesIsANewMutation()
+    {
+        var sink = new CaptureSink();
+        await using var provider = Provider(sink);
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new MutationContext(Options(connection, provider));
+        await db.Database.EnsureCreatedAsync();
+        var row = new ClaimRow { Value = "before" };
+        db.Add(row);
+        await db.SaveChangesAsync();
+        row.Value = "after";
+        await db.SaveChangesAsync();
+        var firstUpdate = sink.Envelopes[^1].EnvelopeId;
+        row.Value = "before";
+        await db.SaveChangesAsync();
+        row.Value = "after";
+        await db.SaveChangesAsync();
+        Assert.That(sink.Envelopes[^1].EnvelopeId, Is.Not.EqualTo(firstUpdate));
+    }
+
+    [Test]
+    public async Task FailedSaveRetriesReuseThePendingMutationIdentity()
+    {
+        var sink = new CaptureSink { FailNext = true };
+        await using var provider = Provider(sink);
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var db = new MutationContext(Options(connection, provider));
+        await db.Database.EnsureCreatedAsync();
+        db.Add(new ClaimRow { Value = "retry" });
+        await Assert.ThrowsAsync<AuditIntegrityException>(() => db.SaveChangesAsync());
+        await db.SaveChangesAsync();
+        Assert.That(sink.Envelopes, Has.Count.EqualTo(2));
+        Assert.That(sink.Envelopes[0].EnvelopeId, Is.EqualTo(sink.Envelopes[1].EnvelopeId));
+    }
+
+    private static ServiceProvider Provider(CaptureSink sink)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
+        services.AddSingleton<IAuditSink>(sink);
+        return services.BuildServiceProvider();
+    }
+
+    private static DbContextOptions<MutationContext> Options(SqliteConnection connection, ServiceProvider provider,
+        params IInterceptor[] additional) =>
+        new DbContextOptionsBuilder<MutationContext>().UseSqlite(connection)
+            .AddInterceptors(new AuditSaveChangesInterceptor(NullLogger<AuditSaveChangesInterceptor>.Instance,
+                failureMode: AuditFailureMode.FailClosedAlways,
+                scopeFactory: provider.GetRequiredService<IServiceScopeFactory>()))
+            .AddInterceptors(additional).Options;
+
+    private sealed class MutationContext : DbContext
+    {
+        public MutationContext(DbContextOptions<MutationContext> options) : base(options) { }
+        protected override void OnModelCreating(ModelBuilder modelBuilder) => modelBuilder.Entity<ClaimRow>().HasKey(x => x.Id);
+    }
+    private sealed class ClaimRow
+    {
+        public int Id { get; set; }
+        public string Value { get; set; } = "";
+    }
+    private sealed class CaptureSink : IAuditSink
+    {
+        public List<AuditEnvelope> Envelopes { get; } = [];
+        public bool FailNext { get; set; }
+        public Func<IReadOnlyList<AuditEnvelope>, Task>? OnPublish { get; init; }
+        public Task PublishAsync(AuditEnvelope envelope, CancellationToken cancellationToken = default) => PublishBatchAsync([envelope], cancellationToken);
+        public async Task PublishBatchAsync(IReadOnlyList<AuditEnvelope> envelopes, CancellationToken cancellationToken = default)
+        {
+            Envelopes.AddRange(envelopes);
+            if (OnPublish is not null) await OnPublish(envelopes);
+            if (FailNext) { FailNext = false; throw new InvalidOperationException("Injected publication failure."); }
+        }
+    }
+}

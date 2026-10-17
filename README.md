@@ -105,6 +105,20 @@ remains globally unique across tenants. Identical canonical content is replay; c
 content under the same ID is a conflict. Missing historical comparison evidence is unverified,
 not a successful duplicate. Repeated EnvelopeIds are rejected before batch writes.
 
+EF entity-change IDs identify mutation operations. A failed or cancelled save retains its
+pending identity; a successful SaveChanges retires it. A later change with equal values is a
+new mutation. Store-generated keys that are still temporary are captured as unknown, not as
+durable record locators.
+
+For a retry that replaces its DbContext, capture `AuditMutationIdentity.Capture(context, entity)`
+after tracking the mutation and retain that token with the command. Before retrying, track the
+entity in the replacement context and call `AuditMutationIdentity.Restore(context, entity, token)`.
+Retain the original semantic input and trusted provenance as well. Persist the token with durable
+commands for process-restart retries. The token does not prove business commit: after an uncertain
+commit the caller must reconcile the business result before repeating its mutation. Automatic
+identity retention is scoped to the current context lease; replacement contexts without a restored
+token represent new work. Audit retries do not make Immediate mode atomic with business changes.
+
 Hosts must register `IAuditEnvelopeWriteAuthorization` using trusted current actor/tenant/
 resource authority. No permissive policy is installed by default. Custom loggers and outbox
 writers must implement the new identity-aware capabilities. Apply the receipt migration and

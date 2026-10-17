@@ -1,0 +1,6 @@
+Waiting for heavy-work lane: /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Bridge.Tests/MillWorks.Api.Bridge.Tests.csproj (owner PID 69959)
+Test run for /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/bin/Debug/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /tmp/auditcore-mutation-identity/mutation-sql.trx
+
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 1 s - MillWorks.AuditCore.Tests.dll (net10.0)

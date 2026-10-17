@@ -1,3 +1,4 @@
+using MillWorks.AuditCore.Abstractions.Attributes;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [PrimaryKey(nameof(AuditLogId), nameof(TenantId), nameof(SubjectId), nameof(Relationship))]
 [Index(nameof(TenantId), nameof(SubjectId), nameof(OccurredAt), nameof(AuditLogId),
     Name = "IX_AuditLogSubjectLinks_Subject_Time")]
+[NoAudit] // Audit-owned evidence/projection; do not recursively audit its bookkeeping.
 public sealed class AuditLogSubjectLinkEntity : IAppendOnlyEntity
 {
     /// <summary>Owning audit-log row.</summary>

@@ -88,6 +88,18 @@ internal sealed class ImmediateSink(
                 "ImmediateSink write failed: {FailedCount}/{TotalCount} envelope(s) failed. First error: {FirstError}",
                 failedOutcomes.Count, allOutcomes.Count, firstFailed.ErrorMessage);
 
+            var byId = envelopes.ToDictionary(static e => e.EnvelopeId);
+            foreach (var failed in failedOutcomes.Take(20))
+            {
+                var input = byId[failed.EnvelopeId];
+                var reason = failed.Exception is Identity.AuditIdentityConflictException identity
+                    ? identity.Message : "audit_write_failed";
+                logger.LogError("Audit publication failed for envelope {EnvelopeId}, logical ID {LogicalId}, " +
+                    "entity {EntityName}, action {Action}, reason {ErrorCode}", failed.EnvelopeId,
+                    input.Kind == AuditEnvelopeKind.ExplicitEvent ? input.ExplicitEventId : input.EnvelopeId,
+                    input.EntityName, input.Action, reason);
+            }
+
             AuditEnvelopeKind? kind = null;
             if (entityChanges.Count > 0 && explicitEvents.Count == 0)
                 kind = AuditEnvelopeKind.EntityChange;

@@ -1,0 +1,154 @@
+{
+  "sdk": "10.0.202",
+  "releaseTrxCounters": {
+    "total": "2696",
+    "executed": "2664",
+    "passed": "2664",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "note": "Console reports 23 skips; TRX also counts omitted expanded provider-specific cases. No failures.",
+  "releaseCommand": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build --sql -- --configuration Release --no-restore --filter 'FullyQualifiedName!~MillWorks.AuditCore.Tests.Integration.SqlServer&FullyQualifiedName!~MillWorks.AuditCore.Tests.Integration.Garnet' --logger 'trx;LogFileName=release-dev9.trx' --results-directory /tmp/auditcore-dev9-results",
+  "publicationCommand": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py run --kind build -- python3 /tmp/auditcore-dev9-results/package-and-verify.py",
+  "skips": [
+    {
+      "name": "ProfileSequenceSummary(True,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "PortableClaimReadsNativeConsumerTimestampFormat",
+      "reason": "Native SQLite consumer mapping."
+    },
+    {
+      "name": "CleanupOldAuditEventsAsync_DeletesBeforeCutoff",
+      "reason": "ExecuteDeleteAsync is not supported by the InMemory EF provider \u2014 covered by SQLite integration tests"
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"outcome\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "IncrementalMigrationsPreserveOldRowsAndSupportGuardedFailure",
+      "reason": "Owning SQL Server incremental migration."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"recover\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "ProfileSequenceSummary(True,False)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"handoff_ack\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"failure\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "CleanupOldAuditEventsAsync_NothingOldEnough_DeletesNothing",
+      "reason": "ExecuteDeleteAsync is not supported by the InMemory EF provider \u2014 covered by SQLite integration tests"
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"handoff_recover\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "Soak_100kAuditEvents_ChainRemainsValidAndMemoryStaysBounded",
+      "reason": "OneTimeSetUp: SetUp : Phase 6.5 endurance soak is opt-in. Set AUDITCORE_RUN_ENDURANCE=1 to run; use `dotnet test -e AUDITCORE_RUN_ENDURANCE=1 ...` so the value reaches the NUnit worker."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"outcome\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "ProfileSequenceSummary(True,False,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"recover\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"handoff_recover\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"claim\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "ProfileSequenceSummary(False,False,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "ExecuteOptimisticUpdateAsync_ConcurrencyConflict_Throws",
+      "reason": "Requires relational provider for concurrency tokens"
+    },
+    {
+      "name": "SaveChangesWithRetryAsync_PermanentFailure_Throws",
+      "reason": "Requires relational provider to simulate concurrency failures"
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"handoff_claim\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"handoff_ack\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "ProfileSequenceSummary(True,True,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "ProfileSequenceSummary(False,False)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "OverlappingCompletionAndRecoveryHaveExactlyOneWinner(True)",
+      "reason": "Real SQL lock overlap."
+    },
+    {
+      "name": "ProfileSequenceSummary(False,True,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "PortableClaimReadsNativeConsumerTimestampFormat",
+      "reason": "Native SQLite consumer mapping."
+    },
+    {
+      "name": "OverlappingCompletionAndRecoveryHaveExactlyOneWinner(False)",
+      "reason": "Real SQL lock overlap."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"handoff_claim\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "ProfileSequenceSummary(False,True)",
+      "reason": "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"after\",\"failure\")",
+      "reason": "SQL execution-strategy fault coverage."
+    },
+    {
+      "name": "SqlCommitFaultsResolveThroughImmutableEvidence(\"before\",\"claim\")",
+      "reason": "SQL execution-strategy fault coverage."
+    }
+  ]
+}

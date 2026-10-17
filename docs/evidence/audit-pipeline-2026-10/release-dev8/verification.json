@@ -1,0 +1,144 @@
+{
+  "version": "1.15.4-dev.8",
+  "sourceCommit": "6f560a17dd4ced07ff19d410ecc79beb56eda068",
+  "sdk": "10.0.202",
+  "commands": [
+    [
+      "python3",
+      "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+      "test",
+      "/Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "--build",
+      "--sql",
+      "--",
+      "--configuration",
+      "Release",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName!~MillWorks.AuditCore.Tests.Integration.SqlServer&FullyQualifiedName!~MillWorks.AuditCore.Tests.Integration.Garnet",
+      "--logger",
+      "trx;LogFileName=release-dev8.trx",
+      "--results-directory",
+      "/tmp/auditcore-dev8-results"
+    ],
+    [
+      "python3",
+      "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+      "test",
+      "/Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "--build",
+      "--sql",
+      "--",
+      "--configuration",
+      "Release",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName~MillWorks.AuditCore.Tests.AspNetCore|FullyQualifiedName~EnvelopeIdentity|FullyQualifiedName~AuditEventBatchWriterTests|FullyQualifiedName~AuditBatchProcessorTests|FullyQualifiedName~BatchSinkAcceptanceSqliteTests|FullyQualifiedName~IdempotencyTests|FullyQualifiedName~ResilientAuditLoggerTests|FullyQualifiedName~OutboxOwnershipTests",
+      "--logger",
+      "trx;LogFileName=release-dev8-final.trx",
+      "--results-directory",
+      "/tmp/auditcore-dev8-results"
+    ],
+    [
+      "python3",
+      "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+      "run",
+      "--kind",
+      "build",
+      "--",
+      "python3",
+      "/tmp/auditcore-dev8-results/pack.py"
+    ],
+    [
+      "python3",
+      "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+      "build",
+      "/tmp/auditcore-dev8-consumer/Smoke.csproj",
+      "--",
+      "--configuration",
+      "Release"
+    ],
+    [
+      "python3",
+      "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+      "run",
+      "--kind",
+      "build",
+      "--",
+      "python3",
+      "/tmp/auditcore-dev8-consumer/run.py"
+    ],
+    [
+      "python3",
+      "/tmp/auditcore-dev8-results/deliver.py"
+    ]
+  ],
+  "initialRegression": {
+    "trx": "release-dev8.trx",
+    "counters": {
+      "total": "2676",
+      "executed": "2644",
+      "passed": "2644",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "outcomes": {
+      "Passed": 2644,
+      "NotExecuted": 32
+    },
+    "skipReasons": {
+      "OneTimeSetUp: Controlled isolated SQL profiling; opt in by this method's name.": 8,
+      "SQL execution-strategy fault coverage.": 14,
+      "Owning SQL Server incremental migration.": 1,
+      "ExecuteDeleteAsync is not supported by the InMemory EF provider \u2014 covered by SQLite integration tests": 2,
+      "Native SQLite consumer mapping.": 2,
+      "Requires relational provider to simulate concurrency failures": 1,
+      "OneTimeSetUp: SetUp : Phase 6.5 endurance soak is opt-in. Set AUDITCORE_RUN_ENDURANCE=1 to run; use `dotnet test -e AUDITCORE_RUN_ENDURANCE=1 ...` so the value reaches the NUnit worker.": 1,
+      "Real SQL lock overlap.": 2,
+      "Requires relational provider for concurrency tokens": 1
+    }
+  },
+  "finalCommittedSourceChecks": {
+    "trx": "release-dev8-final.trx",
+    "counters": {
+      "total": "435",
+      "executed": "416",
+      "passed": "416",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "outcomes": {
+      "Passed": 416,
+      "NotExecuted": 19
+    },
+    "skipReasons": {
+      "SQL execution-strategy fault coverage.": 14,
+      "Real SQL lock overlap.": 2,
+      "Native SQLite consumer mapping.": 2,
+      "Owning SQL Server incremental migration.": 1
+    }
+  },
+  "provenanceNote": "The first regression build started before Jesse committed and embedded 76af4a9. The same source/build inputs were then committed as 6f560a1; all five assemblies were rebuilt and re-tested against 6f560a1 before pack. Nuspecs, DLL informational versions, symbols and package-only consumer were verified against that committed build."
+}
