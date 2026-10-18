@@ -17,7 +17,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(CreatedAt), nameof(EntityName), Name = "IX_AuditLogs_Date_Entity")]
 [Index(nameof(CorrelationId), Name = "IX_AuditLogs_CorrelationId")]
 [Index(nameof(EnvelopeId), nameof(PropertyName), Name = "IX_AuditLogs_Envelope_Property", IsUnique = true)]
-public sealed class AuditLogEntity: AppendOnlyEntity
+public sealed class AuditLogEntity : AppendOnlyEntity
 {
     /// <summary>Normalized subject locators used by tenant-scoped privacy queries.</summary>
     public ICollection<AuditLogSubjectLinkEntity> SubjectLinks { get; set; } = [];

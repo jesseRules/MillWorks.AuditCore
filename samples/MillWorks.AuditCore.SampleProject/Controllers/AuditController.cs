@@ -46,7 +46,7 @@ public class AuditController(
                 TestData = request.Data,
                 Timestamp = DateTimeOffset.UtcNow
             });
-        
+
         logger.LogInformation("Test audit event logged: {EventType}", request.EventType ?? "Test.Event");
 
         return Ok(new { Success = true, Message = "Test audit event created successfully" });

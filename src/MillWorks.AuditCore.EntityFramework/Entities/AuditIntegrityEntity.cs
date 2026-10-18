@@ -16,7 +16,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Index(nameof(SequenceNumber), IsUnique = true, Name = "IX_AuditIntegrity_SequenceNumber")]
 [Index(nameof(TrustedTimestamp), Name = "IX_AuditIntegrity_Timestamp")]
 [Index(nameof(EventHash), nameof(PreviousEventHash), Name = "IX_AuditIntegrity_HashChain")]
-public class AuditIntegrityEntity: AppendOnlyEntity
+public class AuditIntegrityEntity : AppendOnlyEntity
 {
     /// <summary>
     /// Event identifier - foreign key to AuditEventEntity
@@ -24,7 +24,7 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [Required]
     [Column("EventId", TypeName = "uniqueidentifier")]
     public Guid EventId { get; set; }
-    
+
     /// <summary>
     /// SHA-256 hash of the audit event data (Base64-encoded, 44 chars)
     /// </summary>
@@ -32,14 +32,14 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [MaxLength(44)]
     [Column("EventHash", TypeName = "varchar(44)")]
     public string EventHash { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Hash of the previous audit event (blockchain-style chaining, Base64-encoded)
     /// </summary>
     [MaxLength(44)]
     [Column("PreviousEventHash", TypeName = "varchar(44)")]
     public string? PreviousEventHash { get; set; }
-    
+
     /// <summary>
     /// Digital signature of the event hash (if using PKI)
     /// </summary>
@@ -62,7 +62,7 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [Required]
     [Column("TrustedTimestamp", TypeName = "datetimeoffset")]
     public DateTimeOffset TrustedTimestamp { get; set; }
-    
+
     /// <summary>
     /// Sequence number for ordering verification. Application-assigned under the
     /// integrity distributed lock; not DB-generated, because SQL Server batch-insert
@@ -73,7 +73,7 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [DatabaseGenerated(DatabaseGeneratedOption.None)]
     [Column("SequenceNumber", TypeName = "bigint")]
     public long SequenceNumber { get; set; }
-    
+
     /// <summary>
     /// HMAC for additional integrity verification (Base64-encoded, 44 chars)
     /// </summary>
@@ -97,7 +97,7 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [MaxLength(44)]
     [Column("Checksum", TypeName = "varchar(44)")]
     public string Checksum { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Version of the integrity algorithm used
     /// </summary>
@@ -105,7 +105,7 @@ public class AuditIntegrityEntity: AppendOnlyEntity
     [Column("AlgorithmVersion", TypeName = "int")]
     [DefaultValue(1)]
     public int AlgorithmVersion { get; set; } = 1;
-    
+
     /// <summary>
     /// Parameters for the entity, typically used for additional configuration or metadata.
     /// </summary>

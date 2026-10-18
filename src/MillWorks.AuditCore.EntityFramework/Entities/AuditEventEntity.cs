@@ -30,7 +30,7 @@ public class AuditEventEntity : AuditAggregateRoot
     [JsonPropertyName("event_id")]
     [DisplayName("Event Id")]
     public Guid EventId { get; set; } = Guid.NewGuid();
-    
+
     /// <summary>
     /// Entity Id
     /// </summary>
@@ -267,7 +267,7 @@ public class AuditEventEntity : AuditAggregateRoot
     public IntegrityStatus IntegrityStatus { get; set; } = IntegrityStatus.Pending;
 
     // ===== TAMPER EVIDENCE NAVIGATION PROPERTY =====
-    
+
     /// <summary>
     /// Navigation property to the audit integrity record for tamper evidence
     /// This creates a one-to-one relationship with AuditIntegrityEntity

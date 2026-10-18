@@ -11,8 +11,7 @@ namespace MillWorks.AuditCore.EntityFramework.Entities;
 [Table("AuditOutbox", Schema = "audit")]
 public sealed class AuditOutboxEntity
 {
-    [Key]
-    public Guid Id { get; set; } = Guid.NewGuid();
+    [Key] public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
     /// Serialized <see cref="MillWorks.AuditCore.Abstractions.Models.AuditEnvelope"/>
@@ -30,11 +29,9 @@ public sealed class AuditOutboxEntity
     [Required]
     public int EnvelopeVersion { get; set; } = 2;
 
-    [Required]
-    public AuditOutboxStatus Status { get; set; } = AuditOutboxStatus.Pending;
+    [Required] public AuditOutboxStatus Status { get; set; } = AuditOutboxStatus.Pending;
 
-    [Required]
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    [Required] public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset? CompletedAt { get; set; }
 
@@ -46,8 +43,7 @@ public sealed class AuditOutboxEntity
 
     public int AttemptCount { get; set; }
 
-    [MaxLength(2000)]
-    public string? LastError { get; set; }
+    [MaxLength(2000)] public string? LastError { get; set; }
 
     /// <summary>
     /// Idempotency key for duplicate envelope detection. Derived from envelope identity:
@@ -74,7 +70,9 @@ public sealed class AuditOutboxEntity
 
     /// <summary>Current terminal-failure cycle; a replay failing again gets a new cycle.</summary>
     public Guid? FailureCycleId { get; set; }
+
     public Guid? FailureTenantId { get; set; }
+
     /// <summary>Explicit operator resolution. Null on an unresolved failure.</summary>
     public Guid? ResolutionId { get; set; }
 }

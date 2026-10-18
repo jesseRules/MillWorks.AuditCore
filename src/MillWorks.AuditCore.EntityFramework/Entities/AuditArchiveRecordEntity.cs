@@ -160,5 +160,4 @@ public sealed class AuditArchiveRecordEntity : AuditAggregateRoot
     [Column("CreatedByUserId", TypeName = "varchar(450)")]
     [JsonPropertyName("created_by_user_id")]
     public string? CreatedByUserId { get; set; }
-
 }

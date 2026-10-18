@@ -36,7 +36,13 @@ public sealed class AuditOutboxFailureHandoff
     public int AttemptCount { get; set; }
 }
 
-public enum AuditOutboxHandoffStatus { Pending, Dispatching, Delivered, Suppressed }
+public enum AuditOutboxHandoffStatus
+{
+    Pending,
+    Dispatching,
+    Delivered,
+    Suppressed
+}
 
 /// <summary>Retained operator evidence; a successful projection alone is never source resolution.</summary>
 [NoAudit] // Audit-owned evidence/projection; do not recursively audit its bookkeeping.

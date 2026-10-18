@@ -13,10 +13,13 @@ public sealed class AuditMutationToken
 {
     /// <summary>Envelope identity of this mutation, independent of its values and temporary store keys.</summary>
     public Guid Id { get; }
+
     /// <summary>CLR type name and simple assembly name binding the token to its producer entity.</summary>
     public string EntityType { get; }
+
     /// <summary>The creation, update or deletion represented by this token.</summary>
     public AuditAction Action { get; }
+
     /// <summary>Primary-key properties that were temporary when capture began; their values stay unknown on replay.</summary>
     public IReadOnlyList<string> UnresolvedKeyProperties { get; }
 
@@ -56,16 +59,18 @@ public static class AuditMutationIdentity
         ArgumentNullException.ThrowIfNull(entity);
         var entry = context.Entry(entity);
         var action = ActionFor(entry.State);
-        if (action == AuditAction.Unknown) throw new InvalidOperationException("Track a pending mutation before capturing its identity.");
+        if (action == AuditAction.Unknown)
+            throw new InvalidOperationException("Track a pending mutation before capturing its identity.");
         var state = State(context);
         if (state.Tokens.TryGetValue(entity, out var token))
         {
             Validate(context, entity, token);
             return token;
         }
+
         token = new AuditMutationToken(Guid.CreateVersion7(), TypeIdentity(entry.Entity.GetType()), action,
             entry.Properties.Where(p => entry.State == EntityState.Added && p.Metadata.IsPrimaryKey() && p.IsTemporary)
-                .Select(p => p.Metadata.Name).ToArray());
+                .Select(static p => p.Metadata.Name).ToArray());
         state.Tokens.Add(entity, token);
         return token;
     }
@@ -89,7 +94,8 @@ public static class AuditMutationIdentity
 
     /// <summary>Whether a key was unavailable when this mutation began. Used by host provenance policies.</summary>
     public static bool IsUnresolvedKey(DbContext context, object entity, string propertyName) =>
-        State(context).Tokens.TryGetValue(entity, out var token) && token.UnresolvedKeyProperties.Contains(propertyName);
+        State(context).Tokens.TryGetValue(entity, out var token) &&
+        token.UnresolvedKeyProperties.Contains(propertyName);
 
     internal static void Complete(DbContext? context)
     {
@@ -106,19 +112,21 @@ public static class AuditMutationIdentity
             var property = entry.Metadata.FindProperty(name);
             if (entry.State != EntityState.Added || property is null || !property.IsPrimaryKey() ||
                 (property.ValueGenerated & ValueGenerated.OnAdd) == 0)
-                throw new InvalidOperationException("Mutation token names a key that is not store-generated on creation.");
+                throw new InvalidOperationException(
+                    "Mutation token names a key that is not store-generated on creation.");
         }
     }
 
     private static Pending State(DbContext context)
     {
-        var state = States.GetValue(context, c => new Pending(c.ContextId));
+        var state = States.GetValue(context, static c => new Pending(c.ContextId));
         // Pooled contexts are reused with a new lease; failed work from an earlier lease must not escape.
         if (!state.ContextId.Equals(context.ContextId))
         {
             States.Remove(context);
-            state = States.GetValue(context, c => new Pending(c.ContextId));
+            state = States.GetValue(context, static c => new Pending(c.ContextId));
         }
+
         return state;
     }
 
@@ -135,6 +143,7 @@ public static class AuditMutationIdentity
     private sealed class Pending(DbContextId contextId)
     {
         internal DbContextId ContextId { get; } = contextId;
+
         // A failed pooled context must not retain detached business objects while idle.
         internal ConditionalWeakTable<object, AuditMutationToken> Tokens { get; } = new();
     }

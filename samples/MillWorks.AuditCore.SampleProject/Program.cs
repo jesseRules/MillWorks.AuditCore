@@ -79,7 +79,7 @@ builder.Services.AddMillWorksAudit(auditBuilder =>
     else if (builder.Configuration.GetValue<bool>("Encryption:UseFileStorage"))
     {
         var keyStorePath = builder.Configuration["Encryption:KeyStorePath"]
-            ?? "/secure/encryption-keys";
+                           ?? "/secure/encryption-keys";
         var masterKey = builder.Configuration["Encryption:MasterKey"];
 
         if (!string.IsNullOrEmpty(masterKey))
