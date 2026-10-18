@@ -1,0 +1,32 @@
+{
+  "commands": [
+    [
+      "dotnet",
+      "restore",
+      "/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "--force",
+      "--disable-parallel",
+      "-p:BuildInParallel=false"
+    ],
+    [
+      "dotnet",
+      "test",
+      "/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "--configuration",
+      "Release",
+      "--no-restore",
+      "-m:1",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false",
+      "--logger",
+      "trx;LogFileName=release-dev12.trx",
+      "--results-directory",
+      "/tmp/auditcore-dev12-results"
+    ]
+  ],
+  "cwd": "/private/tmp/auditcore-dev12-release",
+  "DOTNET_PROCESSOR_COUNT": 2,
+  "MILLWORKS_SQL_TESTS_ENABLED": 1,
+  "authorization": "User accepted SQL/release validation and publication; explicit run override.",
+  "initialAttempt": "Noncanonical /tmp path omitted project dependencies from restore graph; retry uses resolved /private/tmp path."
+}

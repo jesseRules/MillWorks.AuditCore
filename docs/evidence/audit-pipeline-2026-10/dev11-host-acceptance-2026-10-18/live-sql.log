@@ -1,0 +1,142 @@
+{
+  "ObservedUtc": "2026-10-18T21:55:03.0339515",
+  "HostStartedUtc": "2026-10-18T21:33:21Z",
+  "EventReceiptsMissingSource": 0,
+  "EntityReceiptsMissingSource": 0,
+  "LiveCrmPublicationProof": {
+    "SourceRows": 2,
+    "DistinctEvents": 2,
+    "DistinctReceipts": 2,
+    "DistinctTenants": 1,
+    "MatchingTenantRows": 2
+  },
+  "Receipts": [
+    {
+      "Channel": "entity",
+      "Kind": 0,
+      "ReceiptCount": 710,
+      "TenantBoundReceipts": 174
+    },
+    {
+      "Channel": "event",
+      "Kind": 1,
+      "ReceiptCount": 2,
+      "TenantBoundReceipts": 2
+    }
+  ],
+  "AcceptedEventTypes": [
+    {
+      "EventType": "HubAccess",
+      "ReceiptCount": 2,
+      "FirstAcceptedAt": "2026-10-18T21:52:37.4949470Z",
+      "LastAcceptedAt": "2026-10-18T21:52:37.6646500Z"
+    }
+  ],
+  "AcceptedEntityTypes": [
+    {
+      "EntityType": "ApplicationRole",
+      "PropertyRows": 160,
+      "LogicalEnvelopes": 160
+    },
+    {
+      "EntityType": "ApplicationUser",
+      "PropertyRows": 61,
+      "LogicalEnvelopes": 33
+    },
+    {
+      "EntityType": "ApplicationUserRole",
+      "PropertyRows": 1,
+      "LogicalEnvelopes": 1
+    },
+    {
+      "EntityType": "DataProfilingResultEntity",
+      "PropertyRows": 6,
+      "LogicalEnvelopes": 6
+    },
+    {
+      "EntityType": "DataQualityScoreEntity",
+      "PropertyRows": 1,
+      "LogicalEnvelopes": 1
+    },
+    {
+      "EntityType": "DataTransformationEntity",
+      "PropertyRows": 2,
+      "LogicalEnvelopes": 2
+    },
+    {
+      "EntityType": "DataUploadEntity",
+      "PropertyRows": 31,
+      "LogicalEnvelopes": 14
+    },
+    {
+      "EntityType": "DecisionModelCandidateEntity",
+      "PropertyRows": 6,
+      "LogicalEnvelopes": 2
+    },
+    {
+      "EntityType": "DecisionModelLifecycleOutboxEntity",
+      "PropertyRows": 2,
+      "LogicalEnvelopes": 2
+    },
+    {
+      "EntityType": "DiagramPublicSharePin",
+      "PropertyRows": 64,
+      "LogicalEnvelopes": 32
+    },
+    {
+      "EntityType": "FileSchemaEntity",
+      "PropertyRows": 2,
+      "LogicalEnvelopes": 2
+    },
+    {
+      "EntityType": "IdentityRoleClaim`1",
+      "PropertyRows": 160,
+      "LogicalEnvelopes": 160
+    },
+    {
+      "EntityType": "IdentityUserClaim`1",
+      "PropertyRows": 4,
+      "LogicalEnvelopes": 4
+    },
+    {
+      "EntityType": "ImpersonationSessionEntity",
+      "PropertyRows": 6,
+      "LogicalEnvelopes": 4
+    },
+    {
+      "EntityType": "InteractiveSessionEntity",
+      "PropertyRows": 30,
+      "LogicalEnvelopes": 30
+    },
+    {
+      "EntityType": "LoginRiskTrainingEventEntity",
+      "PropertyRows": 29,
+      "LogicalEnvelopes": 29
+    },
+    {
+      "EntityType": "PrincipalChangeOutboxEntity",
+      "PropertyRows": 165,
+      "LogicalEnvelopes": 165
+    },
+    {
+      "EntityType": "ProcessedTableColumnEntity",
+      "PropertyRows": 16,
+      "LogicalEnvelopes": 16
+    },
+    {
+      "EntityType": "ProcessedTableEntity",
+      "PropertyRows": 5,
+      "LogicalEnvelopes": 4
+    },
+    {
+      "EntityType": "ResourceRoleAssignmentEntity",
+      "PropertyRows": 67,
+      "LogicalEnvelopes": 40
+    },
+    {
+      "EntityType": "TrustedDeviceEntity",
+      "PropertyRows": 3,
+      "LogicalEnvelopes": 3
+    }
+  ]
+}

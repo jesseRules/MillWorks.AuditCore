@@ -12,12 +12,6 @@ public static class QueryLimits
     public const int MaxDistinctValues = 500;
 
     /// <summary>
-    /// Minimum search term length for wildcard searches.
-    /// Short terms with leading wildcards cause expensive table scans.
-    /// </summary>
-    public const int MinSearchTermLength = 3;
-
-    /// <summary>
     /// Maximum rows per outbox batch insert.
     /// SQL Server has a 2100 parameter limit; with 7 params per row, max is 300.
     /// </summary>

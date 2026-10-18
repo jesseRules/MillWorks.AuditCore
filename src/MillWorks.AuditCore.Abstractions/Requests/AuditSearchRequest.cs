@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace MillWorks.AuditCore.Abstractions.Requests;
 
@@ -36,6 +36,14 @@ public sealed class AuditSearchRequest
     /// </summary>
     [JsonPropertyName("entity_type")]
     public string? EntityType { get; set; }
+
+    /// <summary>Exact event identifier; independent of indexed text matching.</summary>
+    [JsonPropertyName("event_id")]
+    public Guid? EventId { get; set; }
+
+    /// <summary>Exact source entity identifier.</summary>
+    [JsonPropertyName("entity_id")]
+    public string? EntityId { get; set; }
 
     /// <summary>
     /// Search Term

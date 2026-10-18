@@ -1,0 +1,6 @@
+MillWorks.AuditCore.Abstractions: 1.15.4-dev.12+3257d6b7ef6f029b797b464fc7e4c6f0a5e9ef0f
+MillWorks.AuditCore.EntityFramework: 1.15.4-dev.12+3257d6b7ef6f029b797b464fc7e4c6f0a5e9ef0f
+MillWorks.AuditCore.Providers: 1.15.4-dev.12+3257d6b7ef6f029b797b464fc7e4c6f0a5e9ef0f
+MillWorks.AuditCore.Services: 1.15.4-dev.12+3257d6b7ef6f029b797b464fc7e4c6f0a5e9ef0f
+MillWorks.AuditCore.AspNetCore: 1.15.4-dev.12+3257d6b7ef6f029b797b464fc7e4c6f0a5e9ef0f
+Package-only consumer passed; no database opened.

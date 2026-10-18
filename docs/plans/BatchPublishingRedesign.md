@@ -1023,3 +1023,35 @@ per-operation store, with isolated drainer orchestration tests and preserved pro
 Queue-depth telemetry stays outside the mutation seam. Read-only application SQL verification
 matches all 18 migrations and finds no queued rows/handoffs. New API compilation and runtime
 acceptance remain open. H5 remains planned; G deferred.
+
+### Dev.11 rebuilt-host acceptance — 2026-10-18
+
+[No-build evidence](../evidence/audit-pipeline-2026-10/dev11-host-acceptance-2026-10-18/README.md)
+records 227 focused passes, two breach assertions corrected in source pending Jesse's next
+rebuild, and three owned-database atomicity skips. Five deployed AuditCore DLLs match dev.11.
+Two live CRM observations reconcile to two distinct tenant-bound source events/receipts;
+anonymous/user/admin recovery boundary checks pass. All 18 owning migrations match and no
+queued rows/handoffs were present. Current API uses Immediate mode; this does not establish
+enabled Outbox-drainer, remaining producer/consumer or external-copy acceptance. H4 is complete;
+H5 and the separate sequence/host-scan gates remain open. No agent build or restart occurred.
+
+### Source review after dev.11 acceptance — 2026-10-18
+
+[Review findings](../evidence/audit-pipeline-2026-10/rollout-source-review-2026-10-18/README.md)
+fix standalone ambient/commit ownership, recovery authorization after evidence persistence,
+typed operation-conflict/uncertain-commit HTTP responses, and authorization on recovery
+receipt/inspection returns. Regression sources are added. AuditCore compiled and 57 focused SQLite ownership tests
+passed; SQL verification remains pending because the shared gate stayed occupied. API
+regression compilation remains pending Jesse's rebuild. A fresh AuditCore package
+must precede the next API build because dev.11 does not contain the new exception type.
+No feed/reference, migration, running host or deployment was changed by this source review.
+
+### Dev.12 publication and host restore — 2026-10-18
+
+[Dev.12 release](../evidence/audit-pipeline-2026-10/release-dev12/README.md) delivered all
+five packages/symbols to both local feeds, updated 21 active host project files and verified
+API restore against their package hashes. SQL-enabled checks have 2,770 passes, one existing
+10,000-row integrity SQL timeout and 23 skips. All 24 recovery regressions and seven drainer
+cases passed. The full suite is not green; the unchanged integrity timeout is an open H5
+qualification issue. API-side source/test compilation and runtime acceptance await the next
+user rebuild. H4 remains complete; H5, copied-data/host activation and G retain their gates.

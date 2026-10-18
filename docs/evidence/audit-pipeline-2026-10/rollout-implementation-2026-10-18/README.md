@@ -56,3 +56,12 @@ no throughput or end-to-end latency claim is made by this work.
 Final H4 orchestration run: **4 passed, zero failures/skips**, including cancellation.
 Final release validation used a frozen isolated checkout to prevent concurrent source edits
 from invalidating the tested package inputs. API-dependent source verification remains open.
+
+## Rebuilt-host follow-up
+
+The [October 18 no-build acceptance](../dev11-host-acceptance-2026-10-18/README.md) supersedes
+API-compilation-pending statements above: Jesse rebuilt the solution and the running host
+loads the exact dev.11 libraries. Retained results distinguish 227 passes, two assertion-only
+source corrections pending the next rebuild and three opt-in skips, plus live CRM source/receipt
+and recovery HTTP-boundary proof. Immediate mode is active; Outbox-drainer activation, remaining
+workflow/copy checks and H5 qualification remain open.

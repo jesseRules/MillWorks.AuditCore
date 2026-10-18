@@ -42,7 +42,8 @@ internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, Time
     internal static readonly TimeSpan VerificationRetention = TimeSpan.FromHours(24);
 
     internal async Task<OutboxOperationResult> ExecuteAsync(Guid operationId, string kind, object request,
-        Func<AuditDbContext, CancellationToken, Task<OutboxOperationResult>> mutate, CancellationToken ct)
+        Func<AuditDbContext, CancellationToken, Task<OutboxOperationResult>> mutate, CancellationToken ct,
+        IAuditOutboxRecoveryPermit? commitPermit = null)
     {
         if (operationId == Guid.Empty) throw new ArgumentException("Operation identity is required.", nameof(operationId));
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kind + JsonSerializer.Serialize(request))));
@@ -50,13 +51,18 @@ internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, Time
         using var ambient = new TransactionScope(TransactionScopeOption.Suppress, TransactionScopeAsyncFlowOption.Enabled);
         await using var strategyScope = scopes.CreateAsyncScope();
         var strategy = strategyScope.ServiceProvider.GetRequiredService<AuditDbContext>().Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
+        return await strategy.ExecuteAsync(async _ =>
         {
             ct.ThrowIfCancellationRequested();
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
             var existing = await db.AuditOutboxOperations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == operationId, ct);
-            if (existing is not null) return await ReadReceiptAsync(db, existing, kind, hash, ct);
+            if (existing is not null)
+            {
+                var retained = await ReadReceiptAsync(db, existing, kind, hash, ct);
+                if (commitPermit is not null) await commitPermit.CheckCurrentAsync(ct);
+                return retained;
+            }
             await using var transaction = await db.Database.BeginTransactionAsync(
                 db.Database.IsSqlServer() ? System.Data.IsolationLevel.ReadCommitted : System.Data.IsolationLevel.Serializable, ct);
             // Serialize only retries of this operation, not a GUID index gap shared with
@@ -68,10 +74,18 @@ internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, Time
                 await db.Database.ExecuteSqlRawAsync("DECLARE @result int; EXEC @result = sys.sp_getapplock @Resource={0}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=5000; IF @result < 0 THROW 51000, 'Outbox operation lock unavailable', 1;", [resource], ct);
             }
             existing = await db.AuditOutboxOperations.AsNoTracking().SingleOrDefaultAsync(x => x.Id == operationId, ct);
-            if (existing is not null) return await ReadReceiptAsync(db, existing, kind, hash, ct);
+            if (existing is not null)
+            {
+                var retained = await ReadReceiptAsync(db, existing, kind, hash, ct);
+                if (commitPermit is not null) await commitPermit.CheckCurrentAsync(ct);
+                return retained;
+            }
             var result = await mutate(db, ct);
             if (result.Applied.Length == 0 && !db.ChangeTracker.HasChanges())
+            {
+                if (commitPermit is not null) await commitPermit.CheckCurrentAsync(ct);
                 return result; // No mutation to reconcile; idle polling must not grow the receipt table.
+            }
             var now = await NowAsync(db, ct);
             db.AuditOutboxOperations.Add(new AuditOutboxOperation
             {
@@ -79,6 +93,9 @@ internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, Time
                 CreatedAt = now, VerifyUntil = now + VerificationRetention
             });
             await db.SaveChangesAsync(ct);
+            // Receipt/resolution persistence can await after the guarded mutation. A revoked
+            // operator or policy must still roll the entire operation back before commit.
+            if (commitPermit is not null) await commitPermit.CheckCurrentAsync(ct);
             try
             {
                 await transaction.CommitAsync(ct);
@@ -109,14 +126,14 @@ internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, Time
                 // The configured provider strategy decides whether this error is retryable.
                 throw;
             }
-        });
+        }, ct);
     }
 
     private static async Task<OutboxOperationResult> ReadReceiptAsync(AuditDbContext db, AuditOutboxOperation receipt,
         string kind, string hash, CancellationToken ct)
     {
         if (receipt.Kind != kind || receipt.RequestHash != hash)
-            throw new InvalidOperationException("An outbox operation identity was reused with different input.");
+            throw new AuditOutboxOperationConflictException(receipt.Id);
         var result = JsonSerializer.Deserialize<OutboxOperationResult>(receipt.ResultJson)
             ?? throw new InvalidOperationException("Invalid durable outbox operation receipt.");
         // Immutable receipts retain result identities, not a second copy of governed payloads.

@@ -1,7 +1,9 @@
 # Batch Publishing Hardening
 
-**Status:** H1–H3 are implemented; dev.10 rebuilt-host acceptance passed. Producer/host gap fixes and H4's internal interface/orchestration tests are now implemented in source. Library verification passed; dev.11 delivery and new API compilation/acceptance are tracked in the [implementation evidence](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md). The read-only application SQL check matches all 18 owning migrations and finds no queued rows/handoffs. Active drainer/copy acceptance remains open; H5 is planned and G deferred.
+**Status:** H1–H3 and H4 are implemented; dev.11 is published and the user-rebuilt API's five AuditCore DLLs match the delivered packages. [Host acceptance](../evidence/audit-pipeline-2026-10/dev11-host-acceptance-2026-10-18/README.md) records 227 focused passes, two test-assertion failures corrected in source pending the next user rebuild, and three opt-in atomicity skips. Live CRM publication reconciles two events/two tenant-bound receipts; recovery HTTP boundaries pass. All 18 owning migrations match and queues/handoffs are empty. Current host mode is Immediate: enabled Outbox/drainer, remaining producer/consumer workflows and copied-data acceptance remain open. H5 is planned and G deferred.
 **Date:** 2026-10-18 (code/evidence review)
+
+**Review release follow-up:** [Four findings are fixed](../evidence/audit-pipeline-2026-10/rollout-source-review-2026-10-18/README.md). The library fixes are published in [dev.12](../evidence/audit-pipeline-2026-10/release-dev12/README.md); 21 MillWorks project references and API restore now resolve its verified packages. Release checks: 2,770 passed, one existing 10,000-row integrity SQL timeout, 23 skips. All 24 new recovery provider cases and seven drainer cases passed. The full suite is not green; the unchanged integrity timeout remains an explicit H5 issue. Standalone producer transaction and HTTP response source changes await the user API/test rebuild and no-build acceptance. No agent API build/restart occurred.
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
 internal repository extraction, and qualification of remaining performance claims.
@@ -597,13 +599,18 @@ package resolution in MillWorks, and subsequent rebuilt-host acceptance on Octob
 78 new startup audit rows/78 identity receipts and 54 focused host tests with zero failures/skips.
 This closes the EF mutation gate only; it does not establish all-producer or all-drainer rollout.
 
-1. Dev.11 publication and host restore are complete; [release evidence](../evidence/audit-pipeline-2026-10/release-dev11/README.md).
-2. Build the API and its two audit test projects once explicitly authorized, then execute
-   producer, recovery/retention, HTTP-boundary and CommentThreads composition checks.
-3. After a user-managed rebuild/restart, verify real producer observations/receipts, active
-   drainer modules and recovery/hold behavior; reconcile externally copied data separately.
-4. Define H5 workload/budgets and retain sustained reconciliation evidence before claiming
-   throughput or end-to-end latency targets. H4 implementation is complete.
+1. Dev.11 publication and user-rebuilt host acceptance are historical and retained below.
+   The new source-review fixes require compiling/testing AuditCore and publishing a fresh
+   version after dev.11 before updating the host package references.
+2. Restore the newly delivered packages, then batch API/test compilation with Jesse's next
+   rebuild. Include the previously corrected breach assertions and new review regressions.
+   Run the focused cases with `--no-build --no-restore` afterward. Do not claim the prior
+   227 passes/two assertion failures/three skips verify the new source changes.
+3. Live dev.11 CRM source/receipt and recovery HTTP-boundary checks passed. Current host uses
+   Immediate mode. Verify remaining workflows, enabled Outbox drainers in each owning
+   configuration/database and externally copied payload lifecycle separately.
+4. H4 is complete. Define H5 workload/budgets and retain sustained reconciliation evidence
+   before claiming throughput or end-to-end latency targets.
 
 ## Producer and host gate review — 2026-10-18
 
@@ -616,12 +623,15 @@ No application source/configuration, database, package or process was changed by
       checkout consumers; distinguish direct logger calls from the envelope sink protocol.
 - [x] Inspect consumer receipt mappings, authorization routing, recovery registration and
       retention source; verify existing compiled producer/policy fixtures.
-- [ ] Close the producer binding, retry provenance and CommentThreads composition gaps above.
-- [ ] Integrate tenant/hold-authorized operator recovery and safe source/projection cleanup;
-      the current host sweep still directly selects Failed rows by age.
-- [ ] Verify actual owning migration histories, queued versions, active drainers and copied-data
-      disposition against the running application. Local SQL on port 1433 was unavailable; the
-      disposable test instance on 1435 supplies no application acceptance evidence.
+- [x] Close the producer binding, retry provenance and CommentThreads composition gaps in source;
+      passing compiled grant/retry/model tests include CommentThreads.
+- [x] Integrate tenant/hold-authorized operator recovery and guarded cleanup in source.
+      Compiled authorization/retention and disposable SQL hold checks pass; live failure
+      mutation/projection acceptance remains separate.
+- [x] Verify actual owning migration history and queue/handoff inventory: all 18 migrations
+      match, no queued rows/handoffs at observation. Application SQL is reachable.
+- [ ] Verify enabled Outbox drainers and copied-data disposition in every owning deployment.
+      Current API startup explicitly disables the audit drainer in Immediate mode.
 
 ## Implementation update — 2026-10-18
 
@@ -630,3 +640,26 @@ records producer bindings/retry provenance, CommentThreads composition, operator
 authorization, guarded cleanup and H4. These source gaps are closed; host compilation/runtime
 acceptance remains open. Application SQL is now reachable: 18 applied/source migrations match,
 with no queued rows or handoffs at the recorded read-only observation. No migration was applied.
+
+## Dev.11 rebuilt-host acceptance — 2026-10-18
+
+[Retained no-build acceptance](../evidence/audit-pipeline-2026-10/dev11-host-acceptance-2026-10-18/README.md) verifies the user's rebuilt artifacts, compiled
+producer/retry/retention/recovery/model behavior, two live CRM observations and authenticated
+recovery boundaries through the frontend proxy. Two breach tests expected success after
+tenant/actor revocation; their outer assertions now require the correct authorization failure.
+Those source corrections remain uncompiled, honoring Jesse's no-build instruction. Readiness
+remains HTTP 200 Degraded; liveness is Healthy. No agent build/restart/configuration or
+application migration occurred. H4 is complete; remaining runtime and H5 gates stay explicit.
+
+### Dev.12 release follow-up — 2026-10-18
+
+[Release evidence](../evidence/audit-pipeline-2026-10/release-dev12/README.md) records the
+frozen source snapshot, SQL results, new typed operation-conflict contract, package-only
+consumer, both feed deliveries and exact host restore hashes. Recovery authorization is
+rechecked after persistence and before protected receipt/no-op/inspection returns.
+Three SQL drainer tests now observe committed outcomes instead of canceling at fixed delays.
+H4 remains complete. H5 remains open, including the observed intermittent integrity-query
+SQL timeout (source byte-identical to dev.11); publication is not a full-suite green claim.
+Next: user rebuild of MillWorks and applicable tests, then focused `--no-build --no-restore`
+producer transaction/retry, recovery policy/controller and consumer acceptance. The running
+host and its Immediate-versus-Outbox activation gates remain separate.

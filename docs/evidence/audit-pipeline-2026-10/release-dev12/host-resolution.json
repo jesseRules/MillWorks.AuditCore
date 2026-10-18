@@ -1,0 +1,64 @@
+{
+  "verifiedUtc": "2026-10-18T22:57:15.650298+00:00",
+  "command": [
+    "dotnet",
+    "restore",
+    "MillWorks.Api/MillWorks.Api.csproj",
+    "--disable-parallel",
+    "-p:BuildInParallel=false"
+  ],
+  "exitCode": 0,
+  "updatedProjects": [
+    "MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+    "MillWorks.Identity/MillWorks.Identity.csproj",
+    "MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+    "tools/diagram-source-audit-tests/DiagramSourceAudit.Tests.csproj",
+    "MillWorks.Security/MillWorks.Security.csproj",
+    "tools/diagram-share-policy-tests/DiagramSharePolicy.Tests.csproj",
+    "MillWorks.Chat/MillWorks.Chat.csproj",
+    "MillWorks.Payments/MillWorks.Payments.csproj",
+    "MillWorks.Ai/MillWorks.Ai.csproj",
+    "MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+    "MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+    "MillWorks.Reporting/MillWorks.Reporting.csproj",
+    "MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+    "MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+    "MillWorks.Irb/MillWorks.Irb.csproj",
+    "MillWorks.Grant/MillWorks.Grant.csproj",
+    "MillWorks.Compliance/MillWorks.Compliance.csproj",
+    "MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+    "MillWorks.Api/MillWorks.Api.csproj",
+    "MillWorks.Tokens/MillWorks.Tokens.csproj",
+    "MillWorks.Notification/MillWorks.Notification.csproj"
+  ],
+  "auditPackages": {
+    "MillWorks.AuditCore/1.15.4-dev.12": {
+      "packageSha512": "424D5zN7DT6uxsw74CeNEgxGoeot2Jjel+l81GY6MKjulCK5/G3ihzb4JokOkRE49oshultXE3jX1/m85D/Akw==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.12": {
+      "packageSha512": "8fuEI0hWyFpxvruXS48HW/FJEHgpjBkSroCxVKSRy1tT5xnK1qfz0dc1f0bIbBNL6jOxhLN4lUN/UIwchXQxDw==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.12": {
+      "packageSha512": "rOTytPpFEAw3KsxFHG0+LxPeI3JIQ7FJRHRccSgqib2hdICdL75O3+8EEObmHbpqdgCFTiY6vmiLBHG3tsTllA==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Providers/1.15.4-dev.12": {
+      "packageSha512": "PBpZ7NiBKVXSqQhcSA8JBk+NVaHjz7pFLdhvv/8lmw6ceH7E2FD91cXJ8P/ypQTqTsKUSopVLdhS4XQS0jzkQA==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Services/1.15.4-dev.12": {
+      "packageSha512": "o0d2LhmRIpbqEIJ4JYTgp9xNld/XZCUMf1TAbeBxLNLg+eJPhfYBr7YWhuI3JUELvU60QhdrArxgO5hHz/ksyw==",
+      "matchesPublishedArtifact": true
+    }
+  },
+  "backgroundJobsPackages": [
+    "MillWorks.BackgroundJobs/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.Abstractions/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.AspNetCore/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.Core/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.EntityFramework/2.0.14-dev.20"
+  ],
+  "apiBuiltOrRestarted": false
+}

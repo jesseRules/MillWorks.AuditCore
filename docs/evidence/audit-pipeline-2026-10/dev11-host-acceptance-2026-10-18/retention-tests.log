@@ -1,0 +1,8 @@
+Test run for /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Skipped Finance_write_and_audit_envelope_share_one_rollback_boundary [19 ms]
+  Skipped Identity_write_and_audit_envelope_share_one_rollback_boundary [2 ms]
+  Skipped Payment_write_and_audit_envelope_share_one_rollback_boundary [1 ms]
+Results File: /tmp/auditcore-dev11-host-acceptance/api-retention-acceptance.trx
+
+Passed!  - Failed:     0, Passed:    40, Skipped:     3, Total:    43, Duration: 9 s - MillWorks.Api.Tests.dll (net10.0)

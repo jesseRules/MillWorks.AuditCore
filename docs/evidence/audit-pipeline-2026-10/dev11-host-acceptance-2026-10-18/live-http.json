@@ -1,0 +1,57 @@
+{
+  "startedUtc": "2026-10-18T21:52:32.525378+00:00",
+  "origin": "https://localhost:4200",
+  "checks": [
+    {
+      "check": "anonymous_recovery_inspect_denied",
+      "httpStatus": 401,
+      "code": "request_failed"
+    },
+    {
+      "check": "anonymous_recovery_replay_denied",
+      "httpStatus": 401,
+      "code": "request_failed"
+    },
+    {
+      "check": "admin_recovery_missing_row",
+      "httpStatus": 404,
+      "code": "request_failed"
+    },
+    {
+      "check": "admin_company_inventory",
+      "httpStatus": 200
+    },
+    {
+      "check": "admin_crm_hub_observation_1",
+      "httpStatus": 200
+    },
+    {
+      "check": "admin_crm_hub_observation_2",
+      "httpStatus": 200
+    },
+    {
+      "check": "user_recovery_missing_row",
+      "httpStatus": 403,
+      "code": "request_failed"
+    }
+  ],
+  "sessions": [
+    {
+      "persona": "admin",
+      "login": "authenticated"
+    },
+    {
+      "persona": "admin",
+      "cleanup": "Closed"
+    },
+    {
+      "persona": "user",
+      "login": "authenticated"
+    },
+    {
+      "persona": "user",
+      "cleanup": "Closed"
+    }
+  ],
+  "crmCompanyId": "20000001-0000-0000-0000-000000000001"
+}

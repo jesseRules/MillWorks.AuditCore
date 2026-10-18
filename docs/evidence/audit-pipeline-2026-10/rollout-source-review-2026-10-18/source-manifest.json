@@ -1,0 +1,56 @@
+{
+  "recordedUtc": "2026-10-18T22:33:09.954822+00:00",
+  "validation": "AuditCore Debug compilation succeeded; focused ownership tests 57 passed, 0 failed, 165 skipped (SQL disabled and SQL-only cases). SQL-enabled rerun canceled while waiting for occupied shared gate; dotnet never started. API tests pending user rebuild.",
+  "files": [
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Recovery/OutboxStateStore.cs",
+      "sha256": "c47261d6557b648610958bbfc60a74648edf090c2afc4483967c047f59af71a9"
+    },
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Recovery/OutboxStateStore.Resolutions.cs",
+      "sha256": "6b39dfa98f6d88847367cff8b60bbe328410e6c9f78621afce9fec1d870d4c02"
+    },
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Recovery/AuditOutboxOperationConflictException.cs",
+      "sha256": "4d9ea6146dd262e4478a0da5cd39cff2435704c3a240fb9e1636ded68f9b126e"
+    },
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/OutboxOwnershipTests.cs",
+      "sha256": "53a61e12cc2790f865d2d3fd31cb1f4484602ceb3ad75c4700959db801ea25e2"
+    },
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "tests/MillWorks.AuditCore.Tests/Sinks/OutboxOwnershipCommitAuthorizationTests.cs",
+      "sha256": "3268aaa0d4d53aa0a0ca1124f069ece8bb78b7a390aeb13f20446fba72134825"
+    },
+    {
+      "checkout": "MillWorks",
+      "path": "MillWorks.Api/Infrastructure/Audit/AuditProducerAuthorization.cs",
+      "sha256": "d2b86a142562e11af7d2b7317c6a6db39d5aa3a5047303a5327671fdef79a79a"
+    },
+    {
+      "checkout": "MillWorks",
+      "path": "MillWorks.Api/Controllers/Audit/AuditOutboxRecoveryController.cs",
+      "sha256": "cd4b8adbe6b4eb29bf3530d435c68be62190930688edddffb7ae50a174a81d3b"
+    },
+    {
+      "checkout": "MillWorks",
+      "path": "MillWorks.Api.Tests/Infrastructure/Audit/AuditProducerAuthorizationTests.cs",
+      "sha256": "43ca348baeae7ffdedf91cd7f3c2f6b63508b324cd98ac3eb3c1d5e4ce11259d"
+    },
+    {
+      "checkout": "MillWorks",
+      "path": "MillWorks.Api.Tests/ControllerTests/Audit/AuditOutboxRecoveryControllerTests.cs",
+      "sha256": "1c91f5d60df1c7294b6f7413bc9053859e73a0e36a6b194de00833327718bba0"
+    },
+    {
+      "checkout": "MillWorks.AuditCore",
+      "path": "src/MillWorks.AuditCore.Services/Sinks/Recovery/AuditOutboxRecovery.cs",
+      "sha256": "f59a8a3780d7067c35be6d4ad5f0200197183475c5669a829a67c722fc4d4b90"
+    }
+  ]
+}

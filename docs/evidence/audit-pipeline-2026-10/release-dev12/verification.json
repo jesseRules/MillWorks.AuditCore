@@ -1,0 +1,70 @@
+{
+  "recordedUtc": "2026-10-18T22:56:47.230474+00:00",
+  "tests": {
+    "total": "2803",
+    "executed": "2771",
+    "passed": "2770",
+    "failed": "1",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "knownIssue": {
+    "test": "VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult",
+    "error": "SQL command timeout",
+    "affectedSourceUnchangedFromDev11": [
+      "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs",
+      "src/MillWorks.AuditCore.Services/TamperDetectionService.cs",
+      "tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs"
+    ],
+    "status": "Unresolved; H5 load/resource qualification remains open",
+    "releaseDecision": "Publish batch/recovery fixes locally with the existing unrelated timeout recorded; no full-suite green claim."
+  },
+  "fullSuiteGreen": false,
+  "consumerCommands": [
+    [
+      "dotnet",
+      "restore",
+      "/tmp/auditcore-dev12-consumer/Smoke.csproj",
+      "--configfile",
+      "/tmp/auditcore-dev12-consumer/NuGet.Config",
+      "--packages",
+      "/tmp/auditcore-dev12-consumer/packages",
+      "-p:NuGetAudit=false"
+    ],
+    [
+      "dotnet",
+      "build",
+      "/tmp/auditcore-dev12-consumer/Smoke.csproj",
+      "--configuration",
+      "Release",
+      "--no-restore",
+      "-m:1",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "/tmp/auditcore-dev12-consumer/bin/Release/net10.0/Smoke.dll"
+    ]
+  ],
+  "auditPackages": [
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.12",
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.12",
+    "MillWorks.AuditCore.Providers/1.15.4-dev.12",
+    "MillWorks.AuditCore.Services/1.15.4-dev.12",
+    "MillWorks.AuditCore/1.15.4-dev.12"
+  ],
+  "cleanupCompletedApiAvailable": true,
+  "typedOperationConflictAvailable": true,
+  "databaseOpenedByConsumer": false
+}

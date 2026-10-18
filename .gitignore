@@ -83,3 +83,6 @@ docs/TodoPlan.md
 
 # Curated dev.9 Release regression evidence
 !docs/evidence/audit-pipeline-2026-10/release-dev9/*.trx
+
+# Curated dev.12 Release regression evidence
+!docs/evidence/audit-pipeline-2026-10/release-dev12/*.trx

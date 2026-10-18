@@ -37,6 +37,7 @@ internal sealed class AuditOutboxRecovery(IOutboxStateStore state, IServiceScope
         var pending = await db.AuditOutboxFailureHandoffs.CountAsync(x => x.OutboxRowId == rowId &&
             (x.Status == AuditOutboxHandoffStatus.Pending || x.Status == AuditOutboxHandoffStatus.Dispatching), cancellationToken);
         var delivered = await db.AuditOutboxFailureHandoffs.CountAsync(x => x.OutboxRowId == rowId && x.Status == AuditOutboxHandoffStatus.Delivered, cancellationToken);
+        await permit.CheckCurrentAsync(cancellationToken);
         return new(row.Id, row.FailureTenantId, row.FailureCycleId!.Value, row.AttemptCount,
             row.LastError ?? "write_failed", row.ResolutionId is not null, pending, delivered);
     }

@@ -1,0 +1,11 @@
+{
+  "test": "VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult",
+  "error": "SQL command timeout",
+  "affectedSourceUnchangedFromDev11": [
+    "src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs",
+    "src/MillWorks.AuditCore.Services/TamperDetectionService.cs",
+    "tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs"
+  ],
+  "status": "Unresolved; H5 load/resource qualification remains open",
+  "releaseDecision": "Publish batch/recovery fixes locally with the existing unrelated timeout recorded; no full-suite green claim."
+}

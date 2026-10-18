@@ -27,3 +27,9 @@ API compilation and API-dependent tests still require explicit authorization und
 AGENTS.md. No API build/restart, application mutation or runtime acceptance occurred in this
 release. The read-only application SQL observation matched 18 migrations and found no queued
 rows/handoffs; active drainer/copied-data and H5 qualification gates remain open.
+
+## User-rebuilt host follow-up
+
+Jesse subsequently rebuilt/started the API. [Host acceptance](../dev11-host-acceptance-2026-10-18/README.md)
+verifies exact deployed DLLs and records compiled/live checks plus remaining gates. Two
+corrected test assertions await the next user rebuild. No agent build/restart occurred.

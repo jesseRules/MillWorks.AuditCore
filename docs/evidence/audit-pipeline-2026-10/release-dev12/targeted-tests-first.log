@@ -1,0 +1,192 @@
+  MillWorks.AuditCore.Abstractions -> /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Abstractions/bin/Release/net10.0/MillWorks.AuditCore.Abstractions.dll
+  MillWorks.AuditCore.EntityFramework -> /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.EntityFramework/bin/Release/net10.0/MillWorks.AuditCore.EntityFramework.dll
+  MillWorks.AuditCore.Providers -> /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Providers/bin/Release/net10.0/MillWorks.AuditCore.Providers.dll
+  MillWorks.AuditCore.Services -> /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Services/bin/Release/net10.0/MillWorks.AuditCore.Services.dll
+  MillWorks.AuditCore.AspNetCore -> /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.AspNetCore/bin/Release/net10.0/MillWorks.AuditCore.AspNetCore.dll
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/AspNetCore/DatabaseExtensionsTests.cs(46,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/AspNetCore/DatabaseExtensionsTests.cs(72,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Validators/ComplianceAttributeScannerTests.cs(66,17): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Validators/ComplianceAttributeScannerTests.cs(77,17): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Sinks/Writers/AuditEntityBatchWriterTests.cs(165,13): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/RedisDlqStartupValidationTests.cs(75,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/RedisDlqStartupValidationTests.cs(129,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Middleware/AuditContextMiddlewareEdgeCaseTests.cs(197,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorEdgeCaseTests.cs(107,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorEdgeCaseTests.cs(155,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(130,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(156,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(186,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(225,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(249,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorEdgeCaseTests.cs(237,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(273,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(302,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(330,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(350,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(394,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(426,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(472,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(511,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/EntityFramework/AuditSaveChangesInterceptorTests.cs(535,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/FileDlqOperationalBoundaryTests.cs(75,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/FileDlqOperationalBoundaryTests.cs(171,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(222,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(274,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/FileBasedAuditDeadLetterQueueTests.cs(707,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(536,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(587,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(648,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/DeadLetterQueue/DeadLetterQueueProcessorTests.cs(685,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs(492,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs(564,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/TamperDetectionServiceTests.cs(601,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(349,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(447,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(815,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(876,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(918,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(986,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/ResilientAuditLoggerTests.cs(995,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Redis/RedisDistributedLockServiceTests.cs(325,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Redis/RedisDistributedLockServiceTests.cs(365,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Query/AuditSearchServiceEdgeCaseTests.cs(356,80): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Query/AuditQueryServiceTests.cs(443,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Query/AuditQueryServiceTests.cs(497,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/AuditArchivalServiceTests.cs(558,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Locking/NullDistributedLockServiceTests.cs(71,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/Locking/InMemoryDistributedLockServiceTests.cs(147,47): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(124,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(151,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(179,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(208,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(124,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(293,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(151,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DatabaseInitializationServiceTests.cs(341,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(179,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(208,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(296,21): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/DbInitializationServiceTests.cs(344,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/AuditLoggerTests.cs(857,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Services/AuditLoggerTests.cs(912,54): warning CS8602: Dereference of a possibly null reference. [/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj]
+  MillWorks.AuditCore.Tests -> /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll
+Test run for /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed ExhaustedRetries_RoutesToDlq [7 s]
+  Error Message:
+   Multiple failures or warnings in test:
+  1)   One event should be routed to DLQ
+Assert.That(dlq.StoredEvents.Count, Is.EqualTo(1))
+  Expected: 1
+  But was:  0
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass11_0.<ExhaustedRetries_RoutesToDlq>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 611
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  2) System.ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')
+  ActualValue: <null>
+  ParamName: index
+     at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass11_0.<ExhaustedRetries_RoutesToDlq>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 612
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Stack Trace:
+  
+1)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass11_0.<ExhaustedRetries_RoutesToDlq>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 611
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+2)    at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass11_0.<ExhaustedRetries_RoutesToDlq>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 612
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Failed FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired [5 s]
+  Error Message:
+   Multiple failures or warnings in test:
+  1)   AttemptCount should be 1 after first failure
+Assert.That(row.AttemptCount, Is.EqualTo(1))
+  Expected: 1
+  But was:  0
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 376
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  2)   NextRetryAt should be set after failure
+Assert.That(row.NextRetryAt, Is.Not.Null)
+  Expected: not null
+  But was:  null
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 377
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  3) System.InvalidOperationException : Nullable object must have a value.
+     at System.Nullable`1.get_Value()
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 378
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 401
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+  Stack Trace:
+  
+1)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 376
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+2)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 377
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+3)    at System.Nullable`1.get_Value()
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.<>c__DisplayClass7_0.<FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired>b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 378
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 401
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+Results File: /tmp/auditcore-dev12-results/release-targeted.trx
+
+Failed!  - Failed:     2, Passed:     6, Skipped:     0, Total:     8, Duration: 1 m 4 s - MillWorks.AuditCore.Tests.dll (net10.0)

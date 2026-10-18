@@ -1,0 +1,56 @@
+{
+  "observedUtc": "2026-10-18T21:54:42.016620+00:00",
+  "processId": 97343,
+  "processStartedLocal": "2026-10-18 16:33:21 America/Chicago",
+  "hostBuiltByUser": true,
+  "agentBuiltOrRestartedHost": false,
+  "auditAssemblies": [
+    {
+      "package": "MillWorks.AuditCore.Abstractions/1.15.4-dev.11",
+      "dllName": "MillWorks.AuditCore.Abstractions.dll",
+      "dllSha256": "f45b6f9a2509de0cbe7b8d1185ce89400786c064e98a8700b397aa19701ac6d0",
+      "matchesPublishedPackage": true
+    },
+    {
+      "package": "MillWorks.AuditCore.EntityFramework/1.15.4-dev.11",
+      "dllName": "MillWorks.AuditCore.EntityFramework.dll",
+      "dllSha256": "8242e7539a4fbcee67aeac8375b1a83eadf3d01eeef69e8166e1561db3bf116e",
+      "matchesPublishedPackage": true
+    },
+    {
+      "package": "MillWorks.AuditCore.Providers/1.15.4-dev.11",
+      "dllName": "MillWorks.AuditCore.Providers.dll",
+      "dllSha256": "1d311e8937ad16da3f7f1e293bc082ab47bfee5a5b5e5aed26d6cceac9f117a4",
+      "matchesPublishedPackage": true
+    },
+    {
+      "package": "MillWorks.AuditCore.Services/1.15.4-dev.11",
+      "dllName": "MillWorks.AuditCore.Services.dll",
+      "dllSha256": "11a5e87d228b3308268c377c963bbe9afdc71ca1b18b2a8c98a4f4327a064b73",
+      "matchesPublishedPackage": true
+    },
+    {
+      "package": "MillWorks.AuditCore/1.15.4-dev.11",
+      "dllName": "MillWorks.AuditCore.AspNetCore.dll",
+      "dllSha256": "4c589f7f7879af447a7eb5e88ebcbd46d46b08f03ae6395d12c21fffd53db5ed",
+      "matchesPublishedPackage": true
+    }
+  ],
+  "backgroundJobsPackages": [
+    "MillWorks.BackgroundJobs.Abstractions/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.AspNetCore/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.Core/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.EntityFramework/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs/2.0.14-dev.20"
+  ],
+  "health": {
+    "live": {
+      "status": "Healthy",
+      "httpStatus": 200
+    },
+    "ready": {
+      "status": "Degraded",
+      "httpStatus": 200
+    }
+  }
+}

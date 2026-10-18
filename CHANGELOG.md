@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Local prerelease — 1.15.4-dev.12 (published to both local feeds)
+
+- Recheck recovery authorization after saving evidence, before committing, and before returning existing operation receipts or rejected no-op transitions. Inspect rechecks after loading handoff counts. Expired authority cannot commit or return protected results after database awaits.
+- Add `AuditOutboxOperationConflictException` with the durable operation ID. The corresponding MillWorks source distinguishes HTTP 409 identity conflicts from HTTP 503 uncertain commits and independently commits standalone observations with fresh contexts on provider retries.
+- Retain dev.11 JSON reader fixes, H4 orchestration and guarded cleanup. No schema migration or queue-format change. API compilation/runtime acceptance and H5 remain separate gates.
+- Validation: 2,770 passed, one existing 10,000-row integrity SQL timeout, 23 expected skips. All 24 new recovery provider cases and all seven drainer cases passed. Three drainer tests now wait for committed outcomes instead of fixed delays. The full suite is not green; the unchanged integrity timeout remains open under H5.
+- Published five packages and symbols to both local feeds; updated 21 active MillWorks projects and verified API restore against the delivered hashes. API compilation/restart and runtime acceptance remain pending.
+- Validation and publication evidence: `docs/evidence/audit-pipeline-2026-10/release-dev12/README.md`.
+
 ### Local prerelease — 1.15.4-dev.9 (published to both local feeds)
 
 - Give each EF entity mutation a GUID identity, retained across failed/cancelled saves and retired after successful SaveChanges. Separate creations with reused temporary keys and separate repeated updates no longer alias prior audit history.

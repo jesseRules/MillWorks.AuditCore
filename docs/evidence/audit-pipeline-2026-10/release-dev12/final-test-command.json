@@ -1,0 +1,18 @@
+{
+  "command": [
+    "python3",
+    "/Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py",
+    "test",
+    "/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+    "--sql",
+    "--",
+    "--configuration",
+    "Release",
+    "--logger",
+    "trx;LogFileName=release-dev12.trx",
+    "--results-directory",
+    "/tmp/auditcore-dev12-results"
+  ],
+  "cwd": "/private/tmp/auditcore-dev12-release",
+  "buildArtifacts": "Release compiled after final timing fixes; runner uses --no-build --no-restore"
+}

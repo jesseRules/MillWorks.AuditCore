@@ -1,0 +1,111 @@
+Test run for /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Skipped Soak_100kAuditEvents_ChainRemainsValidAndMemoryStaysBounded [16 ms]
+  Failed VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult [43 s]
+  Error Message:
+   Microsoft.Data.SqlClient.SqlException : Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding.
+Data:
+  HelpLink.ProdName: Microsoft SQL Server
+  HelpLink.ProdVer: 16.00.4305
+  HelpLink.EvtSrc: MSSQLServer
+  HelpLink.EvtID: -2
+  HelpLink.BaseHelpUrl: https://go.microsoft.com/fwlink
+  HelpLink.LinkId: 20476
+  Errors: Microsoft.Data.SqlClient.SqlErrorCollection
+  ClientConnectionId: 6d3ef3e8-13c8-4155-b483-a560093f17e5
+  Class: 11
+  LineNumber: 0
+  Number: -2
+  Procedure: 
+  Server: 127.0.0.1,63316
+  State: 0
+  BatchCommand: <null>
+  IsTransient: False
+  SqlState: <null>
+  BatchCommand: <null>
+  ErrorCode: -2146232060
+  ----> System.ComponentModel.Win32Exception : Unknown error: 258
+  NativeErrorCode: 258
+  ErrorCode: -2147467259
+  Stack Trace:
+     at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Repositories.AuditIntegrityRepository.GetWithAuditEventsAfterSequenceAsync(Nullable`1 startDate, Nullable`1 endDate, Int64 afterSequenceNumber, Int32 take, CancellationToken cancellationToken) in /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs:line 363
+   at MillWorks.AuditCore.Services.TamperDetection.TamperDetectionService.VerifyChainIntegrityAsync(Nullable`1 startDate, Nullable`1 endDate, CancellationToken cancellationToken) in /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Services/TamperDetectionService.cs:line 629
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.TamperChain10kSqlServerTests.VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs:line 89
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.TamperChain10kSqlServerTests.VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs:line 89
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+--Win32Exception
+
+1)    at System.Threading.Tasks.ContinuationResultTaskFromResultTask`2.InnerInvoke()
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.InitializeReaderAsync(AsyncEnumerator enumerator, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal.SqlServerExecutionStrategy.ExecuteAsync[TState,TResult](TState state, Func`4 operation, Func`4 verifySucceeded, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.Internal.SingleQueryingEnumerable`1.AsyncEnumerator.MoveNextAsync()
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync[TSource](IQueryable`1 source, CancellationToken cancellationToken)
+   at MillWorks.AuditCore.EntityFramework.Repositories.AuditIntegrityRepository.GetWithAuditEventsAfterSequenceAsync(Nullable`1 startDate, Nullable`1 endDate, Int64 afterSequenceNumber, Int32 take, CancellationToken cancellationToken) in /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.EntityFramework/Repositories/AuditIntegrityRepository.cs:line 363
+   at MillWorks.AuditCore.Services.TamperDetection.TamperDetectionService.VerifyChainIntegrityAsync(Nullable`1 startDate, Nullable`1 endDate, CancellationToken cancellationToken) in /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Services/TamperDetectionService.cs:line 629
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.TamperChain10kSqlServerTests.VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs:line 89
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.TamperChain10kSqlServerTests.VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/TamperChain10kSqlServerTests.cs:line 89
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+--Win32Exception
+
+
+  Skipped ProfileSequenceSummary(False,False) [< 1 ms]
+  Skipped ProfileSequenceSummary(False,True) [< 1 ms]
+  Skipped ProfileSequenceSummary(True,False) [< 1 ms]
+  Skipped ProfileSequenceSummary(True,True) [< 1 ms]
+  Skipped ProfileSequenceSummary(False,False,True) [< 1 ms]
+  Skipped ProfileSequenceSummary(False,True,True) [< 1 ms]
+  Skipped ProfileSequenceSummary(True,False,True) [< 1 ms]
+  Skipped ProfileSequenceSummary(True,True,True) [< 1 ms]
+  Skipped ExecuteOptimisticUpdateAsync_ConcurrencyConflict_Throws [< 1 ms]
+  Skipped SaveChangesWithRetryAsync_PermanentFailure_Throws [< 1 ms]
+  Skipped CleanupOldAuditEventsAsync_DeletesBeforeCutoff [< 1 ms]
+  Skipped CleanupOldAuditEventsAsync_NothingOldEnough_DeletesNothing [< 1 ms]
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [17 ms]
+  Skipped PortableClaimReadsNativeConsumerTimestampFormat [28 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(True) [< 1 ms]
+  Skipped OverlappingCompletionAndRecoveryHaveExactlyOneWinner(False) [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","outcome") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","failure") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","failure") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_claim") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_recover") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("before","handoff_ack") [< 1 ms]
+  Skipped SqlCommitFaultsResolveThroughImmutableEvidence("after","handoff_ack") [< 1 ms]
+  Skipped IncrementalMigrationsPreserveOldRowsAndSupportGuardedFailure [< 1 ms]
+Results File: /tmp/auditcore-dev12-results/release-dev12.trx
+
+Failed!  - Failed:     1, Passed:  2770, Skipped:    23, Total:  2794, Duration: 4 m 37 s - MillWorks.AuditCore.Tests.dll (net10.0)

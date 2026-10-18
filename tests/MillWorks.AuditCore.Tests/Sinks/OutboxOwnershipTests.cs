@@ -217,7 +217,7 @@ public sealed partial class OutboxOwnershipTests(string provider, bool rcsi)
             Assert.That(db.AuditOutboxOperations.Any(x => x.ResultJson.Contains("EnvelopeJson")), Is.False);
         });
         await Assert.ThatAsync(() => _store.ApplyAsync(operation,
-            [new(claim.Id, claim.Token, AuditOutboxStatus.Completed)], default), Throws.TypeOf<InvalidOperationException>());
+            [new(claim.Id, claim.Token, AuditOutboxStatus.Completed)], default), Throws.TypeOf<AuditOutboxOperationConflictException>());
     }
 
     [Test]

@@ -121,7 +121,7 @@ public sealed class AuditService(
             var (events, totalCount) = await auditEventRepository.GetByOffsetAsync(
                 offset: offset,
                 limit: limit,
-                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate),
+                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate).ThenByDescending(static x => x.EventId),
                 cancellationToken: cancellationToken);
 
             var eventsList = events.ToList();
@@ -168,47 +168,13 @@ public sealed class AuditService(
 
         try
         {
-            // Build predicate for filtering
-            System.Linq.Expressions.Expression<Func<AuditEventEntity, bool>> predicate = static x => true;
-
-            if (request.StartDate.HasValue)
-            {
-                var startDate = request.StartDate.Value;
-                predicate = CombinePredicates(predicate, x => x.InsertedDate >= startDate);
-            }
-
-            if (request.EndDate.HasValue)
-            {
-                var endDate = request.EndDate.Value;
-                predicate = CombinePredicates(predicate, x => x.InsertedDate <= endDate);
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.User))
-            {
-                var user = request.User;
-                predicate = CombinePredicates(predicate, x => x.User == user);
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.EventType))
-            {
-                var eventType = request.EventType;
-                predicate = CombinePredicates(predicate, x => x.EventType == eventType);
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
-            {
-                var searchTerm = request.SearchTerm;
-                predicate = CombinePredicates(predicate, x =>
-                    (x.JsonData != null && x.JsonData.Contains(searchTerm)) ||
-                    (x.User != null && x.User.Contains(searchTerm)) ||
-                    (x.EventType != null && x.EventType.Contains(searchTerm)));
-            }
+            var predicate = Query.AuditEventSearchFilter.Build(request);
 
             var (events, totalCount) = await auditEventRepository.GetByOffsetAsync(
                 offset: request.Offset,
                 limit: request.Limit,
                 predicate: predicate,
-                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate),
+                orderBy: static q => q.OrderByDescending(static x => x.InsertedDate).ThenByDescending(static x => x.EventId),
                 cancellationToken: cancellationToken);
 
             var eventsList = events.ToList();

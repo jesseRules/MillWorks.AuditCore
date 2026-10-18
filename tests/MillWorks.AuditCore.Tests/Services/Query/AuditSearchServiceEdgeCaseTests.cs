@@ -55,7 +55,7 @@ public class AuditSearchServiceEdgeCaseTests
     #region SearchAuditEventsAsync Edge Cases
 
     /// <summary>
-    /// When every optional filter (User, EventType, StartDate, EndDate, SearchTerm) is
+    /// When every metadata filter (User, EventType, EntityType, StartDate, EndDate) is
     /// populated the query must apply all of them in conjunction so that only an event
     /// that satisfies every criterion is returned.
     /// </summary>
@@ -132,9 +132,9 @@ public class AuditSearchServiceEdgeCaseTests
         {
             User = targetUser,
             EventType = targetEventType,
+            EntityType = targetEntityType,
             StartDate = DateTimeOffset.UtcNow.AddDays(-7),
             EndDate = DateTimeOffset.UtcNow,
-            SearchTerm = "special",
             Offset = 0,
             Limit = 50
         };
@@ -150,11 +150,11 @@ public class AuditSearchServiceEdgeCaseTests
     }
 
     /// <summary>
-    /// A search term shorter than MinSearchTermLength must return zero results
-    /// rather than silently dropping the filter and widening the query.
+    /// Short words remain valid, and an unsupported provider reports unavailable
+    /// rather than fabricating zero matches or widening the query.
     /// </summary>
     [Test]
-    public async Task SearchAuditEventsAsync_ShortSearchTerm_ReturnsZeroResults()
+    public async Task SearchAuditEventsAsync_ShortWordOnUnsupportedProvider_IsUnavailable()
     {
         // Arrange - seed events that would match if filter were dropped
         var events = Enumerable.Range(0, 5)
@@ -169,7 +169,7 @@ public class AuditSearchServiceEdgeCaseTests
         await _context.AuditEvents.AddRangeAsync(events);
         await _context.SaveChangesAsync();
 
-        // Search term "ab" is 2 chars, below MinSearchTermLength of 3
+        // A short complete word is valid; this provider cannot execute native full-text search.
         var request = new AuditSearchRequest
         {
             SearchTerm = "ab",
@@ -177,13 +177,8 @@ public class AuditSearchServiceEdgeCaseTests
             Limit = 50
         };
 
-        // Act
-        var result = await _searchService.SearchAuditEventsAsync(request);
-
-        // Assert - should return 0 results, not 5
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result.TotalItems, Is.EqualTo(0), "Short search term should fail fast with zero results, not widen the query");
-        Assert.That(result.Items, Is.Empty);
+        // Short words are valid. Unsupported text search must be explicit, never a fabricated empty page.
+        await Assert.ThrowsAsync<AuditSearchUnavailableException>(() => _searchService.SearchAuditEventsAsync(request));
     }
 
     /// <summary>

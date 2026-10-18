@@ -40,7 +40,7 @@ internal sealed partial class OutboxStateStore
                 ActorId = permit.ActorId, Action = replay ? "Replay" : "Skip", Reason = reason, CreatedAt = now
             });
             return new(operation, [id], [], [], [], projections.Any(x => x.Status == AuditOutboxHandoffStatus.Dispatching));
-        }, ct);
+        }, ct, permit);
 
     public Task<OutboxOperationResult> CleanupAsync(Guid operation, Guid id, Guid? tenant, Guid cycle,
         IAuditOutboxRecoveryPermit permit, CancellationToken ct) =>
@@ -78,7 +78,7 @@ internal sealed partial class OutboxStateStore
                 Reason = $"Authorized payload cleanup following resolution {resolution.Id}."
             });
             return new(operation, [id], [], [], []);
-        }, ct);
+        }, ct, permit);
     public Task<OutboxOperationResult> CleanupCompletedAsync(Guid operation, Guid id, Guid tenant,
         DateTimeOffset completedBefore, IAuditOutboxRecoveryPermit permit, CancellationToken ct) =>
         ExecuteAsync(operation, "cleanup_completed", new { id, tenant, completedBefore, permit.ActorId }, async (db, cancel) =>
@@ -104,6 +104,6 @@ internal sealed partial class OutboxStateStore
                 .ExecuteDeleteAsync(cancel);
             if (removed != 1) throw new DBConcurrencyException("Completed outbox cleanup changed; transaction rolled back.");
             return new(operation, [id], [], [], []);
-        }, ct);
+        }, ct, permit);
 
 }

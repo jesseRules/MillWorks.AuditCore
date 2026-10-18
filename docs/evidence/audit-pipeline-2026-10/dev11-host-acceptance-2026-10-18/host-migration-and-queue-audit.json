@@ -1,0 +1,165 @@
+{
+  "observedUtc": "2026-10-18T21:50:18.053350+00:00",
+  "readOnly": true,
+  "target": "configured MillWorks application SQL :1433",
+  "result": {
+    "ObservedUtc": "2026-10-18T21:50:18.0376447",
+    "DatabaseName": "MillWorks",
+    "AuditTables": [
+      {
+        "SchemaName": "audit",
+        "TableName": "__EFMigrationsHistory"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "ArchiveRecord"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditEnvelopeIdentities"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditEvents"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditIntegrity"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditIntegrityWorkItems"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditLogs"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditLogSubjectLinks"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditOutbox"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditOutboxFailureHandoffs"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditOutboxOperations"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "AuditOutboxResolutions"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "SecurityEvents"
+      }
+    ],
+    "MigrationHistoryTables": [
+      {
+        "SchemaName": "app",
+        "TableName": "__EFMigrationsHistory"
+      },
+      {
+        "SchemaName": "audit",
+        "TableName": "__EFMigrationsHistory"
+      },
+      {
+        "SchemaName": "comments",
+        "TableName": "__EFMigrationsHistory"
+      },
+      {
+        "SchemaName": "dbo",
+        "TableName": "__EFMigrationsHistory"
+      },
+      {
+        "SchemaName": "document",
+        "TableName": "__EFMigrationsHistory"
+      }
+    ],
+    "AuditMigrations": [
+      {
+        "MigrationId": "20260420195321_Init"
+      },
+      {
+        "MigrationId": "20260426223601_AddAuditOutbox"
+      },
+      {
+        "MigrationId": "20260519000000_AddOutboxNextRetryAt"
+      },
+      {
+        "MigrationId": "20260519100000_OutboxIdempotencyAndLeases"
+      },
+      {
+        "MigrationId": "20260606000000_AddSecurityEventNormalizedFields"
+      },
+      {
+        "MigrationId": "20260609220446_AddAuditLogEnvelopeIdempotency"
+      },
+      {
+        "MigrationId": "20260610023305_WidenCorrelationIdColumn"
+      },
+      {
+        "MigrationId": "20260628175027_SecurityEventAppendOnlyCleanup"
+      },
+      {
+        "MigrationId": "20260628181213_SecurityEventStatusRemoval"
+      },
+      {
+        "MigrationId": "20260628213010_AddIntegritySigningKeyIds"
+      },
+      {
+        "MigrationId": "20260719131302_AddAuditEventsUserCoveringIndex"
+      },
+      {
+        "MigrationId": "20260824173637_WidenAuditEventRequestPath"
+      },
+      {
+        "MigrationId": "20260923164652_AddAuditLogGovernanceMetadata"
+      },
+      {
+        "MigrationId": "20260924124659_AddAuditLogSubjectLinks"
+      },
+      {
+        "MigrationId": "20261008124628_AddAuditLogEnvelopeLookupIndex"
+      },
+      {
+        "MigrationId": "20261016210852_AddOutboxOwnershipEvidence"
+      },
+      {
+        "MigrationId": "20261016211640_RetainOutboxFailureSources"
+      },
+      {
+        "MigrationId": "20261016230118_AddAuditEnvelopeIdentities"
+      }
+    ],
+    "QueuedEnvelopeCounts": [],
+    "FailureHandoffCounts": []
+  },
+  "expectedOwningMigrations": [
+    "20260420195321_Init",
+    "20260426223601_AddAuditOutbox",
+    "20260519000000_AddOutboxNextRetryAt",
+    "20260519100000_OutboxIdempotencyAndLeases",
+    "20260606000000_AddSecurityEventNormalizedFields",
+    "20260609220446_AddAuditLogEnvelopeIdempotency",
+    "20260610023305_WidenCorrelationIdColumn",
+    "20260628175027_SecurityEventAppendOnlyCleanup",
+    "20260628181213_SecurityEventStatusRemoval",
+    "20260628213010_AddIntegritySigningKeyIds",
+    "20260719131302_AddAuditEventsUserCoveringIndex",
+    "20260824173637_WidenAuditEventRequestPath",
+    "20260923164652_AddAuditLogGovernanceMetadata",
+    "20260924124659_AddAuditLogSubjectLinks",
+    "20261008124628_AddAuditLogEnvelopeLookupIndex",
+    "20261016210852_AddOutboxOwnershipEvidence",
+    "20261016211640_RetainOutboxFailureSources",
+    "20261016230118_AddAuditEnvelopeIdentities"
+  ],
+  "missingSourceMigrations": [],
+  "databaseOnlyMigrations": []
+}

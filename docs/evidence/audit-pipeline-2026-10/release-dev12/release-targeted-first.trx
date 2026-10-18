@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="e6813f8b-f636-4f57-921e-724a1f17ee90" name="@jesses-mbp 2026-10-18 17:45:18" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-18T17:45:18.3808280-05:00" queuing="2026-10-18T17:45:18.3808280-05:00" start="2026-10-18T17:44:44.7422040-05:00" finish="2026-10-18T17:46:17.9380500-05:00" />
+  <TestSettings name="default" id="b0fad5de-b9a7-4551-ae97-90b823d72621">
+    <Deployment runDeploymentRoot="_jesses-mbp_2026-10-18_17_45_18" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="f0c284a7-350f-4b92-88ab-b94a372554c3" testId="dcf23ed5-9baf-1f3e-b042-01aca7e099bb" testName="BatchFailure_DoesNotDuplicateExplicitEvents" computerName="jesses-mbp" duration="00:00:06.2336000" startTime="2026-10-18T17:45:12.0551410-05:00" endTime="2026-10-18T17:45:18.2886660-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f0c284a7-350f-4b92-88ab-b94a372554c3" />
+    <UnitTestResult executionId="6713c2b9-9bcd-4fda-b158-aa414a61da59" testId="570de4b5-55e4-ebf5-2268-2389f311a4f3" testName="VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult" computerName="jesses-mbp" duration="00:00:24.8799540" startTime="2026-10-18T17:45:51.9555210-05:00" endTime="2026-10-18T17:46:16.8356590-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6713c2b9-9bcd-4fda-b158-aa414a61da59" />
+    <UnitTestResult executionId="4b6b0052-87d8-4a28-a114-6721af2be052" testId="7109ac13-0fe7-42f6-b69a-9ecd7e544374" testName="FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired" computerName="jesses-mbp" duration="00:00:05.3715370" startTime="2026-10-18T17:45:46.5747420-05:00" endTime="2026-10-18T17:45:51.9463010-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4b6b0052-87d8-4a28-a114-6721af2be052">
+      <Output>
+        <ErrorInfo>
+          <Message>Multiple failures or warnings in test:
+  1)   AttemptCount should be 1 after first failure
+Assert.That(row.AttemptCount, Is.EqualTo(1))
+  Expected: 1
+  But was:  0
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 376
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  2)   NextRetryAt should be set after failure
+Assert.That(row.NextRetryAt, Is.Not.Null)
+  Expected: not null
+  But was:  null
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 377
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  3) System.InvalidOperationException : Nullable object must have a value.
+     at System.Nullable`1.get_Value()
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 378
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 401
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+</Message>
+          <StackTrace>
+1)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 376
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+2)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 377
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+3)    at System.Nullable`1.get_Value()
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass7_0.&lt;FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 378
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 374
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 401
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="aeb24e40-d97e-4f1c-90f3-e392be563364" testId="4c99b5c3-16d5-ebfb-72e6-d3f914853580" testName="ExhaustedRetries_RoutesToDlq" computerName="jesses-mbp" duration="00:00:07.7626780" startTime="2026-10-18T17:45:38.8111660-05:00" endTime="2026-10-18T17:45:46.5738930-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aeb24e40-d97e-4f1c-90f3-e392be563364">
+      <Output>
+        <ErrorInfo>
+          <Message>Multiple failures or warnings in test:
+  1)   One event should be routed to DLQ
+Assert.That(dlq.StoredEvents.Count, Is.EqualTo(1))
+  Expected: 1
+  But was:  0
+
+     at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass11_0.&lt;ExhaustedRetries_RoutesToDlq&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 611
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+  2) System.ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')
+  ActualValue: &lt;null&gt;
+  ParamName: index
+     at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass11_0.&lt;ExhaustedRetries_RoutesToDlq&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 612
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+</Message>
+          <StackTrace>
+1)    at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass11_0.&lt;ExhaustedRetries_RoutesToDlq&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 611
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1.AsyncStateMachineBox`1.ExecutionContextCallback(Object s)
+
+2)    at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.&lt;&gt;c__DisplayClass11_0.&lt;ExhaustedRetries_RoutesToDlq&gt;b__0() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 612
+   at NUnit.Framework.Assert.Multiple(Action action)
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests.ExhaustedRetries_RoutesToDlq() in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/Integration/SqlServer/OutboxDrainerIntegrationTests.cs:line 609
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="339b3763-a89b-4c67-98aa-f5d594aee136" testId="7fa52ee6-2b86-0971-9ede-23724141c300" testName="EnvelopeId_PreservedThroughOutboxAndDrainer" computerName="jesses-mbp" duration="00:00:06.4110260" startTime="2026-10-18T17:45:27.6708760-05:00" endTime="2026-10-18T17:45:34.0818680-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="339b3763-a89b-4c67-98aa-f5d594aee136" />
+    <UnitTestResult executionId="d2a50ce6-6ccb-4ab2-81b7-e5de402415b1" testId="d5db7659-e022-525d-6daa-0819e819a3e6" testName="ConsumerRollback_AtomicallyRollsBackOutboxRow" computerName="jesses-mbp" duration="00:00:04.6522410" startTime="2026-10-18T17:45:18.2939390-05:00" endTime="2026-10-18T17:45:22.9462040-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d2a50ce6-6ccb-4ab2-81b7-e5de402415b1" />
+    <UnitTestResult executionId="c1c604c1-015d-4c43-bbf6-0a0b983720be" testId="3e3cdc2a-3b01-fef9-902f-83ed4171bf20" testName="ExhaustedRetries_MarksFailedAndIncrementsMeter" computerName="jesses-mbp" duration="00:00:04.7266410" startTime="2026-10-18T17:45:34.0827780-05:00" endTime="2026-10-18T17:45:38.8093600-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c1c604c1-015d-4c43-bbf6-0a0b983720be" />
+    <UnitTestResult executionId="0838ddd1-d075-4031-b57a-af5aca466238" testId="021817e6-9c2f-74bb-7711-86107f625253" testName="DrainBatch_MarksCompletedRows" computerName="jesses-mbp" duration="00:00:04.7156650" startTime="2026-10-18T17:45:22.9492850-05:00" endTime="2026-10-18T17:45:27.6649640-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0838ddd1-d075-4031-b57a-af5aca466238">
+      <Output>
+        <StdOut>Row changed: Status=Completed, AttemptCount=0
+LOG: [Information] AuditOutboxDrainer stopped
+LOG: [Debug] Applied 1 outbox outcomes; 0 claims no longer owned
+LOG: [Information] AuditOutboxDrainer starting (poll=100ms, batch=10, maxAttempts=5)</StdOut>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="BatchFailure_DoesNotDuplicateExplicitEvents" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="dcf23ed5-9baf-1f3e-b042-01aca7e099bb">
+      <Execution id="f0c284a7-350f-4b92-88ab-b94a372554c3" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="BatchFailure_DoesNotDuplicateExplicitEvents" />
+    </UnitTest>
+    <UnitTest name="ConsumerRollback_AtomicallyRollsBackOutboxRow" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="d5db7659-e022-525d-6daa-0819e819a3e6">
+      <Execution id="d2a50ce6-6ccb-4ab2-81b7-e5de402415b1" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="ConsumerRollback_AtomicallyRollsBackOutboxRow" />
+    </UnitTest>
+    <UnitTest name="FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="7109ac13-0fe7-42f6-b69a-9ecd7e544374">
+      <Execution id="4b6b0052-87d8-4a28-a114-6721af2be052" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="FailedRow_SetsNextRetryAt_AndIsSkippedUntilExpired" />
+    </UnitTest>
+    <UnitTest name="DrainBatch_MarksCompletedRows" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="021817e6-9c2f-74bb-7711-86107f625253">
+      <Execution id="0838ddd1-d075-4031-b57a-af5aca466238" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="DrainBatch_MarksCompletedRows" />
+    </UnitTest>
+    <UnitTest name="EnvelopeId_PreservedThroughOutboxAndDrainer" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="7fa52ee6-2b86-0971-9ede-23724141c300">
+      <Execution id="339b3763-a89b-4c67-98aa-f5d594aee136" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="EnvelopeId_PreservedThroughOutboxAndDrainer" />
+    </UnitTest>
+    <UnitTest name="ExhaustedRetries_RoutesToDlq" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="4c99b5c3-16d5-ebfb-72e6-d3f914853580">
+      <Execution id="aeb24e40-d97e-4f1c-90f3-e392be563364" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="ExhaustedRetries_RoutesToDlq" />
+    </UnitTest>
+    <UnitTest name="VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="570de4b5-55e4-ebf5-2268-2389f311a4f3">
+      <Execution id="6713c2b9-9bcd-4fda-b158-aa414a61da59" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.TamperChain10kSqlServerTests" name="VerifyChainIntegrityAsync_OverChainOf10000Rows_ReturnsValidResult" />
+    </UnitTest>
+    <UnitTest name="ExhaustedRetries_MarksFailedAndIncrementsMeter" storage="/private/tmp/auditcore-dev12-release/tests/millworks.auditcore.tests/bin/release/net10.0/millworks.auditcore.tests.dll" id="3e3cdc2a-3b01-fef9-902f-83ed4171bf20">
+      <Execution id="c1c604c1-015d-4c43-bbf6-0a0b983720be" />
+      <TestMethod codeBase="/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.AuditCore.Tests.Integration.SqlServer.OutboxDrainerIntegrationTests" name="ExhaustedRetries_MarksFailedAndIncrementsMeter" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="dcf23ed5-9baf-1f3e-b042-01aca7e099bb" executionId="f0c284a7-350f-4b92-88ab-b94a372554c3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="570de4b5-55e4-ebf5-2268-2389f311a4f3" executionId="6713c2b9-9bcd-4fda-b158-aa414a61da59" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7109ac13-0fe7-42f6-b69a-9ecd7e544374" executionId="4b6b0052-87d8-4a28-a114-6721af2be052" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4c99b5c3-16d5-ebfb-72e6-d3f914853580" executionId="aeb24e40-d97e-4f1c-90f3-e392be563364" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7fa52ee6-2b86-0971-9ede-23724141c300" executionId="339b3763-a89b-4c67-98aa-f5d594aee136" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d5db7659-e022-525d-6daa-0819e819a3e6" executionId="d2a50ce6-6ccb-4ab2-81b7-e5de402415b1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3e3cdc2a-3b01-fef9-902f-83ed4171bf20" executionId="c1c604c1-015d-4c43-bbf6-0a0b983720be" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="021817e6-9c2f-74bb-7711-86107f625253" executionId="0838ddd1-d075-4031-b57a-af5aca466238" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="8" executed="8" passed="6" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>NUnit Adapter 6.3.1.0: Test execution started
+Running selected tests in /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/bin/Release/net10.0/MillWorks.AuditCore.Tests.dll
+   NUnit3TestExecutor discovered 8 of 8 NUnit test cases using Current Discovery mode, Non-Explicit run
+Row changed: Status=Completed, AttemptCount=0
+LOG: [Information] AuditOutboxDrainer stopped
+LOG: [Debug] Applied 1 outbox outcomes; 0 claims no longer owned
+LOG: [Information] AuditOutboxDrainer starting (poll=100ms, batch=10, maxAttempts=5)
+
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

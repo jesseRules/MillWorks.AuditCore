@@ -214,10 +214,10 @@ public class AuditSearchServiceTests
     }
 
     /// <summary>
-    /// SearchAuditEventsAsync with search term searches multiple fields
+    /// Word search must not fall back to an in-memory substring scan
     /// </summary>
     [Test]
-    public async Task SearchAuditEventsAsync_WithSearchTerm_SearchesMultipleFields()
+    public async Task SearchAuditEventsAsync_WithWordsOnUnsupportedProvider_IsUnavailable()
     {
         // Arrange
         var searchTerm = "important";
@@ -265,11 +265,7 @@ public class AuditSearchServiceTests
             Limit = 50
         };
 
-        // Act
-        var result = await _searchService.SearchAuditEventsAsync(request);
-
-        // Assert
-        Assert.That(result.TotalItems, Is.EqualTo(4)); // Should find in all 4 fields
+        await Assert.ThrowsAsync<AuditSearchUnavailableException>(() => _searchService.SearchAuditEventsAsync(request));
     }
 
     /// <summary>

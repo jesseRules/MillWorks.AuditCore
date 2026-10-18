@@ -1,0 +1,38 @@
+{
+  "commonArguments": [
+    "dotnet",
+    "test",
+    "<project.csproj>",
+    "--no-build",
+    "--no-restore"
+  ],
+  "childEnvironment": {
+    "DOTNET_PROCESSOR_COUNT": "2"
+  },
+  "runs": [
+    {
+      "project": "MillWorks.Api.Tests",
+      "filter": "producer routing, recovery/retention, mappings, HTTP boundary, speech, dataset, breach, DLP, governance, workbench, visitor",
+      "log": "api-tests.log"
+    },
+    {
+      "project": "MillWorks.Api.Bridge.Tests",
+      "filter": "ClientPortalAuditBridgeTests|MlDatasetSnapshotAuditBridgeTests|ComplianceEvidencePackageBridgeTests|DataConnectionToolBridgeTests",
+      "log": "bridge-tests.log"
+    },
+    {
+      "project": "MillWorks.Api.Tests",
+      "filter": "legal-hold, retention configuration, SQL retention, atomicity, speech and resource policies",
+      "environment": {
+        "MILLWORKS_SQL_TESTS_ENABLED": "1",
+        "MW_AUDIT_RETENTION_LIVE_SQLSERVER": "1"
+      },
+      "log": "retention-tests.log"
+    },
+    {
+      "project": "MillWorks.DecisionModels.Tests",
+      "filter": "SavedRuns_AreAuthoritativeIdempotentUserScopedAndSoftDeletable|SavedRunSharing_GrantsReadOnlyAccessAndRevokesImmediately",
+      "log": "workbench-tests.log"
+    }
+  ]
+}

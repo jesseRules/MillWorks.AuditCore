@@ -38,7 +38,7 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
     }
 
     [Test]
-    public async Task SearchAuditEvents_FullTextSearch_ReturnsMatches()
+    public async Task SearchAuditEvents_UnsupportedWordSearch_IsExplicitlyUnavailable()
     {
         // Arrange
         using var context = CreateContext();
@@ -55,17 +55,12 @@ public class SearchAndQueryIntegrationTests : SqliteIntegrationFixture
 
         var service = new AuditSearchService(context, NullLogger<AuditSearchService>.Instance);
 
-        // Act - search for "alice" which should match User field
-        var result = await service.SearchAuditEventsAsync(new AuditSearchRequest
+        // SQLite has no SQL Server full-text capability; it must not fall back to payload scans.
+        await Assert.ThrowsAsync<AuditSearchUnavailableException>(() => service.SearchAuditEventsAsync(new AuditSearchRequest
         {
             SearchTerm = "alice",
             Limit = 50
-        });
-
-        // Assert
-        Assert.That(result.TotalItems, Is.EqualTo(2));
-        Assert.That(result.Items, Has.Count.EqualTo(2));
-        Assert.That(result.Items!.All(static i => i.User == "alice@test.com"), Is.True);
+        }));
     }
 
     [Test]

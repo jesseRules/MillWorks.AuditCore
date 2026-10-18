@@ -1,0 +1,151 @@
+{
+  "recordedUtc": "2026-10-18T21:55:59.324141+00:00",
+  "agentBuilds": 0,
+  "agentRestarts": 0,
+  "noBuild": true,
+  "noRestore": true,
+  "totals": {
+    "passed": 227,
+    "failed": 2,
+    "skipped": 3
+  },
+  "runs": [
+    {
+      "file": "api-audit-acceptance.trx",
+      "sha256": "4a4e0497f776dced8f687b374f6cd55fe6106f3c1998e12cf3845578e8a594be",
+      "outcomes": {
+        "Passed": 124,
+        "Failed": 2
+      },
+      "fixtureOutcomes": {
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditProducerAuthorizationTests": {
+          "Passed": 11
+        },
+        "MillWorks.Api.Tests.Bridge.Audit.DecisionModelGovernanceAuditBridgeTests": {
+          "Passed": 20
+        },
+        "MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests": {
+          "Passed": 19
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditWriteAuthorizationTests": {
+          "Passed": 16
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.MlDatasetSnapshotAuditAuthorizationTests": {
+          "Passed": 5
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.BreachEvidenceAuditAuthorizationTests": {
+          "Passed": 8,
+          "Failed": 2
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditRetentionSweepJobTests": {
+          "Passed": 7
+        },
+        "MillWorks.Api.Tests.BridgeTests.DocumentDlpAuditSinkBridgeTests": {
+          "Passed": 8
+        },
+        "MillWorks.Api.Tests.Bridge.VisitorManagement.VisitorProtectedReferenceServiceTests": {
+          "Passed": 3
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditOutboxRetentionTests": {
+          "Passed": 1
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditOutboxRecoveryAuthorizationTests": {
+          "Passed": 6
+        },
+        "MillWorks.Api.Tests.Hubs.AiSpeechSessionRegistryTests": {
+          "Passed": 14
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditTransactionalOutboxModelExtensionsTests": {
+          "Passed": 5
+        },
+        "MillWorks.Api.Tests.Bridge.Audit.DecisionModelWorkbenchAuditBridgeTests": {
+          "Passed": 1
+        }
+      },
+      "failedTests": [
+        "ChangedPublicationScopeInvalidatesAnAcquiredPermit(\"actor\")",
+        "ChangedPublicationScopeInvalidatesAnAcquiredPermit(\"tenant\")"
+      ]
+    },
+    {
+      "file": "api-retention-acceptance.trx",
+      "sha256": "a088f6f08823c18c88261461082af1ba1478f7cdbf142a5f13371e2567bffcea",
+      "outcomes": {
+        "Passed": 40,
+        "NotExecuted": 3
+      },
+      "fixtureOutcomes": {
+        "MillWorks.Api.Tests.Infrastructure.Audit.MillWorksAuditResourceIdentityPolicyTests": {
+          "Passed": 9
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditRetentionConfigurationTests": {
+          "Passed": 5
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditRetentionLegalHoldSqlServerTests": {
+          "Passed": 2
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.FinanceAwareAuditFailurePolicyTests": {
+          "Passed": 4
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.SpeechSessionAuditAuthorizationTests": {
+          "Passed": 16
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.FinanceAuditInterceptorFailureTests": {
+          "Passed": 1
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditTransactionalOutboxAtomicityTests": {
+          "NotExecuted": 3
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditRetentionLegalHoldAuthorityTests": {
+          "Passed": 2
+        },
+        "MillWorks.Api.Tests.Infrastructure.Audit.AuditRetentionSweepSqlServerTests": {
+          "Passed": 1
+        }
+      },
+      "failedTests": []
+    },
+    {
+      "file": "bridge-audit-acceptance.trx",
+      "sha256": "135866c188f42ac73c7e2cb38e9ca94d9b3e3e4c6220b2fabb6c5c959b25ccfb",
+      "outcomes": {
+        "Passed": 61
+      },
+      "fixtureOutcomes": {
+        "MillWorks.Api.Bridge.Tests.Ai.DataConnectionToolBridgeTests": {
+          "Passed": 43
+        },
+        "MillWorks.Api.Bridge.Tests.Ai.MlDatasetSnapshotAuditBridgeTests": {
+          "Passed": 11
+        },
+        "MillWorks.Api.Bridge.Tests.Audit.ClientPortalAuditBridgeTests": {
+          "Passed": 5
+        },
+        "MillWorks.Api.Bridge.Tests.Compliance.ComplianceEvidencePackageBridgeTests": {
+          "Passed": 2
+        }
+      },
+      "failedTests": []
+    },
+    {
+      "file": "workbench-observation-acceptance.trx",
+      "sha256": "62874027d724debb04b14c7798fbde7e9cc356ff915ca48610d42492e4214a62",
+      "outcomes": {
+        "Passed": 2
+      },
+      "fixtureOutcomes": {
+        "MillWorks.DecisionModels.Tests.ModelWorkbenchTests": {
+          "Passed": 2
+        }
+      },
+      "failedTests": []
+    }
+  ],
+  "pendingAssertionCorrection": {
+    "path": "MillWorks.Api.Tests/Infrastructure/Audit/BreachEvidenceAuditAuthorizationTests.cs",
+    "sha256": "b27e9ecc155b3e096a1bcda86f27213e8cbd5943861221be57201dcbc9495ac8",
+    "compiledAfterCorrection": false,
+    "reason": "The breach helper rechecks its own permit after sink completion. Actor/tenant revocation correctly propagates an authorization exception; the original assertions incorrectly expected success. The disposed nested permit case still succeeds."
+  },
+  "skipReason": "Three SQL atomicity probes require a separately provisioned, migrated owned test database via MILLWORKS_SQL_TEST_DATABASE; application SQL was not substituted."
+}

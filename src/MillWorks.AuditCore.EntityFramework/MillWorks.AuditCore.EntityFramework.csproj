@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>1.15.4-dev.11</Version>
+        <Version>1.15.4-dev.12</Version>
     </PropertyGroup>
 
   <PropertyGroup>
@@ -34,6 +34,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="MillWorks.AuditCore.Tests" />
     <InternalsVisibleTo Include="MillWorks.AuditCore.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Sql/InstallAuditEventFullText.sql" />
   </ItemGroup>
 
 </Project>

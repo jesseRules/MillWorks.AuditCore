@@ -30,6 +30,7 @@ public sealed class AuditSearchService(
         AuditSearchRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.EntityId?.Length > 256) throw new ArgumentException("Entity ID must be at most 256 characters.");
         request.Limit = QueryLimits.Clamp(request.Limit);
         if (request.Offset < 0) request.Offset = 0;
 
@@ -37,12 +38,16 @@ public sealed class AuditSearchService(
             "Searching audit events with criteria: User={User}, EventType={EventType}, EntityType={EntityType}, StartDate={StartDate}, EndDate={EndDate}",
             request.User, request.EventType, request.EntityType, request.StartDate, request.EndDate);
 
-        IQueryable<AuditEventEntity> query = BuildSearchQuery(request);
+        var condition = AuditWordSearch.BuildCondition(request.SearchTerm);
+        if (condition is not null) await EnsureTextSearchReadyAsync(cancellationToken);
+        IQueryable<AuditEventEntity> query = context.AuditEvents.AsNoTracking()
+            .Where(AuditEventSearchFilter.Build(request));
 
         int totalItems = await query.CountAsync(cancellationToken);
 
         List<AuditEventEntity> events = await query
             .OrderByDescending(static e => e.InsertedDate)
+            .ThenByDescending(static e => e.EventId)
             .Skip(request.Offset)
             .Take(request.Limit)
             .ToListAsync(cancellationToken);
@@ -143,6 +148,7 @@ public sealed class AuditSearchService(
 
         List<AuditEventEntity> events = await query
             .OrderByDescending(static e => e.InsertedDate)
+            .ThenByDescending(static e => e.EventId)
             .Skip(offset)
             .Take(limit)
             .ToListAsync(cancellationToken);
@@ -190,70 +196,22 @@ public sealed class AuditSearchService(
         return await SearchAuditEventsAsync(request, cancellationToken);
     }
 
-    /// <summary>
-    /// Builds the search query based on the provided request criteria.
-    /// </summary>
-    /// <param name="request"></param>
-    /// <returns></returns>
-    private IQueryable<AuditEventEntity> BuildSearchQuery(AuditSearchRequest request)
+    private async Task EnsureTextSearchReadyAsync(CancellationToken cancellationToken)
     {
-        IQueryable<AuditEventEntity> query = context.AuditEvents.AsNoTracking();
-
-        // Date range filters
-        if (request.StartDate.HasValue)
-        {
-            query = query.Where(e => e.InsertedDate >= request.StartDate.Value);
-        }
-
-        if (request.EndDate.HasValue)
-        {
-            query = query.Where(e => e.InsertedDate <= request.EndDate.Value);
-        }
-
-        // User filter
-        if (!string.IsNullOrWhiteSpace(request.User))
-        {
-            query = query.Where(e => e.User == request.User || e.UserFullName == request.User);
-        }
-
-        // Event type filter
-        if (!string.IsNullOrWhiteSpace(request.EventType))
-        {
-            query = query.Where(e => e.EventType == request.EventType);
-        }
-
-        // Entity type filter
-        if (!string.IsNullOrWhiteSpace(request.EntityType))
-        {
-            query = query.Where(e => e.EntityType == request.EntityType);
-        }
-
-        // General search term — leading-wildcard LIKE cannot use indexes.
-        // Require minimum length to avoid expensive full-table scans on short terms.
-        if (string.IsNullOrWhiteSpace(request.SearchTerm))
-        {
-            return query;
-        }
-
-        // If a search term was provided but is too short, return zero results
-        // rather than silently dropping the filter and widening the query.
-        if (request.SearchTerm.Length < QueryLimits.MinSearchTermLength)
-        {
-            return query.Where(static _ => false);
-        }
-
-        var pattern = $"%{request.SearchTerm}%";
-        query = query.Where(e =>
-            (e.JsonData != null && EF.Functions.Like(e.JsonData, pattern)) ||
-            (e.User != null && EF.Functions.Like(e.User, pattern)) ||
-            (e.UserFullName != null && EF.Functions.Like(e.UserFullName, pattern)) ||
-            (e.EventType != null && EF.Functions.Like(e.EventType, pattern)) ||
-            (e.EntityType != null && EF.Functions.Like(e.EntityType, pattern)) ||
-            (e.EntityId != null && EF.Functions.Like(e.EntityId, pattern)) ||
-            (e.AdditionalData != null && EF.Functions.Like(e.AdditionalData, pattern))
-        );
-
-        return query;
+        if (!context.Database.IsSqlServer()) throw new AuditSearchUnavailableException();
+        var entity = context.Model.FindEntityType(typeof(AuditEventEntity))!;
+        var table = $"[{entity.GetSchema()!.Replace("]", "]]")}].[{entity.GetTableName()!.Replace("]", "]]")}]";
+        var ready = await context.Database.SqlQuery<int>($"""
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM sys.fulltext_indexes
+                WHERE object_id = OBJECT_ID({table}) AND is_enabled = 1 AND has_crawl_completed = 1
+                    AND 7 = (SELECT COUNT(*) FROM sys.fulltext_index_columns f
+                        JOIN sys.columns c ON c.object_id = f.object_id AND c.column_id = f.column_id
+                        WHERE f.object_id = OBJECT_ID({table}) AND f.language_id = 0
+                            AND c.name IN ('JsonData', 'User', 'UserFullName', 'EventType', 'EntityType', 'EntityId', 'AdditionalData'))
+            ) THEN 1 ELSE 0 END AS int) AS [Value]
+            """).SingleAsync(cancellationToken);
+        if (ready != 1) throw new AuditSearchUnavailableException();
     }
 
     /// <summary>Maps and enriches events through the same reader used by detail endpoints.</summary>

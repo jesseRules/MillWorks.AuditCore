@@ -147,7 +147,7 @@ public class AuditController(
     [ProducesResponseType(typeof(AuditEventsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchAuditEvents([FromBody] AuditSearchRequest request)
     {
-        var results = await auditService.SearchAuditEvents(request);
+        var results = await searchService.SearchAuditEventsAsync(request);
         return Ok(results);
     }
 
@@ -353,7 +353,7 @@ public class AuditController(
             Limit = limit
         };
 
-        var results = await auditService.SearchAuditEvents(request);
+        var results = await searchService.SearchAuditEventsAsync(request);
         return Ok(results);
     }
 

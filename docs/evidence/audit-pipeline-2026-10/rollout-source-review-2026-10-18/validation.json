@@ -1,0 +1,9 @@
+{
+  "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj --build -- --filter FullyQualifiedName~OutboxOwnershipTests --logger trx;LogFileName=review-ownership.trx --results-directory /tmp/auditcore-review-20261018",
+  "build": "succeeded",
+  "passed": 57,
+  "failed": 0,
+  "skipped": 165,
+  "sqlRerun": "Canceled before lane acquisition; no dotnet child or fixture created. RCSI OFF/ON pending.",
+  "api": "Not rebuilt or tested for this source snapshot."
+}

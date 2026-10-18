@@ -1,0 +1,20 @@
+{
+  "command": [
+    "dotnet",
+    "test",
+    "/private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+    "--configuration",
+    "Release",
+    "--no-restore",
+    "-m:1",
+    "-p:BuildInParallel=false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~OutboxDrainerIntegrationTests|FullyQualifiedName~TamperChain10kSqlServerTests",
+    "--logger",
+    "trx;LogFileName=release-targeted.trx",
+    "--results-directory",
+    "/tmp/auditcore-dev12-results"
+  ],
+  "cwd": "/private/tmp/auditcore-dev12-release"
+}

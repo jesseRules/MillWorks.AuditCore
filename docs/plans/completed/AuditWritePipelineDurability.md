@@ -457,3 +457,14 @@ H4's internal interface/orchestration tests. A read-only application SQL check m
 18 owning migrations and finds no queued rows/handoffs. Dev.11 delivery, API compilation and
 runtime acceptance are tracked there; source changes are not live-host acceptance. H5 and
 separate populated sequence/host-scan gates remain open.
+
+### Dev.11 rebuilt-host acceptance — 2026-10-18
+
+[No-build evidence](../../evidence/audit-pipeline-2026-10/dev11-host-acceptance-2026-10-18/README.md)
+records 227 focused passes, two breach assertions corrected in source pending Jesse's next
+rebuild, and three owned-database atomicity skips. Five deployed AuditCore DLLs match dev.11.
+Two live CRM observations reconcile to two distinct tenant-bound source events/receipts;
+anonymous/user/admin recovery boundary checks pass. All 18 owning migrations match and no
+queued rows/handoffs were present. Current API uses Immediate mode; this does not establish
+enabled Outbox-drainer, remaining producer/consumer or external-copy acceptance. H4 is complete;
+H5 and the separate sequence/host-scan gates remain open. No agent build or restart occurred.

@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  Restored /private/tmp/auditcore-dev12-release/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj (in 164 ms).
+  Restored /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj (in 37 ms).
+  Restored /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Providers/MillWorks.AuditCore.Providers.csproj (in 3 ms).
+  Restored /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj (in 9 ms).
+  Restored /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj (in 4 ms).
+  Restored /private/tmp/auditcore-dev12-release/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj (in 2 ms).

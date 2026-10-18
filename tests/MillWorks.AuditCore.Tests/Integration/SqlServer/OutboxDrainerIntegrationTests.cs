@@ -286,11 +286,11 @@ public sealed class OutboxDrainerIntegrationTests
             Options.Create(opts),
             drainerObserver);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        _ = drainer.StartAsync(cts.Token);
-
-        await Task.Delay(TimeSpan.FromMilliseconds(800));
-        await drainer.StopAsync(CancellationToken.None);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        // Acquisition is not a committed retry outcome.
+        await RunUntilAsync(drainer, async token => await consumerCtx.Database.SqlQueryRaw<int>(
+            "SELECT [Status] AS [Value] FROM [dbo].[AuditOutbox] WHERE [Id] = {0}", rowId)
+            .SingleAsync(token) == (int)AuditOutboxStatus.Failed, cts.Token);
 
         var row = await consumerCtx.Database
             .SqlQueryRaw<OutboxStatusRow>(
@@ -346,11 +346,11 @@ public sealed class OutboxDrainerIntegrationTests
             Options.Create(opts),
             drainerObserver);
 
-        // First poll: should fail and set NextRetryAt
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        _ = drainer.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
-        await drainer.StopAsync(CancellationToken.None);
+        // Wait for the committed retry outcome before stopping the worker.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await RunUntilAsync(drainer, async token => await consumerCtx.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS [Value] FROM [dbo].[AuditOutbox] WHERE [Id] = {0} AND [Status] = 0 AND [AttemptCount] = 1 AND [NextRetryAt] IS NOT NULL",
+            rowId).SingleAsync(token) == 1, cts.Token);
 
         // Verify NextRetryAt was set
         var row = await consumerCtx.Database
@@ -366,19 +366,11 @@ public sealed class OutboxDrainerIntegrationTests
                 "NextRetryAt should be at least 30 minutes in the future (1 hour backoff minus jitter)");
         });
 
-        // Start drainer again and verify it does NOT process the row (backoff not expired)
-        using var sp2 = BuildDrainerServiceProvider(opts, throwOnPublish: true);
-        using var drainer2Observer = new AuditOutboxQueueObserver();
-        using var drainer2 = new AuditOutboxDrainer(
-            sp2.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<AuditOutboxDrainer>.Instance,
-            Options.Create(opts),
-            drainer2Observer);
-
-        using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        _ = drainer2.StartAsync(cts2.Token);
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
-        await drainer2.StopAsync(CancellationToken.None);
+        // Exercise the production eligibility query directly: an empty claim proves the
+        // future retry was skipped, without assuming that an idle worker polled within 500 ms.
+        var claims = await sp.GetRequiredService<IOutboxStateStore>().ClaimAsync(
+            Guid.NewGuid(), opts.OutboxDrainerBatchSize, opts.OutboxDrainerLeaseDuration, cts.Token);
+        Assert.That(claims.Claims, Is.Empty, "A future retry must not be claimable");
 
         var rowAfterSecondPoll = await consumerCtx.Database
             .SqlQueryRaw<BackoffStatusRow>(
@@ -587,21 +579,39 @@ public sealed class OutboxDrainerIntegrationTests
             Options.Create(opts),
             drainerObserver);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        _ = drainer.StartAsync(cts.Token);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await RunUntilAsync(drainer, async token => await consumerCtx.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS [Value] FROM [dbo].[AuditOutboxFailureHandoffs] WHERE [OutboxRowId] = {0} AND [Status] = {1}",
+            rowId, (int)AuditOutboxHandoffStatus.Delivered).SingleAsync(token) == 1, cts.Token);
 
-        await Task.Delay(TimeSpan.FromMilliseconds(800));
-        await drainer.StopAsync(CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dlq.StoredEvents.Count, Is.EqualTo(1), "One event should be routed to DLQ");
-            Assert.That(dlq.StoredEvents[0].EntityName, Does.Contain("AuditOutbox"),
-                "DLQ event EntityName should reference AuditOutbox");
-        });
+        Assert.That(dlq.StoredEvents, Has.Count.EqualTo(1), "One event should be routed to DLQ");
+        Assert.That(dlq.StoredEvents[0].EntityName, Does.Contain("AuditOutbox"),
+            "DLQ event EntityName should reference AuditOutbox");
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static async Task RunUntilAsync(AuditOutboxDrainer drainer,
+        Func<CancellationToken, Task<bool>> committed, CancellationToken ct)
+    {
+        await drainer.StartAsync(ct);
+        try
+        {
+            while (!await committed(ct))
+            {
+                if (drainer.ExecuteTask is { IsCompleted: true } stopped)
+                {
+                    await stopped;
+                    Assert.Fail("Drainer stopped before the expected committed outcome.");
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(20), ct);
+            }
+        }
+        finally
+        {
+            await drainer.StopAsync(CancellationToken.None);
+        }
+    }
 
     private OutboxConsumerDbContext CreateConsumerContext()
     {
