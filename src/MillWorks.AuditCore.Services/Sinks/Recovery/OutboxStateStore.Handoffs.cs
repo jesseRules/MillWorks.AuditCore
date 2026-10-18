@@ -48,7 +48,7 @@ internal sealed partial class OutboxStateStore
         }, ct);
     }
 
-    internal async Task<bool> OwnsHandoffAsync(HandoffClaim claim, CancellationToken ct)
+    public async Task<bool> OwnsHandoffAsync(HandoffClaim claim, CancellationToken ct)
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EntityFramework.Data.AuditDbContext>();

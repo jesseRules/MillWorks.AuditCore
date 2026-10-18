@@ -1,0 +1,17 @@
+{
+  "processStartedLocal": "2026-10-18 14:11:42",
+  "lastObservedLogTimeLocal": "2026-10-18 14:14:44",
+  "timestampedEvents": 2738,
+  "severityCounts": {
+    "INF": 2701,
+    "WRN": 37
+  },
+  "auditMatchingErrors": [],
+  "startupMessages": [
+    {
+      "time": "2026-10-18 14:12:48",
+      "message": "AuditOutboxDrainer disabled \u2014 AuditSinkMode is not TransactionalOutbox"
+    }
+  ],
+  "rawPayloadsRetained": false
+}

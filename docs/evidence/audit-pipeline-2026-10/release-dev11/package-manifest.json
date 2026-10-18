@@ -1,0 +1,131 @@
+{
+  "baselineCommit": "e45b3ac5578762f4ee750ad6ae8db2df2b7748b9",
+  "provenanceKind": "fingerprinted-working-tree",
+  "sourceManifestSha256": "3611d8ef8be15ca3bd5d097e66efc5306a8f34c2ed6df5720a4dee17b0f96a44",
+  "commands": [
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev11-release/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+      "--configuration",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "--output",
+      "/tmp/auditcore-dev11-packages",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev11-release/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+      "--configuration",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "--output",
+      "/tmp/auditcore-dev11-packages",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev11-release/src/MillWorks.AuditCore.Providers/MillWorks.AuditCore.Providers.csproj",
+      "--configuration",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "--output",
+      "/tmp/auditcore-dev11-packages",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev11-release/src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+      "--configuration",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "--output",
+      "/tmp/auditcore-dev11-packages",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "pack",
+      "/tmp/auditcore-dev11-release/src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+      "--configuration",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "--output",
+      "/tmp/auditcore-dev11-packages",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ]
+  ],
+  "packages": [
+    {
+      "file": "MillWorks.AuditCore.1.15.4-dev.11.nupkg",
+      "id": "MillWorks.AuditCore",
+      "version": "1.15.4-dev.11",
+      "sha256": "20b5aa4a1771ed770a664558e1adfc20a8e846d6a7891b514a9a7d188593d9ce",
+      "dlls": {
+        "lib/net10.0/MillWorks.AuditCore.AspNetCore.dll": "4c589f7f7879af447a7eb5e88ebcbd46d46b08f03ae6395d12c21fffd53db5ed"
+      }
+    },
+    {
+      "file": "MillWorks.AuditCore.Abstractions.1.15.4-dev.11.nupkg",
+      "id": "MillWorks.AuditCore.Abstractions",
+      "version": "1.15.4-dev.11",
+      "sha256": "84fbbe0a2592b1d0021b05e308c156aad96b797363e17a1dea750db2b2526332",
+      "dlls": {
+        "lib/net10.0/MillWorks.AuditCore.Abstractions.dll": "f45b6f9a2509de0cbe7b8d1185ce89400786c064e98a8700b397aa19701ac6d0"
+      }
+    },
+    {
+      "file": "MillWorks.AuditCore.EntityFramework.1.15.4-dev.11.nupkg",
+      "id": "MillWorks.AuditCore.EntityFramework",
+      "version": "1.15.4-dev.11",
+      "sha256": "64cc781e9b3d73b002c2c8b7132ebf11b1a027a4bbab7fa5d3c097c8bd8b5e3c",
+      "dlls": {
+        "lib/net10.0/MillWorks.AuditCore.EntityFramework.dll": "8242e7539a4fbcee67aeac8375b1a83eadf3d01eeef69e8166e1561db3bf116e"
+      }
+    },
+    {
+      "file": "MillWorks.AuditCore.Providers.1.15.4-dev.11.nupkg",
+      "id": "MillWorks.AuditCore.Providers",
+      "version": "1.15.4-dev.11",
+      "sha256": "c9db83081a2cc05b303d8d0d4b26d81dc44ad29692efeb652730a719f7a54739",
+      "dlls": {
+        "lib/net10.0/MillWorks.AuditCore.Providers.dll": "1d311e8937ad16da3f7f1e293bc082ab47bfee5a5b5e5aed26d6cceac9f117a4"
+      }
+    },
+    {
+      "file": "MillWorks.AuditCore.Services.1.15.4-dev.11.nupkg",
+      "id": "MillWorks.AuditCore.Services",
+      "version": "1.15.4-dev.11",
+      "sha256": "2223b9dbf48f3e541abe2fcec7d2c9b00468544cb2b07b73b03726df6a6bb9ec",
+      "dlls": {
+        "lib/net10.0/MillWorks.AuditCore.Services.dll": "11a5e87d228b3308268c377c963bbe9afdc71ca1b18b2a8c98a4f4327a064b73"
+      }
+    }
+  ],
+  "artifacts": {
+    "MillWorks.AuditCore.1.15.4-dev.11.nupkg": "20b5aa4a1771ed770a664558e1adfc20a8e846d6a7891b514a9a7d188593d9ce",
+    "MillWorks.AuditCore.1.15.4-dev.11.snupkg": "87fbc777a945c99918912e7826976545d84a7ddda18ad39758ff26f05974bda2",
+    "MillWorks.AuditCore.Abstractions.1.15.4-dev.11.nupkg": "84fbbe0a2592b1d0021b05e308c156aad96b797363e17a1dea750db2b2526332",
+    "MillWorks.AuditCore.Abstractions.1.15.4-dev.11.snupkg": "b5d3e47f8e1803cb0ddfc6edbbeb4afa450be1f422421bc235e5add1dafa420a",
+    "MillWorks.AuditCore.EntityFramework.1.15.4-dev.11.nupkg": "64cc781e9b3d73b002c2c8b7132ebf11b1a027a4bbab7fa5d3c097c8bd8b5e3c",
+    "MillWorks.AuditCore.EntityFramework.1.15.4-dev.11.snupkg": "8ad15eb2d2ec6f744e61e0822ee177b53eb66913f5c6b8a3b1b57630ce05632b",
+    "MillWorks.AuditCore.Providers.1.15.4-dev.11.nupkg": "c9db83081a2cc05b303d8d0d4b26d81dc44ad29692efeb652730a719f7a54739",
+    "MillWorks.AuditCore.Providers.1.15.4-dev.11.snupkg": "f071e1835ae5a86a35065540543d8044c8fb9387d1e20f79b2859937680bc1a0",
+    "MillWorks.AuditCore.Services.1.15.4-dev.11.nupkg": "2223b9dbf48f3e541abe2fcec7d2c9b00468544cb2b07b73b03726df6a6bb9ec",
+    "MillWorks.AuditCore.Services.1.15.4-dev.11.snupkg": "0ffa16dd74ec3d81474a6acbd7c0b2f42266b06fa70780f29dccfcd3e2eb39cc"
+  }
+}

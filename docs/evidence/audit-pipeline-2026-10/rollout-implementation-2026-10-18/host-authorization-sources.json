@@ -1,0 +1,62 @@
+[
+  {
+    "path": "MillWorks.Api/Program.cs",
+    "sha256": "0d5a98fd2eced84de3b0c68ad1f4111e8d8878bda0f642371dd6e46e9265a2ae"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/MillWorksAuditWriteAuthorization.cs",
+    "sha256": "33e1c48bc2ed6e5e2618d8c18402de608d1f1ddb465eb52d650fd0f9c10e5264"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditProducerAuthorization.cs",
+    "sha256": "ce47e8196db5b6af5bf8f67b6bd4dddfa7e75908dd2950a8c17de5c6029d341e"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+    "sha256": "4d0e069d1d03290825d2ff7934e490273a11c0ad6c14dc7714e3c7066e553e54"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Document/DocumentDlpAuditSinkBridge.cs",
+    "sha256": "bbb84b0588fd99ab871f53fe6774c71fdd848ee2ef81e2fcf724f7847bdb948d"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Compliance/ComplianceEvidencePackageBridge.cs",
+    "sha256": "98061fca524d5d6e1c7383f823604a2af133e4818e3b0c6a8608146a9569cc78"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelArtifactRetentionAuditBridge.cs",
+    "sha256": "56e1a3a10ef912fb8ea248c83eb125b01a6152fc7467a36993ecdc78ac63ba25"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelTrainingOperationsAdminBridge.cs",
+    "sha256": "1445134f6d31120f0f604ee0a402e4dd7c89bb4f8a09dc5eb771be549b947387"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/VisitorManagement/VisitorProtectedReferenceService.cs",
+    "sha256": "7399be399896fe69819a1e49dede58957121983a98e24120406e4cf2dc5952a8"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Audit/MlDatasetSnapshotAuditBridge.cs",
+    "sha256": "b0f0ad42babef418a9a6f274f16ce23d1d53129aba383c1924326f945ec0d3ca"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Audit/DecisionModelWorkbenchAuditBridge.cs",
+    "sha256": "17edbf04396a78ba328ffed450132d7c2f0d273469ef5b646ee11af6e1e01205"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Audit/DecisionModelGovernanceAuditBridge.cs",
+    "sha256": "c9f8fc745b1388dc17b7bee35a739aa2716218384b4b486a406f6afad8e991ed"
+  },
+  {
+    "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+    "sha256": "b81c814ac8c3170d8d7549472765fc8f54d5fd976ee5079f6d5a15cff2794586"
+  },
+  {
+    "path": "MillWorks.Api.Tests/Infrastructure/Audit/AuditProducerTestFactory.cs",
+    "sha256": "51eaa923ece3b0979a157d5a7c3b6837170e37188be6f27d6be8546d1a261aa9"
+  },
+  {
+    "path": "MillWorks.Api.Tests/Infrastructure/Audit/AuditProducerAuthorizationTests.cs",
+    "sha256": "f3122990bf7c33af2df775aa700d54f8f9256b6bae393e23df399afb70fbfa3c"
+  }
+]

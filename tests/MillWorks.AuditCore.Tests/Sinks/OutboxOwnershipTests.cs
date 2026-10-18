@@ -71,7 +71,7 @@ public sealed partial class OutboxOwnershipTests(string provider, bool rcsi)
         _options = builder.AddInterceptors(_fault, _commands).Options;
         _services = new ServiceCollection().AddSingleton(TimeProvider.System)
             .AddSingleton(_options).AddScoped(sp => new AuditDbContext(sp.GetRequiredService<DbContextOptions<AuditDbContext>>()))
-            .AddSingleton<OutboxStateStore>().AddScoped<IAuditOutboxRecovery, AuditOutboxRecovery>()
+            .AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>()).AddScoped<IAuditOutboxRecovery, AuditOutboxRecovery>()
             .AddSingleton<IAuditOutboxRecoveryAuthorization>(_authorization)
             .AddSingleton(_processor.Object).BuildServiceProvider();
         _store = _services.GetRequiredService<OutboxStateStore>();

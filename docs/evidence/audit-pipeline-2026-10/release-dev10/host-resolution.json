@@ -1,0 +1,33 @@
+{
+  "verifiedUtc": "2026-10-18T18:32:28.004217+00:00",
+  "command": "dotnet restore MillWorks.Api/MillWorks.Api.csproj --disable-parallel -p:BuildInParallel=false",
+  "exitCode": 0,
+  "auditPackages": {
+    "MillWorks.AuditCore/1.15.4-dev.10": {
+      "packageSha512": "MqVFutQ5PfBKim+JaeyLAedIoAOJGp23jbIahReMQ1OGhN4U4PH9XrVRldlH26oT0vFPi/d6sWNwAR2omJo3qQ==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.10": {
+      "packageSha512": "Puk5HxuixddjP7LR2qZiZRzlRDZP2YLgr8DT/8ShWM98LnzweoJN5qNWYU8+PVb75NdNC8bllhWxle3NV+DHzw==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.10": {
+      "packageSha512": "wPXqpLNirrl2kXmtbpUM/nlUtkDX25bEJAxykQIBvjGQP7o/ZRaN2sdtQ6Lj4dJymUIKXNTwtNUOJ588dvK5fg==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Providers/1.15.4-dev.10": {
+      "packageSha512": "B99erAD6VBg+P5/3s9OsTPpTCLo5m08M7eLiqwXl5JKKIAeUMCbfiWYsDIX8GYEGINAacy9+3UhgOxxBc8LdkQ==",
+      "matchesPublishedArtifact": true
+    },
+    "MillWorks.AuditCore.Services/1.15.4-dev.10": {
+      "packageSha512": "ENa5nQD4tpP+6ZvItY03iOQY8/Y6/2Wdtdvnt9olSJeiogZSU3PAb5ZLQAKkhEYuklI0sKNUQWmolnAX5uIuTQ==",
+      "matchesPublishedArtifact": true
+    }
+  },
+  "backgroundJobsPackages": [
+    "MillWorks.BackgroundJobs/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.AspNetCore/2.0.14-dev.20",
+    "MillWorks.BackgroundJobs.EntityFramework/2.0.14-dev.20"
+  ],
+  "apiBuiltOrRestarted": false
+}

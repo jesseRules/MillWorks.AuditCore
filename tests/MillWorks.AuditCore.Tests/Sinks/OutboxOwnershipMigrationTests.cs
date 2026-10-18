@@ -50,7 +50,7 @@ public sealed partial class OutboxOwnershipTests
                 Assert.That(await db.Database.GetAppliedMigrationsAsync(), Does.Contain("20261016211640_RetainOutboxFailureSources"));
             }
             await using var services = new ServiceCollection().AddSingleton(TimeProvider.System).AddScoped(_ => new AuditDbContext(opts))
-                .AddSingleton<OutboxStateStore>().BuildServiceProvider();
+                .AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>()).BuildServiceProvider();
             var store = services.GetRequiredService<OutboxStateStore>(); var claim = (await store.ClaimAsync(Guid.NewGuid(), 1, TimeSpan.FromMinutes(1), default)).Claims.Single();
             var result = await store.ApplyAsync(Guid.NewGuid(), [new(claim.Id, claim.Token, AuditOutboxStatus.Failed)], default);
             Assert.That(result.Applied, Is.EqualTo(new[] { id }));

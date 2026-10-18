@@ -122,7 +122,7 @@ public sealed class AuditOutboxDrainer(
     {
         var stopwatch = Stopwatch.StartNew();
         var opts = options.Value;
-        var state = sp.GetRequiredService<OutboxStateStore>();
+        var state = sp.GetRequiredService<IOutboxStateStore>();
         var claimed = await state.ClaimAsync(Guid.NewGuid(), Math.Min(opts.OutboxDrainerBatchSize,
             OutboxStateStore.MaxBatchSize), opts.OutboxDrainerLeaseDuration, ct);
         if (claimed.Claims.Length == 0) return 0;
@@ -182,7 +182,7 @@ public sealed class AuditOutboxDrainer(
 
     private async Task RecoverExpiredLeasesAsync(IServiceProvider sp, CancellationToken ct)
     {
-        var result = await sp.GetRequiredService<OutboxStateStore>().RecoverAsync(Guid.NewGuid(),
+        var result = await sp.GetRequiredService<IOutboxStateStore>().RecoverAsync(Guid.NewGuid(),
             Math.Min(options.Value.OutboxDrainerBatchSize, OutboxStateStore.MaxBatchSize), ct);
         AuditMetrics.LeasesRecovered.Add(result.Applied.Length);
     }

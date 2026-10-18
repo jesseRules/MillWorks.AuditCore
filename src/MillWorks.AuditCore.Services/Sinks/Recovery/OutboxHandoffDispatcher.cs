@@ -6,7 +6,7 @@ using MillWorks.AuditCore.Services.Telemetry;
 
 namespace MillWorks.AuditCore.Services.Sinks.Recovery;
 
-internal sealed class OutboxHandoffDispatcher(OutboxStateStore state, ILogger<OutboxHandoffDispatcher> logger,
+internal sealed class OutboxHandoffDispatcher(IOutboxStateStore state, ILogger<OutboxHandoffDispatcher> logger,
     IAuditDeadLetterQueue? dlq = null)
 {
     internal const string ProjectionEventType = "AuditCore.OutboxFailureProjection.v1";

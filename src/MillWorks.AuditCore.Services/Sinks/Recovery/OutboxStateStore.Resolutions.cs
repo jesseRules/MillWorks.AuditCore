@@ -6,7 +6,7 @@ namespace MillWorks.AuditCore.Services.Sinks.Recovery;
 
 internal sealed partial class OutboxStateStore
 {
-    internal Task<OutboxOperationResult> ResolveAsync(Guid operation, Guid id, Guid? tenant, Guid cycle, string reason,
+    public Task<OutboxOperationResult> ResolveAsync(Guid operation, Guid id, Guid? tenant, Guid cycle, string reason,
         bool replay, IAuditOutboxRecoveryPermit permit, CancellationToken ct) =>
         ExecuteAsync(operation, "resolve", new { id, tenant, cycle, reason, replay, permit.ActorId }, async (db, cancel) =>
         {
@@ -42,7 +42,7 @@ internal sealed partial class OutboxStateStore
             return new(operation, [id], [], [], [], projections.Any(x => x.Status == AuditOutboxHandoffStatus.Dispatching));
         }, ct);
 
-    internal Task<OutboxOperationResult> CleanupAsync(Guid operation, Guid id, Guid? tenant, Guid cycle,
+    public Task<OutboxOperationResult> CleanupAsync(Guid operation, Guid id, Guid? tenant, Guid cycle,
         IAuditOutboxRecoveryPermit permit, CancellationToken ct) =>
         ExecuteAsync(operation, "cleanup", new { id, tenant, cycle, permit.ActorId }, async (db, cancel) =>
         {
@@ -79,4 +79,31 @@ internal sealed partial class OutboxStateStore
             });
             return new(operation, [id], [], [], []);
         }, ct);
+    public Task<OutboxOperationResult> CleanupCompletedAsync(Guid operation, Guid id, Guid tenant,
+        DateTimeOffset completedBefore, IAuditOutboxRecoveryPermit permit, CancellationToken ct) =>
+        ExecuteAsync(operation, "cleanup_completed", new { id, tenant, completedBefore, permit.ActorId }, async (db, cancel) =>
+        {
+            await permit.CheckCurrentAsync(cancel);
+            var now = await NowAsync(db, cancel);
+            var row = await LockedRows(db).SingleOrDefaultAsync(x => x.Id == id &&
+                x.Status == AuditOutboxStatus.Completed && x.FailureCycleId == null && x.ResolutionId == null &&
+                x.CompletedAt != null && x.CompletedAt < completedBefore &&
+                x.CompletedAt <= now - VerificationRetention, cancel);
+            if (row is null) return new(operation, [], [id], [], []);
+            // Keep the immutable acceptance receipt. Missing/unknown tenant evidence is not
+            // permission to delete a payload, and projections/resolutions use the other path.
+            if (!await db.Set<AuditEnvelopeIdentity>().AnyAsync(x => x.Channel == "outbox" &&
+                    x.LogicalId == row.IdempotencyKey && x.TenantId == tenant, cancel) ||
+                await db.AuditOutboxFailureHandoffs.AnyAsync(x => x.OutboxRowId == id, cancel) ||
+                await db.AuditOutboxResolutions.AnyAsync(x => x.OutboxRowId == id, cancel) ||
+                await db.AuditOutboxOperations.AnyAsync(x => x.VerifyUntil > now && x.ResultJson.Contains(id.ToString()), cancel))
+                return new(operation, [], [id], [], []);
+            await permit.CheckCurrentAsync(cancel);
+            var removed = await db.AuditOutbox.Where(x => x.Id == id && x.Status == AuditOutboxStatus.Completed &&
+                    x.FailureCycleId == null && x.ResolutionId == null && x.CompletedAt == row.CompletedAt)
+                .ExecuteDeleteAsync(cancel);
+            if (removed != 1) throw new DBConcurrencyException("Completed outbox cleanup changed; transaction rolled back.");
+            return new(operation, [id], [], [], []);
+        }, ct);
+
 }

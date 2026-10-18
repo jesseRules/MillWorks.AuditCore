@@ -8,6 +8,14 @@ namespace MillWorks.AuditCore.Services.Interfaces;
 /// </summary>
 public interface IAuditArchivalService
 {
+    /// <summary>Archives only one explicitly authorized tenant, recording its immutable ownership.</summary>
+    Task<AuditArchivalResult> ArchiveTenantEventsAsync(Guid tenantId, Guid actorId,
+        DateTimeOffset archiveBefore, CancellationToken cancellationToken = default);
+
+    /// <summary>Restores a tenant-owned archive into the same tenant; rejects unscoped archives.</summary>
+    Task<AuditRestoreResult> RestoreTenantEventsAsync(Guid tenantId, string archiveId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Archives audit events older than the specified date.
     /// </summary>

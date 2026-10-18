@@ -182,7 +182,7 @@ public sealed partial class EnvelopeIdentitySqliteTests
         var services = new ServiceCollection();
         services.AddLogging(); services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddDbContext<AuditDbContext>(o => o.UseSqlite(Connection));
-        services.AddSingleton<OutboxStateStore>(); services.AddScoped<OutboxHandoffDispatcher>();
+        services.AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>()); services.AddScoped<OutboxHandoffDispatcher>();
         services.AddSingleton(processor);
         return services;
     }

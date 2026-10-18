@@ -348,7 +348,7 @@ public sealed partial class EnvelopeIdentitySqliteTests : SqliteIntegrationFixtu
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(options));
         services.AddDbContext<AuditDbContext>(o => o.UseSqlite(Connection));
-        services.AddSingleton<OutboxStateStore>();
+        services.AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>());
         services.AddScoped<OutboxHandoffDispatcher>();
         services.AddScoped<MillWorks.AuditCore.Services.Interfaces.IAuditLogger>(sp => Logger(sp.GetRequiredService<AuditDbContext>()));
         services.AddScoped<IAuditEntityBatchWriter, AuditEntityBatchWriter>();

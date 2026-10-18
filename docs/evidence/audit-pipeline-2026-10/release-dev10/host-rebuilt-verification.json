@@ -1,0 +1,41 @@
+{
+  "observedUtc": "2026-10-18T19:15:54.652868+00:00",
+  "command": "python3 scripts/dev-work.py test MillWorks.Api.Tests/MillWorks.Api.Tests.csproj -- --filter 'FullyQualifiedName~AuditAdministrationHttpBoundaryTests|FullyQualifiedName~AuditChainStatus' --logger 'trx;LogFileName=dev10-host-administration.trx' --results-directory /tmp/auditcore-dev10-host-rebuilt",
+  "noBuild": true,
+  "noRestore": true,
+  "fixtureOutcomes": {
+    "MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests": {
+      "Passed": 15
+    },
+    "MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests": {
+      "Passed": 4,
+      "Failed": 1
+    }
+  },
+  "failedTests": [
+    "GetAuditEvents_ForwardsPaginationAndFiltersToSearchService"
+  ],
+  "failureExplanation": "Query test supplies 23:59:59 but expects the final tick of the day. InclusiveEndOfDay expands only midnight/date-only input. The assertion and helper are unchanged from the pre-administration baseline; no production query behavior was changed by this task.",
+  "health": {
+    "live": {
+      "httpStatus": 200,
+      "status": "Healthy"
+    },
+    "ready": {
+      "httpStatus": 200,
+      "status": "Degraded"
+    }
+  },
+  "sourceSha256": {
+    "MillWorks.Api/Controllers/Audit/AuditController.cs": "7357024eb18922942bed04dbeeabcda62a2ea96e8c623c3a24d26cae862d3409",
+    "MillWorks.Api/Infrastructure/Audit/AuditAdministrationAuthority.cs": "a2d3ed45330ab901772850f3109a66732ebf3916b34d66fc048895c547770388",
+    "MillWorks.Api.Tests/ControllerTests/Audit/AuditAdministrationHttpBoundaryTests.cs": "d3b21d457de4497ce1d4d790a6c2984db8bef03f98ead3e61058c151081bc32f",
+    "MillWorks.Api.Tests/ControllerTests/Audit/AuditChainStatusTests.cs": "a17f0d4dfa25fe9cfb0ad20ee12ab0351a9540a4ae97b88d3d15b0790c95ce5d"
+  },
+  "liveAnonymousBoundaryChecks": {
+    "complianceExport": 401,
+    "integrityExportProof": 401,
+    "callerAuthenticated": false,
+    "target": "empty GUID; no administrative mutation requested"
+  }
+}

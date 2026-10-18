@@ -1,0 +1,78 @@
+{
+  "observedUtc": "2026-10-18T16:29:40.507630+00:00",
+  "readOnly": true,
+  "hostProcesses": [
+    "4076 Sun Oct 18 10:53:19 2026     /Applications/Rider.app/Contents/lib/ReSharperHost/macos-arm64/dotnet/dotnet",
+    "6523 Sun Oct 18 11:01:25 2026     /usr/local/share/dotnet/dotnet",
+    "6585 Sun Oct 18 11:01:28 2026     /Applications/Rider.app/Contents/lib/ReSharperHost/macos-arm64/dotnet/dotnet",
+    "6589 Sun Oct 18 11:01:29 2026     /Applications/Rider.app/Contents/lib/ReSharperHost/macos-arm64/dotnet/dotnet",
+    "59422 Sat Oct 17 09:58:06 2026     /usr/local/share/dotnet/dotnet",
+    "59609 Sat Oct 17 09:58:11 2026     /Applications/Rider.app/Contents/lib/ReSharperHost/macos-arm64/dotnet/dotnet",
+    "59624 Sat Oct 17 09:58:12 2026     /Applications/Rider.app/Contents/lib/ReSharperHost/macos-arm64/dotnet/dotnet"
+  ],
+  "dotnetHostMappings": [
+    {
+      "pid": 4076,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 6523,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 6585,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 6589,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 59422,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 59609,
+      "mappedHostOrAuditModules": []
+    },
+    {
+      "pid": 59624,
+      "mappedHostOrAuditModules": []
+    }
+  ],
+  "containers": [
+    "millworks-sqlserver-tests-1 127.0.0.1:1435->1433/tcp"
+  ],
+  "auditDlls": [
+    {
+      "name": "MillWorks.AuditCore.Abstractions.dll",
+      "sha256": "0174c54da67245162959a1cb6c31c00e6d1efa6217e814fa33f41f2b846df759",
+      "modifiedUtc": "2026-10-17T02:59:38.691951+00:00"
+    },
+    {
+      "name": "MillWorks.AuditCore.AspNetCore.dll",
+      "sha256": "277b16d87f7457d606c1c04dbf35f1b843dce0c28537a76574a2b2500aaa5b5b",
+      "modifiedUtc": "2026-10-17T02:59:39.508267+00:00"
+    },
+    {
+      "name": "MillWorks.AuditCore.EntityFramework.dll",
+      "sha256": "75374e82c2c7ffb573fa48830b50fcc3e1238da9f6f47840e9fa181b4aab3b39",
+      "modifiedUtc": "2026-10-17T02:59:38.706454+00:00"
+    },
+    {
+      "name": "MillWorks.AuditCore.Providers.dll",
+      "sha256": "248bd2dd34c7e4804176e16389212674fe93480be7f218e84523cd622e027801",
+      "modifiedUtc": "2026-10-17T02:59:39.219454+00:00"
+    },
+    {
+      "name": "MillWorks.AuditCore.Services.dll",
+      "sha256": "570da3c10a8850c9a132b2be7a28fc60e296c91c2920fe034bfd4f31e0a1176d",
+      "modifiedUtc": "2026-10-17T02:59:39.216773+00:00"
+    }
+  ],
+  "databaseProbe": {
+    "status": "unavailable",
+    "exitCode": 1,
+    "detail": "Configured local application SQL on port 1433 could not complete the read-only query; raw output omitted."
+  }
+}

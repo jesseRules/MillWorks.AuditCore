@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <!-- Default version; synchronize any project-level Version overrides for coordinated releases. -->
-        <Version>1.15.4-dev.9</Version>
+        <Version>1.15.4-dev.11</Version>
         <AssemblyVersion>1.15.4.0</AssemblyVersion>
         <FileVersion>1.15.4.0</FileVersion>
 
@@ -19,7 +19,9 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.4-dev.9: replaces content-derived EF envelope IDs with retry-retained mutation tokens, excludes unresolved generated keys from captured provenance, and adds payload-safe failure identity diagnostics. Capture/Restore tokens for retries in replacement contexts; completed saves retire automatic tokens. Historical identity evidence remains unchanged. Internal audit receipt/handoff/resolution and subject-index bookkeeping is marked NoAudit. No schema migration or queue-format change. Host authorization integration and populated runtime acceptance remain separate.
+        <PackageReleaseNotes>v1.15.4-dev.11: adds ownership-aware completed-outbox cleanup with retained identity/operation receipts and host authorization; internal state-store interface isolates drainer orchestration. No schema migration. Host producer bindings, policy/hold integration and activation are verified separately.
+v1.15.4-dev.10: adds host-authorized tenant-bound audit administration, payload-free export disclosure and durable operation evidence; tenant archive ownership and restoration of event content; integrity-protected anonymization fails closed. No schema migration.
+v1.15.4-dev.9: replaces content-derived EF envelope IDs with retry-retained mutation tokens, excludes unresolved generated keys from captured provenance, and adds payload-safe failure identity diagnostics. Capture/Restore tokens for retries in replacement contexts; completed saves retire automatic tokens. Historical identity evidence remains unchanged. Internal audit receipt/handoff/resolution and subject-index bookkeeping is marked NoAudit. No schema migration or queue-format change. Host authorization integration and populated runtime acceptance remain separate.
 
 v1.15.4-dev.8: ships H2 batch acceptance/null validation, H3a globally keyed explicit-event identity with versioned content receipts, and H3 exact mixed-batch outcomes, including both reviewed concurrency fixes. Requires stable ExplicitEventId and occurrence time, host IAuditEnvelopeWriteAuthorization, identity-aware logger/outbox capabilities and exact outcome metadata. Apply AddAuditEnvelopeIdentities to owning databases and review existing queue-format-1 data before enabling queue format 2. H1 migrations/rollout requirements still apply. Local prerelease source and validation provenance are recorded in docs/evidence/audit-pipeline-2026-10/release-dev8; host activation, H4/H5 and public result slice G remain separate.
 

@@ -1,10 +1,11 @@
 # H3a — Logical event identity and immutable replay
 
-**Status, 2026-10-16:** Library implementation and focused SQL verification complete:
+**Status, reviewed 2026-10-18:** Library implementation and focused SQL verification complete:
 [178 identity/ownership passes and 114 final identity passes](../evidence/audit-pipeline-2026-10/h3a-verification-2026-10-16/README.md),
 zero failures. The broader local regression previously passed 2,420 cases. Host rollout remains
 open. H2/H3a/H3 source and dev.8 metadata are committed as `6f560a1` and
-[published to both local feeds](../evidence/audit-pipeline-2026-10/release-dev8/README.md). This is local release acceptance; host acceptance remains open.
+[published to both local feeds](../evidence/audit-pipeline-2026-10/release-dev8/README.md). Dev.9 subsequently passed EF startup acceptance (78 new rows/78 receipts) and 54 focused
+host tests, zero failures/skips; see the correction below. Other producer/host gates remain open.
 
 **Post-review correction:** The split receipt/source read race is fixed with a bounded evidence
 recheck. [Retained review verification](../evidence/audit-pipeline-2026-10/h3-review-fixes-2026-10-16/README.md)
@@ -105,23 +106,28 @@ subsequent implementation is tracked in the [H3 contract](BatchPublishingH3Imple
   version 1 is unsupported and receives H1's guarded terminal disposition. Establish a reviewed
   drain/migration disposition before enabling the new drainer. Do not reset data, rewrite IDs,
   or backfill fingerprints from redacted historical payloads without authoritative evidence.
-- Update all host producers to supply stable ExplicitEventId and occurrence time across retries.
-  The bounded [producer inventory](../evidence/audit-pipeline-2026-10/h3a-design-2026-10-16/producer-inventory.json)
-  found ten missing IDs in explicitly typed MillWorks API initializers; target-typed/external
-  producers remain a separate inventory gap. MillWorks integration is now in progress;
-  the first scoped authorization implementation is described below.
-- Map the receipt entity in mapped consumer models and apply the receipt migration to every
-  owning audit/consumer database. Verify schema names, host authorization, custom capability
+- [October 18 producer/host inventory](../evidence/audit-pipeline-2026-10/rollout-review-2026-10-18/README.md)
+  supersedes the original ten-missing-ID count: all 14 current construction sites provide IDs.
+  Eleven lack routed trusted producer bindings; ten lack governance metadata; six create new
+  observation IDs inside each invocation. Preserve IDs, time and semantic/request provenance
+  across publication retries; new observations still require new IDs. The inspected MillWorks
+  source has no additional target-typed producer. Concrete local checkout consumers are
+  inventoried separately; their runtime activation is not established by a project reference.
+- The host maps receipts/outbox rows in ten intercepted consumer registrations, but
+  CommentThreads attaches the interceptor without that composition. Correct this gap and
+  verify the owning receipt migration against every activated database. Verify schema names, host authorization, custom capability
   conformance, retention/holds and DLQ copies before activation. Rollback must preserve identity
   evidence/schema and avoid running an older key-only drainer against the new protocol.
 - Local release completed as dev.8 from commit `6f560a1`, with 2,644 regression and 416 final
   committed-source passes plus package-only consumer validation. Dev.7 remains immutable.
-  Host consumer update, API build/restart and deployment have not been performed for H3a.
+  That release did not update/restart the host. Dev.9 consumer resolution and the later
+  user-supplied rebuild/restart are verified below; other rollout gates remain open.
 
 ## MillWorks host integration — speech completion
 
-**Status:** Source and regression tests prepared; compilation, test execution and runtime
-acceptance remain pending. No API build/restart or database migration was performed for this item.
+**Status, reviewed 2026-10-18:** Source integration and focused speech/EF host-test acceptance
+are complete in the dev.9 evidence (54 passes, zero failures/skips). No end-to-end speech-provider
+runtime acceptance is established by that focused run. The implementation history follows.
 
 The first background producer is `MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs`:
 
@@ -142,9 +148,10 @@ The first background producer is `MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs`
   purpose boundaries, cancellation/disposal, disconnected completion, and real package outbox
   acceptance plus injected save failure using a disposable SQLite database.
 
-Acceptance requires compiling `MillWorks.Api` and `MillWorks.Api.Tests`, then running the
+The original acceptance gate required compiling `MillWorks.Api` and `MillWorks.Api.Tests`, then running the
 `AiSpeechIdentityResolverTests`, `AiSpeechSessionRegistryTests` and
-`SpeechSessionAuditAuthorizationTests` fixtures. These changes have not yet been executed.
+`SpeechSessionAuditAuthorizationTests` fixtures. The later dev.9 rebuilt-host evidence
+includes the focused speech/EF run; the earlier pending status is superseded.
 The MillWorks `AGENTS.md` requires explicit permission for the API build; AI-dependent test
 compilation must be batched with the user's rebuilds. Do not report old test artifacts as proof.
 
@@ -174,22 +181,22 @@ public grant or explicit-event fallback is created. Other explicit publishers st
 
 Added regression tests cover the actual interceptor startup path, `[NoAudit]` exclusion,
 provenance substitutions, context lifetime, mixed batches and routing speech's scoped grant.
-Speech lifecycle fixtures now use the global router too. Compilation and execution are pending
-the next authorized API/test rebuild; whitespace checks pass. No process restart, audit
-failure-mode relaxation, entity exclusion or database change was used to mask this failure.
+Speech lifecycle fixtures now use the global router too. Compilation and focused execution
+were subsequently verified after Jesse rebuilt the dev.9 API/tests; see the evidence below.
+The correction preserves audit failure handling and role/permission auditing.
 
-### Host blocker: entity-change identities can reuse temporary keys
+### Historical host blocker: entity-change identities can reuse temporary keys
 
 The user's populated startup run now reaches the entity writer but reports
 `audit_identity_unverified`. [Read-only investigation](../evidence/audit-pipeline-2026-10/host-identity-investigation-2026-10-16/README.md)
 confirms historical role-claim creation rows without receipts and reproduces 100 historical
 EnvelopeIds from their reused EF temporary keys and snapshots. Exact failing runtime IDs
-remain absent from the supplied logs, so the specific attribution is inferred. Host rollout
-remains blocked pending mutation-operation identity handling and the regression/acceptance
-outcomes in that investigation. Do not disable role/permission auditing or infer historical
-fingerprints to close this gate.
+remain absent from the supplied logs, so the specific attribution was inferred. This EF
+blocker was resolved by dev.9 mutation-operation identity handling and the subsequent
+regression/startup acceptance below; other producer rollout gates remain open. Preserve
+role/permission auditing and historical evidence when completing the remaining rollout.
 
-### EF mutation identity correction — dev.9 candidate
+### EF mutation identity correction — dev.9 accepted for EF startup
 
 [Dev.9 is published locally](../evidence/audit-pipeline-2026-10/release-dev9/README.md): 2,664 Release,
 27 focused and four targeted SQL cases passed, zero failures. MillWorks references and exact
@@ -242,3 +249,14 @@ Acceptance gates:
 - [x] Verify populated startup emits newly accepted role-claim audit records with receipts and
   no unexplained identity failures: 78 new creation rows/78 receipts after the October 17
   rebuild/restart, zero matching errors in the observed log window. Old history retained.
+
+### Producer/host implementation follow-up — 2026-10-18
+
+Dev.10 rebuilt-host acceptance is recorded separately from the earlier dev.9 EF acceptance.
+The [implementation follow-up](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md)
+closes the inventoried producer binding/retry-provenance and CommentThreads composition gaps
+in source, integrates tenant/hold-authorized recovery and guarded retention, and implements
+H4's internal interface/orchestration tests. A read-only application SQL check matches all
+18 owning migrations and finds no queued rows/handoffs. Dev.11 delivery, API compilation and
+runtime acceptance are tracked there; source changes are not live-host acceptance. H5 and
+separate populated sequence/host-scan gates remain open.

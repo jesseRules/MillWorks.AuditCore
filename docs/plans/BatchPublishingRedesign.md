@@ -27,13 +27,13 @@ These are tracked as H1–H3 (including identity prerequisite H3a) in
 H5 tracks load qualification; optional G remains deferred behind a consumer need.
 The cross-plan review on 2026-10-16 adds retained failed-row authority, a separately retryable
 DLQ projection, durable uncertain-commit verification, queued-contract validation, and
-same-identity/different-content conflict rejection to that follow-up. These are planned
-requirements, not guarantees established by the historical A–F completion record.
+same-identity/different-content conflict rejection to that follow-up. H1–H3 now implement
+these requirements; the historical A–F record alone does not establish them. See the current code/release reconciliation below for the remaining host gates.
 
 The hardening plan's [MillWorks precedents and gates](BatchPublishingHardening.md#millworks-precedents-and-implementation-gates)
 link shared messaging mechanics, durable failure/recovery, commit receipts, identity policies,
-and retention ownership. The remaining AuditCore-specific decisions must be resolved before
-implementation; those references do not establish AuditCore runtime acceptance.
+and retention ownership. AuditCore-specific decisions are recorded in the H1/H3a/H3
+implementation contracts; those references alone do not establish host runtime acceptance.
 
 Review test evidence and its limits are maintained in the hardening plan's
 [Evidence and boundaries](BatchPublishingHardening.md#evidence-and-boundaries) section.
@@ -72,7 +72,7 @@ Sequence-query history, index/deployment evidence, and remaining acceptance belo
 - `AuditLogger.LogBatchAsync` now confirms all events are duplicates before returning `BatchAuditResult.Duplicate()`; mixed replay/new batches persist new events but need per-event duplicate reporting (H3)
 - `AuditEntityBatchWriter` catches `DbUpdateException` via `DuplicateKeyDetector`, returns `WriteOutcome.Duplicate`
 - `AuditEventBatchWriter` maps `IsDuplicate` flag to `WriteOutcome.Duplicate`
-- `AuditEventBatchWriter.MapToAuditEvent` currently sets `EventId = EnvelopeId`; H3a corrects this to the caller's required `ExplicitEventId` so logical-event replay remains safe across re-enveloping
+- At the Slice C checkpoint, `AuditEventBatchWriter.MapToAuditEvent` set `EventId = EnvelopeId`; implemented H3a corrects this to the caller's required `ExplicitEventId` so logical-event replay remains safe across re-enveloping
 - 24 new tests: `IdempotencyTests.cs` (18 unit tests), `IdempotencySqliteTests.cs` (6 integration tests proving constraint enforcement)
 - Note: Skipped redundant unique index on `AuditEvents.EventId` since it's already the PK
 
@@ -91,8 +91,8 @@ Sequence-query history, index/deployment evidence, and remaining acceptance belo
 **Slice E Deliverables (2026-05-19):**
 - `IAuditBatchProcessor` interface with supporting types: `ClaimedOutboxRow`, `BatchProcessingResult`, `RowOutcome`, `RowStatus` enum
 - `AuditBatchProcessor` implementation: groups rows by envelope kind, delegates to `IAuditEntityBatchWriter`/`IAuditEventBatchWriter`, maps `WriteOutcome` to `RowOutcome`
-- `AuditOutboxDrainer` delegates batch writes to the processor: claim → deserialize → process → apply outcomes; claim/recovery/state persistence remain in the drainer (H1/H4)
-- Processor extraction completed; drainer still owns persistence transitions. Repository extraction is deferred with the decision criteria below; there is no line-count completion target.
+- `AuditOutboxDrainer` delegates batch writes to the processor: claim → deserialize → process → apply outcomes; H1 subsequently moved claim/recovery/state persistence into `OutboxStateStore` (remaining H4 seam work below)
+- Processor extraction completed; H1 subsequently extracted persistence into `OutboxStateStore`. H4 abstraction/orchestration-test work is deferred with the decision criteria below; there is no line-count completion target.
 - Retry exhaustion logic fixed: `ApplyRetryOutcomeAsync` checks `AttemptCount >= MaxAttempts` before scheduling retry, routes to `ApplyExhaustedOutcomeAsync` + DLQ on exhaustion
 - Separated `ApplyExhaustedOutcomeAsync` from `ApplyFailedOutcomeAsync` — non-retryable errors still increment attempt count before failing
 - DI registration: `IAuditBatchProcessor` → `AuditBatchProcessor` (scoped)
@@ -115,13 +115,13 @@ Sequence-query history, index/deployment evidence, and remaining acceptance belo
 
 ---
 
-## Current State Summary — reviewed 2026-10-16
+## Current State Summary — reviewed 2026-10-18
 
 | Aspect | Implemented behavior | Remaining decision/work |
 |--------|----------------------|-------------------------|
 | Public `PublishBatchAsync` | Returns `Task`; H2 clarifies sink acceptance and partial-success semantics | Slice G deferred; define a consumer need before designing a return-type change |
 | Immediate batch atomicity | Entity/event writers execute independently; one subset may persist before another fails | H2 implemented: corrected documentation, null validation and partial-success regressions |
-| Explicit-event identity | H3a requires ExplicitEventId for both outbox and persistence; EnvelopeId remains correlation | Library verified; producer/authorization/data rollout gates remain open |
+| Explicit-event identity | H3a requires ExplicitEventId for both outbox and persistence; EnvelopeId remains correlation | Dev.9 EF startup/focused host acceptance passed; other producer/authorization/data gates remain open |
 | Internal processing | H3 preserves exact event outcomes; validates logger/writer/processor results and metrics; H1 guards row transitions | Library verified; custom capability implementations require exact metadata; host rollout remains open |
 | Outbox state | `Pending=0, InFlight=1, Completed=2, Failed=3`; row claims and expiring leases | H1 guarded ownership updates are implemented locally; migrate and replace all old drainers before relying on them |
 | Idempotency | Stable envelope identity, explicit-event PK, outbox unique key, entity envelope/property replay checks | Envelope lookup index verified October 9; see durability plan |
@@ -136,7 +136,7 @@ govern remaining work; proposed signatures and historical estimates are not rele
 | Item | Disposition and trigger | Required outcome if resumed |
 |------|-------------------------|----------------------------|
 | Slice G: public results | Deferred. Resume only with a named consumer use case that existing exceptions, internal outcomes, and metrics cannot satisfy. | Document acceptance-versus-final-persistence semantics for immediate and outbox sinks, duplicate handling, result correlation, cancellation, and compatibility/versioning before implementation. Then test every envelope outcome, mixed replay/failure, consumer implementations, and migration examples. Outbox acceptance must not claim final audit-store persistence. |
-| Outbox repository extraction | Planned as independently deferrable H4 after H1 ownership correction; not required to restore the historical ~100-line target. | Move claim, complete, retry, fail, and lease recovery behind a repository; preserve H1 guarded ownership predicates and state transitions with SQL Server concurrent-claim, expired-lease, stale-owner, retry-exhaustion, and cancellation tests. Drainer line count is not an acceptance criterion. |
+| Outbox repository extraction | Partly delivered by H1 through `OutboxStateStore`; remaining H4 abstraction/tests are independently deferrable. | Retain the existing state store, decide an internal orchestration seam and queue-depth ownership, and preserve H1 guarded ownership predicates and state transitions with SQL Server concurrent-claim, expired-lease, stale-owner, retry-exhaustion, and cancellation tests. Drainer line count is not an acceptance criterion. |
 | Load qualification | Unverified; original 10K/sec and P99 <100ms numbers are provisional targets, not demonstrated guarantees. | Define hardware/SQL version, row count, envelope mix, concurrency, polling/lease settings, payload size, and a 30-minute workload before running. Report offered/committed rate, backlog, end-to-end P99, errors, and memory trend; reconcile every envelope as persisted, pending/retry, or DLQ with no silent loss. Set a latency/throughput/memory budget for that workload before claiming a pass. |
 
 ---
@@ -604,7 +604,7 @@ Recovery (`RecoverExpiredLeasesAsync`) must also apply conditional state/expiry 
 **Acceptance Criteria:**
 - [x] Processor routes envelopes to internal writers and maps per-row outcomes (Slice E).
 - [x] Processor unit tests use mocked writers without a DbContext (`AuditBatchProcessorTests`).
-- Planned follow-up H4: repository extraction and transition-isolation tests after H1; independently deferrable.
+- H1 already extracted persistence into `Recovery/OutboxStateStore*.cs`; H4 retains the internal abstraction decision and isolated orchestration tests, independently deferrable.
 - Removed: the ~100-line drainer target; correctness and ownership semantics determine acceptance.
 
 ---
@@ -989,3 +989,37 @@ verification above is historical. No publication, schema or host rollout occurre
 package delivery for reviewed H2/H3a/H3. Source commit `6f560a1`, 2,644 regression passes, 416
 final committed-source passes, package-only consumer checks and both feed receipts are retained.
 Host activation and its producer/authorization/migration/queue-data gates remain open.
+
+### Current code and dev.9 acceptance — reviewed 2026-10-18
+
+H1–H3 (including H3a) are implemented. [Dev.9](../evidence/audit-pipeline-2026-10/release-dev9/README.md)
+corrects EF mutation identity; the rebuilt MillWorks host passed populated startup acceptance
+(78 new rows/78 receipts) and all 54 focused host tests, zero failures/skips. Other producer,
+authorization, queue/data, owning-database and drainer rollout gates remain open.
+
+H1 already moved guarded persistence into the internal `OutboxStateStore`, registered with
+per-operation context isolation. H4 is partly delivered; only its abstraction/orchestration-test
+follow-up remains planned. H5 still lacks the required sustained end-to-end qualification;
+G remains deferred. The [hardening code review](BatchPublishingHardening.md#code-review-reconciliation--2026-10-18)
+records source evidence and the remaining gates.
+
+### Producer/host gate inventory — 2026-10-18
+
+The [current inventory and gate checks](../evidence/audit-pipeline-2026-10/rollout-review-2026-10-18/README.md)
+record 14 explicit-event construction sites (all now supplying IDs), 11 missing producer
+bindings, retry-provenance gaps, CommentThreads' missing host model composition, and absent
+operator recovery/unsafe age-only failed-outbox cleanup integration. Existing compiled checks
+passed 118 cases, zero failures/skips. Application SQL was unavailable, so actual migration,
+queue/drainer and copied-data acceptance remain open. Jesse approved H4's small internal
+interface over the existing state store; implementation and orchestration tests remain planned.
+
+### Producer/host implementation and H4 — 2026-10-18
+
+The previous inventory identified gaps now addressed in source. The [hardening plan](BatchPublishingHardening.md)
+and [implementation evidence](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md)
+track trusted producer grants, retained retry provenance, CommentThreads composition and
+hold-authorized recovery/retention. H4 is implemented: `IOutboxStateStore` fronts the existing
+per-operation store, with isolated drainer orchestration tests and preserved provider tests.
+Queue-depth telemetry stays outside the mutation seam. Read-only application SQL verification
+matches all 18 migrations and finds no queued rows/handoffs. New API compilation and runtime
+acceptance remain open. H5 remains planned; G deferred.

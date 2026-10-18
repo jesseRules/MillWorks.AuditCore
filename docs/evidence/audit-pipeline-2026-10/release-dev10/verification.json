@@ -1,0 +1,78 @@
+{
+  "recordedUtc": "2026-10-18T18:31:47.545868+00:00",
+  "broadTestsBeforeFixtureCorrection": {
+    "total": "2741",
+    "executed": "2504",
+    "passed": "2503",
+    "failed": "1",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "finalFocusedTests": {
+    "total": "42",
+    "executed": "42",
+    "passed": "42",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "productionSourceChangedAfterBroadRun": false,
+  "packageOnlyConsumer": {
+    "commands": [
+      [
+        "dotnet",
+        "restore",
+        "/tmp/auditcore-dev10-consumer/Smoke.csproj",
+        "--configfile",
+        "/tmp/auditcore-dev10-consumer/NuGet.Config",
+        "--packages",
+        "/tmp/auditcore-dev10-consumer/packages",
+        "-p:NuGetAudit=false"
+      ],
+      [
+        "dotnet",
+        "build",
+        "/tmp/auditcore-dev10-consumer/Smoke.csproj",
+        "--configuration",
+        "Release",
+        "--no-restore",
+        "-m:1",
+        "-p:BuildInParallel=false",
+        "-p:UseSharedCompilation=false"
+      ],
+      [
+        "dotnet",
+        "/tmp/auditcore-dev10-consumer/bin/Release/net10.0/Smoke.dll"
+      ]
+    ],
+    "auditPackages": [
+      "MillWorks.AuditCore.Abstractions/1.15.4-dev.10",
+      "MillWorks.AuditCore.EntityFramework/1.15.4-dev.10",
+      "MillWorks.AuditCore.Providers/1.15.4-dev.10",
+      "MillWorks.AuditCore.Services/1.15.4-dev.10",
+      "MillWorks.AuditCore/1.15.4-dev.10"
+    ],
+    "newAdministrationApiAvailable": true,
+    "databaseOpened": false
+  }
+}

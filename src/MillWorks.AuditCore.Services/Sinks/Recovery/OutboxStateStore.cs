@@ -36,7 +36,7 @@ public sealed class AuditOutboxCommitUnknownException(Guid operationId, Exceptio
 
 /// <summary>Domain-owned guarded mutations. Each operation uses a separate scope/transaction;
 /// no writer context can flush outbox state. Callers allocate IDs outside strategy retries.</summary>
-internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, TimeProvider clock)
+internal sealed partial class OutboxStateStore(IServiceScopeFactory scopes, TimeProvider clock) : IOutboxStateStore
 {
     internal const int MaxBatchSize = 128;
     internal static readonly TimeSpan VerificationRetention = TimeSpan.FromHours(24);

@@ -366,3 +366,55 @@ these as a fork, that doc is stale — fix it, don't re-ask.
   (drops both EF and meta packages).
 
 Phase 01 can start.
+
+## Activated follow-up — Phase 16 signing key rotation
+
+**2026-10-18: Planning activated; implementation pending.**
+[Phase 16 — Admin-Driven Signing Key Rotation](redesign/Phase16-KeyRotationSemantics.md)
+now selects live rotation through MillWorks.Platform without application restarts.
+Platform owns the authorized administration workflow and progress reporting;
+MillWorks.Cryptography owns versioned keys and provider refresh; AuditCore binds
+signatures to persisted key IDs and preserves historical verification. The phase
+defines bounded replica adoption, retained RSA/HMAC verification material, and
+failure/recovery acceptance criteria. Restart-required behavior is a limitation
+for providers lacking live-rotation support, rather than the selected product
+contract. Runtime support remains subject to implementation and verification;
+the completion status of the original sink redesign above is unchanged.
+
+## Activated follow-up — Enterprise audit experience and MCP
+
+**2026-10-18: Planning baseline recorded; architecture prototypes and implementation pending.**
+The [audit experience and MCP plan](plans/AuditExperienceAndMcpResearchSpike.md)
+now includes competitor implementation evidence, SQL Builder execution-seam review,
+a staged enterprise workload matrix, and repository-owned delivery gates G0–G6.
+The full user, administrator, and assistant/MCP MMP remains required; there is no
+deadline-driven scope reduction.
+
+Use the [workload and service-objective baseline](plans/AuditExperienceAndMcpResearchSpike.md#planning-service-objectives-and-acceptance-measurements)
+and [G0 acceptance-profile requirement](plans/AuditExperienceAndMcpResearchSpike.md#agreed-acceptance-workload--g0-exit-requirement)
+as the authoritative acceptance criteria. G0 must select and approve one specific,
+versioned combination from the workload matrix, including run/error criteria and
+hardware/topology, before performance can pass or fail. These are planning criteria,
+not measured capacity or a deployed SLA.
+
+Evaluate SQL Builder's existing inline internal-context execution first and its
+canonical queued path as the baseline, preserving equivalent tenant/resource
+authorization, disclosure, warning/approval decisions, cancellation and receipts.
+Select fixed-read execution and storage/index topology only after authorized
+fixtures and comparative mixed-load evidence. A separate typed path, read replica,
+projection or analytical store requires a recorded decision and supporting evidence.
+
+Sequence: G0 workload/policy characterization and independent controller remediation;
+G1 authorized evidence/tenant/contract fixtures; G2 execution/storage ADR and load
+evidence; G3 interactive frontend/chat/MCP; G4 correlation, scoped verification and
+evidence lifecycle; G5 administration, sharing and recurrence; G6 complete MMP
+acceptance. Existing platform libraries retain capability ownership and Api owns
+composition. All gates need concrete repository-owned file scopes and acceptance
+receipts before implementation.
+
+[Phase 17](redesign/Phase17-QueryCountAndPaginationEnhancements.md#enterprise-audit-experience-dependency--2026-10-18)
+is absorbed into G1's shared evidence contract: group-aware keyset continuation,
+explicit 64-bit counts and no obligatory count before History rendering. Its old
+optional-count offset proposal is superseded; migrate named callers together and
+remove superseded audit APIs without compatibility shims. Existing pipeline
+benchmarks do not establish end-to-end enterprise query acceptance.

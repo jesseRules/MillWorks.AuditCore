@@ -263,6 +263,7 @@ public sealed class MillWorksAuditBuilder
         Services.AddScoped<IConsumerDbContextAccessor, ConsumerDbContextAccessor>();
         Services.AddScoped<IAuditOutboxWriter, AuditOutboxWriter>();
         Services.AddSingleton<OutboxStateStore>();
+        Services.AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>());
         Services.AddScoped<OutboxHandoffDispatcher>();
         Services.AddScoped<IAuditOutboxRecovery, AuditOutboxRecovery>();
 
@@ -291,6 +292,8 @@ public sealed class MillWorksAuditBuilder
         Services.AddScoped<IAuditSearchService, AuditSearchService>();
         Services.AddScoped<IAuditReportService, AuditReportService>();
         Services.AddScoped<IAuditArchivalService, AuditArchivalService>();
+        Services.AddScoped<MillWorks.AuditCore.Services.Administration.IAuditAdministrationService,
+            MillWorks.AuditCore.Services.Administration.AuditAdministrationService>();
         Services
             .AddScoped<IAuditMaintenanceService, MillWorks.AuditCore.Services.Maintenance.AuditMaintenanceService>();
         Services.AddScoped<IAuditMetaTrackingService, AuditMetaTrackingService>();

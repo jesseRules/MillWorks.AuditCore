@@ -6,7 +6,7 @@ using MillWorks.AuditCore.Services.Core;
 
 namespace MillWorks.AuditCore.Services.Sinks.Recovery;
 
-internal sealed class AuditOutboxRecovery(OutboxStateStore state, IServiceScopeFactory scopes,
+internal sealed class AuditOutboxRecovery(IOutboxStateStore state, IServiceScopeFactory scopes,
     IAuditOutboxRecoveryAuthorization? authorization = null) : IAuditOutboxRecovery
 {
     private async ValueTask<IAuditOutboxRecoveryPermit> PermitAsync(Guid id, Guid? tenant, Guid? cycle,
@@ -65,4 +65,14 @@ internal sealed class AuditOutboxRecovery(OutboxStateStore state, IServiceScopeF
         var result = await state.CleanupAsync(operationId, rowId, tenantId, failureCycleId, permit, cancellationToken);
         return result.Applied.Length == 1;
     }
+    public async Task<bool> CleanupCompletedAsync(Guid operationId, Guid rowId, Guid tenantId,
+        DateTimeOffset completedBefore, CancellationToken cancellationToken = default)
+    {
+        await using var permit = await PermitAsync(rowId, tenantId, null,
+            AuditOutboxRecoveryAction.Cleanup, cancellationToken);
+        var result = await state.CleanupCompletedAsync(operationId, rowId, tenantId,
+            completedBefore, permit, cancellationToken);
+        return result.Applied.Length == 1;
+    }
+
 }

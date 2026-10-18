@@ -12,8 +12,8 @@ stale-owner outbox transitions, immediate-batch contract documentation, and per-
 reporting for mixed replay/new batches, plus mismatched explicit-event IDs across sinks.
 These are tracked as H1–H3 (including identity prerequisite H3a) in
 [Batch Publishing Hardening](../BatchPublishingHardening.md); H4/H5 cover extraction and load
-qualification. Mixed-batch persistence is fixed; individual duplicate classification remains
-incomplete. Review validation and its limits are maintained in the hardening plan's
+qualification. H3 now preserves individual duplicate classification and validates exact
+internal results; see its implementation/evidence links below. Review validation and its limits are maintained in the hardening plan's
 [Evidence and boundaries](../BatchPublishingHardening.md#evidence-and-boundaries) section.
 
 The hardening plan's [MillWorks precedents and gates](../BatchPublishingHardening.md#millworks-precedents-and-implementation-gates)
@@ -433,3 +433,27 @@ feeds from commit `6f560a1`, after 2,644 regression and 416 final committed-sour
 zero failures, plus package-only consumer verification. Existing packages were preserved.
 This closes local delivery of the reviewed hardening changes; no host update, migration or
 API build/restart occurred. Sequence populated-runtime and three-scan acceptance remain open.
+
+### Batch hardening reconciliation — reviewed 2026-10-18
+
+[Dev.9 release/runtime evidence](../../evidence/audit-pipeline-2026-10/release-dev9/README.md)
+supersedes the historical unshipped/pending-host statements above: H1–H3 are implemented,
+MillWorks resolves and runs dev.9, populated EF startup produced 78 new rows/78 receipts,
+and the focused speech/EF host suite passed all 54 cases, zero failures/skips. Other producer
+and host rollout gates remain open. H1 already extracted persistence into `OutboxStateStore`;
+H4's remaining abstraction/tests and H5 sustained load qualification remain planned.
+
+These results do not close the separate populated sequence-query capture and three completed
+host-scan acceptance gates. Their ownership remains in this plan's existing acceptance checklist;
+this documentation review performed no deployment, database change or new runtime acceptance.
+
+### Producer/host implementation follow-up — 2026-10-18
+
+Dev.10 rebuilt-host acceptance is recorded separately from the earlier dev.9 EF acceptance.
+The [implementation follow-up](../../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md)
+closes the inventoried producer binding/retry-provenance and CommentThreads composition gaps
+in source, integrates tenant/hold-authorized recovery and guarded retention, and implements
+H4's internal interface/orchestration tests. A read-only application SQL check matches all
+18 owning migrations and finds no queued rows/handoffs. Dev.11 delivery, API compilation and
+runtime acceptance are tracked there; source changes are not live-host acceptance. H5 and
+separate populated sequence/host-scan gates remain open.

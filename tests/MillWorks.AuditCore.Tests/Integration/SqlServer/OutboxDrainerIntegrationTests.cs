@@ -84,8 +84,8 @@ public sealed class OutboxDrainerIntegrationTests
             writer,
             NullLogger<TransactionalOutboxSink>.Instance, MillWorks.AuditCore.Tests.Helpers.TestAuditWriteAuthorization.Instance);
 
-        // The mapped context creates the AuditOutbox table. The bare context below does NOT
-        // map AuditOutboxEntity, so the writer takes the raw-SQL escape-hatch path (policy
+        // The mapped context creates the outbox and identity-receipt tables. The bare context below does NOT
+        // map these entities, so the writer takes the raw-SQL escape-hatch path (policy
         // case 2), which is only permitted when an explicit ambient transaction is open.
         await using (var mapped = CreateConsumerContext())
             await mapped.Database.EnsureCreatedAsync();
@@ -110,6 +110,10 @@ public sealed class OutboxDrainerIntegrationTests
                 .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox]")
                 .SingleAsync();
             Assert.That(countBefore, Is.EqualTo(1), "Raw-SQL outbox row should exist before rollback");
+            var receiptsBefore = await consumerCtx.Database
+                .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [dbo].[AuditEnvelopeIdentities]")
+                .SingleAsync();
+            Assert.That(receiptsBefore, Is.EqualTo(1), "Identity receipt must share the consumer transaction");
         }
 
         await transaction.RollbackAsync();
@@ -118,6 +122,10 @@ public sealed class OutboxDrainerIntegrationTests
             .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [dbo].[AuditOutbox]")
             .SingleAsync();
         Assert.That(countAfter, Is.Zero, "Outbox row must be rolled back atomically with consumer transaction");
+        var receiptsAfter = await consumerCtx.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM [dbo].[AuditEnvelopeIdentities]")
+            .SingleAsync();
+        Assert.That(receiptsAfter, Is.Zero, "Identity receipt must roll back with the outbox row");
     }
 
     [Test]
@@ -666,7 +674,7 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
-        services.AddSingleton<OutboxStateStore>();
+        services.AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>());
         services.AddScoped<OutboxHandoffDispatcher>();
 
         if (dlq is not null)
@@ -704,7 +712,7 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
-        services.AddSingleton<OutboxStateStore>();
+        services.AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>());
         services.AddScoped<OutboxHandoffDispatcher>();
 
         return services.BuildServiceProvider();
@@ -736,7 +744,7 @@ public sealed class OutboxDrainerIntegrationTests
         services.AddSingleton<TimeProvider>(TimeProvider.System);
         services.AddScoped<IAuditBatchProcessor, AuditBatchProcessor>();
         services.AddScoped<ImmediateSink>();
-        services.AddSingleton<OutboxStateStore>();
+        services.AddSingleton<OutboxStateStore>().AddSingleton<IOutboxStateStore>(sp => sp.GetRequiredService<OutboxStateStore>());
         services.AddScoped<OutboxHandoffDispatcher>();
 
         return services.BuildServiceProvider();
@@ -789,6 +797,11 @@ public sealed class OutboxDrainerIntegrationTests
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<AuditEnvelopeIdentity>(e =>
+            {
+                e.ToTable("AuditEnvelopeIdentities", "dbo");
+                e.HasKey(x => new { x.Channel, x.LogicalId });
+            });
             modelBuilder.Entity<AuditOutboxOperation>().ToTable("AuditOutboxOperations", "dbo");
             modelBuilder.Entity<AuditOutboxResolution>().ToTable("AuditOutboxResolutions", "dbo");
             modelBuilder.Entity<AuditOutboxFailureHandoff>(e =>

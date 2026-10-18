@@ -964,4 +964,79 @@ public class AuditArchivalServiceCompressionTests
     }
 
     #endregion
+
+    [TestCase("foreign")]
+    [TestCase("unscoped")]
+    [TestCase("malformed")]
+    [TestCase("missing")]
+    public async Task TenantRestoreRejectsUnavailableOwnershipBeforeBlobAccess(string ownership)
+    {
+        var tenant = Guid.NewGuid();
+        var metadata = ownership switch
+        {
+            "foreign" => JsonSerializer.Serialize(new { TenantId = Guid.NewGuid() }),
+            "malformed" => "[]",
+            _ => null
+        };
+        _mockArchiveRecordRepository.Setup(r => r.GetByArchiveIdAsync("target", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ownership == "missing" ? null : new AuditArchiveRecordEntity
+            { ArchiveId = "target", Metadata = metadata, Status = MillWorksArchiveStatus.Completed });
+        var service = CreateService(blobClient: _mockBlobServiceClient.Object);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RestoreTenantEventsAsync(tenant, "target"));
+        _mockBlobServiceClient.VerifyNoOtherCalls();
+        _mockAuditEventRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task TenantArchiveSelectsOnlyOwnedEventsBeforeReviewedCutoff()
+    {
+        var tenant = Guid.NewGuid();
+        var actor = Guid.NewGuid();
+        var before = DateTimeOffset.UtcNow.AddDays(-90);
+        var owned = new AuditEventEntity { TenantId = tenant, UserId = actor, InsertedDate = before.AddDays(-1) };
+        AuditEventEntity[] rows = [owned,
+            new() { TenantId = Guid.NewGuid(), InsertedDate = before.AddDays(-1) },
+            new() { TenantId = null, InsertedDate = before.AddDays(-1) },
+            new() { TenantId = tenant, InsertedDate = before.AddDays(1) }];
+        _mockAuditEventRepository.Setup(r => r.CountAsync(It.IsAny<Expression<Func<AuditEventEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Expression<Func<AuditEventEntity, bool>> p, CancellationToken _) => rows.Count(p.Compile()));
+        _mockAuditEventRepository.Setup(r => r.StreamByDateAsync(It.IsAny<Expression<Func<AuditEventEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .Returns((Expression<Func<AuditEventEntity, bool>> p, CancellationToken ct) => ToAsyncEnumerable(rows.Where(p.Compile()), ct));
+        AuditArchiveRecordEntity? record = null;
+        _mockArchiveRecordRepository.Setup(r => r.AddAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuditArchiveRecordEntity r, CancellationToken _) => { record = r; return r; });
+        _mockArchiveRecordRepository.Setup(r => r.UpdateAsync(It.IsAny<AuditArchiveRecordEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuditArchiveRecordEntity r, CancellationToken _) => r);
+        Expression<Func<AuditEventEntity, bool>>? deletion = null;
+        _mockAuditEventRepository.Setup(r => r.ExecuteDeleteWhereAsync(It.IsAny<Expression<Func<AuditEventEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .Callback((Expression<Func<AuditEventEntity, bool>> p, CancellationToken _) => deletion = p).ReturnsAsync(1);
+        SetupBlobUpload();
+        var result = await CreateService(blobClient: _mockBlobServiceClient.Object).ArchiveTenantEventsAsync(tenant, actor, before);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.EventCount, Is.EqualTo(1));
+        Assert.That(record!.CreatedByUserId, Is.EqualTo(actor.ToString()));
+        Assert.That(record.Metadata, Does.Contain(tenant.ToString()));
+        Assert.That(rows.Where(deletion!.Compile()).Select(e => e.EventId), Is.EqualTo(new[] { owned.EventId }));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task TenantRestoreValidatesEveryEventTenant(bool matching)
+    {
+        var tenant = Guid.NewGuid();
+        var archived = new MillWorks.AuditCore.Services.Mapping.AuditArchivedEvent
+        { EventId = Guid.NewGuid(), TenantId = matching ? tenant : Guid.NewGuid(), UserId = Guid.NewGuid() };
+        var bytes = await CompressString(JsonSerializer.Serialize(new { events = new[] { archived } }, SerializerOptions));
+        _mockArchiveRecordRepository.Setup(r => r.GetByArchiveIdAsync("owned", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AuditArchiveRecordEntity
+            { ArchiveId = "owned", Metadata = JsonSerializer.Serialize(new { TenantId = tenant }), Hash = ComputeHash(bytes), Status = MillWorksArchiveStatus.Completed });
+        SetupBlobDownload(bytes);
+        List<AuditEventEntity> inserted = [];
+        _mockAuditEventRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<AuditEventEntity>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<AuditEventEntity> rows, CancellationToken _) => { inserted.AddRange(rows); return rows; });
+        var result = await CreateService(blobClient: _mockBlobServiceClient.Object).RestoreTenantEventsAsync(tenant, "owned");
+        Assert.That(result.Success, Is.EqualTo(matching));
+        Assert.That(inserted.Count, Is.EqualTo(matching ? 1 : 0));
+        if (matching) Assert.That(inserted[0].TenantId, Is.EqualTo(tenant));
+    }
 }

@@ -232,7 +232,10 @@ public enum SecurityEventType
     /// <summary>
     /// Break-glass enrollment or recovery method changed.
     /// </summary>
-    BreakGlassEnrollmentChanged
+    BreakGlassEnrollmentChanged,
+
+    /// <summary>Payload-free evidence of an explicitly authorized audit administration operation.</summary>
+    AuditAdministration
 }
 
 /// <summary>

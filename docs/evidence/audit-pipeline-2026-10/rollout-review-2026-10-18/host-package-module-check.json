@@ -1,0 +1,27 @@
+[
+  {
+    "module": "MillWorks.AuditCore.Abstractions.dll",
+    "package": "millworks.auditcore.abstractions/1.15.4-dev.9",
+    "matchesPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.AspNetCore.dll",
+    "package": "millworks.auditcore/1.15.4-dev.9",
+    "matchesPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.EntityFramework.dll",
+    "package": "millworks.auditcore.entityframework/1.15.4-dev.9",
+    "matchesPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.Providers.dll",
+    "package": "millworks.auditcore.providers/1.15.4-dev.9",
+    "matchesPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.Services.dll",
+    "package": "millworks.auditcore.services/1.15.4-dev.9",
+    "matchesPackage": true
+  }
+]

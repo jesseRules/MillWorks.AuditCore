@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.IO.Pipelines;
+using System.Linq.Expressions;
+using MillWorks.AuditCore.Services.Administration;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -107,11 +109,24 @@ public sealed class AuditArchivalService(
     /// payload uploaded to blob storage. Integrity verification (if configured) happens
     /// inline as each event is streamed.
     /// </summary>
-    public async Task<AuditArchivalResult> ArchiveAuditEventsAsync(
-        DateTimeOffset archiveBefore,
-        string? archiveId = null,
-        CancellationToken cancellationToken = default)
+    public Task<AuditArchivalResult> ArchiveAuditEventsAsync(
+        DateTimeOffset archiveBefore, string? archiveId = null, CancellationToken cancellationToken = default) =>
+        ArchiveCoreAsync(archiveBefore, archiveId, null, null, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<AuditArchivalResult> ArchiveTenantEventsAsync(Guid tenantId, Guid actorId,
+        DateTimeOffset archiveBefore, CancellationToken cancellationToken = default)
     {
+        if (tenantId == Guid.Empty || actorId == Guid.Empty) throw new ArgumentException("Tenant and actor are required.");
+        return ArchiveCoreAsync(archiveBefore, null, tenantId, actorId, cancellationToken);
+    }
+
+    private async Task<AuditArchivalResult> ArchiveCoreAsync(DateTimeOffset archiveBefore, string? archiveId,
+        Guid? tenantId, Guid? actorId, CancellationToken cancellationToken)
+    {
+        Expression<Func<AuditEventEntity, bool>> selection = tenantId.HasValue
+            ? e => e.InsertedDate < archiveBefore && e.TenantId == tenantId
+            : e => e.InsertedDate < archiveBefore;
         using var activity = AuditActivitySource.Source.StartActivity(
             AuditActivitySource.Operations.AuditArchive,
             ActivityKind.Internal);
@@ -161,14 +176,16 @@ public sealed class AuditArchivalService(
                 ArchiveId = result.ArchiveId,
                 BlobName = $"audit-archive-{result.ArchiveId}.gz",
                 ContainerName = _containerName,
-                Status = MillWorksArchiveStatus.InProgress
+                Status = MillWorksArchiveStatus.InProgress,
+                CreatedByUserId = actorId?.ToString(),
+                Metadata = tenantId.HasValue ? JsonSerializer.Serialize(new { TenantId = tenantId.Value }) : null
             };
 
             await archiveRecordRepository.AddAsync(archiveRecord, cancellationToken);
             await archiveRecordRepository.SaveChangesAsync(cancellationToken);
 
             var eventCount = await auditEventRepository.CountAsync(
-                e => e.InsertedDate < archiveBefore, cancellationToken);
+                selection, cancellationToken);
 
             if (eventCount == 0)
             {
@@ -235,7 +252,7 @@ public sealed class AuditArchivalService(
                         var isFirstForHash = true;
 
                         await foreach (var entity in auditEventRepository.StreamByDateAsync(
-                                               e => e.InsertedDate < archiveBefore, cancellationToken)
+                                               selection, cancellationToken)
                                            .ConfigureAwait(false))
                         {
                             if (entity.EventId == Guid.Empty)
@@ -274,7 +291,7 @@ public sealed class AuditArchivalService(
                             eventsHasher.AppendData(Encoding.UTF8.GetBytes(repr));
                             isFirstForHash = false;
 
-                            var dto = entity.ToDto();
+                            var dto = AuditArchivedEvent.From(entity);
                             JsonSerializer.Serialize(jsonWriter, dto, _streamJsonOptions);
 
                             eventsWritten++;
@@ -365,7 +382,7 @@ public sealed class AuditArchivalService(
                 await archiveRecordRepository.UpdateAsync(archiveRecord, cancellationToken);
 
                 await auditEventRepository.ExecuteDeleteWhereAsync(
-                    e => eventIds.Contains(e.EventId), cancellationToken);
+                    e => eventIds.Contains(e.EventId) && (!tenantId.HasValue || e.TenantId == tenantId), cancellationToken);
 
                 await auditIntegrityRepository.ExecuteDeleteWhereAsync(
                     i => eventIds.Contains(i.EventId), cancellationToken);
@@ -394,7 +411,9 @@ public sealed class AuditArchivalService(
                     EventType = "Audit.Archived",
                     Action = "Added",
                     InsertedDate = DateTimeOffset.UtcNow,
-                    User = "system",
+                    User = actorId?.ToString() ?? "system",
+                    UserId = actorId,
+                    TenantId = tenantId,
                     EntityType = "AuditArchiveRecord",
                     EntityId = result.ArchiveId,
                     AdditionalData = JsonSerializer.Serialize(new
@@ -476,9 +495,19 @@ public sealed class AuditArchivalService(
     /// of archive size. Hash verification is performed incrementally on the compressed
     /// bytes as they are read; a mismatch rolls back the restore transaction.
     /// </summary>
-    public async Task<AuditRestoreResult> RestoreArchivedEventsAsync(
-        string archiveId,
+    public Task<AuditRestoreResult> RestoreArchivedEventsAsync(string archiveId,
+        CancellationToken cancellationToken = default) => RestoreCoreAsync(archiveId, null, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<AuditRestoreResult> RestoreTenantEventsAsync(Guid tenantId, string archiveId,
         CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant is required.", nameof(tenantId));
+        return RestoreCoreAsync(archiveId, tenantId, cancellationToken);
+    }
+
+    private async Task<AuditRestoreResult> RestoreCoreAsync(string archiveId, Guid? tenantId,
+        CancellationToken cancellationToken)
     {
         using var activity = AuditActivitySource.Source.StartActivity(
             AuditActivitySource.Operations.AuditRestore,
@@ -489,6 +518,9 @@ public sealed class AuditArchivalService(
         var result = new AuditRestoreResult { ArchiveId = archiveId };
 
         var archiveRecord = await archiveRecordRepository.GetByArchiveIdAsync(archiveId, cancellationToken);
+
+        if (tenantId.HasValue && (archiveRecord is null || !IsOwnedByTenant(archiveRecord.Metadata, tenantId.Value)))
+            throw new UnauthorizedAccessException("Archive is unavailable in the authorized tenant.");
 
         if (archiveRecord == null)
         {
@@ -535,7 +567,7 @@ public sealed class AuditArchivalService(
                 await using var hashingStream = new HashingReadStream(blobStream, hasher, leaveOpen: true);
                 await using var gzip = new GZipStream(hashingStream, CompressionMode.Decompress, leaveOpen: true);
 
-                restoredEvents = await StreamRestoreAsync(gzip, cancellationToken).ConfigureAwait(false);
+                restoredEvents = await StreamRestoreAsync(gzip, cancellationToken, tenantId).ConfigureAwait(false);
 
                 // Drain any bytes GZipStream didn't consume (normally zero for a well-formed
                 // archive), so the hash covers the entire blob payload.
@@ -597,19 +629,31 @@ public sealed class AuditArchivalService(
         }
     }
 
+    private static bool IsOwnedByTenant(string? metadata, Guid tenantId)
+    {
+        if (metadata is null) return false;
+        try
+        {
+            using var json = JsonDocument.Parse(metadata);
+            return json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("TenantId", out var owner)
+                && owner.ValueKind == JsonValueKind.String && owner.TryGetGuid(out var id) && id == tenantId;
+        }
+        catch (JsonException) { return false; }
+    }
+
     /// <summary>
     /// Streams the decompressed archive JSON through a <see cref="Utf8JsonReader"/> state
     /// machine, materializing one event / integrity record at a time and persisting them
     /// in batches via the repository. The EF change tracker is cleared between batches so
     /// tracked-entity memory stays bounded by <see cref="_restoreBatchSize"/>.
     /// </summary>
-    private async Task<int> StreamRestoreAsync(Stream jsonStream, CancellationToken cancellationToken)
+    private async Task<int> StreamRestoreAsync(Stream jsonStream, CancellationToken cancellationToken, Guid? tenantId = null)
     {
         var pool = ArrayPool<byte>.Shared;
         var buffer = pool.Rent(_restoreParseBufferBytes);
         var eventBatch = new List<AuditEventEntity>(_restoreBatchSize);
         var integrityBatch = new List<AuditIntegrityEntity>(_restoreBatchSize);
-        var pendingEvents = new Queue<AuditEventDto>();
+        var pendingEvents = new Queue<AuditArchivedEvent>();
         var pendingIntegrity = new Queue<AuditIntegrityDto>();
 
         try
@@ -647,7 +691,8 @@ public sealed class AuditArchivalService(
                 while (pendingEvents.Count > 0)
                 {
                     var dto = pendingEvents.Dequeue();
-                    dto.AuditIntegrity = null;
+                    if (tenantId.HasValue && dto.TenantId != tenantId)
+                        throw new AuditAdministrationConflictException("Archive content does not match the authorized tenant.");
                     var entity = dto.ToEntity();
                     entity.AuditIntegrity = null;
                     eventBatch.Add(entity);
@@ -659,9 +704,14 @@ public sealed class AuditArchivalService(
                     }
                 }
 
+                if (tenantId.HasValue && pendingIntegrity.Count > 0 && eventBatch.Count > 0)
+                    await FlushEventBatchAsync(eventBatch, cancellationToken).ConfigureAwait(false);
                 while (pendingIntegrity.Count > 0)
                 {
                     var dto = pendingIntegrity.Dequeue();
+                    if (tenantId.HasValue && !await auditEventRepository.ExistsAsync(
+                            e => e.EventId == dto.EventId && e.TenantId == tenantId, cancellationToken))
+                        throw new AuditAdministrationConflictException("Archive integrity evidence has no event in the authorized tenant.");
                     dto.AuditEvent = null;
                     var entity = dto.ToEntity();
                     entity.AuditEvent = null;
@@ -791,7 +841,7 @@ public sealed class AuditArchivalService(
         bool isFinalBlock,
         ref JsonReaderState state,
         ref ParseContext ctx,
-        Queue<AuditEventDto> pendingEvents,
+        Queue<AuditArchivedEvent> pendingEvents,
         Queue<AuditIntegrityDto> pendingIntegrity,
         out int consumed)
     {
@@ -833,7 +883,7 @@ public sealed class AuditArchivalService(
                         }
 
                         var objectBytes = span.Slice(objectStart, (int)reader.BytesConsumed - objectStart);
-                        var dto = JsonSerializer.Deserialize<AuditEventDto>(objectBytes);
+                        var dto = JsonSerializer.Deserialize<AuditArchivedEvent>(objectBytes);
                         if (dto is not null)
                         {
                             pendingEvents.Enqueue(dto);

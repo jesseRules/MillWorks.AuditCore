@@ -1,0 +1,39 @@
+Test run for /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed GetAuditEvents_ForwardsPaginationAndFiltersToSearchService [46 ms]
+  Error Message:
+   Moq.MockException : 
+Expected invocation on the mock once, but was 0 times: service => service.SearchAuditEventsAsync(It.Is<AuditSearchRequest>(request => (((((request.SearchTerm == "login" && request.EventType == "Security.Login") && request.EntityType == "User") && request.User == "alice") && request.EndDate.Value.TimeOfDay == TimeSpan.FromTicks(863999999999)) && request.Offset == 50) && request.Limit == 25), CancellationToken)
+
+Performed invocations:
+
+   Mock<IAuditSearchService:16> (service):
+
+      IAuditSearchService.SearchAuditEventsAsync(AuditSearchRequest, CancellationToken)
+
+  IsVerificationError: True
+  Stack Trace:
+     at Moq.Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage) in /_/src/Moq/Mock.cs:line 332
+   at Moq.Mock`1.Verify[TResult](Expression`1 expression, Func`1 times) in /_/src/Moq/Mock`1.cs:line 847
+   at MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests.GetAuditEvents_ForwardsPaginationAndFiltersToSearchService() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/ControllerTests/Audit/AuditChainStatusTests.cs:line 162
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Moq.Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage) in /_/src/Moq/Mock.cs:line 332
+   at Moq.Mock`1.Verify[TResult](Expression`1 expression, Func`1 times) in /_/src/Moq/Mock`1.cs:line 847
+   at MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests.GetAuditEvents_ForwardsPaginationAndFiltersToSearchService() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/ControllerTests/Audit/AuditChainStatusTests.cs:line 162
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.<>c__DisplayClass1_0.<Execute>b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+
+Results File: /tmp/auditcore-dev10-host-rebuilt/dev10-host-administration.trx
+
+Failed!  - Failed:     1, Passed:    19, Skipped:     0, Total:    20, Duration: 4 s - MillWorks.Api.Tests.dll (net10.0)

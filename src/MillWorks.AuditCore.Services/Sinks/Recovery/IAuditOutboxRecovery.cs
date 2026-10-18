@@ -37,4 +37,10 @@ public interface IAuditOutboxRecovery
     /// window and host approval. Immutable metadata receipts/resolution evidence are retained.</summary>
     Task<bool> CleanupAsync(Guid operationId, Guid rowId, Guid? tenantId, Guid failureCycleId,
         CancellationToken cancellationToken = default);
+    /// <summary>Remove an ordinary completed source only with host tenant/hold authority,
+    /// retained identity evidence and expired commit-verification windows. Failed/replayed
+    /// sources require the failure-cycle cleanup operation instead.</summary>
+    Task<bool> CleanupCompletedAsync(Guid operationId, Guid rowId, Guid tenantId,
+        DateTimeOffset completedBefore, CancellationToken cancellationToken = default);
+
 }

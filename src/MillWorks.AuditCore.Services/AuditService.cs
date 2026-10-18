@@ -1,4 +1,3 @@
-﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using MillWorks.AuditCore.Abstractions.Dto;
 using MillWorks.AuditCore.Abstractions.Requests;
@@ -545,34 +544,8 @@ public sealed class AuditService(
     /// Safely parses JsonData without throwing on malformed content.
     /// Returns an error response for parse failures instead of propagating exceptions.
     /// </summary>
-    private AuditEventJsonDataParsedResponse? TryParseJsonData(string? jsonData, Guid? eventId)
-    {
-        if (string.IsNullOrEmpty(jsonData))
-            return null;
-
-        try
-        {
-            return JsonSerializer.Deserialize<AuditEventJsonDataParsedResponse>(jsonData);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Malformed JSON data for event {EventId}", eventId);
-            return new AuditEventJsonDataParsedResponse
-            {
-                EventId = eventId,
-                ErrorMessage = "Failed to parse audit data: Malformed JSON"
-            };
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unexpected error parsing JSON for event {EventId}", eventId);
-            return new AuditEventJsonDataParsedResponse
-            {
-                EventId = eventId,
-                ErrorMessage = "Failed to parse audit data: Parse error"
-            };
-        }
-    }
+    private AuditEventJsonDataParsedResponse? TryParseJsonData(string? jsonData, Guid? eventId) =>
+        new AuditEventJsonReader(logger).Read(new AuditEventDto { JsonData = jsonData, EventId = eventId });
 
     /// <summary>
     /// Helper method to combine LINQ expressions with AND logic

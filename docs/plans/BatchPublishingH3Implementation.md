@@ -3,7 +3,11 @@
 **Status, 2026-10-16:** Implemented and verified: [2,442 broad and 155 focused passes](../evidence/audit-pipeline-2026-10/h3-outcomes-2026-10-16/README.md), zero failures.
 H2/H3a/H3 are [published locally as dev.8](../evidence/audit-pipeline-2026-10/release-dev8/README.md)
 from commit `6f560a1`; release verification passed 2,644 regressions and 416 final checks, zero failures.
-H4/H5, host rollout and public sink result slice G remain separate.
+Dev.9 subsequently passed the EF startup and focused speech/EF host-test gate;
+[release evidence](../evidence/audit-pipeline-2026-10/release-dev9/README.md) records 78 new
+rows/78 receipts and 54 passing host tests. Other producer/host rollout gates remain open.
+H4 is partly delivered through H1's `OutboxStateStore`; its abstraction/test follow-up, H5
+load qualification and deferred public sink result slice G remain separate.
 
 **Post-review verification:** Both reproduced concurrency findings are resolved. The new SQL
 cases changed from 10 failures/four passes to all 14 passing; wider verification records
@@ -89,3 +93,14 @@ safe replay; malformed logger/writer/processor contracts with no false transitio
 and bounded contract escalation. Real SQL mixed-batch races run with RCSI off/on. Commands,
 results, skip reasons and source hashes are retained in the evidence register above. No schema
 migration, package overwrite, host producer update or API restart is part of H3.
+
+### Producer/host implementation follow-up — 2026-10-18
+
+Dev.10 rebuilt-host acceptance is recorded separately from the earlier dev.9 EF acceptance.
+The [implementation follow-up](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md)
+closes the inventoried producer binding/retry-provenance and CommentThreads composition gaps
+in source, integrates tenant/hold-authorized recovery and guarded retention, and implements
+H4's internal interface/orchestration tests. A read-only application SQL check matches all
+18 owning migrations and finds no queued rows/handoffs. Dev.11 delivery, API compilation and
+runtime acceptance are tracked there; source changes are not live-host acceptance. H5 and
+separate populated sequence/host-scan gates remain open.

@@ -1,0 +1,27 @@
+{
+  "testArtifactSha256": "020f88bd33a0275daab1eeb33fcfd63e6866fe2d897eec043c3c834e701648a9",
+  "fixtureCounts": {
+    "MillWorks.Api.Bridge.Tests.Audit.ClientPortalAuditBridgeTests": 5,
+    "MillWorks.Api.Bridge.Tests.Ai.MlDatasetSnapshotAuditBridgeTests": 11,
+    "MillWorks.Api.Bridge.Tests.Compliance.ComplianceEvidencePackageBridgeTests": 2
+  },
+  "counters": {
+    "total": "18",
+    "executed": "18",
+    "passed": "18",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "reviewChangedHostSource": false
+}

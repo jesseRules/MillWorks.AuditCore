@@ -1,0 +1,84 @@
+{
+  "observedUtc": "2026-10-18T19:14:20.442638+00:00",
+  "processes": [
+    "60985 Sun Oct 18 14:11:42 2026     /Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.Api"
+  ],
+  "artifacts": [
+    {
+      "project": "MillWorks.Api",
+      "depsModifiedUtc": "2026-10-18T19:02:51.972934+00:00",
+      "auditPackages": [
+        "MillWorks.AuditCore/1.15.4-dev.10",
+        "MillWorks.AuditCore.Abstractions/1.15.4-dev.10",
+        "MillWorks.AuditCore.EntityFramework/1.15.4-dev.10",
+        "MillWorks.AuditCore.Providers/1.15.4-dev.10",
+        "MillWorks.AuditCore.Services/1.15.4-dev.10"
+      ],
+      "backgroundJobsPackages": [
+        "MillWorks.BackgroundJobs/2.0.14-dev.20",
+        "MillWorks.BackgroundJobs.AspNetCore/2.0.14-dev.20",
+        "MillWorks.BackgroundJobs.EntityFramework/2.0.14-dev.20"
+      ],
+      "assemblySha256": "6786cadabcd14308a025b113fd7cb7f8ea24517b681f8e1784f42bc4f6353488",
+      "assemblyModifiedUtc": "2026-10-18T19:02:50.410862+00:00"
+    },
+    {
+      "project": "MillWorks.Api.Tests",
+      "depsModifiedUtc": "2026-10-18T19:03:44.181270+00:00",
+      "auditPackages": [
+        "MillWorks.AuditCore/1.15.4-dev.10",
+        "MillWorks.AuditCore.Abstractions/1.15.4-dev.10",
+        "MillWorks.AuditCore.EntityFramework/1.15.4-dev.10",
+        "MillWorks.AuditCore.Providers/1.15.4-dev.10",
+        "MillWorks.AuditCore.Services/1.15.4-dev.10"
+      ],
+      "backgroundJobsPackages": [
+        "MillWorks.BackgroundJobs/2.0.14-dev.20",
+        "MillWorks.BackgroundJobs.AspNetCore/2.0.14-dev.20",
+        "MillWorks.BackgroundJobs.EntityFramework/2.0.14-dev.20"
+      ],
+      "assemblySha256": "c61357ff4d18c51dea77a16669ee8392e4acc8b67691b4fd1eb35827c226187d",
+      "assemblyModifiedUtc": "2026-10-18T19:03:43.027555+00:00"
+    }
+  ],
+  "apiModules": [
+    {
+      "name": "MillWorks.AuditCore.Abstractions.dll",
+      "sha256": "ab556d863d758135b039e356e7fef5e9de5de1728b3e6b07b17b79572f063294",
+      "matchesPublishedDev10": true
+    },
+    {
+      "name": "MillWorks.AuditCore.AspNetCore.dll",
+      "sha256": "8ea8ea4b7e513f337ce3970dec60246631f165b70bf4ce03c603bfdadec73bda",
+      "matchesPublishedDev10": true
+    },
+    {
+      "name": "MillWorks.AuditCore.EntityFramework.dll",
+      "sha256": "3a095a847328b77b82efa13e4d9632b233d4abbbc912c03a7a84b35db1cf25d5",
+      "matchesPublishedDev10": true
+    },
+    {
+      "name": "MillWorks.AuditCore.Providers.dll",
+      "sha256": "673802b027e3e4a92db8a181f716ff2b343fcce17356d288f693b1f67711d8f9",
+      "matchesPublishedDev10": true
+    },
+    {
+      "name": "MillWorks.AuditCore.Services.dll",
+      "sha256": "e9e58be0a35347c3989730f9b0af9a1f53c8219ad64c15f402327e20a07ebe9d",
+      "matchesPublishedDev10": true
+    }
+  ],
+  "mappedModules": [
+    {
+      "pid": 60985,
+      "lsofExitCode": 0,
+      "modules": [
+        "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.Api.dll",
+        "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.Abstractions.dll",
+        "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.AspNetCore.dll",
+        "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll",
+        "/Users/jesse/RiderProjects/MillWorks/MillWorks.Api/bin/Debug/net10.0/MillWorks.AuditCore.Services.dll"
+      ]
+    }
+  ]
+}

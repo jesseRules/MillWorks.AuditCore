@@ -1,10 +1,32 @@
 # Batch Publishing Hardening
 
-**Status:** H1 delivered in dev.7; reviewed H2/H3a/H3 changes are verified and published to both local feeds as dev.8. The subsequent [dev.9 local release](../evidence/audit-pipeline-2026-10/release-dev9/README.md) fixes EF mutation identity and restores exact packages in MillWorks. MillWorks now runs dev.9; populated EF startup acceptance passed (78 new rows/78 receipts). All 54 focused host tests pass, zero failures/skips; the dev.9 EF mutation rollout gate is complete. Other producer rollout remains open; H4/H5 remain planned; G deferred.
-**Date:** 2026-10-16
+**Status:** H1–H3 are implemented; dev.10 rebuilt-host acceptance passed. Producer/host gap fixes and H4's internal interface/orchestration tests are now implemented in source. Library verification passed; dev.11 delivery and new API compilation/acceptance are tracked in the [implementation evidence](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md). The read-only application SQL check matches all 18 owning migrations and finds no queued rows/handoffs. Active drainer/copy acceptance remains open; H5 is planned and G deferred.
+**Date:** 2026-10-18 (code/evidence review)
 **Origin:** Review of [Batch Publishing Redesign](BatchPublishingRedesign.md)
 **Scope:** Outbox ownership enforcement, sink contract accuracy, per-envelope outcomes,
 internal repository extraction, and qualification of remaining performance claims.
+
+## Code review reconciliation — 2026-10-18
+
+Source inspection confirms H1–H3 (including H3a) are implemented. Runtime statements here
+come from retained release evidence; this review did not rebuild/restart a host or rerun
+historical acceptance suites. The subsequent October 18 producer/host review below ran
+118 selected compiled tests without rebuilding; those results do not close runtime gates.
+
+| Slice | Current code evidence | Remaining gate |
+|-------|-----------------------|----------------|
+| H1 | `Recovery/OutboxStateStore*.cs` owns claim/apply/recovery, token guards, operation receipts, failure handoffs and resolutions; `AuditOutboxDrainer` delegates mutations | Every owning database/drainer, recovery authorization, cleanup/holds and external-copy coordination still require host-specific acceptance |
+| H2 | `ImmediateSink` and `TransactionalOutboxSink` validate batches; immediate writers are independent and outbox return means transactional acceptance | Confirm each consumer's transaction/error/retry handling when onboarding |
+| H3a | `AuditEventBatchWriter` persists ExplicitEventId; `Identity/AuditEnvelopeContent` and the identity ledger verify content; `AuditMutationIdentity` captures/restores EF mutation tokens | Dev.9 EF startup and 54 focused host tests passed; explicit-producer inventory, queue/data disposition, authorization and consumer receipt mapping remain open outside that bounded acceptance |
+| H3 | `BatchAuditResult.EventOutcomes`, `AuditEventBatchWriter.ValidateResult`, processor and drainer checks retain exact outcomes and reject malformed results | Custom logger/outbox capability conformance and remaining producer/host activation |
+| H4 | Internal `IOutboxStateStore` registered over the existing store; drainer/recovery/handoff orchestration consume it | Implemented with isolated orchestration and preserved provider tests; queue-depth sampling remains a separate read-only concern |
+| H5 | Functional SQL/provider tests and component performance tests exist | No retained 30-minute end-to-end batch qualification satisfies the H5 checklist |
+
+Source paths in this table are relative to `src/MillWorks.AuditCore.Services/Sinks/`, except
+`BatchAuditResult` (Abstractions/Models) and `AuditMutationIdentity` (EntityFramework/Interceptors).
+The state store is registered as a singleton in `MillWorksAuditBuilder`; each operation opens
+its own scope/context. H4 must preserve that lifetime isolation, rather than retain a DbContext
+in the singleton.
 
 ## Evidence and boundaries
 
@@ -45,15 +67,15 @@ or a generic outbox engine.
 - H1 decisions and schema are recorded in the [implementation contract](BatchPublishingH1Implementation.md).
   Operation receipts, uncertain-commit verification, handoff cycles, authorization and retention
   are implemented and locally tested; host rollout gates remain open.
-- H3a: conflict rejection is confirmed by Jesse on 2026-10-16. Define versioned canonical
-  fingerprint fields, storage, normalization, and redaction/enrichment timing; exclude
-  EnvelopeId and transport retry metadata. Do not retain a first-committed-wins branch that
-  reports changed content as a duplicate.
+- H3a: conflict rejection was confirmed by Jesse on 2026-10-16. Versioned canonical
+  fingerprints, storage, normalization and enrichment timing are implemented in
+  `AuditEnvelopeContent` and `AuditIdentityLedger`; EnvelopeId and transport retry metadata
+  are excluded. Changed content conflicts rather than reporting a duplicate.
 - H3a: Jesse confirmed global EventId uniqueness on 2026-10-16, preserving existing keys.
   Canonical comparison, authorization and schema are specified in the
   [implementation contract](BatchPublishingH3aImplementation.md). SQL verification is complete; host rollout remains open.
-- H3: choose the internal per-input outcome shape and enforce its cardinality independently
-  of deferred public G, as required below.
+- H3: `BatchAuditResult.EventOutcomes` and writer/processor validation now enforce exact
+  internal outcomes independently of deferred public G; see the implemented contract below.
 
 ## Delivery order
 
@@ -61,9 +83,9 @@ or a generic outbox engine.
 |-------|----------|------------|--------|-------------|
 | H1 | High | None | Implemented in AuditCore; rollout gates open | Guarded transitions, retained failure authority, verified commits, and retryable DLQ projection |
 | H2 | Medium | None | Verified and published locally in dev.8; host rollout pending | Accurate immediate/outbox batch contract and failure examples |
-| H3a | Medium | None | Explicit identity shipped in dev.8; EF mutation correction shipped in dev.9; host acceptance pending | One logical explicit-event identity across both sink modes |
+| H3a | Medium | None | Implemented; dev.9 EF host acceptance passed; other producer/host gates open | One logical explicit-event identity across both sink modes |
 | H3 | Medium | H3a | Verified and published locally in dev.8; host rollout pending | Accurate duplicate/new-event outcomes and metrics |
-| H4 | Refactor | H1 | Planned; independently deferrable | Internal outbox repository with ownership-aware operations |
+| H4 | Refactor | H1 | Implemented with preserved provider coverage | Existing `OutboxStateStore`; decide and test the remaining orchestration seam |
 | H5 | Qualification | H1–H3 (including H3a); sequence acceptance tracked separately | Planned | Reproducible throughput, latency, memory, and reconciliation evidence |
 | G | Optional API | H1–H3 (including H3a) and demonstrated consumer need | Deferred | Public per-envelope result contract, if justified |
 
@@ -325,7 +347,8 @@ boundaries, and ten explicitly typed MillWorks API producers missing ExplicitEve
 bounded scan. Global scope is confirmed. The [implementation contract](BatchPublishingH3aImplementation.md)
 records the source changes and host gates. [Retained verification](../evidence/audit-pipeline-2026-10/h3a-verification-2026-10-16/README.md)
 records 178 identity/ownership passes and 114 final identity passes, zero failures. Library
-verification is complete; host producer/data inventory, package release and activation remain open.
+verification and local package release are complete. The October 18 inventory below
+supersedes the ten-missing-ID count; producer integration and live data/activation gates remain open.
 
 
 The outbox deduplicates explicit events by `ExplicitEventId`, but `AuditEventBatchWriter`
@@ -383,8 +406,8 @@ identity determines the winner. Preserve every EnvelopeId in outcome correlation
       both IDs; new logical EventIds remain distinct even when event content matches.
 - [x] Missing/empty ExplicitEventId is rejected before persistence in both modes; repository
       fixtures supply it. Entity identity and its comparison/repair contract are specified.
-- [ ] Before host activation, update all host producers (including the ten known missing-ID
-      initializers), inventory target-typed/external producers and queued/persisted data, wire
+- [ ] Before each remaining host/producer activation, reconcile the historical ten missing-ID
+      initializers, inventory target-typed/external producers and queued/persisted data, wire
       trusted authorization and consumer receipt mapping, and apply owning migrations.
       Preserve retry identity/time; no reset or historical proof backfill is authorized.
 - [x] Mixed/repeated logical IDs within one batch map deterministic per-input outcomes back
@@ -455,16 +478,18 @@ H2/H3a/H3 are now published locally as dev.8; host rollout and H4/H5 remain sepa
 
 ## H4 — Extract ownership-aware outbox persistence
 
-Move claim, guarded complete/retry/fail, and recovery operations behind an internal repository
-registered with the appropriate DbContext lifetime. Pass claim metadata to every mutation;
-row-ID-only APIs from the original sketch are insufficient. Keep batch writing/outcome
-classification in `IAuditBatchProcessor`, and scheduling, deserialization, and orchestration
-in the drainer. Decide separately whether queue-depth sampling belongs in the repository.
+**Status:** Implemented on 2026-10-18. The internal `IOutboxStateStore` is registered over
+`OutboxStateStore`; the drainer, recovery facade and handoff dispatcher use the interface.
+Every persistence operation retains its fresh scope/context, operation receipt and ownership guards.
 
-- [ ] Preserve H1 provider tests and H2/H3 behavior across extraction.
-- [ ] Drainer orchestration can be tested through the repository seam; repository tests use
-      real database transitions and prove stale-claim rejection.
-- [ ] No public API change; no line-count gate. The original ~100-line target is aspirational.
+- [x] Keep the existing guarded state store and SQLite/SQL Server transition tests.
+- [x] Register the small internal interface over the same singleton implementation.
+- [x] Verify orchestration through a mock store: original claim tokens, malformed outcomes,
+      cancellation before apply and lost ownership.
+- [x] Keep queue-depth sampling outside the mutation interface: it is read-only telemetry,
+      already uses a separate scope, and has separate aggregate/query coverage.
+- [x] Preserve public sink contracts. The separately required guarded completed-row cleanup
+      adds `CleanupCompletedAsync` to the public recovery facade; it is not part of H4's seam.
 
 ## H5 — Qualify performance claims
 
@@ -525,7 +550,8 @@ Before coding, record the exact files/migrations, SQL transition-marker/result s
 canonical fingerprint and identity scope, replay/skip authorization contract, projection
 suppression races, retry bounds/settings, shared-package adoption decision, and cleanup
 windows. H1 choices are now implemented and recorded in its implementation contract/evidence. H3a/H3
-canonical identity and outcome-contract choices remain design work for those slices.
+canonical identity and outcome-contract choices are also implemented in their linked contracts;
+remaining decisions concern host onboarding and the independently deferred H4/H5/G work.
 Coordinate [H1 retention](../../../MillWorks/Plan/DataLifecycle/03-Audit-Retention-And-Volume.md#terminal-outbox-recovery-coordination-reviewed-2026-10-16)
 and [Item10 consumer proof](../../../MillWorks/MillWorks.Compliance/Plans/Item10-AuditTransactionalOutbox.md#auditcore-hardening-dependencies-reviewed-2026-10-16)
 before closing the relevant slices.
@@ -562,3 +588,45 @@ consumer validation and hash-verified delivery of all five packages/symbols to b
 feeds. No failures; 679 existing feed artifacts remained unchanged. This closes local package
 delivery for H2/H3a/H3. Host producer/authorization/receipt/queue-data preparation and activation
 remain open, as do H4/H5 and optional G. No API build/restart or runtime acceptance occurred.
+
+## Current release and next gates — reviewed 2026-10-18
+
+The dev.8 closeout above is historical. [Dev.9 evidence](../evidence/audit-pipeline-2026-10/release-dev9/README.md)
+records 2,664 Release passes, 27 mutation-focused passes and four targeted SQL cases, exact
+package resolution in MillWorks, and subsequent rebuilt-host acceptance on October 17:
+78 new startup audit rows/78 identity receipts and 54 focused host tests with zero failures/skips.
+This closes the EF mutation gate only; it does not establish all-producer or all-drainer rollout.
+
+1. Dev.11 publication and host restore are complete; [release evidence](../evidence/audit-pipeline-2026-10/release-dev11/README.md).
+2. Build the API and its two audit test projects once explicitly authorized, then execute
+   producer, recovery/retention, HTTP-boundary and CommentThreads composition checks.
+3. After a user-managed rebuild/restart, verify real producer observations/receipts, active
+   drainer modules and recovery/hold behavior; reconcile externally copied data separately.
+4. Define H5 workload/budgets and retain sustained reconciliation evidence before claiming
+   throughput or end-to-end latency targets. H4 implementation is complete.
+
+## Producer and host gate review — 2026-10-18
+
+[Evidence and per-producer matrix](../evidence/audit-pipeline-2026-10/rollout-review-2026-10-18/README.md)
+record the completed source/consumer inventory, precise failures, source hashes, a repeatable
+read-only database probe and 100 API plus 18 bridge-test passes (zero failures/skips).
+No application source/configuration, database, package or process was changed by this review.
+
+- [x] Inventory current MillWorks producers, target-typed/forwarding paths and concrete local
+      checkout consumers; distinguish direct logger calls from the envelope sink protocol.
+- [x] Inspect consumer receipt mappings, authorization routing, recovery registration and
+      retention source; verify existing compiled producer/policy fixtures.
+- [ ] Close the producer binding, retry provenance and CommentThreads composition gaps above.
+- [ ] Integrate tenant/hold-authorized operator recovery and safe source/projection cleanup;
+      the current host sweep still directly selects Failed rows by age.
+- [ ] Verify actual owning migration histories, queued versions, active drainers and copied-data
+      disposition against the running application. Local SQL on port 1433 was unavailable; the
+      disposable test instance on 1435 supplies no application acceptance evidence.
+
+## Implementation update — 2026-10-18
+
+The preceding inventory is historical. [Implementation evidence](../evidence/audit-pipeline-2026-10/rollout-implementation-2026-10-18/README.md)
+records producer bindings/retry provenance, CommentThreads composition, operator and retention
+authorization, guarded cleanup and H4. These source gaps are closed; host compilation/runtime
+acceptance remains open. Application SQL is now reachable: 18 applied/source migrations match,
+with no queued rows or handoffs at the recorded read-only observation. No migration was applied.

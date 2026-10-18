@@ -1,0 +1,57 @@
+{
+  "recordedUtc": "2026-10-18T20:20:49.931119+00:00",
+  "tests": {
+    "total": "2779",
+    "executed": "2747",
+    "passed": "2747",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "consumerCommands": [
+    [
+      "dotnet",
+      "restore",
+      "/tmp/auditcore-dev11-consumer/Smoke.csproj",
+      "--configfile",
+      "/tmp/auditcore-dev11-consumer/NuGet.Config",
+      "--packages",
+      "/tmp/auditcore-dev11-consumer/packages",
+      "-p:NuGetAudit=false"
+    ],
+    [
+      "dotnet",
+      "build",
+      "/tmp/auditcore-dev11-consumer/Smoke.csproj",
+      "--configuration",
+      "Release",
+      "--no-restore",
+      "-m:1",
+      "-p:BuildInParallel=false",
+      "-p:UseSharedCompilation=false"
+    ],
+    [
+      "dotnet",
+      "/tmp/auditcore-dev11-consumer/bin/Release/net10.0/Smoke.dll"
+    ]
+  ],
+  "auditPackages": [
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.11",
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.11",
+    "MillWorks.AuditCore.Providers/1.15.4-dev.11",
+    "MillWorks.AuditCore.Services/1.15.4-dev.11",
+    "MillWorks.AuditCore/1.15.4-dev.11"
+  ],
+  "cleanupCompletedApiAvailable": true,
+  "databaseOpenedByConsumer": false
+}

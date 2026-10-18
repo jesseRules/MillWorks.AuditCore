@@ -1,0 +1,115 @@
+{
+  "scope": "Local checkout project references; historical evidence projects included and separately identified by path. Does not establish running or supported external deployments.",
+  "projectsByCheckout": {
+    "MillWorks.AuditCore": [
+      "MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj",
+      "MillWorks.AuditCore/src/MillWorks.AuditCore.Providers/MillWorks.AuditCore.Providers.csproj",
+      "MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+      "MillWorks.AuditCore/src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+      "MillWorks.AuditCore/src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+      "MillWorks.AuditCore/samples/MillWorks.AuditCore.SampleProject/MillWorks.AuditCore.SampleProject.csproj",
+      "MillWorks.AuditCore/docs/evidence/audit-pipeline-2026-10/release-dev9/consumer-Smoke.csproj",
+      "MillWorks.AuditCore/docs/evidence/audit-pipeline-2026-10/release-dev8/consumer-Smoke.csproj",
+      "MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj"
+    ],
+    "Aced": [
+      "Aced/Aced.ApiService/Aced.ApiService.csproj"
+    ],
+    "MillWorks": [
+      "MillWorks/MillWorks.Ai/MillWorks.Ai.csproj",
+      "MillWorks/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks/MillWorks.Chat/MillWorks.Chat.csproj",
+      "MillWorks/MillWorks.Identity/MillWorks.Identity.csproj",
+      "MillWorks/tools/diagram-share-policy-tests/DiagramSharePolicy.Tests.csproj",
+      "MillWorks/tools/diagram-source-audit-tests/DiagramSourceAudit.Tests.csproj",
+      "MillWorks/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks/MillWorks.Payments/MillWorks.Payments.csproj",
+      "MillWorks/tools/keyed-lock-tests/KeyedLock.Tests.csproj",
+      "MillWorks/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+      "MillWorks/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+      "MillWorks/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks/MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+      "MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+      "MillWorks/MillWorks.Notification/MillWorks.Notification.csproj",
+      "MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks/MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+      "MillWorks/MillWorks.Irb/MillWorks.Irb.csproj",
+      "MillWorks/MillWorks.Compliance/MillWorks.Compliance.csproj",
+      "MillWorks/MillWorks.Grant/MillWorks.Grant.csproj",
+      "MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+      "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-13-Exact-Target-Capture/TargetCapture.Tests.csproj",
+      "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-14-Recorded-Cohort-Scoring/RecordedCohortEvaluation.Tests.csproj",
+      "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-14-Baseline-Discovery/ExploratoryBaseline.Tests.csproj",
+      "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-13-Frozen-Witness-Proof-And-Cohort-Evaluation/RecordedCohortEvaluation.Tests.csproj"
+    ],
+    "IExcel": [
+      "IExcel/IExcel.Api/IExcel.Api.csproj"
+    ],
+    "MillWorks.BlackBox": [
+      "MillWorks.BlackBox/MillWorks.BlackBox.Worker/MillWorks.BlackBox.Worker.csproj"
+    ],
+    "AceDs": [
+      "AceDs/AceDs.Fhir/AceDs.Fhir.csproj",
+      "AceDs/AceDs.Bayesian/AceDs.Bayesian.csproj",
+      "AceDs/AceDs.ApiService/AceDs.ApiService.csproj"
+    ],
+    "IexcelApps": [
+      "IexcelApps/IexcelApps.ApiService/IexcelApps.ApiService.csproj"
+    ],
+    "MillWorks-SurveyCutover": [
+      "MillWorks-SurveyCutover/MillWorks.Ai/MillWorks.Ai.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Chat/MillWorks.Chat.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Identity/MillWorks.Identity.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks-SurveyCutover/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks-SurveyCutover/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Payments/MillWorks.Payments.csproj",
+      "MillWorks-SurveyCutover/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+      "MillWorks-SurveyCutover/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Notification/MillWorks.Notification.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Irb/MillWorks.Irb.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Compliance/MillWorks.Compliance.csproj",
+      "MillWorks-SurveyCutover/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Grant/MillWorks.Grant.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+      "MillWorks-SurveyCutover/MillWorks.Api/MillWorks.Api.csproj"
+    ],
+    "MillWorks.BackgroundJobs": [
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/prior-MillWorks.Api.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj"
+    ],
+    "MillWorksProject": [
+      "MillWorksProject/MillWorksProject/MillWorksProject.csproj"
+    ]
+  }
+}

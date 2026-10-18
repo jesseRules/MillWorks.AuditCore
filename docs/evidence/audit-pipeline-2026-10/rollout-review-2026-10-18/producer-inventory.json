@@ -1,0 +1,1396 @@
+{
+  "observedUtc": "2026-10-18T16:30:40.405642+00:00",
+  "scope": "Production MillWorks C# references and literal initializer scan, plus actual XML project references in local sibling checkouts. Source inventory is not runtime or deployment acceptance.",
+  "method": "rg file inventory; all production AuditEnvelope-bearing files manually reviewed for aliases, target-typed new, factory/forwarder calls and with expressions; lexical initializer fields below are not semantic authorization proof.",
+  "productionFilesScanned": 32796,
+  "auditEnvelopeFiles": [
+    {
+      "path": "MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs",
+      "sha256": "167bc3dcd9445ea70670c6c2f4eaa55bbc5f56455cbe2313f9790b77dbfe615b"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Compliance/ComplianceEvidencePackageBridge.cs",
+      "sha256": "95248c4696b34332e302ff6060e2eb52239d8d1216da661d99ff59ad201e527a"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Document/DocumentDlpAuditSinkBridge.cs",
+      "sha256": "7749dbbc80c0b85c338309f8bb6c7b14d71923d2db5b13a78308f20c25244bde"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+      "sha256": "2ccd845e1c5108ac7eed0b658ef23cb7676998021405490fcd41dba595130255"
+    },
+    {
+      "path": "MillWorks.Api/Infrastructure/Audit/MlDatasetSnapshotAuditAuthorization.cs",
+      "sha256": "478caee27bbb44ab12e2e790ce609af6ad7475397310fb655a0ed99b3d5b9698"
+    },
+    {
+      "path": "MillWorks.Api/Infrastructure/Audit/BreachEvidenceAuditAuthorization.cs",
+      "sha256": "e7d54fdfd4e636c875390c809798bc06c297c1792d41a38e27b9fa5373c94274"
+    },
+    {
+      "path": "MillWorks.Api/Infrastructure/Audit/MillWorksAuditWriteAuthorization.cs",
+      "sha256": "b95baeeef48eabfba55c3d1721a82ed9f7b9fec41c8ba449724d1dbf649f4d3d"
+    },
+    {
+      "path": "MillWorks.Api/Infrastructure/Audit/SpeechSessionAuditAuthorization.cs",
+      "sha256": "89d847f1e52cc3d26a611dc6c8e6f9aff0df506262bab781db2befd74528e804"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "sha256": "e9d5d66f1054d5521c0b0570772da84af21cb5a6b7a4f02b65e653a70da004df"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelGovernanceAuditBridge.cs",
+      "sha256": "bbf0eaced80c93823ef690fac754730d8e6bf227d426a4e56a09aa7538189b5e"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelWorkbenchAuditBridge.cs",
+      "sha256": "46c8b284f1d72057dc4912100f1dc2f871744ac29e93a04f602a024fdf0a8189"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/MlDatasetSnapshotAuditBridge.cs",
+      "sha256": "3093a08ae5c80f7da97c5fb77267da8f879bf266ed48857b1a5fcbfc9883ab4e"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/VisitorManagement/VisitorProtectedReferenceService.cs",
+      "sha256": "f6a5cb1ff7583c96a7918c15918b824301afee6b1ab1c78d7c2d5bda2c2cb441"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelTrainingOperationsAdminBridge.cs",
+      "sha256": "61723ee2fcb125b47c9ac1c10d9cf35d7312b8bf723d1b0cbd85aa88083acb49"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelArtifactRetentionAuditBridge.cs",
+      "sha256": "721846467f714f3dd8c788dfcbe0d58c1120b13c9393a7d6eb6ab81ff5e6a03f"
+    }
+  ],
+  "initializers": [
+    {
+      "path": "MillWorks.Api/Hubs/AiSpeechSessionRegistry.cs",
+      "line": 286,
+      "fields": {
+        "EnvelopeId": "summary.SessionId",
+        "ExplicitEventId": "summary.SessionId",
+        "OccurredAt": "summary.EndedAt",
+        "GovernanceIdentity": "new AuditGovernanceIdentity(identity.TenantId)",
+        "EntityName": "SpeechSessionAuditAuthorization.EntityName",
+        "UserId": "summary.UserId.ToString()"
+      },
+      "sha256": "167bc3dcd9445ea70670c6c2f4eaa55bbc5f56455cbe2313f9790b77dbfe615b"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Compliance/ComplianceEvidencePackageBridge.cs",
+      "line": 40,
+      "fields": {
+        "EnvelopeId": "eventId",
+        "ExplicitEventId": "eventId",
+        "OccurredAt": "clock.GetUtcNow()",
+        "GovernanceIdentity": "new AuditGovernanceIdentity(tenantId, ComplianceResourceRoles.BreachReportResourceType, result.BreachId)",
+        "EntityName": "nameof(DataBreachReportEntity)",
+        "UserId": "actorId.ToString(\"D\")"
+      },
+      "sha256": "95248c4696b34332e302ff6060e2eb52239d8d1216da661d99ff59ad201e527a"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Document/DocumentDlpAuditSinkBridge.cs",
+      "line": 27,
+      "fields": {
+        "EnvelopeId": "value.EventId",
+        "ExplicitEventId": "value.EventId",
+        "OccurredAt": "value.OccurredAt",
+        "GovernanceIdentity": "new AuditGovernanceIdentity(value.TenantId, ResourceLegalHoldTypes.DocumentDocument, value.DocumentId)",
+        "EntityName": "\"Document.Dlp\"",
+        "UserId": "value.ActorId?.ToString(\"D\")"
+      },
+      "sha256": "7749dbbc80c0b85c338309f8bb6c7b14d71923d2db5b13a78308f20c25244bde"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+      "line": 28,
+      "fields": {
+        "EnvelopeId": null,
+        "ExplicitEventId": "Guid.CreateVersion7()",
+        "OccurredAt": null,
+        "GovernanceIdentity": null,
+        "EntityName": "\"Crm.CompanyHub\"",
+        "UserId": null
+      },
+      "sha256": "2ccd845e1c5108ac7eed0b658ef23cb7676998021405490fcd41dba595130255"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Crm/CrmHubAuditBridge.cs",
+      "line": 64,
+      "fields": {
+        "EnvelopeId": null,
+        "ExplicitEventId": "Guid.CreateVersion7()",
+        "OccurredAt": null,
+        "GovernanceIdentity": null,
+        "EntityName": "\"Crm.CompanyHub\"",
+        "UserId": null
+      },
+      "sha256": "2ccd845e1c5108ac7eed0b658ef23cb7676998021405490fcd41dba595130255"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 74,
+      "fields": {
+        "EnvelopeId": "auditEvent.EventId",
+        "ExplicitEventId": "auditEvent.EventId",
+        "OccurredAt": "auditEvent.OccurredAt",
+        "GovernanceIdentity": null,
+        "EntityName": "$\"ClientPortal.{auditEvent.EntityType}\"",
+        "UserId": "actorUserId.ToString(\"D\")"
+      },
+      "sha256": "e9d5d66f1054d5521c0b0570772da84af21cb5a6b7a4f02b65e653a70da004df"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 132,
+      "fields": {
+        "EnvelopeId": null,
+        "ExplicitEventId": "Guid.CreateVersion7()",
+        "OccurredAt": null,
+        "GovernanceIdentity": null,
+        "EntityName": "$\"Finance.{entityType}\"",
+        "UserId": null
+      },
+      "sha256": "e9d5d66f1054d5521c0b0570772da84af21cb5a6b7a4f02b65e653a70da004df"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/AuditBridge.cs",
+      "line": 159,
+      "fields": {
+        "EnvelopeId": null,
+        "ExplicitEventId": "Guid.CreateVersion7()",
+        "OccurredAt": null,
+        "GovernanceIdentity": null,
+        "EntityName": "\"Finance.Payment\"",
+        "UserId": null
+      },
+      "sha256": "e9d5d66f1054d5521c0b0570772da84af21cb5a6b7a4f02b65e653a70da004df"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelGovernanceAuditBridge.cs",
+      "line": 65,
+      "fields": {
+        "EnvelopeId": "auditEvent.EventId",
+        "ExplicitEventId": "auditEvent.EventId",
+        "OccurredAt": "auditEvent.OccurredAt",
+        "GovernanceIdentity": null,
+        "EntityName": "isPromotion\n                ? \"DecisionModels.LifecycleTransition\"\n                : \"DecisionModels.CandidateReview\"",
+        "UserId": "auditEvent.ActorUserId?.ToString(\"D\")"
+      },
+      "sha256": "bbf0eaced80c93823ef690fac754730d8e6bf227d426a4e56a09aa7538189b5e"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/DecisionModelWorkbenchAuditBridge.cs",
+      "line": 20,
+      "fields": {
+        "EnvelopeId": "auditEvent.EventId",
+        "ExplicitEventId": "auditEvent.EventId",
+        "OccurredAt": "auditEvent.OccurredAt",
+        "GovernanceIdentity": null,
+        "EntityName": "EntityName",
+        "UserId": "auditEvent.ActorUserId.ToString(\"D\")"
+      },
+      "sha256": "46c8b284f1d72057dc4912100f1dc2f871744ac29e93a04f602a024fdf0a8189"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/MlDatasetSnapshotAuditBridge.cs",
+      "line": 25,
+      "fields": {
+        "EnvelopeId": "auditEvent.EventId",
+        "ExplicitEventId": "auditEvent.EventId",
+        "OccurredAt": "auditEvent.OccurredAt",
+        "GovernanceIdentity": "new AuditGovernanceIdentity(auditEvent.TenantId)",
+        "EntityName": "EntityName",
+        "UserId": "auditEvent.ActorUserId.ToString(\"D\")"
+      },
+      "sha256": "3093a08ae5c80f7da97c5fb77267da8f879bf266ed48857b1a5fcbfc9883ab4e"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/VisitorManagement/VisitorProtectedReferenceService.cs",
+      "line": 137,
+      "fields": {
+        "EnvelopeId": null,
+        "ExplicitEventId": "Guid.CreateVersion7()",
+        "OccurredAt": "timeProvider.GetUtcNow()",
+        "GovernanceIdentity": null,
+        "EntityName": "\"VisitorManagement.NotificationTemplateReference\"",
+        "UserId": "actorId?.ToString(\"D\")"
+      },
+      "sha256": "f6a5cb1ff7583c96a7918c15918b824301afee6b1ab1c78d7c2d5bda2c2cb441"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelTrainingOperationsAdminBridge.cs",
+      "line": 164,
+      "fields": {
+        "EnvelopeId": "result.ReconciliationId",
+        "ExplicitEventId": "result.ReconciliationId",
+        "OccurredAt": "result.RequestedAt",
+        "GovernanceIdentity": null,
+        "EntityName": "\"DecisionModels.TrainingRun\"",
+        "UserId": "operatorUserId.ToString(\"D\")"
+      },
+      "sha256": "61723ee2fcb125b47c9ac1c10d9cf35d7312b8bf723d1b0cbd85aa88083acb49"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/DecisionModels/DecisionModelArtifactRetentionAuditBridge.cs",
+      "line": 23,
+      "fields": {
+        "EnvelopeId": "value.EventId",
+        "ExplicitEventId": "value.EventId",
+        "OccurredAt": "value.OccurredAt",
+        "GovernanceIdentity": null,
+        "EntityName": "\"DecisionModels.ArtifactRetention\"",
+        "UserId": "value.ActorId.ToString(\"D\")"
+      },
+      "sha256": "721846467f714f3dd8c788dfcbe0d58c1120b13c9393a7d6eb6ab81ff5e6a03f"
+    }
+  ],
+  "directLoggerFiles": [
+    {
+      "path": "MillWorks.SqlBuilder/Services/Audit/SqlBuilderAuditService.cs",
+      "sha256": "bf20bcdcebd96ca01ca7dd92c39cab810f82790fa77dd3d4ddc45104080aac32"
+    },
+    {
+      "path": "MillWorks.Api/Controllers/Audit/AuditController.cs",
+      "sha256": "c1583b59deed8aacee8e5a4e1a76df455543b938caa55171abacae9e6386564f"
+    },
+    {
+      "path": "MillWorks.Api/Controllers/Diagramming/DiagramPublicShareSessionController.cs",
+      "sha256": "1e616442744c87043411b78e4b7481350724bf9567e5fc81b219e1a7fc50184c"
+    },
+    {
+      "path": "MillWorks.Api/Controllers/Diagramming/DiagramPublicSharesController.cs",
+      "sha256": "6a70778669926e9126503597e36d0d34fe1914df4bd3715e1394b1827c8f1283"
+    },
+    {
+      "path": "MillWorks.Api/Controllers/Document/DocumentSharedAccessController.cs",
+      "sha256": "7a55e4c8c0e9acd247ed721e81fcd2e7b848bc9177ff3c385a5d779aca3403bd"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Grant/GrantAuditCoreBridge.cs",
+      "sha256": "caaf935bc6e0a3738ec486a219043740b2fb1703c51b3e2a0bd72963a6960e03"
+    },
+    {
+      "path": "MillWorks.Api/Controllers/Notification/UnsubscribeController.cs",
+      "sha256": "b1f4f07ec1da4b4dbf2480240f7ee13b2d8b73d90c2e49e0d836dc79e80b51db"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Invites/InviteAuditSinkBridge.cs",
+      "sha256": "b22b5c3d9694d8155ac7ac20b0d43e0e68519701cc1c46b1e1aabd5d7e2dd6e0"
+    },
+    {
+      "path": "MillWorks.DataGovernance/Services/Interfaces/IDataGovernanceMaskingAuditService.cs",
+      "sha256": "cc9a216478e5c4dd82fb1e6e957c3be89179a751b460c3cb7cd419331ebf3bc2"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/HumanApproval/HumanApprovalAuditSinkBridge.cs",
+      "sha256": "0e5f3adbb8391717f159377da1d1db4be6653138c44a4f86dfa5de74568df792"
+    },
+    {
+      "path": "MillWorks.Api/Infrastructure/MillWorksAuditFieldRedactor.cs",
+      "sha256": "169df82603bda741845188fe8e1819308f0a30e7dbbd6da3c0db2ef43358e338"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Audit/ResourceAuditBridge.cs",
+      "sha256": "a7bcaf23f0f9318c599845f3e33296d51cfcc120e510862d06e8c4bcc252184a"
+    },
+    {
+      "path": "MillWorks.Api/Bridge/Lms/LmsComplianceEvidenceBridge.cs",
+      "sha256": "547ff9a7bba4cf69029bf9331677383da41d9466520103fdf24fbcc5914bc7f6"
+    },
+    {
+      "path": "MillWorks.Notification/Models/Entities/NotificationPreferencesEntity.cs",
+      "sha256": "ea209862a83ede0e2cfb6e020b09e80c3c7ec47e639831e62d2397dd95d4ea9d"
+    },
+    {
+      "path": "MillWorks.Resource/Services/Interfaces/Local/IResourceAuditBridge.cs",
+      "sha256": "3fbae1dd70d81b40262b099eeeaaea91b2674b1d9ae6600bb489e550e830330e"
+    }
+  ],
+  "customHostPublishingCapabilities": [],
+  "capabilitySearch": "No host IAuditSink/IAuditOutboxWriter/IAuditEnvelopeBatchLogger implementation found; AuditBridge is an IAuditPublisher forwarder, not an IAuditSink.",
+  "checkoutReferences": [
+    {
+      "path": "AceDs/AceDs.Fhir/AceDs.Fhir.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\MillWorks.AuditCore\\src\\MillWorks.AuditCore.AspNetCore\\MillWorks.AuditCore.AspNetCore.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "Aced/Aced.ApiService/Aced.ApiService.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.0.4"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "IExcel/IExcel.Api/IExcel.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BlackBox/MillWorks.BlackBox.Worker/MillWorks.BlackBox.Worker.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.14.0"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Ai/MillWorks.Ai.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "AceDs/AceDs.ApiService/AceDs.ApiService.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\MillWorks.AuditCore\\src\\MillWorks.AuditCore.AspNetCore\\MillWorks.AuditCore.AspNetCore.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "AceDs/AceDs.Bayesian/AceDs.Bayesian.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\MillWorks.AuditCore\\src\\MillWorks.AuditCore.AspNetCore\\MillWorks.AuditCore.AspNetCore.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Chat/MillWorks.Chat.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Ai/MillWorks.Ai.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Chat/MillWorks.Chat.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.3"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/consumer-pin-fix/prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/local-package-release-gatea7-2026-10-05/prior-MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Payments/MillWorks.Payments.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Api/MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/runtime-reliability-2026-10-13/dev11/consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Security/MillWorks.Security.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.BackgroundJobs/docs/job-persistence-quality-2026-10-18/dev18-consumer-prior/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Payments/MillWorks.Payments.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/src/MillWorks.AuditCore.Providers/MillWorks.AuditCore.Providers.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Abstractions\\MillWorks.AuditCore.Abstractions.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Abstractions\\MillWorks.AuditCore.Abstractions.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Identity/MillWorks.Identity.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/src/MillWorks.AuditCore.AspNetCore/MillWorks.AuditCore.AspNetCore.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Abstractions\\MillWorks.AuditCore.Abstractions.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Services\\MillWorks.AuditCore.Services.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/src/MillWorks.AuditCore.Services/MillWorks.AuditCore.Services.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Abstractions\\MillWorks.AuditCore.Abstractions.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.EntityFramework\\MillWorks.AuditCore.EntityFramework.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\MillWorks.AuditCore.Providers\\MillWorks.AuditCore.Providers.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/samples/MillWorks.AuditCore.SampleProject/MillWorks.AuditCore.SampleProject.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.AspNetCore\\MillWorks.AuditCore.AspNetCore.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/docs/evidence/audit-pipeline-2026-10/release-dev9/consumer-Smoke.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorks.AuditCore/docs/evidence/audit-pipeline-2026-10/release-dev8/consumer-Smoke.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.8"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorks/tools/diagram-source-audit-tests/DiagramSourceAudit.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks.AuditCore/tests/MillWorks.AuditCore.Tests/MillWorks.AuditCore.Tests.csproj",
+      "references": [
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.Abstractions\\MillWorks.AuditCore.Abstractions.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.AspNetCore\\MillWorks.AuditCore.AspNetCore.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.EntityFramework\\MillWorks.AuditCore.EntityFramework.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.Providers\\MillWorks.AuditCore.Providers.csproj",
+          "version": null
+        },
+        {
+          "kind": "ProjectReference",
+          "target": "..\\..\\src\\MillWorks.AuditCore.Services\\MillWorks.AuditCore.Services.csproj",
+          "version": null
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/tools/diagram-share-policy-tests/DiagramSharePolicy.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Notification/MillWorks.Notification.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Irb/MillWorks.Irb.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.3"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Compliance/MillWorks.Compliance.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "IexcelApps/IexcelApps.ApiService/IexcelApps.ApiService.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.0.4"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Irb/MillWorks.Irb.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Notification/MillWorks.Notification.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Abstractions",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Compliance/MillWorks.Compliance.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.Services",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Grant/MillWorks.Grant.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Grant/MillWorks.Grant.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.1"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-13-Exact-Target-Capture/TargetCapture.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.6"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-14-Recorded-Cohort-Scoring/RecordedCohortEvaluation.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.6"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-14-Baseline-Discovery/ExploratoryBaseline.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.6"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorks/Plan/MillWorks.Semantics/Evidence/2026-10-13-Frozen-Witness-Proof-And-Cohort-Evaluation/RecordedCohortEvaluation.Tests.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.6"
+        }
+      ],
+      "historicalEvidenceProject": true
+    },
+    {
+      "path": "MillWorksProject/MillWorksProject/MillWorksProject.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.0.4"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks-SurveyCutover/MillWorks.Api/MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.1"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.2"
+        }
+      ],
+      "historicalEvidenceProject": false
+    },
+    {
+      "path": "MillWorks/MillWorks.Api/MillWorks.Api.csproj",
+      "references": [
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore",
+          "version": "1.15.4-dev.9"
+        },
+        {
+          "kind": "PackageReference",
+          "target": "MillWorks.AuditCore.EntityFramework",
+          "version": "1.15.4-dev.9"
+        }
+      ],
+      "historicalEvidenceProject": false
+    }
+  ]
+}

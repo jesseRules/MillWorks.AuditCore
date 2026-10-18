@@ -1,0 +1,42 @@
+[
+  {
+    "path": "MillWorks.Api/Controllers/Audit/AuditOutboxRecoveryController.cs",
+    "sha256": "9f7c368f149d07bb16ee47091dd9b393fb08bb7c9e578cf235b30a9cb70f1afb"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditProducerAuthorization.cs",
+    "sha256": "ce47e8196db5b6af5bf8f67b6bd4dddfa7e75908dd2950a8c17de5c6029d341e"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditOutboxRecoveryAuthorization.cs",
+    "sha256": "4f5d269a059c66a839a93d2316fd2c8b5a84f2bc9d64319ebf4f931f10207861"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditOutboxRetention.cs",
+    "sha256": "45fd11a862349222a5f07b4d62743e841a312840f835453b450a2471e7195432"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditRetentionSweepJob.cs",
+    "sha256": "3d33afc4dd6e3092166dad282b8a2b60e02be7d865634540432bbc3190c0d551"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/MillWorksAuditWriteAuthorization.cs",
+    "sha256": "33e1c48bc2ed6e5e2618d8c18402de608d1f1ddb465eb52d650fd0f9c10e5264"
+  },
+  {
+    "path": "MillWorks.Api/Infrastructure/Audit/AuditRetentionServiceExtensions.cs",
+    "sha256": "9db3787bf4cff4172694f3ea1366e11eeb832744fbdf36e3f70d108463a3d798"
+  },
+  {
+    "path": "MillWorks.Api/Program.cs",
+    "sha256": "0d5a98fd2eced84de3b0c68ad1f4111e8d8878bda0f642371dd6e46e9265a2ae"
+  },
+  {
+    "path": "MillWorks.ClientPortal/Models/Dto/PortalAuditEvent.cs",
+    "sha256": "e4f7d7b3de538229aab4b23705ceab60cf19444e6c16bbdf2a8badd1c4c54d99"
+  },
+  {
+    "path": "MillWorks.Crm/Services/Interfaces/ICrmHubAuditService.cs",
+    "sha256": "a06ae2c104fd30b2293acecaf747273bfb4a17064fc3037f82472e8c60e9f642"
+  }
+]

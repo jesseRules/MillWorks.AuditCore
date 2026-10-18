@@ -1,0 +1,68 @@
+[
+  {
+    "name": "rollout-library.trx",
+    "sha256": "11d8e9306810c065064e93507f9c8a6db7924cb280a5333add94c8e338ebb083",
+    "counters": {
+      "total": "201",
+      "executed": "182",
+      "passed": "182",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    }
+  },
+  {
+    "name": "crm-observation.trx",
+    "sha256": "833f6dc65fd103a79689627e0c6dd86ac54e20da8525ef589f00c0de61b0f4c4",
+    "counters": {
+      "total": "18",
+      "executed": "18",
+      "passed": "18",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    }
+  },
+  {
+    "name": "h4-final.trx",
+    "sha256": "0e6754b3da977007e7f802ddeb7e30ba272bdb758f1d500d80799d3fdbcc1be9",
+    "counters": {
+      "total": "4",
+      "executed": "4",
+      "passed": "4",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    }
+  }
+]
