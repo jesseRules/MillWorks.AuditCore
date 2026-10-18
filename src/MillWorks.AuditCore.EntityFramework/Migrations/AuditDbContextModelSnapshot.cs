@@ -356,8 +356,8 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
                         .HasJsonPropertyName("request_method");
 
                     b.Property<string>("RequestPath")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)")
                         .HasColumnName("RequestPath")
                         .HasJsonPropertyName("request_path");
 

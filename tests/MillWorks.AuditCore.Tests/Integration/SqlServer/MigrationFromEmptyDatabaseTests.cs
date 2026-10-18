@@ -35,7 +35,8 @@ public sealed class MigrationFromEmptyDatabaseTests
     [
         "20260420195321_Init",
         "20260923164652_AddAuditLogGovernanceMetadata",
-        "20260924124659_AddAuditLogSubjectLinks"
+        "20260924124659_AddAuditLogSubjectLinks",
+        "20261018233845_RestoreAuditEventRequestPathLimit"
     ];
 
     private string _migrationConnectionString = null!;
@@ -98,8 +99,16 @@ public sealed class MigrationFromEmptyDatabaseTests
             ORDER BY MigrationId;
             """);
 
+        var requestPathLengths = await QueryAsync("""
+            SELECT CAST(CHARACTER_MAXIMUM_LENGTH AS varchar(10))
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'audit' AND TABLE_NAME = 'AuditEvents' AND COLUMN_NAME = 'RequestPath';
+            """);
+
         Assert.Multiple(() =>
         {
+            Assert.That(requestPathLengths, Is.EqualTo(new[] { "2048" }),
+                "Migrated databases must accept the same request-path length as the current model.");
             Assert.That(actualTables, Is.SupersetOf(ExpectedAuditTables),
                 "Expected every current audit table under 'audit' schema after MigrateAsync().");
             Assert.That(actualTables, Does.Contain("__EFMigrationsHistory"),
@@ -107,7 +116,7 @@ public sealed class MigrationFromEmptyDatabaseTests
             Assert.That(actualIndexes, Is.SupersetOf(ExpectedAuditEventsIndexes),
                 "Expected all eight IX_AuditEvents_* indexes on audit.AuditEvents after MigrateAsync().");
             Assert.That(historyRows, Is.SupersetOf(ExpectedMigrationIds),
-                "Expected the initial, governance-identity, and subject-link migrations in audit.__EFMigrationsHistory.");
+                "Expected the initial, governance-identity, subject-link, and request-path correction migrations in audit.__EFMigrationsHistory.");
         });
     }
 
