@@ -652,6 +652,55 @@ public class AuditLoggerTests
         Assert.That(capturedEntity.RequestMethod, Is.EqualTo("POST"));
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task LogAsync_WithOversizedHttpContextFields_TruncatesToStorageLimits(
+        bool firstClassUserAgent, bool controlCharacters)
+    {
+        var userAgent = (controlCharacters ? "\n" : "u") + new string('u', AuditEventEntity.MaxUserAgentLength);
+        var requestPath = (controlCharacters ? "\t" : "/") + new string('p', AuditEventEntity.MaxRequestPathLength);
+        var auditEvent = new AuditEvent
+        {
+            EventId = Guid.NewGuid(),
+            EventType = "Test.Event",
+            StartDate = DateTimeOffset.UtcNow,
+            UserAgent = firstClassUserAgent ? userAgent : null,
+            CustomFields = new Dictionary<string, object?>
+            {
+                ["UserAgent"] = firstClassUserAgent ? "fallback" : userAgent,
+                ["RequestPath"] = requestPath
+            }
+        };
+
+        AuditEventEntity? capturedEntity = null;
+        _mockAuditEventRepository
+            .Setup(static x => x.AddAsync(It.IsAny<AuditEventEntity>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditEventEntity, CancellationToken>((entity, _) => capturedEntity = entity)
+            .ReturnsAsync(static (AuditEventEntity entity, CancellationToken _) => entity);
+        _mockAuditEventRepository
+            .Setup(static x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _mockTamperDetectionService
+            .Setup(static x =>
+                x.CreateIntegrityRecordAsync(It.IsAny<AuditIntegrityDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AuditIntegrityDto());
+
+        await _auditLogger.LogAsync(auditEvent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(capturedEntity, Is.Not.Null);
+            Assert.That(capturedEntity!.UserAgent, Has.Length.EqualTo(AuditEventEntity.MaxUserAgentLength));
+            Assert.That(capturedEntity.RequestPath, Has.Length.EqualTo(AuditEventEntity.MaxRequestPathLength));
+            Assert.That(capturedEntity.UserAgent, Is.EqualTo(
+                (controlCharacters ? " " : "u") + new string('u', AuditEventEntity.MaxUserAgentLength - 1)));
+            Assert.That(capturedEntity.RequestPath, Is.EqualTo(
+                (controlCharacters ? " " : "/") + new string('p', AuditEventEntity.MaxRequestPathLength - 1)));
+        });
+    }
+
     /// <summary>
     /// Verifies that unmapped custom fields are serialized to AdditionalData
     /// </summary>

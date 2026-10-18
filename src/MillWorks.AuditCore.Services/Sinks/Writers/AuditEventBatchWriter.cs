@@ -99,7 +99,8 @@ internal sealed class AuditEventBatchWriter(
             CorrelationId = envelope.CorrelationId,
             IpAddress = envelope.IpAddress,
             UserAgent = envelope.UserAgent,
-            AspNetUserId = envelope.UserId
+            AspNetUserId = envelope.UserId,
+            UserId = Guid.TryParse(envelope.UserId, out var userId) ? userId : null
         };
 
         if (envelope.GovernanceIdentity is { } governance)

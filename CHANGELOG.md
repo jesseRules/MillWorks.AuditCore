@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Bound user agents to 500 characters and request paths to 2,048 characters after redaction and sanitization, preventing oversized HTTP metadata from failing audit inserts. Restore the request-path model limit and add `RestoreAuditEventRequestPathLimit` to reconcile databases using the later 500-character snapshots.
+- Map GUID-form explicit-event user IDs to the application user field while retaining the original ASP.NET identity string, restoring actor identity in indexed audit queries.
+
 ### Local prerelease — 1.15.4-dev.12 (published to both local feeds)
 
 - Recheck recovery authorization after saving evidence, before committing, and before returning existing operation receipts or rejected no-op transitions. Inspect rechecks after loading handoff counts. Expired authority cannot commit or return protected results after database awaits.

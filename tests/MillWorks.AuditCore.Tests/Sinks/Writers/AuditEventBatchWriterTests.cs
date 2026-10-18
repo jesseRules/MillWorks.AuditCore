@@ -182,6 +182,7 @@ public sealed class AuditEventBatchWriterTests
             Assert.That(capturedEvent.Action, Is.EqualTo(AuditAction.Unknown));
             Assert.That(capturedEvent.StartDate, Is.EqualTo(occurredAt));
             Assert.That(capturedEvent.AspNetUserId, Is.EqualTo("alice"));
+            Assert.That(capturedEvent.UserId, Is.Null);
             Assert.That(capturedEvent.CorrelationId, Is.EqualTo("corr-123"));
             Assert.That(capturedEvent.IpAddress, Is.EqualTo("10.0.0.1"));
             Assert.That(capturedEvent.UserAgent, Is.EqualTo("Mozilla/5.0"));
@@ -215,6 +216,39 @@ public sealed class AuditEventBatchWriterTests
         Assert.That(capturedEvent, Is.Not.Null);
         Assert.That(capturedEvent!.KeyValues, Is.Empty);
         Assert.That(capturedEvent.CustomFields, Is.Empty);
+    }
+
+    [Test]
+    public async Task WriteBatchAsync_GuidUserId_MapsApplicationAndAspNetIdentity()
+    {
+        var userId = Guid.NewGuid();
+        var envelope = new AuditEnvelope
+        {
+            Kind = AuditEnvelopeKind.ExplicitEvent,
+            ExplicitEventId = Guid.NewGuid(),
+            EntityName = "User.Login",
+            EventType = "User.Login",
+            Action = AuditAction.Unknown,
+            UserId = userId.ToString("D")
+        };
+
+        AuditEvent? capturedEvent = null;
+        _envelopeLogger
+            .Setup(l => l.LogEnvelopeBatchAsync(It.IsAny<IReadOnlyList<AuditEnvelope>>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<AuditEnvelope>, CancellationToken>((events, _) =>
+                capturedEvent = AuditEventBatchWriter.MapToAuditEvent(events.Single()))
+            .ReturnsAsync((IReadOnlyList<AuditEnvelope> input, CancellationToken _) =>
+                TestEnvelopeBatchResults.Create(input, BatchAuditResult.Succeeded(1)));
+
+        var outcomes = await _writer.WriteBatchAsync([envelope], CancellationToken.None);
+
+        Assert.That(capturedEvent, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcomes.Single().Succeeded, Is.True);
+            Assert.That(capturedEvent!.UserId, Is.EqualTo(userId));
+            Assert.That(capturedEvent.AspNetUserId, Is.EqualTo(userId.ToString("D")));
+        });
     }
 
     [Test]
