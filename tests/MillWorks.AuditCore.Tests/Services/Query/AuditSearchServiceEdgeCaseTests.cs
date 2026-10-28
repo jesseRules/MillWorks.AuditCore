@@ -114,11 +114,11 @@ public class AuditSearchServiceEdgeCaseTests
             },
             new()
             {
-                // SearchTerm not present anywhere on the row
+                // Wrong entity type; word search is tested separately on supported providers.
                 EventId = Guid.NewGuid(),
                 User = targetUser,
                 EventType = targetEventType,
-                EntityType = targetEntityType,
+                EntityType = "Invoice",
                 JsonData = "{\"note\":\"ordinary\"}",
                 InsertedDate = matchDate
             }

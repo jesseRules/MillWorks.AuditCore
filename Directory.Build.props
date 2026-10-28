@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <!-- Default version; synchronize any project-level Version overrides for coordinated releases. -->
-        <Version>1.15.4-dev.12</Version>
+        <Version>1.15.4-dev.17</Version>
         <AssemblyVersion>1.15.4.0</AssemblyVersion>
         <FileVersion>1.15.4.0</FileVersion>
 
@@ -19,7 +19,14 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.4-dev.12: rechecks recovery authorization after persistence and before returning retained receipts, rejected transitions and inspection results; adds AuditOutboxOperationConflictException for precise recovery conflicts. Preserves uncertain-commit reconciliation. Includes dev.11 JSON reader fixes. No schema migration. Host standalone transaction and HTTP mapping fixes require the updated MillWorks source and rebuild.
+        <PackageReleaseNotes>v1.15.4-dev.17: gives in-flight and queued deferred request audits one shared shutdown grace period before cancellation, with DLQ recovery on timeout or an earlier host deadline. No schema changes from dev.16.
+
+v1.15.4-dev.16: adds the narrow User index and bounded distinct-value seeks for audit filter options, preserving existing limits/order and falling back for high cardinality, missing indexes, scoped EF filters, custom collations and non-SQL providers. Apply AddAuditEventUserIndex before host acceptance; verify matching rebuilt API timing and option results. No full-text activation.
+
+v1.15.4-dev.15: adds a narrow descending InsertedDate/EventId index through AddAuditEventPagingIndex. Isolated SQL comparison verifies ordered pages without sorts, reduced count reads, unchanged IDs/counts and rollback. Exact-count physical I/O remains storage-dependent.
+v1.15.4-dev.14: pages ordered audit keys before filtered payload hydration, preserving counts and timestamp/EventId ordering. Includes optional full-text provisioning migration and hardened installer; full-text activation remains an explicit environment gate.
+v1.15.4-dev.13: publishes exact EventId/EntityId query filters and AuditSearchUnavailableException required by the current MillWorks audit controller; includes current tenant-scoped administration, private archive identity transport, and request metadata/actor fixes. Source and package-consumer validation are recorded separately from host compilation and runtime acceptance.
+v1.15.4-dev.12: rechecks recovery authorization after persistence and before returning retained receipts, rejected transitions and inspection results; adds AuditOutboxOperationConflictException for precise recovery conflicts. Preserves uncertain-commit reconciliation. Includes dev.11 JSON reader fixes. No schema migration. Host standalone transaction and HTTP mapping fixes require the updated MillWorks source and rebuild.
 v1.15.4-dev.11: adds ownership-aware completed-outbox cleanup with retained identity/operation receipts and host authorization; internal state-store interface isolates drainer orchestration. No schema migration. Host producer bindings, policy/hold integration and activation are verified separately.
 v1.15.4-dev.10: adds host-authorized tenant-bound audit administration, payload-free export disclosure and durable operation evidence; tenant archive ownership and restoration of event content; integrity-protected anonymization fails closed. No schema migration.
 v1.15.4-dev.9: replaces content-derived EF envelope IDs with retry-retained mutation tokens, excludes unresolved generated keys from captured provenance, and adds payload-safe failure identity diagnostics. Capture/Restore tokens for retries in replacement contexts; completed saves retire automatic tokens. Historical identity evidence remains unchanged. Internal audit receipt/handoff/resolution and subject-index bookkeeping is marked NoAudit. No schema migration or queue-format change. Host authorization integration and populated runtime acceptance remain separate.

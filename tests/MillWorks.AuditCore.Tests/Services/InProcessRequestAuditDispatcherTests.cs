@@ -109,7 +109,7 @@ public sealed class InProcessRequestAuditDispatcherTests
     }
 
     [Test]
-    public async Task StopAsync_WithMainLoopAndDrainLoopInFlight_RoutesAllEventsToDeadLetter()
+    public async Task StopAsync_WhenGracePeriodExpires_RoutesInFlightAndQueuedEventsToDeadLetter()
     {
         var capturingDlq = new CapturingDeadLetterQueue();
         var diagnostics = new AuditDiagnostics();
@@ -406,6 +406,70 @@ public sealed class InProcessRequestAuditDispatcherTests
                 .With.Message.Contains("shutting down"));
 
         await stopTask;
+    }
+
+    [Test]
+    public async Task StopAsync_WithinGracePeriod_CompletesInFlightAndQueuedEventsWithoutCancellation()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var processed = new List<string?>();
+        var dlq = new CapturingDeadLetterQueue();
+        var processor = new DelegateProcessor(async (evt, ct) =>
+        {
+            started.TrySetResult();
+            await release.Task.WaitAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            processed.Add(evt.CorrelationId);
+        });
+        var services = new ServiceCollection();
+        services.AddSingleton<IRequestAuditProcessor>(processor);
+        await using var provider = services.BuildServiceProvider();
+        using var dispatcher = new InProcessRequestAuditDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new AuditMiddlewareOptions { DrainTimeout = TimeSpan.FromSeconds(5) }),
+            NullLogger<InProcessRequestAuditDispatcher>.Instance, dlq);
+
+        await dispatcher.DispatchAsync(new AuditEvent { CorrelationId = "in-flight" });
+        await dispatcher.DispatchAsync(new AuditEvent { CorrelationId = "queued" });
+        await dispatcher.StartAsync(CancellationToken.None);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var stop = dispatcher.StopAsync(CancellationToken.None);
+        Assert.That(stop.IsCompleted, Is.False, "Shutdown must allow the in-flight write to finish");
+        release.SetResult();
+        await stop.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(processed, Is.EqualTo(new[] { "in-flight", "queued" }));
+            Assert.That(dlq.StoredEvents, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task StopAsync_HostDeadlineExpires_CancelsWriteBeforeGracePeriodAndPreservesEvents()
+    {
+        var processor = new BlockingProcessor();
+        var dlq = new CapturingDeadLetterQueue();
+        var services = new ServiceCollection();
+        services.AddSingleton<IRequestAuditProcessor>(processor);
+        await using var provider = services.BuildServiceProvider();
+        using var dispatcher = new InProcessRequestAuditDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new AuditMiddlewareOptions { DrainTimeout = TimeSpan.FromMinutes(1) }),
+            NullLogger<InProcessRequestAuditDispatcher>.Instance, dlq);
+        await dispatcher.DispatchAsync(new AuditEvent { CorrelationId = "in-flight" });
+        await dispatcher.DispatchAsync(new AuditEvent { CorrelationId = "queued" });
+        await dispatcher.StartAsync(CancellationToken.None);
+        await processor.FirstInvocationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        using var deadline = new CancellationTokenSource();
+        var stop = dispatcher.StopAsync(deadline.Token);
+        deadline.Cancel();
+        await stop.WaitAsync(TimeSpan.FromSeconds(5));
+        await dispatcher.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(dlq.StoredEvents.Select(e => e.CorrelationId),
+            Is.EqualTo(new[] { "in-flight", "queued" }));
     }
 
     private sealed class BlockingProcessor : IRequestAuditProcessor

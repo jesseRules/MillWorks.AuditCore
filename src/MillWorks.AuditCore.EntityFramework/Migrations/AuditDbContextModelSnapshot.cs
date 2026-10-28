@@ -414,9 +414,16 @@ namespace MillWorks.AuditCore.EntityFramework.Migrations
 
                     b.HasKey("EventId");
 
+                    b.HasIndex("User")
+                        .HasDatabaseName("IX_AuditEvents_User");
+
                     b.HasIndex("EventType", "InsertedDate")
                         .HasDatabaseName("IX_AuditEvents_EventType_Date_Filtered")
                         .HasFilter("[EventType] IS NOT NULL");
+
+                    b.HasIndex("InsertedDate", "EventId")
+                        .IsDescending()
+                        .HasDatabaseName("IX_AuditEvents_Date_EventId");
 
                     b.HasIndex(new[] { "AspNetUserId" }, "IX_AuditEvents_AspNetUserId");
 

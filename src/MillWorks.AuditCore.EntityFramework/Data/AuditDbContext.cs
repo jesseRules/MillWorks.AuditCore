@@ -292,10 +292,19 @@ public partial class AuditDbContext : DbContext, IAuditBypassable, IAuditContext
                     .HasFilter("[EventType] IS NOT NULL")
                     .HasDatabaseName("IX_AuditEvents_EventType_Date_Filtered");
 
+                // Feed key pages need this complete order without sorting all matching events.
+                // Keep it narrow so exact date counts do not read display/payload columns.
+                entity.HasIndex(static e => new { e.InsertedDate, e.EventId })
+                    .IsDescending(true, true)
+                    .HasDatabaseName("IX_AuditEvents_Date_EventId");
+
+                // Distinct user filter values need an ordered, narrow key, not a full date-index scan.
+                entity.HasIndex(static e => e.User).HasDatabaseName("IX_AuditEvents_User");
+
                 // Cover the [User] column on the date-range index so the audit summary's
                 // DISTINCT-user count and top-users aggregation are served entirely from the
                 // index (date-range seek, no clustered-index key lookups). [User] is a string
-                // column that is otherwise indexed by no index. SQL Server only — IncludeProperties
+                // column used by the date-range aggregates. SQL Server only — IncludeProperties
                 // is a no-op / unsupported on the SQLite and InMemory providers.
                 entity.HasIndex(static e => new { e.InsertedDate, e.EventType }, "IX_AuditEvents_Date_Type")
                     .IncludeProperties(static e => e.User);

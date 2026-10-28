@@ -5,6 +5,7 @@ using MillWorks.AuditCore.Abstractions.Requests;
 using MillWorks.AuditCore.Abstractions.Responses;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
+using MillWorks.AuditCore.EntityFramework.Repositories;
 using MillWorks.AuditCore.Services.Interfaces;
 using MillWorks.AuditCore.Services.Mapping;
 
@@ -45,12 +46,9 @@ public sealed class AuditSearchService(
 
         int totalItems = await query.CountAsync(cancellationToken);
 
-        List<AuditEventEntity> events = await query
-            .OrderByDescending(static e => e.InsertedDate)
-            .ThenByDescending(static e => e.EventId)
-            .Skip(request.Offset)
-            .Take(request.Limit)
-            .ToListAsync(cancellationToken);
+        List<AuditEventEntity> events = await AuditEventPaging.ReadAsync(query,
+            query.OrderByDescending(static e => e.InsertedDate).ThenByDescending(static e => e.EventId),
+            request.Offset, request.Limit, cancellationToken);
 
         List<AuditEventDto> items = MapAndEnrichAuditEvents(events);
 
@@ -73,13 +71,7 @@ public sealed class AuditSearchService(
     /// <returns>Up to 500 distinct usernames, ordered alphabetically.</returns>
     public async Task<List<string>> GetDistinctUsersAsync(CancellationToken cancellationToken = default)
     {
-        return await context.AuditEvents.AsNoTracking()
-            .Where(static e => e.User != null && e.User != "")
-            .Select(static e => e.User!)
-            .Distinct()
-            .OrderBy(static u => u)
-            .Take(QueryLimits.MaxDistinctValues)
-            .ToListAsync(cancellationToken);
+        return await AuditEventDistinctValues.UsersAsync(context, QueryLimits.MaxDistinctValues, cancellationToken);
     }
 
     /// <summary>
@@ -90,13 +82,7 @@ public sealed class AuditSearchService(
     /// <returns>Up to 500 distinct event types, ordered alphabetically.</returns>
     public async Task<List<string>> GetDistinctEventTypesAsync(CancellationToken cancellationToken = default)
     {
-        return await context.AuditEvents.AsNoTracking()
-            .Where(static e => e.EventType != null && e.EventType != "")
-            .Select(static e => e.EventType!)
-            .Distinct()
-            .OrderBy(static t => t)
-            .Take(QueryLimits.MaxDistinctValues)
-            .ToListAsync(cancellationToken);
+        return await AuditEventDistinctValues.EventTypesAsync(context, true, QueryLimits.MaxDistinctValues, cancellationToken);
     }
 
     /// <summary>
@@ -146,12 +132,9 @@ public sealed class AuditSearchService(
 
         int totalItems = await query.CountAsync(cancellationToken);
 
-        List<AuditEventEntity> events = await query
-            .OrderByDescending(static e => e.InsertedDate)
-            .ThenByDescending(static e => e.EventId)
-            .Skip(offset)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
+        List<AuditEventEntity> events = await AuditEventPaging.ReadAsync(query,
+            query.OrderByDescending(static e => e.InsertedDate).ThenByDescending(static e => e.EventId),
+            offset, limit, cancellationToken);
 
         List<AuditEventDto> items = MapAndEnrichAuditEvents(events);
 

@@ -46,7 +46,8 @@ public sealed class AuditMiddlewareOptions
     public TimeSpan EnqueueTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
 
     /// <summary>
-    /// Maximum time the default in-process worker will spend draining queued request audits during shutdown.
+    /// Maximum grace period for the default in-process worker to finish its in-flight write and queued
+    /// request audits during shutdown. The host shutdown cancellation token can shorten this period.
     /// </summary>
     public TimeSpan DrainTimeout { get; set; } = TimeSpan.FromSeconds(30);
 

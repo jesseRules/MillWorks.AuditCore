@@ -1,3 +1,28 @@
+## 1.15.4-dev.17 — 2026-10-23
+
+- Allow in-flight and queued deferred request audit persistence to finish within one shared shutdown grace period; preserve DLQ fallback on timeout or an earlier host shutdown deadline.
+- Dispatcher regression suite: 11 passed. No new migrations relative to dev.16.
+
+## 1.15.4-dev.15 — 2026-10-19
+
+## 1.15.4-dev.16 — Audit filter lookup reads
+
+- Adds the incremental AddAuditEventUserIndex migration with a narrow ordered User index.
+- Reads low-cardinality user/event-type options using at most 128 ordered-key probes before falling back to DISTINCT, retaining exact ordering, existing empty-value rules and search limits.
+- Preserves provider/query-filter/converter/custom-collation semantics through the original LINQ/SQL path; missing indexes safely fall back until migrations are applied.
+- Adds isolated 1435 SQL result/read/rollback, high-cardinality, custom-schema/collation and filtered-context/cancellation checks. Actual host timing acceptance follows package adoption and Jesse's API rebuild.
+
+
+- Add a narrow InsertedDate/EventId descending index for audit key paging and date counts.
+- Verify before/after plans, reads, stable page IDs/counts and actual migration rollback on a disposable SQL catalog.
+- Application migration and cold-storage performance remain separate rebuild/live gates.
+
+## 1.15.4-dev.14 — 2026-10-19
+
+- Select ordered audit event keys before payload hydration for canonical and repository offset paging.
+- Include the optional AddAuditEventWordSearch migration and reviewed full-text installer. Unsupported engines keep exact-ID/metadata reads; word activation remains deferred.
+- Package delivery and host resolution are verified separately from Jesse’s application rebuild and live paging acceptance.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -9,8 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Give in-flight and queued deferred request audits one shared shutdown grace period before cancelling persistence; retain DLQ fallback on timeout or an earlier host shutdown deadline.
+
+- Harden the source full-text installer to reject incompatible existing definitions and transaction/capability preconditions before deferred DDL; add a read-only readiness verifier and activation plan. Three SQL Edge negative preflight cases pass; FTS-capable positive qualification and activation remain pending. These SQL changes are not included in published dev.13.
+
 - Bound user agents to 500 characters and request paths to 2,048 characters after redaction and sanitization, preventing oversized HTTP metadata from failing audit inserts. Restore the request-path model limit and add `RestoreAuditEventRequestPathLimit` to reconcile databases using the later 500-character snapshots.
 - Map GUID-form explicit-event user IDs to the application user field while retaining the original ASP.NET identity string, restoring actor identity in indexed audit queries.
+
+### Local prerelease — 1.15.4-dev.13 (published to both local feeds)
+
+- Publish the current `AuditSearchRequest.EventId`/`EntityId` filters and `AuditSearchUnavailableException` required by the MillWorks audit controller, correcting the dev.12 package/source mismatch. Includes current administration, private archive transport, and metadata/actor fixes; the EF package carries `RestoreAuditEventRequestPathLimit`.
+- Five packages and symbols were hash-verified and published to both local feeds, preserving existing artifacts; updated 21 active MillWorks project references. API/AI compilation and runtime acceptance remain in Jesse's rebuild batch.
+- Validation: 230 focused Release tests passed; a package-only consumer compiled and executed the exact missing contracts. Corrected one stale query fixture to vary a requested entity-type filter. Full-suite/SQL qualification was not performed.
+- Source, test, package and delivery evidence: `docs/evidence/audit-pipeline-2026-10/release-dev13/README.md`.
 
 ### Local prerelease — 1.15.4-dev.12 (published to both local feeds)
 

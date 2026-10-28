@@ -179,6 +179,32 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
     }
 
     /// <inheritdoc />
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        // Close intake first. Let the existing reader finish both its current write and
+        // queued events before BackgroundService cancels the processing token.
+        _stopping = true;
+        _channel.Writer.TryComplete();
+
+        if (ExecuteTask is not null)
+        {
+            using var drainCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            drainCts.CancelAfter(_drainTimeout);
+            try
+            {
+                await ExecuteTask.WaitAsync(drainCts.Token);
+            }
+            catch (OperationCanceledException) when (drainCts.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    "Request audit shutdown grace period ended; cancelling processing and routing remainder to dead letter queue");
+            }
+        }
+
+        await base.StopAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("InProcessRequestAuditDispatcher started");
@@ -209,31 +235,11 @@ public sealed class InProcessRequestAuditDispatcher : BackgroundService, IReques
             _stopping = true;
             _channel.Writer.TryComplete();
 
-            await Task.Delay(TimeSpan.FromMilliseconds(50), CancellationToken.None);
-
-            using var drainCts = new CancellationTokenSource(_drainTimeout);
-            var drainTimedOut = false;
-
+            // The single grace period was spent in StopAsync. Once cancelled, do not
+            // start another database write or grant the queue a second timeout window.
             while (_channel.Reader.TryRead(out var remaining))
             {
-                if (drainTimedOut)
-                {
-                    await RouteShutdownDrainAsync(remaining);
-                    continue;
-                }
-
-                try
-                {
-                    await ProcessOneWithRecoveryAsync(remaining, drainCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    _logger.LogWarning(
-                        "Shutdown drain timed out after {DrainTimeoutMs} ms; routing remainder to dead letter queue",
-                        _drainTimeout.TotalMilliseconds);
-                    drainTimedOut = true;
-                    await RouteShutdownDrainAsync(remaining);
-                }
+                await RouteShutdownDrainAsync(remaining);
             }
 
             _logger.LogInformation("InProcessRequestAuditDispatcher stopped");

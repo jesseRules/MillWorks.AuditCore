@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using MillWorks.AuditCore.EntityFramework.Data;
 using MillWorks.AuditCore.EntityFramework.Entities;
@@ -12,6 +13,23 @@ namespace MillWorks.AuditCore.EntityFramework.Repositories;
 public sealed class AuditEventRepository(AuditDbContext context)
     : Repository<AuditEventEntity>(context), IAuditEventRepository
 {
+    /// <inheritdoc />
+    public override async Task<(IEnumerable<AuditEventEntity> Items, int TotalCount)> GetByOffsetAsync(
+        int offset, int limit, Expression<Func<AuditEventEntity, bool>>? predicate = null,
+        Func<IQueryable<AuditEventEntity>, IOrderedQueryable<AuditEventEntity>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (offset < 0) throw new ArgumentException("Offset cannot be negative", nameof(offset));
+        if (limit < 1) throw new ArgumentException("Limit must be greater than 0", nameof(limit));
+        IQueryable<AuditEventEntity> query = DbSet.AsNoTracking();
+        if (predicate is not null) query = query.Where(predicate);
+        var total = await query.CountAsync(cancellationToken);
+        var ordered = orderBy is not null ? orderBy(query)
+            : query.OrderByDescending(static e => e.InsertedDate).ThenByDescending(static e => e.EventId);
+        var items = await AuditEventPaging.ReadAsync(query, ordered, offset, limit, cancellationToken);
+        return (items, total);
+    }
+
     /// <inheritdoc />
     public async Task<IEnumerable<AuditEventEntity>> GetByEventTypeAsync(string eventType,
         int maxResults = 1000, CancellationToken cancellationToken = default)
@@ -176,23 +194,13 @@ public sealed class AuditEventRepository(AuditDbContext context)
     /// <returns></returns>
     public async Task<List<string>> GetDistinctEventTypesAsync(CancellationToken cancellationToken = default)
     {
-        return await DbSet.AsNoTracking()
-            .Where(static e => e.EventType != null)
-            .Select(static e => e.EventType!)
-            .Distinct()
-            .OrderBy(static et => et)
-            .ToListAsync(cancellationToken);
+        return await AuditEventDistinctValues.EventTypesAsync(Context, cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task<List<string>> GetDistinctUsersAsync(CancellationToken cancellationToken = default)
     {
-        return await DbSet.AsNoTracking()
-            .Where(static e => e.User != null && e.User != "")
-            .Select(static e => e.User!)
-            .Distinct()
-            .OrderBy(static u => u)
-            .ToListAsync(cancellationToken);
+        return await AuditEventDistinctValues.UsersAsync(Context, cancellationToken: cancellationToken);
     }
 
     /// <inheritdoc />
