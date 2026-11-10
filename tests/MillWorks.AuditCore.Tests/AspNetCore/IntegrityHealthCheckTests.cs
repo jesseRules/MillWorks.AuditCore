@@ -17,7 +17,7 @@ public sealed class IntegrityHealthCheckTests
     [Test]
     public async Task CheckHealthAsync_WithNoWorkItems_ReturnsHealthyWithActionableData()
     {
-        using var provider = BuildProvider();
+        await using var provider = BuildProvider();
         var healthCheck = new IntegrityHealthCheck(provider.GetRequiredService<IServiceScopeFactory>());
 
         var result = await healthCheck.CheckHealthAsync(new HealthCheckContext());
@@ -32,7 +32,7 @@ public sealed class IntegrityHealthCheckTests
     [Test]
     public async Task CheckHealthAsync_WithFailedItems_ReturnsUnhealthy()
     {
-        using var provider = BuildProvider(static db =>
+        await using var provider = BuildProvider(static db =>
         {
             db.IntegrityWorkItems.Add(new AuditIntegrityWorkItemEntity
             {
@@ -53,7 +53,7 @@ public sealed class IntegrityHealthCheckTests
     [Test]
     public async Task CheckHealthAsync_WithManyStalePendingItems_ReturnsDegraded()
     {
-        using var provider = BuildProvider(db =>
+        await using var provider = BuildProvider(static db =>
         {
             for (var i = 0; i < 11; i++)
             {
@@ -85,10 +85,10 @@ public sealed class IntegrityHealthCheckTests
     [Test]
     public async Task CheckHealthAsync_WithCanceledToken_PropagatesCancellation()
     {
-        using var provider = BuildProvider();
+        await using var provider = BuildProvider();
         var healthCheck = new IntegrityHealthCheck(provider.GetRequiredService<IServiceScopeFactory>());
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await healthCheck.CheckHealthAsync(new HealthCheckContext(), cts.Token));
     }
@@ -100,9 +100,9 @@ public sealed class IntegrityHealthCheckTests
         var scope = new Mock<IServiceScope>();
         var services = new Mock<IServiceProvider>();
 
-        scope.Setup(x => x.ServiceProvider).Returns(services.Object);
-        scopeFactory.Setup(x => x.CreateScope()).Returns(scope.Object);
-        services.Setup(x => x.GetService(typeof(AuditDbContext)))
+        scope.Setup(static x => x.ServiceProvider).Returns(services.Object);
+        scopeFactory.Setup(static x => x.CreateScope()).Returns(scope.Object);
+        services.Setup(static x => x.GetService(typeof(AuditDbContext)))
             .Throws(new InvalidOperationException("Server=prod;Password=secret"));
 
         var healthCheck = new IntegrityHealthCheck(scopeFactory.Object);
@@ -119,7 +119,7 @@ public sealed class IntegrityHealthCheckTests
     [Test]
     public async Task CheckHealthAsync_ConcurrentCalls_ReturnConsistentResults()
     {
-        using var provider = BuildProvider(static db =>
+        await using var provider = BuildProvider(static db =>
         {
             db.IntegrityWorkItems.Add(new AuditIntegrityWorkItemEntity
             {
@@ -133,8 +133,8 @@ public sealed class IntegrityHealthCheckTests
         var results = await Task.WhenAll(Enumerable.Range(0, 5)
             .Select(_ => healthCheck.CheckHealthAsync(new HealthCheckContext())));
 
-        Assert.That(results.All(r => r.Status == HealthStatus.Healthy), Is.True);
-        Assert.That(results.All(r => Equals(r.Data["pending_total"], 1)), Is.True);
+        Assert.That(results.All(static r => r.Status == HealthStatus.Healthy), Is.True);
+        Assert.That(results.All(static r => Equals(r.Data["pending_total"], 1)), Is.True);
     }
 
     private static ServiceProvider BuildProvider(Action<AuditDbContext>? seed = null)

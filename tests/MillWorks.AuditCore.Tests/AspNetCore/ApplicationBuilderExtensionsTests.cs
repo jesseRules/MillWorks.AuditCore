@@ -26,19 +26,19 @@ public sealed class ApplicationBuilderExtensionsTests
         services.AddLogging();
         services.AddTransient<IMiddlewareFactory, MiddlewareFactory>();
         services.AddScoped<IAuditContext, AuditContext>();
-        services.AddScoped(_ => Mock.Of<ILogger<AuditContextMiddleware>>());
-        services.AddScoped(_ => Mock.Of<IAuditEventFactory>(factory =>
+        services.AddScoped(static _ => Mock.Of<ILogger<AuditContextMiddleware>>());
+        services.AddScoped(static _ => Mock.Of<IAuditEventFactory>(static factory =>
             factory.CreateEvent(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<string>()) ==
             new AuditEvent { EventType = "Http.GET" }));
-        services.AddScoped(_ => Mock.Of<IRequestAuditDispatcher>());
+        services.AddScoped(static _ => Mock.Of<IRequestAuditDispatcher>());
         services.AddSingleton(Options.Create(new AuditMiddlewareOptions()));
         services.AddScoped<AuditContextMiddleware>();
 
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         var app = new ApplicationBuilder(provider);
 
         app.UseMillWorksAudit();
-        app.Run(async context =>
+        app.Run(static async context =>
         {
             var auditContext = context.RequestServices.GetRequiredService<IAuditContext>();
             await context.Response.WriteAsync(auditContext.CorrelationId ?? string.Empty);
@@ -69,7 +69,7 @@ public sealed class ApplicationBuilderExtensionsTests
         var app = new ApplicationBuilder(services);
 
         app.UseMillWorksAudit();
-        app.Run(_ => Task.CompletedTask);
+        app.Run(static _ => Task.CompletedTask);
         var pipeline = app.Build();
 
         var httpContext = new DefaultHttpContext
@@ -87,7 +87,7 @@ public sealed class ApplicationBuilderExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<AuditDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(static options =>
             options.UseInMemoryDatabase($"auditcore-appbuilder-{Guid.NewGuid():N}"));
 
         using var provider = services.BuildServiceProvider();

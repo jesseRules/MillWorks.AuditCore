@@ -39,7 +39,7 @@ public sealed class IntegrityKeyUsageIsolationTests
     [Test]
     public async Task IntegrityHmacAndRsaKeys_ResolveFromDisjointKeySpaces()
     {
-        using var provider = BuildAuditProvider();
+        await using var provider = BuildAuditProvider();
 
         var hmacSigner = provider.GetRequiredService<HmacSha256Signer>();
         var rsaSigner = provider.GetRequiredService<RsaPssSigner>();
@@ -70,15 +70,15 @@ public sealed class IntegrityKeyUsageIsolationTests
         // Integrity keys resolve only via signing providers — never an encryption-key provider or AEAD
         // cipher — so the service cannot cross-route a content-encryption key into the chain.
         Assert.That(
-            ctorParameters.Any(p => p.ParameterType == typeof(IEncryptionKeyProvider)),
+            ctorParameters.Any(static p => p.ParameterType == typeof(IEncryptionKeyProvider)),
             Is.False,
             "TamperDetectionService must not depend on IEncryptionKeyProvider.");
         Assert.That(
-            ctorParameters.Any(p => p.ParameterType == typeof(IAeadCipher)),
+            ctorParameters.Any(static p => p.ParameterType == typeof(IAeadCipher)),
             Is.False,
             "TamperDetectionService must not depend on the AEAD cipher.");
         Assert.That(
-            ctorParameters.Any(p => p.ParameterType.Namespace == "MillWorks.Cryptography.Aead"),
+            ctorParameters.Any(static p => p.ParameterType.Namespace == "MillWorks.Cryptography.Aead"),
             Is.False,
             "TamperDetectionService must take no encryption (AEAD) dependency.");
     }

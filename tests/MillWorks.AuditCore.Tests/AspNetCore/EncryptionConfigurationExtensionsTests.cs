@@ -86,7 +86,7 @@ public sealed class EncryptionConfigurationExtensionsTests
             _builder.UseFieldEncryptionWithFileStorage(
                 keyPath, GenerateValidMasterKey(), allowAutoKeyGeneration: false);
 
-            using var provider = _services.BuildServiceProvider();
+            await using var provider = _services.BuildServiceProvider();
             var keyProvider = provider.GetRequiredService<IEncryptionKeyProvider>();
             await Assert.ThrowsAsync<KeyProviderException>(() => keyProvider.GetCurrentVersionAsync(KeyScope.Global));
         }

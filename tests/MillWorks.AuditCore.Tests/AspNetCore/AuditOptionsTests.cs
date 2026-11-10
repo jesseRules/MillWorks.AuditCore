@@ -47,7 +47,7 @@ public sealed class AuditOptionsTests
             options.DefaultCustomFields[$"field-{i}"] = i;
         }
 
-        Assert.Throws<InvalidOperationException>(() => options.Validate());
+        Assert.Throws<InvalidOperationException>(options.Validate);
     }
 
     [Test]
@@ -59,7 +59,7 @@ public sealed class AuditOptionsTests
         };
         options.DefaultCustomFields["tenant"] = "north";
 
-        Assert.DoesNotThrow(() => options.Validate());
+        Assert.DoesNotThrow(options.Validate);
     }
 
     [Test]
@@ -71,7 +71,7 @@ public sealed class AuditOptionsTests
 
         Assert.That(options.DefaultCustomFields, Is.Not.Null);
         Assert.That(options.DefaultCustomFields, Is.Empty);
-        Assert.DoesNotThrow(() => options.Validate());
+        Assert.DoesNotThrow(options.Validate);
     }
 
     [Test]

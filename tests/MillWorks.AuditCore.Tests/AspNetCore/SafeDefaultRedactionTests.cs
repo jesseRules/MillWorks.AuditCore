@@ -17,15 +17,14 @@ public sealed class SafeDefaultRedactionTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddMillWorksAudit(builder =>
+        services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Development";
-            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+            builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
         });
 
-        var redactorDescriptor = services.FirstOrDefault(
-            s => s.ServiceType == typeof(IAuditFieldRedactor));
+        var redactorDescriptor = services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditFieldRedactor));
 
         Assert.That(redactorDescriptor, Is.Not.Null);
         Assert.That(redactorDescriptor!.ImplementationType, Is.EqualTo(typeof(DefaultAuditFieldRedactor)));
@@ -38,16 +37,15 @@ public sealed class SafeDefaultRedactionTests
         services.AddLogging();
         services.AddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
 
-        services.AddMillWorksAudit(builder =>
+        services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Development";
             builder.Options.AllowPassThroughRedactor = true;
-            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+            builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
         });
 
-        var redactorDescriptor = services.FirstOrDefault(
-            s => s.ServiceType == typeof(IAuditFieldRedactor));
+        var redactorDescriptor = services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditFieldRedactor));
 
         // TryAdd should not overwrite the consumer-registered PassThrough
         Assert.That(redactorDescriptor!.ImplementationType, Is.EqualTo(typeof(PassThroughAuditFieldRedactor)));
@@ -62,11 +60,11 @@ public sealed class SafeDefaultRedactionTests
 
         Assert.Throws<InvalidOperationException>(() =>
         {
-            services.AddMillWorksAudit(builder =>
+            services.AddMillWorksAudit(static builder =>
             {
                 builder.Options.ApplicationName = "TestApp";
                 builder.Options.Environment = "Production";
-                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+                builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
             });
         });
     }
@@ -80,11 +78,11 @@ public sealed class SafeDefaultRedactionTests
 
         Assert.Throws<InvalidOperationException>(() =>
         {
-            services.AddMillWorksAudit(builder =>
+            services.AddMillWorksAudit(static builder =>
             {
                 builder.Options.ApplicationName = "TestApp";
                 builder.Options.Environment = "Development";
-                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+                builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
             });
         });
     }
@@ -98,12 +96,12 @@ public sealed class SafeDefaultRedactionTests
 
         Assert.DoesNotThrow(() =>
         {
-            services.AddMillWorksAudit(builder =>
+            services.AddMillWorksAudit(static builder =>
             {
                 builder.Options.ApplicationName = "TestApp";
                 builder.Options.Environment = "Production";
                 builder.Options.AllowPassThroughRedactor = true;
-                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+                builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
             });
         });
     }
@@ -117,12 +115,12 @@ public sealed class SafeDefaultRedactionTests
         services.AddLogging(builder => builder.AddProvider(provider));
         services.AddSingleton<IAuditFieldRedactor, PassThroughAuditFieldRedactor>();
 
-        services.AddMillWorksAudit(builder =>
+        services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Production";
             builder.Options.AllowPassThroughRedactor = true;
-            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+            builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
         });
 
         await using var serviceProvider = services.BuildServiceProvider();
@@ -144,11 +142,11 @@ public sealed class SafeDefaultRedactionTests
         // No custom redactor — DefaultAuditFieldRedactor will be registered
         Assert.DoesNotThrow(() =>
         {
-            services.AddMillWorksAudit(builder =>
+            services.AddMillWorksAudit(static builder =>
             {
                 builder.Options.ApplicationName = "TestApp";
                 builder.Options.Environment = "Production";
-                builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+                builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
             });
         });
     }
@@ -158,16 +156,15 @@ public sealed class SafeDefaultRedactionTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddMillWorksAudit(builder =>
+        services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Production";
             builder.UseRedactor<TestCustomRedactor>();
-            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+            builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
         });
 
-        var redactorDescriptor = services.FirstOrDefault(
-            s => s.ServiceType == typeof(IAuditFieldRedactor));
+        var redactorDescriptor = services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditFieldRedactor));
 
         Assert.That(redactorDescriptor!.ImplementationType, Is.EqualTo(typeof(TestCustomRedactor)));
     }
@@ -177,15 +174,14 @@ public sealed class SafeDefaultRedactionTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddMillWorksAudit(builder =>
+        services.AddMillWorksAudit(static builder =>
         {
             builder.Options.ApplicationName = "TestApp";
             builder.Options.Environment = "Development";
-            builder.UseEntityFramework(ef => ef.ConnectionString = "Server=.;Database=Test;");
+            builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=.;Database=Test;");
         });
 
-        var diagnosticsDescriptor = services.FirstOrDefault(
-            s => s.ServiceType == typeof(IAuditDiagnostics));
+        var diagnosticsDescriptor = services.FirstOrDefault(static s => s.ServiceType == typeof(IAuditDiagnostics));
 
         Assert.That(diagnosticsDescriptor, Is.Not.Null);
         Assert.That(diagnosticsDescriptor!.Lifetime, Is.EqualTo(ServiceLifetime.Singleton));

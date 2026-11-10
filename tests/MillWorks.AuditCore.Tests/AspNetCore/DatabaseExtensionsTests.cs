@@ -43,7 +43,7 @@ public sealed class DatabaseExtensionsTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) =>
+                It.Is<It.IsAnyType>(static (v, _) =>
                     v != null && (v.ToString() ?? string.Empty).Contains("Failed to run database migrations")),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
@@ -63,7 +63,7 @@ public sealed class DatabaseExtensionsTests
 
         using var provider = services.BuildServiceProvider();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => provider.RunAuditMigrations());
+        var ex = Assert.Throws<InvalidOperationException>(provider.RunAuditMigrations);
 
         Assert.That(ex!.Message, Does.Contain("Relational-specific methods"));
         logger.Verify(

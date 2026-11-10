@@ -59,10 +59,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseEntityFramework_RegistersDbContextAndRepositories()
     {
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(AuditDbContext)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditEventRepository)), Is.True);
@@ -75,10 +72,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseEntityFramework_RegistersCoreServices()
     {
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditService)), Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditQueryService)), Is.True);
@@ -92,10 +86,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseEntityFramework_RegistersDefaultRegulatedEntityFailurePolicy()
     {
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         using var provider = _services.BuildServiceProvider();
         var policy = provider.GetRequiredService<IAuditFailurePolicy>();
@@ -108,10 +99,7 @@ public class MillWorksAuditBuilderTests
     {
         _services.AddSingleton<IAuditFailurePolicy, StubFailurePolicy>();
 
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         using var provider = _services.BuildServiceProvider();
         var policy = provider.GetRequiredService<IAuditFailurePolicy>();
@@ -276,10 +264,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseSecurity_RegistersSecurityEventService()
     {
-        _builder.UseSecurity(static security =>
-        {
-            security.EnableTamperDetection = false;
-        });
+        _builder.UseSecurity(static security => { security.EnableTamperDetection = false; });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditSecurityEventService)), Is.True);
     }
@@ -287,10 +272,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseSecurity_EnableTamperDetection_RegistersTamperService()
     {
-        _builder.UseSecurity(static security =>
-        {
-            security.EnableTamperDetection = true;
-        });
+        _builder.UseSecurity(static security => { security.EnableTamperDetection = true; });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(ITamperDetectionService)), Is.True);
     }
@@ -298,10 +280,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseSecurity_TamperDetectionDisabled_StillRegistersTamperService()
     {
-        _builder.UseSecurity(static security =>
-        {
-            security.EnableTamperDetection = false;
-        });
+        _builder.UseSecurity(static security => { security.EnableTamperDetection = false; });
 
         // ITamperDetectionService is registered unconditionally post-#10. Consumers
         // (AuditLogger, AuditArchivalService) check EnableTamperDetection at call time
@@ -312,10 +291,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseCompliance_RegistersComplianceService()
     {
-        _builder.UseCompliance(static compliance =>
-        {
-            compliance.Standards.Add(ComplianceStandard.GDPR);
-        });
+        _builder.UseCompliance(static compliance => { compliance.Standards.Add(ComplianceStandard.GDPR); });
 
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IAuditComplianceService)), Is.True);
     }
@@ -365,7 +341,8 @@ public class MillWorksAuditBuilderTests
         // IConnectionMultiplexer — that remains the consumer's responsibility when
         // UseRedisLocking = true.
         Assert.That(_services.Any(static s =>
-            s.ServiceType == typeof(MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService)),
+                s.ServiceType ==
+                typeof(MillWorks.AuditCore.Services.DistributedLocking.Interfaces.IAuditDistributedLockService)),
             Is.True);
         Assert.That(_services.Any(static s => s.ServiceType == typeof(IConnectionMultiplexer)), Is.False);
     }
@@ -427,7 +404,7 @@ public class MillWorksAuditBuilderTests
             security.UseRedisLocking = false;
         });
 
-        using var provider = _services.BuildServiceProvider();
+        await using var provider = _services.BuildServiceProvider();
 
         using var scopeA = provider.CreateScope();
         using var scopeB = provider.CreateScope();
@@ -474,16 +451,13 @@ public class MillWorksAuditBuilderTests
     {
         _builder.UseEntityFramework(static ef => ef.ConnectionString = "Server=test;Database=test;");
 
-        _builder.UseResilience(static resilience =>
-        {
-            resilience.EnableDeadLetterQueue = false;
-        });
+        _builder.UseResilience(static resilience => { resilience.EnableDeadLetterQueue = false; });
 
         // EnableDeadLetterQueue=false is surfaced by ResilienceOptionsValidator rather than
         // a registration-time throw — ResilientAuditLogger depends on a DLQ.
         using var provider = _services.BuildServiceProvider();
-        Assert.Throws<OptionsValidationException>(
-            () => _ = provider.GetRequiredService<IOptions<ResilienceOptions>>().Value);
+        Assert.Throws<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<ResilienceOptions>>().Value);
     }
 
     [Test]
@@ -551,7 +525,8 @@ public class MillWorksAuditBuilderTests
         // on ResilienceOptions.EnableBackgroundProcessor inside ExecuteAsync (#12).
         Assert.That(_services.Any(static s =>
             s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
-            && s.ImplementationType == typeof(MillWorks.AuditCore.Services.DeadLetterQueue.Models.DeadLetterQueueProcessor)), Is.True);
+            && s.ImplementationType ==
+            typeof(MillWorks.AuditCore.Services.DeadLetterQueue.Models.DeadLetterQueueProcessor)), Is.True);
     }
 
     [Test]
@@ -587,10 +562,7 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void ValidateConfiguration_WithStorage_DoesNotThrow()
     {
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         Assert.DoesNotThrow(() => _builder.ValidateConfiguration());
     }
@@ -600,10 +572,7 @@ public class MillWorksAuditBuilderTests
     {
         // EnableDigitalSignatures no longer requires an HmacKey on AuditOptions — the integrity keys
         // resolve via the integrity ISigningKeyProvider wired in UseSecurity.
-        _builder.UseEntityFramework(static ef =>
-        {
-            ef.ConnectionString = "Server=test;Database=test;";
-        });
+        _builder.UseEntityFramework(static ef => { ef.ConnectionString = "Server=test;Database=test;"; });
 
         _options.EnableDigitalSignatures = true;
 
@@ -635,8 +604,8 @@ public class MillWorksAuditBuilderTests
         // Azure-Blob-requires-connection-string is enforced by ArchivalOptionsValidator
         // rather than a registration-time throw.
         using var provider = _services.BuildServiceProvider();
-        Assert.Throws<OptionsValidationException>(
-            () => _ = provider.GetRequiredService<IOptions<ArchivalOptions>>().Value);
+        Assert.Throws<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<ArchivalOptions>>().Value);
     }
 
     [Test]
@@ -655,16 +624,13 @@ public class MillWorksAuditBuilderTests
     [Test]
     public void UseArchival_AwsS3_FailsValidation()
     {
-        _builder.UseArchival(static archival =>
-        {
-            archival.Provider = ArchivalProvider.AwSs3;
-        });
+        _builder.UseArchival(static archival => { archival.Provider = ArchivalProvider.AwSs3; });
 
         // AWS S3 not-implemented is reported by ArchivalOptionsValidator at options access,
         // not as a registration-time NotImplementedException.
         using var provider = _services.BuildServiceProvider();
-        Assert.Throws<OptionsValidationException>(
-            () => _ = provider.GetRequiredService<IOptions<ArchivalOptions>>().Value);
+        Assert.Throws<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<ArchivalOptions>>().Value);
     }
 
     [Test]
@@ -683,8 +649,10 @@ public class MillWorksAuditBuilderTests
     private sealed class TestAuditProvider : IAuditProvider
     {
         public string EntityType => "Order";
+
         public Task<AuditEvent> CreateAuditEventAsync(string action, object? entity, object? oldValues = null)
             => Task.FromResult(new AuditEvent { EntityName = EntityType });
+
         public Task<bool> ShouldAuditAsync(string action, object entity) => Task.FromResult(true);
         public Task EnrichAuditEventAsync(AuditEvent auditEvent, object? entity) => Task.CompletedTask;
         public Dictionary<string, object?> GetChanges(object? oldValues, object? newValues) => new();
