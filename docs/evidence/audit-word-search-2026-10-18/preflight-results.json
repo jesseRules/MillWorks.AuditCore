@@ -1,0 +1,24 @@
+{
+  "target": "existing disposable test SQL port 1435, master metadata only",
+  "ddlApplied": false,
+  "checks": [
+    {
+      "check": "installerUnsupported",
+      "expectedError": "51001",
+      "exitCode": 1,
+      "passed": true
+    },
+    {
+      "check": "verifierUnsupported",
+      "expectedError": "51010",
+      "exitCode": 1,
+      "passed": true
+    },
+    {
+      "check": "installerAmbientTransaction",
+      "expectedError": "51000",
+      "exitCode": 1,
+      "passed": true
+    }
+  ]
+}

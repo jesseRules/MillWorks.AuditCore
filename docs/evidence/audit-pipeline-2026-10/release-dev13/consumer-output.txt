@@ -1,0 +1,6 @@
+Verified EventId, EntityId and AuditSearchUnavailableException from dev.13 packages.
+MillWorks.AuditCore.Abstractions 1.15.4-dev.13
+MillWorks.AuditCore.EntityFramework 1.15.4-dev.13
+MillWorks.AuditCore.Providers 1.15.4-dev.13
+MillWorks.AuditCore.Services 1.15.4-dev.13
+MillWorks.AuditCore.AspNetCore 1.15.4-dev.13

@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  MillWorks.AuditCore.Abstractions -> /private/tmp/auditcore-dev15-release/src/MillWorks.AuditCore.Abstractions/bin/Release/net10.0/MillWorks.AuditCore.Abstractions.dll
+  MillWorks.AuditCore.EntityFramework -> /private/tmp/auditcore-dev15-release/src/MillWorks.AuditCore.EntityFramework/bin/Release/net10.0/MillWorks.AuditCore.EntityFramework.dll
+  MillWorks.AuditCore.Providers -> /private/tmp/auditcore-dev15-release/src/MillWorks.AuditCore.Providers/bin/Release/net10.0/MillWorks.AuditCore.Providers.dll
+  MillWorks.AuditCore.Services -> /private/tmp/auditcore-dev15-release/src/MillWorks.AuditCore.Services/bin/Release/net10.0/MillWorks.AuditCore.Services.dll
+  MillWorks.AuditCore.AspNetCore -> /private/tmp/auditcore-dev15-release/src/MillWorks.AuditCore.AspNetCore/bin/Release/net10.0/MillWorks.AuditCore.AspNetCore.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.78

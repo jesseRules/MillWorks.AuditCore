@@ -1,0 +1,80 @@
+{
+  "checkedUtc": "2026-10-19T01:17:02.859739+00:00",
+  "overall": "Degraded",
+  "checkedCount": 48,
+  "nonHealthy": [
+    {
+      "name": "custody-deployment",
+      "status": "Degraded",
+      "description": "Custody capability assessment is not configured; no essential deployment requirements are composed.",
+      "tags": [
+        "ready"
+      ]
+    },
+    {
+      "name": "applog-telemetry-export",
+      "status": "Degraded",
+      "description": "AppLog OTEL telemetry export is disabled \u2014 exporter not scheduled.",
+      "tags": [
+        "applog"
+      ]
+    },
+    {
+      "name": "applog-seams",
+      "status": "Degraded",
+      "description": "1 AppLog seam(s) using library no-op implementations.",
+      "tags": [
+        "applog"
+      ]
+    }
+  ],
+  "auditChecks": [
+    {
+      "name": "audit_integrity_pipeline",
+      "status": "Healthy",
+      "data": [
+        {
+          "key": "checked_at_utc",
+          "value": "2026-10-19T01:15:45.602249+00:00"
+        },
+        {
+          "key": "stale_threshold_minutes",
+          "value": 10
+        },
+        {
+          "key": "pending_total",
+          "value": 0
+        },
+        {
+          "key": "pending_stale",
+          "value": 0
+        },
+        {
+          "key": "failed",
+          "value": 0
+        },
+        {
+          "key": "batch_flush_count",
+          "value": 0
+        },
+        {
+          "key": "batch_flush_failures",
+          "value": 0
+        },
+        {
+          "key": "reconciliation_successes",
+          "value": 0
+        },
+        {
+          "key": "reconciliation_failures",
+          "value": 0
+        },
+        {
+          "key": "permanent_failures",
+          "value": 0
+        }
+      ]
+    }
+  ],
+  "readinessCause": "custody-deployment is the only nonhealthy ready-tagged check; AppLog degradations are not tagged ready."
+}

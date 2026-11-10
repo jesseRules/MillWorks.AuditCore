@@ -1,0 +1,4 @@
+{
+  "src/MillWorks.AuditCore.EntityFramework/Sql/InstallAuditEventFullText.sql": "a420f7526a3501cea0644a035b354ffca263f1ba1fe4c63206c3f2ef87d4bfe0",
+  "src/MillWorks.AuditCore.EntityFramework/Sql/VerifyAuditEventFullText.sql": "0c29bc0d9bebab493a1168528cb5d36e8e14d0e1ff438f405efb6c4afafd382b"
+}

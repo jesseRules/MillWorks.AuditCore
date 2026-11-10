@@ -1,0 +1,11 @@
+fulltext_installed database_fulltext_enabled
+------------------ -------------------------
+0 1
+
+schema_name table_name is_enabled has_crawl_completed crawl_type_desc change_tracking_state_desc
+----------- ---------- ---------- ------------------- --------------- --------------------------
+audit AuditEvents NULL NULL NULL NULL
+
+column_name language_id
+----------- -----------
+

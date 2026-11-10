@@ -1,0 +1,280 @@
+{
+  "Before": [
+    {
+      "Ids": [
+        "d8f3fc29-0f55-4520-8fdd-f139f5135a02",
+        "0e4ba8d1-771b-4771-898d-c8d813e00097",
+        "1d863890-3a68-42b9-96ca-b5aab8a3936c",
+        "d4301489-16cf-4fa7-9f69-a516c9c9dbbd",
+        "96786fb1-3f2a-42e9-b398-a466e0ab2ba7",
+        "490101e4-d275-4025-91c2-8fade39acc57",
+        "51f7f5c1-f14b-4b66-8393-760883fa8b73",
+        "ce283dc7-4370-4522-98c9-622a77a6f871",
+        "cf5b3485-5fb5-4e1a-9754-5d30cd08d754",
+        "5b6c8483-8dae-49c3-b147-2c21e3c7136d",
+        "f35838b7-5118-42e3-a996-fb6fd18096c2",
+        "478dd4d3-836e-4259-9a7e-d99bef4b2739",
+        "411d413f-30f5-4473-a182-d0497eb827d8",
+        "58aed5d4-8ea8-444a-9615-c46a9f7510e4",
+        "fc8a57b2-9076-45d7-b498-c0704727a143",
+        "a415ad8a-59a3-441f-8f5c-97ca6db6f7c5",
+        "adab7f12-2c29-49df-afc5-66528f0867f3",
+        "207e8b1a-a296-40f4-b1f1-5ed02c7cd06e",
+        "3985255e-50fd-4ac2-b705-0f9b45d84da7",
+        "f4f4f267-8589-46bf-a35a-0eee9abbd008",
+        "9a2895e5-90ac-483b-a3ea-f479ad9f9cc7",
+        "099ed0f6-af47-4334-a11e-aa032440549a",
+        "fe869e62-a658-41df-948b-963b3a22b08d",
+        "c559b797-f250-4a29-8b09-85cbb5f1a0f9",
+        "b6cc551e-31dc-4679-ba67-7671847d7999"
+      ],
+      "Count": null,
+      "LogicalReads": 4449,
+      "Sorts": 1,
+      "Indexes": [
+        "IX_AuditEvents_Date_Type"
+      ],
+      "Milliseconds": 86
+    },
+    {
+      "Ids": [
+        "d7f3246c-356a-435c-996d-697114f8fb21",
+        "f0cdbb31-35fa-4c5d-bd46-4ecdde955a6e",
+        "117d447b-075d-4e6d-b7c0-18b230aab74d",
+        "88ee4eed-9468-49de-8826-174259717986",
+        "33bfc074-541b-4531-8114-1066aae3a33a",
+        "005cb466-8d5a-4a68-a9ee-ebb9e0e867d7",
+        "df9eba7e-a808-444b-93bb-bbc284ecec09",
+        "dad0d173-d54c-4ec7-9427-a7ff0b7b9385",
+        "d0b3f090-3319-4b4a-9697-a0dafe285a26",
+        "43c0d3be-15e2-498d-9193-9f2782118fb5",
+        "f8cb18b0-8dbd-4e27-b9d5-92de68eee355",
+        "09f87262-1480-4b16-a98b-4d96e72b3dfb",
+        "3271454c-1e51-45cf-8438-1f698c5c8d88",
+        "ea5d0c4b-3f54-4a76-8fd4-115c61646316",
+        "848fe859-bcda-4f3d-b610-077dde76623c",
+        "2e675a86-0db8-43d0-89c5-e7a8382822bb",
+        "a5ab6f77-cf43-4077-b3ad-cd6c31e0155d",
+        "3c09b1bb-1b20-400b-8b7f-b8a37f84aebe",
+        "c802be83-3ee8-49eb-a16a-b09419c1b855",
+        "859047d1-ef9a-4e2a-9921-784704073390",
+        "149977b0-ce3c-4aa6-b669-22fda8eb618b",
+        "9a663e74-1434-44ca-b8fa-1a15150f080d",
+        "29737462-1280-40af-9fce-1151ae88b395",
+        "d43eb8ff-b577-4336-bde6-01b681472006",
+        "7529f3f3-9d80-4473-b4bd-00330218814b"
+      ],
+      "Count": null,
+      "LogicalReads": 4449,
+      "Sorts": 1,
+      "Indexes": [
+        "IX_AuditEvents_Date_Type"
+      ],
+      "Milliseconds": 47
+    },
+    {
+      "Ids": [
+        "2a2b5df6-8215-48ca-ab62-f2bf4062a3e8",
+        "efdef7b1-7899-40b6-b4fa-ee3c4332a8a6",
+        "b25af439-19ae-4c40-97dd-d4c4d4ea0065",
+        "a9578418-6444-445c-867e-c1f8be554d7f",
+        "3bdf1cb3-f6ae-406d-bc9b-a2db05139b28",
+        "a4b992f8-b926-456d-867f-6d399d9de001",
+        "7371d6f3-5386-4d56-91d3-57f3a069b549",
+        "fc9981ed-130f-4188-bda5-223d241699f5",
+        "06301913-81d3-456e-b00f-0ad73a5dfe50",
+        "cb79bb9d-95ab-4cbb-be33-015c313e4faa",
+        "88173616-eba4-448e-9f56-f1d60e6873b4",
+        "af3a041c-b8f9-4eea-8297-e6764b973afc",
+        "611e524a-65c1-4d1f-acfa-c71a0716df9d",
+        "f2cefaa8-8132-4b90-b7d3-b0257f80332a",
+        "17c8b361-d5df-47ff-b145-9a213a3afa8c",
+        "06bd4734-d4cf-4f27-9862-6ecb68fc3f17",
+        "55a60559-14b7-4482-a16e-60af1abf5770",
+        "5e33c057-bd8e-4078-8233-24efe683e2e9",
+        "c39d97f7-c9a0-412e-b711-243643c52f09",
+        "54491401-9e98-4137-8221-0a952c268a11",
+        "353c3ed4-5d1a-49d2-93a6-f6ef7556de68",
+        "4ddce5e7-d2e3-44c0-adb7-e9a8131f0c06",
+        "54916e8e-cb45-4036-b7ca-99f84922cb56",
+        "dca9b112-1011-4e3b-9629-99ea4a708ddc",
+        "ff36569a-6ccc-423e-8ed1-7c3b70562286"
+      ],
+      "Count": null,
+      "LogicalReads": 4449,
+      "Sorts": 1,
+      "Indexes": [
+        "IX_AuditEvents_Date_Type"
+      ],
+      "Milliseconds": 42
+    }
+  ],
+  "After": [
+    {
+      "Ids": [
+        "d8f3fc29-0f55-4520-8fdd-f139f5135a02",
+        "0e4ba8d1-771b-4771-898d-c8d813e00097",
+        "1d863890-3a68-42b9-96ca-b5aab8a3936c",
+        "d4301489-16cf-4fa7-9f69-a516c9c9dbbd",
+        "96786fb1-3f2a-42e9-b398-a466e0ab2ba7",
+        "490101e4-d275-4025-91c2-8fade39acc57",
+        "51f7f5c1-f14b-4b66-8393-760883fa8b73",
+        "ce283dc7-4370-4522-98c9-622a77a6f871",
+        "cf5b3485-5fb5-4e1a-9754-5d30cd08d754",
+        "5b6c8483-8dae-49c3-b147-2c21e3c7136d",
+        "f35838b7-5118-42e3-a996-fb6fd18096c2",
+        "478dd4d3-836e-4259-9a7e-d99bef4b2739",
+        "411d413f-30f5-4473-a182-d0497eb827d8",
+        "58aed5d4-8ea8-444a-9615-c46a9f7510e4",
+        "fc8a57b2-9076-45d7-b498-c0704727a143",
+        "a415ad8a-59a3-441f-8f5c-97ca6db6f7c5",
+        "adab7f12-2c29-49df-afc5-66528f0867f3",
+        "207e8b1a-a296-40f4-b1f1-5ed02c7cd06e",
+        "3985255e-50fd-4ac2-b705-0f9b45d84da7",
+        "f4f4f267-8589-46bf-a35a-0eee9abbd008",
+        "9a2895e5-90ac-483b-a3ea-f479ad9f9cc7",
+        "099ed0f6-af47-4334-a11e-aa032440549a",
+        "fe869e62-a658-41df-948b-963b3a22b08d",
+        "c559b797-f250-4a29-8b09-85cbb5f1a0f9",
+        "b6cc551e-31dc-4679-ba67-7671847d7999"
+      ],
+      "Count": null,
+      "LogicalReads": 3,
+      "Sorts": 0,
+      "Indexes": [
+        "IX_AuditEvents_Date_EventId"
+      ],
+      "Milliseconds": 4
+    },
+    {
+      "Ids": [
+        "d7f3246c-356a-435c-996d-697114f8fb21",
+        "f0cdbb31-35fa-4c5d-bd46-4ecdde955a6e",
+        "117d447b-075d-4e6d-b7c0-18b230aab74d",
+        "88ee4eed-9468-49de-8826-174259717986",
+        "33bfc074-541b-4531-8114-1066aae3a33a",
+        "005cb466-8d5a-4a68-a9ee-ebb9e0e867d7",
+        "df9eba7e-a808-444b-93bb-bbc284ecec09",
+        "dad0d173-d54c-4ec7-9427-a7ff0b7b9385",
+        "d0b3f090-3319-4b4a-9697-a0dafe285a26",
+        "43c0d3be-15e2-498d-9193-9f2782118fb5",
+        "f8cb18b0-8dbd-4e27-b9d5-92de68eee355",
+        "09f87262-1480-4b16-a98b-4d96e72b3dfb",
+        "3271454c-1e51-45cf-8438-1f698c5c8d88",
+        "ea5d0c4b-3f54-4a76-8fd4-115c61646316",
+        "848fe859-bcda-4f3d-b610-077dde76623c",
+        "2e675a86-0db8-43d0-89c5-e7a8382822bb",
+        "a5ab6f77-cf43-4077-b3ad-cd6c31e0155d",
+        "3c09b1bb-1b20-400b-8b7f-b8a37f84aebe",
+        "c802be83-3ee8-49eb-a16a-b09419c1b855",
+        "859047d1-ef9a-4e2a-9921-784704073390",
+        "149977b0-ce3c-4aa6-b669-22fda8eb618b",
+        "9a663e74-1434-44ca-b8fa-1a15150f080d",
+        "29737462-1280-40af-9fce-1151ae88b395",
+        "d43eb8ff-b577-4336-bde6-01b681472006",
+        "7529f3f3-9d80-4473-b4bd-00330218814b"
+      ],
+      "Count": null,
+      "LogicalReads": 3,
+      "Sorts": 0,
+      "Indexes": [
+        "IX_AuditEvents_Date_EventId"
+      ],
+      "Milliseconds": 3
+    },
+    {
+      "Ids": [
+        "2a2b5df6-8215-48ca-ab62-f2bf4062a3e8",
+        "efdef7b1-7899-40b6-b4fa-ee3c4332a8a6",
+        "b25af439-19ae-4c40-97dd-d4c4d4ea0065",
+        "a9578418-6444-445c-867e-c1f8be554d7f",
+        "3bdf1cb3-f6ae-406d-bc9b-a2db05139b28",
+        "a4b992f8-b926-456d-867f-6d399d9de001",
+        "7371d6f3-5386-4d56-91d3-57f3a069b549",
+        "fc9981ed-130f-4188-bda5-223d241699f5",
+        "06301913-81d3-456e-b00f-0ad73a5dfe50",
+        "cb79bb9d-95ab-4cbb-be33-015c313e4faa",
+        "88173616-eba4-448e-9f56-f1d60e6873b4",
+        "af3a041c-b8f9-4eea-8297-e6764b973afc",
+        "611e524a-65c1-4d1f-acfa-c71a0716df9d",
+        "f2cefaa8-8132-4b90-b7d3-b0257f80332a",
+        "17c8b361-d5df-47ff-b145-9a213a3afa8c",
+        "06bd4734-d4cf-4f27-9862-6ecb68fc3f17",
+        "55a60559-14b7-4482-a16e-60af1abf5770",
+        "5e33c057-bd8e-4078-8233-24efe683e2e9",
+        "c39d97f7-c9a0-412e-b711-243643c52f09",
+        "54491401-9e98-4137-8221-0a952c268a11",
+        "353c3ed4-5d1a-49d2-93a6-f6ef7556de68",
+        "4ddce5e7-d2e3-44c0-adb7-e9a8131f0c06",
+        "54916e8e-cb45-4036-b7ca-99f84922cb56",
+        "dca9b112-1011-4e3b-9629-99ea4a708ddc",
+        "ff36569a-6ccc-423e-8ed1-7c3b70562286"
+      ],
+      "Count": null,
+      "LogicalReads": 45,
+      "Sorts": 0,
+      "Indexes": [
+        "IX_AuditEvents_Date_EventId"
+      ],
+      "Milliseconds": 6
+    }
+  ],
+  "CountBefore": {
+    "Ids": [],
+    "Count": 99900,
+    "LogicalReads": 4449,
+    "Sorts": 0,
+    "Indexes": [
+      "IX_AuditEvents_Date_Type"
+    ],
+    "Milliseconds": 18
+  },
+  "CountAfter": {
+    "Ids": [],
+    "Count": 99900,
+    "LogicalReads": 400,
+    "Sorts": 0,
+    "Indexes": [
+      "IX_AuditEvents_Date_EventId"
+    ],
+    "Milliseconds": 12
+  },
+  "Rollback": {
+    "Ids": [
+      "d8f3fc29-0f55-4520-8fdd-f139f5135a02",
+      "0e4ba8d1-771b-4771-898d-c8d813e00097",
+      "1d863890-3a68-42b9-96ca-b5aab8a3936c",
+      "d4301489-16cf-4fa7-9f69-a516c9c9dbbd",
+      "96786fb1-3f2a-42e9-b398-a466e0ab2ba7",
+      "490101e4-d275-4025-91c2-8fade39acc57",
+      "51f7f5c1-f14b-4b66-8393-760883fa8b73",
+      "ce283dc7-4370-4522-98c9-622a77a6f871",
+      "cf5b3485-5fb5-4e1a-9754-5d30cd08d754",
+      "5b6c8483-8dae-49c3-b147-2c21e3c7136d",
+      "f35838b7-5118-42e3-a996-fb6fd18096c2",
+      "478dd4d3-836e-4259-9a7e-d99bef4b2739",
+      "411d413f-30f5-4473-a182-d0497eb827d8",
+      "58aed5d4-8ea8-444a-9615-c46a9f7510e4",
+      "fc8a57b2-9076-45d7-b498-c0704727a143",
+      "a415ad8a-59a3-441f-8f5c-97ca6db6f7c5",
+      "adab7f12-2c29-49df-afc5-66528f0867f3",
+      "207e8b1a-a296-40f4-b1f1-5ed02c7cd06e",
+      "3985255e-50fd-4ac2-b705-0f9b45d84da7",
+      "f4f4f267-8589-46bf-a35a-0eee9abbd008",
+      "9a2895e5-90ac-483b-a3ea-f479ad9f9cc7",
+      "099ed0f6-af47-4334-a11e-aa032440549a",
+      "fe869e62-a658-41df-948b-963b3a22b08d",
+      "c559b797-f250-4a29-8b09-85cbb5f1a0f9",
+      "b6cc551e-31dc-4679-ba67-7671847d7999"
+    ],
+    "Count": null,
+    "LogicalReads": 4449,
+    "Sorts": 1,
+    "Indexes": [
+      "IX_AuditEvents_Date_Type"
+    ],
+    "Milliseconds": 42
+  },
+  "Rows": 100000,
+  "Fixture": "AuditCorePaging_fa541d24a21c42ada824c9455a011317"
+}

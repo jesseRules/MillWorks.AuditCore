@@ -1,0 +1,11 @@
+  Determining projects to restore...
+  Restored /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj (in 185 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj (in 2 ms).
+  MillWorks.AuditCore.Abstractions -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/bin/Debug/net10.0/MillWorks.AuditCore.Abstractions.dll
+  MillWorks.AuditCore.EntityFramework -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:05.04

@@ -1,0 +1,14 @@
+  Determining projects to restore...
+  Restored /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj (in 247 ms).
+  Restored /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/MillWorks.AuditCore.Abstractions.csproj (in 2 ms).
+  MillWorks.AuditCore.Abstractions -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.Abstractions/bin/Debug/net10.0/MillWorks.AuditCore.Abstractions.dll
+/Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/Repositories/AuditEventRepository.cs(14,36): warning CS9107: Parameter 'AuditDbContext context' is captured into the state of the enclosing type and its value is also passed to the base constructor. The value might be captured by the base class as well. [/Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj]
+  MillWorks.AuditCore.EntityFramework -> /Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/bin/Debug/net10.0/MillWorks.AuditCore.EntityFramework.dll
+
+Build succeeded.
+
+/Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/Repositories/AuditEventRepository.cs(14,36): warning CS9107: Parameter 'AuditDbContext context' is captured into the state of the enclosing type and its value is also passed to the base constructor. The value might be captured by the base class as well. [/Users/jesse/RiderProjects/MillWorks.AuditCore/src/MillWorks.AuditCore.EntityFramework/MillWorks.AuditCore.EntityFramework.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.50

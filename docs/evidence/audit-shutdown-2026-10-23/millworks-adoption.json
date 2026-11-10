@@ -1,0 +1,12 @@
+{
+  "apiRestoreSucceeded": true,
+  "resolvedPackages": [
+    "MillWorks.AuditCore.Abstractions/1.15.4-dev.17",
+    "MillWorks.AuditCore.EntityFramework/1.15.4-dev.17",
+    "MillWorks.AuditCore.Providers/1.15.4-dev.17",
+    "MillWorks.AuditCore.Services/1.15.4-dev.17",
+    "MillWorks.AuditCore/1.15.4-dev.17"
+  ],
+  "cachedDllsMatchPublishedPackages": true,
+  "apiBuilt": false
+}

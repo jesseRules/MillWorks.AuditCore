@@ -1,0 +1,6 @@
+MillWorks.AuditCore.Abstractions 1.15.4-dev.14
+MillWorks.AuditCore.EntityFramework 1.15.4-dev.14
+MillWorks.AuditCore.Providers 1.15.4-dev.14
+MillWorks.AuditCore.Services 1.15.4-dev.14
+MillWorks.AuditCore.AspNetCore 1.15.4-dev.14
+PASS: packaged paging helper, migration, embedded installer and all five versions.

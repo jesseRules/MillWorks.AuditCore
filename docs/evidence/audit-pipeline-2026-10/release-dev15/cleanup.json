@@ -1,0 +1,9 @@
+{
+  "owned_catalogs": [
+    "AuditCorePaging_bf3f688817d24fa6858fb3f023f5e6bc",
+    "AuditCorePaging_fa541d24a21c42ada824c9455a011317"
+  ],
+  "remaining": [],
+  "endpoint": "127.0.0.1,1435",
+  "no_other_catalogs_modified": true
+}

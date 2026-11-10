@@ -1,0 +1,12 @@
+--- 
++++ 
+@@ -414,6 +414,9 @@
+ 
+                     b.HasKey("EventId");
+ 
++                    b.HasIndex("User")
++                        .HasDatabaseName("IX_AuditEvents_User");
++
+                     b.HasIndex("EventType", "InsertedDate")
+                         .HasDatabaseName("IX_AuditEvents_EventType_Date_Filtered")
+                         .HasFilter("[EventType] IS NOT NULL");

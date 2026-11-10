@@ -1,0 +1,11 @@
+{
+  "new_migration": [
+    "20261020103954_AddAuditEventUserIndex.cs"
+  ],
+  "previous_migration_bodies": 21,
+  "all_previous_files_unchanged_except_snapshot": true,
+  "snapshot_change": "adds only IX_AuditEvents_User",
+  "up": "creates User-only key index",
+  "down": "drops only that index",
+  "application_database_modified": false
+}

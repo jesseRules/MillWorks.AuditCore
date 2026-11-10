@@ -1,0 +1,28 @@
+{
+  "restoreCommand": "dotnet restore MillWorks.Api/MillWorks.Api.csproj --disable-parallel",
+  "restoreExitCode": 0,
+  "hostBuilt": false,
+  "all21ConsumerEditsVerified": true,
+  "packages": [
+    {
+      "package": "MillWorks.AuditCore/1.15.4-dev.13",
+      "sha512": "MBAaxSPmEjkdfMWLBnLHY5DSVrghRz9Q2uPDABtWIigfq3wooljM7RY2xrdcnf89OyoMx7g4+I6q4wTT8Z3UxA=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Abstractions/1.15.4-dev.13",
+      "sha512": "bIEi/lMYKKTO4MR6ZbH8sHFUQyekatNEhjbEGdQaxCtkfbaK1Y4Ov8sIsJ/XrLlYhzNF0vj1wHHvalsm7WH2zg=="
+    },
+    {
+      "package": "MillWorks.AuditCore.EntityFramework/1.15.4-dev.13",
+      "sha512": "mvTDKqoS6EghHYthSr9WN6DjYfRbf26cVIA8QcckWCzZLLdla5Pqtxbg6Xb6C+FRyk8H2Q2HE3X4bSc8JXFMPw=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Providers/1.15.4-dev.13",
+      "sha512": "6K7AkVn4UDIDadsyr9+aPN8yjAh0J684rkJL4ePADpW04my4RxigYG6gy2p2xdRlQGRCFh9QoTTV8dv1Z7KroA=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Services/1.15.4-dev.13",
+      "sha512": "vziiCETK3iC6v8NALEFR0vKmYT5B17/DoE6CHtFV0WRWjHxcjDLeFk8lds5pZyA0fOe+s2xBcxr6pvKtzE/GmA=="
+    }
+  ]
+}

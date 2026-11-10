@@ -1,0 +1,48 @@
+{
+  "observedUtc": "2026-10-19T01:16:04.191616+00:00",
+  "checks": [
+    {
+      "check": "eventId",
+      "httpStatus": 200,
+      "ownedEventMatched": true,
+      "returnedRows": 1,
+      "retainedPayloadUnchanged": true
+    },
+    {
+      "check": "entityId",
+      "httpStatus": 200,
+      "ownedEventMatched": true,
+      "returnedRows": 1,
+      "retainedPayloadUnchanged": true
+    },
+    {
+      "check": "eventId",
+      "httpStatus": 200,
+      "ownedEventMatched": true,
+      "returnedRows": 1,
+      "retainedPayloadUnchanged": true
+    },
+    {
+      "check": "entityId",
+      "httpStatus": 200,
+      "ownedEventMatched": true,
+      "returnedRows": 1,
+      "retainedPayloadUnchanged": true
+    },
+    {
+      "check": "unknownExactEvent",
+      "httpStatus": 200,
+      "returnedRows": 0
+    },
+    {
+      "check": "wordSearch",
+      "httpStatus": 503,
+      "meaning": "Explicit unavailable response; index readiness remains unresolved"
+    }
+  ],
+  "passed": true,
+  "scope": "Read-only queries of two retained owned synthetic export events; no destructive operation",
+  "supportedSeededLogin": true,
+  "sessionReplacement": false,
+  "rawPayloadsRetainedInEvidence": false
+}

@@ -1,0 +1,26 @@
+{
+  "userConfirmedRebuiltAndRunning": true,
+  "command": "python3 /Users/jesse/RiderProjects/MillWorks/scripts/dev-work.py test /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/MillWorks.Api.Tests.csproj -- --filter FullyQualifiedName~AuditChainStatusTests|FullyQualifiedName~AuditAdministrationHttpBoundaryTests|FullyQualifiedName~AuditOutboxRecoveryControllerTests",
+  "noBuild": true,
+  "noRestore": true,
+  "counters": {
+    "total": "30",
+    "executed": "30",
+    "passed": "29",
+    "failed": "1",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "failure": "GetAuditEvents_ForwardsPaginationAndFiltersToSearchService expected explicit 23:59:59 to expand; implementation expands only midnight. Source corrected to cover midnight expansion and explicit timestamp preservation; awaiting next user test rebuild.",
+  "fullHostAcceptance": false
+}

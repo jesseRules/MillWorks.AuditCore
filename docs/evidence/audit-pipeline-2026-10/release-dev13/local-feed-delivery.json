@@ -1,0 +1,215 @@
+{
+  "recordedUtc": "2026-10-19T00:06:42.959717+00:00",
+  "version": "1.15.4-dev.13",
+  "preservedExistingArtifacts": 3233,
+  "deliveries": [
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.1.15.4-dev.13.nupkg",
+      "sha256": "a466a96e7d889dffe72196df26aae4e49b9f1cbe265330e4b01bff0a91f6436b"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.1.15.4-dev.13.snupkg",
+      "sha256": "b40a393d98c97add00dff76f07f414e56f44f64629344d0405131f02b7051830"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Abstractions.1.15.4-dev.13.nupkg",
+      "sha256": "b89eda486f38dc36b3c17af20fa40df99148046036aaa8f51089ee2bb95cfe75"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Abstractions.1.15.4-dev.13.snupkg",
+      "sha256": "f1de29972f8799dd3873795a9198edd42c8bcd196d0048d4e01587276c0acd14"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.13.nupkg",
+      "sha256": "0f573b0cc86345e3cccf5916dafb641d37aa241264d633698d47a23cbd865da7"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.13.snupkg",
+      "sha256": "d5e34c6196da726afb86424d1c93b7cb8cccccee1a24570710efd2378ae0d9f9"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Providers.1.15.4-dev.13.nupkg",
+      "sha256": "7baa8febe779fff2319e87d55149d7b4c67da19fd9425137a1b15c03fe851fc9"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Providers.1.15.4-dev.13.snupkg",
+      "sha256": "3254b281c3c168dc05c8682334b81d545f4b37d8f77c71946db3d4be477cc74e"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Services.1.15.4-dev.13.nupkg",
+      "sha256": "e3d57611be679870c9b2d1573f238e378a3a8e390ac3c50ed7946de42db04cce"
+    },
+    {
+      "path": "/Users/jesse/LocalNuGetPackages/MillWorks.AuditCore.Services.1.15.4-dev.13.snupkg",
+      "sha256": "c4e0f5d40a1d91a28b91b6e5ad964d3c401371c664d2eddb66a3ccfd3c7aa325"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.1.15.4-dev.13.nupkg",
+      "sha256": "a466a96e7d889dffe72196df26aae4e49b9f1cbe265330e4b01bff0a91f6436b"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.1.15.4-dev.13.snupkg",
+      "sha256": "b40a393d98c97add00dff76f07f414e56f44f64629344d0405131f02b7051830"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.13.nupkg",
+      "sha256": "b89eda486f38dc36b3c17af20fa40df99148046036aaa8f51089ee2bb95cfe75"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Abstractions.1.15.4-dev.13.snupkg",
+      "sha256": "f1de29972f8799dd3873795a9198edd42c8bcd196d0048d4e01587276c0acd14"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.13.nupkg",
+      "sha256": "0f573b0cc86345e3cccf5916dafb641d37aa241264d633698d47a23cbd865da7"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.EntityFramework.1.15.4-dev.13.snupkg",
+      "sha256": "d5e34c6196da726afb86424d1c93b7cb8cccccee1a24570710efd2378ae0d9f9"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Providers.1.15.4-dev.13.nupkg",
+      "sha256": "7baa8febe779fff2319e87d55149d7b4c67da19fd9425137a1b15c03fe851fc9"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Providers.1.15.4-dev.13.snupkg",
+      "sha256": "3254b281c3c168dc05c8682334b81d545f4b37d8f77c71946db3d4be477cc74e"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Services.1.15.4-dev.13.nupkg",
+      "sha256": "e3d57611be679870c9b2d1573f238e378a3a8e390ac3c50ed7946de42db04cce"
+    },
+    {
+      "path": "/Users/jesse/RiderProjects/MillWorks/local-packages/MillWorks.AuditCore.Services.1.15.4-dev.13.snupkg",
+      "sha256": "c4e0f5d40a1d91a28b91b6e5ad964d3c401371c664d2eddb66a3ccfd3c7aa325"
+    }
+  ],
+  "consumerEdits": [
+    {
+      "path": "MillWorks.Ai/MillWorks.Ai.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "ea968a3a8da7c95332fb18fd89b293a30fb2b89a83c4bbc2e5cc3faffbf41855",
+      "afterSha256": "dc11fd7b8242e4d7d0280c311df4b3b72dc4c0322f9b46a250a68ba4b4d93f5e"
+    },
+    {
+      "path": "MillWorks.Api/MillWorks.Api.csproj",
+      "referencesUpdated": 2,
+      "beforeSha256": "81038e6b98189e40326871231be784bb015cb09f14100e568886ed972e6ba0d2",
+      "afterSha256": "caa6495193fbc06ec4fe10cd793c0f3430f92301a578cf4f05d11fe3fcb4e1d8"
+    },
+    {
+      "path": "MillWorks.Chat/MillWorks.Chat.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "f732088a919e58cf9ceb4b0f31d084fe4482c92dc91a525609f2fa9cb9ade4dc",
+      "afterSha256": "c1a099071e78f5a50a074555b98d200a36d112fa94116f412306356449b39f81"
+    },
+    {
+      "path": "MillWorks.CommentThreads/MillWorks.CommentThreads.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "b9a30c5bb8c47eb6be02053ba0a2d962e6baf193b62af752e042215ebd9c0fd6",
+      "afterSha256": "442521396c45cf6d3bd626abce44f5f69c1a71901c4cfcdfbff83817f3a6002c"
+    },
+    {
+      "path": "MillWorks.Compliance/MillWorks.Compliance.csproj",
+      "referencesUpdated": 2,
+      "beforeSha256": "568a1e28a57da201970c516b3ab9797f537c9ce7316490a0f27502d88b913254",
+      "afterSha256": "2d3e1199025b280c180b1ddf28334c9c03475668a3eac8936f64720409c450bf"
+    },
+    {
+      "path": "MillWorks.Compliance.Tests/MillWorks.Compliance.Tests.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "3231d0c5003d5179d90d9bc5da5b0629c90547bf33ab5a9919a4c861a108bd02",
+      "afterSha256": "d2a6fe7c12984c6a9de2a3573f313648b2346e8be148c8a375d911e2984bacf8"
+    },
+    {
+      "path": "MillWorks.DataProcessing/MillWorks.DataProcessing.csproj",
+      "referencesUpdated": 2,
+      "beforeSha256": "d59b8cd52f954ddedd628ce6842862a3bb9d5844f4cfc7ae6bc65409f429e36e",
+      "afterSha256": "b0699a844876da6bb88b0033af735d53fb1ed28591b0bb4d6660bc814087bf69"
+    },
+    {
+      "path": "MillWorks.DecisionModels.Tests/MillWorks.DecisionModels.Tests.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "effb5ae06a3aa7aa6391581aaf459dddb80b23733cb892355986317e4be6212c",
+      "afterSha256": "7f1001c4894008145fa98fd32ab510db70ee49694f569face2fcab8d9f9aeb08"
+    },
+    {
+      "path": "MillWorks.FormBuilder/MillWorks.FormBuilder.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "43f69ddac79df3431aad1f0c3208447de8ef5e726304faa140f69d7f1fb16d9d",
+      "afterSha256": "7a59a31ae4fe0357a41253b264203c18178361b8d6c882081bf4932105343033"
+    },
+    {
+      "path": "MillWorks.Grant/MillWorks.Grant.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "ad8e996e9a01a3aaf08741c990fbc1d0abc66a294816640735b3bee3ff5217e4",
+      "afterSha256": "e6f5274b3d2384e2ba045123c737475103c316c380a22ff787eb18bf039a3c71"
+    },
+    {
+      "path": "MillWorks.Identity/MillWorks.Identity.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "545a7386e27a8ff77fa9ab4b551607ac5eba2b4a0b361f963b15259534b4b906",
+      "afterSha256": "8bcc7076cf17855ff3afa8dc49f7d864dc42dcc0509177a904d2bbc9f52116cc"
+    },
+    {
+      "path": "MillWorks.Identity.IntegrationTests/MillWorks.Identity.IntegrationTests.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "91ee189ba0a0e29c4a4a149d13ae0955bfca66a086f3d4494447ff4464cf8a20",
+      "afterSha256": "63328366741206866e82a7ab04c688c48091081c731b684e33cb71691f5f1e08"
+    },
+    {
+      "path": "MillWorks.Irb/MillWorks.Irb.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "e71176feac69ef6c17e94e44efce7ac61781bb220df70c65935caf8984745027",
+      "afterSha256": "0084cb41f75ed0fc8bf9c9ae397b29c131f4a235159c24ea15c284c78edceb7c"
+    },
+    {
+      "path": "MillWorks.Notification/MillWorks.Notification.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "0263cf9cc44d94ca6bd472021e0dd40e95ce76f4bcf7195ef4b02e99596ebb6d",
+      "afterSha256": "1a5ba8f663acae7aec2682022943bf6663ee54c8079366d73ddc289933ecb448"
+    },
+    {
+      "path": "MillWorks.Payments/MillWorks.Payments.csproj",
+      "referencesUpdated": 2,
+      "beforeSha256": "9b3e18373808920bdb47c9d329700fb00a132a2697a971f8c3cb331bf00ad287",
+      "afterSha256": "30618b3c6e83568d6527832be98632a4f10d37d91aa1335624cc9674d64fbf00"
+    },
+    {
+      "path": "MillWorks.Reporting/MillWorks.Reporting.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "68dc1970a39e47d251e2ea0edfc78b2db647f0e215eb877b756a2f01f2d9eba1",
+      "afterSha256": "521427f9184602aa061b382c0db5e951fc437cf8c8f04ee23bb8bf4f7e2bbb26"
+    },
+    {
+      "path": "MillWorks.Security/MillWorks.Security.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "b1a708afded5711fb4cacd93bd02fd127e81bf3356960be327e1088a72816c49",
+      "afterSha256": "c642a1819afff9cb7dba0a9a95f7572a1287b9b362bd1e3f2537e305fd25cb85"
+    },
+    {
+      "path": "MillWorks.SqlBuilder/MillWorks.SqlBuilder.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "9efc69807c6bde00c7247852fefd586fc6a98e38b384c612221592b99ba17d1e",
+      "afterSha256": "3d56f8b109e0456ea7e164019dca1fa367c6d3d1b4f212d7c5537919b6fda0ca"
+    },
+    {
+      "path": "MillWorks.Tokens/MillWorks.Tokens.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "31994c054ec37ca95c68fd3c44d0f36217d6d13c21fc6de95fdce2188249defe",
+      "afterSha256": "1e7e139ca0c114b62cc542a1b138a000576561872c6d112db482dfde2797cf2e"
+    },
+    {
+      "path": "tools/diagram-share-policy-tests/DiagramSharePolicy.Tests.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "9dd56c55867edacf8b4b459f3aae86cadf8277abd430e61a17ae5134cd964c44",
+      "afterSha256": "155f96bf6074f602cf684e10fe954cfbbe03426fa7ccc1af677cd1acb2b500e2"
+    },
+    {
+      "path": "tools/diagram-source-audit-tests/DiagramSourceAudit.Tests.csproj",
+      "referencesUpdated": 1,
+      "beforeSha256": "84538f6254f06ad6eb5ec46d3683c318d14b74be903b6263d05bd814ee658e2c",
+      "afterSha256": "2eac9f2e881e87f21376d04666642a13f9feed9542455a347180adff5b5b6805"
+    }
+  ]
+}

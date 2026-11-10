@@ -49,6 +49,15 @@ nupkgs/
 !docs/evidence/audit-pipeline-2026-10/release-dev8/*.trx
 coverage*/
 
+# Local runner resource/admission snapshots, not release verification evidence.
+/docs/evidence/**/admitted-preflight.json
+/docs/evidence/**/queued-preflight.json
+/docs/evidence/**/*-preflight.json
+
+# Python caches from evidence and release helper scripts.
+__pycache__/
+*.py[cod]
+
 # Endurance / soak run artifacts (Phase 6.5). The soak harness writes
 # notes.md + samples.csv under artifacts/phase6.5-soak/<timestamp>/.
 # Operator inspects these locally; they are not committed.

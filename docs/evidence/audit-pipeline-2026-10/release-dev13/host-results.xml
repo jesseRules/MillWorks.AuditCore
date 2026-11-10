@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="85d591f4-b0e6-4d56-a446-bc88432d7667" name="@jesses-mbp 2026-10-18 19:51:02" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-18T19:51:02.3982480-05:00" queuing="2026-10-18T19:51:02.3982480-05:00" start="2026-10-18T19:50:58.4042700-05:00" finish="2026-10-18T19:51:04.9144210-05:00" />
+  <TestSettings name="default" id="132ad7fc-98ae-4ea3-b528-412e4c5e902a">
+    <Deployment runDeploymentRoot="_jesses-mbp_2026-10-18_19_51_02" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="8bfec3b3-dca3-4f96-ac67-60566a9f32f5" testId="e53bca0f-cfdc-dc82-9c65-5e324c80635f" testName="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-operation&quot;)" computerName="jesses-mbp" duration="00:00:00.1297490" startTime="2026-10-18T19:51:04.6009000-05:00" endTime="2026-10-18T19:51:04.7306490-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8bfec3b3-dca3-4f96-ac67-60566a9f32f5" />
+    <UnitTestResult executionId="e506cb37-7f81-4220-bf3e-eafbc34ce00d" testId="75359f97-563c-81eb-4bef-5c5bbc5a9418" testName="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event-scope&quot;)" computerName="jesses-mbp" duration="00:00:00.1092850" startTime="2026-10-18T19:51:04.4914780-05:00" endTime="2026-10-18T19:51:04.6007630-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e506cb37-7f81-4220-bf3e-eafbc34ce00d" />
+    <UnitTestResult executionId="8614520f-2d1e-4499-9abb-d6b664b2911b" testId="abc9a58f-b94d-d547-68f6-dd9eb48ca1f4" testName="ExportRequiresReadAndExportAndDisclosesOnlyTenantSubjectMetadata" computerName="jesses-mbp" duration="00:00:00.1752000" startTime="2026-10-18T19:51:02.6522420-05:00" endTime="2026-10-18T19:51:02.8274430-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8614520f-2d1e-4499-9abb-d6b664b2911b" />
+    <UnitTestResult executionId="6344a4ef-5c69-45ce-b8a6-5cb7627e0e2e" testId="f6957c1d-a547-ce7c-a2bc-41cbadfc58be" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;compliance/anonymize/&quot;)" computerName="jesses-mbp" duration="00:00:00.1124400" startTime="2026-10-18T19:51:03.4383850-05:00" endTime="2026-10-18T19:51:03.5508250-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6344a4ef-5c69-45ce-b8a6-5cb7627e0e2e" />
+    <UnitTestResult executionId="8d7deae8-b311-4eca-ac79-d1a3cd8dabb7" testId="8301a2d4-83bc-c136-e552-680c19a45080" testName="ConfirmedArchiveAcquiresLegalHoldPermitAndUsesOnlyActorTenant" computerName="jesses-mbp" duration="00:00:02.1855300" startTime="2026-10-18T19:51:00.1782860-05:00" endTime="2026-10-18T19:51:02.3638050-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d7deae8-b311-4eca-ac79-d1a3cd8dabb7" />
+    <UnitTestResult executionId="1253e860-f2ea-47a6-ad2b-1fe3da93c26f" testId="e6d20149-bd2f-125d-8871-ed4557e8ebf6" testName="GetAuditEvents_ForwardsPaginationAndFiltersToSearchService" computerName="jesses-mbp" duration="00:00:00.0488070" startTime="2026-10-18T19:51:04.7324960-05:00" endTime="2026-10-18T19:51:04.7813030-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1253e860-f2ea-47a6-ad2b-1fe3da93c26f">
+      <Output>
+        <ErrorInfo>
+          <Message>Moq.MockException : 
+Expected invocation on the mock once, but was 0 times: service =&gt; service.SearchAuditEventsAsync(It.Is&lt;AuditSearchRequest&gt;(request =&gt; (((((request.SearchTerm == "login" &amp;&amp; request.EventType == "Security.Login") &amp;&amp; request.EntityType == "User") &amp;&amp; request.User == "alice") &amp;&amp; request.EndDate.Value.TimeOfDay == TimeSpan.FromTicks(863999999999)) &amp;&amp; request.Offset == 50) &amp;&amp; request.Limit == 25), CancellationToken)
+
+Performed invocations:
+
+   Mock&lt;IAuditSearchService:20&gt; (service):
+
+      IAuditSearchService.SearchAuditEventsAsync(AuditSearchRequest, CancellationToken)
+
+  IsVerificationError: True</Message>
+          <StackTrace>   at Moq.Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage) in /_/src/Moq/Mock.cs:line 332
+   at Moq.Mock`1.Verify[TResult](Expression`1 expression, Func`1 times) in /_/src/Moq/Mock`1.cs:line 847
+   at MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests.GetAuditEvents_ForwardsPaginationAndFiltersToSearchService() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/ControllerTests/Audit/AuditChainStatusTests.cs:line 195
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+1)    at Moq.Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage) in /_/src/Moq/Mock.cs:line 332
+   at Moq.Mock`1.Verify[TResult](Expression`1 expression, Func`1 times) in /_/src/Moq/Mock`1.cs:line 847
+   at MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests.GetAuditEvents_ForwardsPaginationAndFiltersToSearchService() in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/ControllerTests/Audit/AuditChainStatusTests.cs:line 195
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.GetResult()
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)
+   at NUnit.Framework.Internal.Commands.BeforeAndAfterTestCommand.&lt;&gt;c__DisplayClass1_0.&lt;Execute&gt;b__0()
+   at NUnit.Framework.Internal.Commands.DelegatingTestCommand.RunTestMethodInThreadAbortSafeZone(TestExecutionContext context, Action action)
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6bec2b72-4104-45b7-a028-1bcd04661c99" testId="847f1581-0638-1884-6e19-fc209c23d08d" testName="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(True)" computerName="jesses-mbp" duration="00:00:00.0075990" startTime="2026-10-18T19:51:04.8454920-05:00" endTime="2026-10-18T19:51:04.8530900-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6bec2b72-4104-45b7-a028-1bcd04661c99" />
+    <UnitTestResult executionId="07c657dd-1625-4396-ad1a-9ecad1a636e0" testId="dbedf92c-6266-e6fa-3e53-8e040f998eec" testName="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event&quot;)" computerName="jesses-mbp" duration="00:00:00.1210640" startTime="2026-10-18T19:51:04.3703620-05:00" endTime="2026-10-18T19:51:04.4914270-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="07c657dd-1625-4396-ad1a-9ecad1a636e0" />
+    <UnitTestResult executionId="d7bf7a6c-f47a-4d30-a846-3bc02f6e2186" testId="b91203e6-42bc-5443-fe3c-c8cce7ea70f8" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;administration/review&quot;)" computerName="jesses-mbp" duration="00:00:00.1282450" startTime="2026-10-18T19:51:04.0778810-05:00" endTime="2026-10-18T19:51:04.2061260-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d7bf7a6c-f47a-4d30-a846-3bc02f6e2186" />
+    <UnitTestResult executionId="2900f74f-43f3-4ee6-af2d-0a9847faaf61" testId="8825174b-9368-b664-78fe-4135f3dd277c" testName="InvalidWordSearchReturns400" computerName="jesses-mbp" duration="00:00:00.0029849" startTime="2026-10-18T19:51:04.8111850-05:00" endTime="2026-10-18T19:51:04.8141700-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2900f74f-43f3-4ee6-af2d-0a9847faaf61" />
+    <UnitTestResult executionId="3c615e22-3d4b-49cc-9f22-7eae7cbd7ac6" testId="d85e2225-f278-af28-9c95-56aa3dc9967d" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;integrity/export-proof/&quot;)" computerName="jesses-mbp" duration="00:00:00.1260540" startTime="2026-10-18T19:51:03.9517330-05:00" endTime="2026-10-18T19:51:04.0777870-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3c615e22-3d4b-49cc-9f22-7eae7cbd7ac6" />
+    <UnitTestResult executionId="ea00914d-f068-4646-9f45-b572742798a4" testId="ee11f728-b10c-7da8-d949-a19a60fcc0ec" testName="GetChainStatus_WithAlerts_ReturnsAlertsInResponse" computerName="jesses-mbp" duration="00:00:00.0034580" startTime="2026-10-18T19:51:04.8076600-05:00" endTime="2026-10-18T19:51:04.8111170-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ea00914d-f068-4646-9f45-b572742798a4" />
+    <UnitTestResult executionId="3beb27a4-28f6-44f4-9b9f-5ba794c0882b" testId="6e64ee32-5536-fb44-e772-f63d88185701" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive&quot;)" computerName="jesses-mbp" duration="00:00:00.1565750" startTime="2026-10-18T19:51:03.5508490-05:00" endTime="2026-10-18T19:51:03.7074240-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3beb27a4-28f6-44f4-9b9f-5ba794c0882b" />
+    <UnitTestResult executionId="84cc9e64-6bdb-45a0-81eb-5387ff4a8eff" testId="8eb8f828-c59e-851e-49cc-39abd89a0383" testName="CrossTenantSubjectAndSpoofedAmbientTenantAreDenied" computerName="jesses-mbp" duration="00:00:00.1571940" startTime="2026-10-18T19:51:02.3644530-05:00" endTime="2026-10-18T19:51:02.5216470-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="84cc9e64-6bdb-45a0-81eb-5387ff4a8eff" />
+    <UnitTestResult executionId="6daa6db5-72f1-4e18-a6f5-861bbc83c1c8" testId="38c4816e-d074-7314-ec79-8f40811e632b" testName="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/cleanup&quot;)" computerName="jesses-mbp" duration="00:00:00.1257540" startTime="2026-10-18T19:51:03.3109160-05:00" endTime="2026-10-18T19:51:03.4366710-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6daa6db5-72f1-4e18-a6f5-861bbc83c1c8" />
+    <UnitTestResult executionId="0d3c8586-2983-494f-9674-b8af8c5633f6" testId="1db1531b-71ee-d366-bdb1-923e8371ae9f" testName="DestructiveActionRequiresExactUnexpiredReviewAndCurrentAuthority" computerName="jesses-mbp" duration="00:00:00.1304710" startTime="2026-10-18T19:51:02.5216790-05:00" endTime="2026-10-18T19:51:02.6521500-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0d3c8586-2983-494f-9674-b8af8c5633f6" />
+    <UnitTestResult executionId="066ac7cf-177c-4e1d-baad-397159a05b05" testId="1ed18280-18ad-5a69-51c7-dda088df1e03" testName="GetChainStatus_EmptyData_Returns200WithZeroCounts" computerName="jesses-mbp" duration="00:00:00.0167080" startTime="2026-10-18T19:51:04.7815020-05:00" endTime="2026-10-18T19:51:04.7982090-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="066ac7cf-177c-4e1d-baad-397159a05b05" />
+    <UnitTestResult executionId="94425594-49d0-4c2d-82d3-26731d0d00de" testId="6aeb9565-4708-a69d-8e38-352624c21bd8" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive/restore/owned&quot;)" computerName="jesses-mbp" duration="00:00:00.1294170" startTime="2026-10-18T19:51:03.7075170-05:00" endTime="2026-10-18T19:51:03.8369350-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="94425594-49d0-4c2d-82d3-26731d0d00de" />
+    <UnitTestResult executionId="75b7ff54-765e-472f-a3c0-21fd6789af64" testId="55c35bd2-5fd0-41de-23e7-21f485f78d7f" testName="LegalHoldAndIntegrityProtectionPreventMutations" computerName="jesses-mbp" duration="00:00:00.1668820" startTime="2026-10-18T19:51:02.8275560-05:00" endTime="2026-10-18T19:51:02.9944390-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="75b7ff54-765e-472f-a3c0-21fd6789af64" />
+    <UnitTestResult executionId="fce1cc9f-ce8e-49ee-b811-c9c9a8036411" testId="95a7b533-3f49-f359-b016-38b95445f310" testName="ReviewCannotSurviveRevocationOfActorMembership" computerName="jesses-mbp" duration="00:00:00.1632760" startTime="2026-10-18T19:51:04.2062900-05:00" endTime="2026-10-18T19:51:04.3695660-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fce1cc9f-ce8e-49ee-b811-c9c9a8036411" />
+    <UnitTestResult executionId="66444412-02d5-496c-9497-d9328e9d09bc" testId="2c7266b3-28fa-e094-d602-f0817f2281a6" testName="SearchPostUsesCanonicalSearchAndForwardsCancellation" computerName="jesses-mbp" duration="00:00:00.0042220" startTime="2026-10-18T19:51:04.8142320-05:00" endTime="2026-10-18T19:51:04.8184530-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="66444412-02d5-496c-9497-d9328e9d09bc" />
+    <UnitTestResult executionId="a4691937-9e8e-4265-8837-84f7dd4b5217" testId="3ee38e80-e259-7c52-1228-d5b96b5fcfe5" testName="UnavailableWordSearchReturns503RatherThanSuccessfulEmpty" computerName="jesses-mbp" duration="00:00:00.0017580" startTime="2026-10-18T19:51:04.8186320-05:00" endTime="2026-10-18T19:51:04.8203910-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a4691937-9e8e-4265-8837-84f7dd4b5217" />
+    <UnitTestResult executionId="201ac550-b99b-4d49-ac9d-35fa0159d05d" testId="1a1e58fb-405b-c31f-4a78-c7c97e658c06" testName="GetChainStatus_HealthyChain_Returns200WithStatus" computerName="jesses-mbp" duration="00:00:00.0042770" startTime="2026-10-18T19:51:04.7984090-05:00" endTime="2026-10-18T19:51:04.8026850-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="201ac550-b99b-4d49-ac9d-35fa0159d05d" />
+    <UnitTestResult executionId="380d6e68-504c-49ab-8c76-59a0a828e9bd" testId="b2bc7684-91af-5475-df58-1326989d0999" testName="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;GET&quot;,&quot;&quot;)" computerName="jesses-mbp" duration="00:00:00.1019380" startTime="2026-10-18T19:51:02.9945020-05:00" endTime="2026-10-18T19:51:03.0964400-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="380d6e68-504c-49ab-8c76-59a0a828e9bd" />
+    <UnitTestResult executionId="15edc494-a47e-47a9-b829-ebfa9de620b9" testId="60a78aa3-e5cd-e9ba-c1ba-c6de90115800" testName="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(False)" computerName="jesses-mbp" duration="00:00:00.0246850" startTime="2026-10-18T19:51:04.8207390-05:00" endTime="2026-10-18T19:51:04.8454240-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="15edc494-a47e-47a9-b829-ebfa9de620b9" />
+    <UnitTestResult executionId="841dd7e3-7aea-4ca9-bc88-56b0f909faea" testId="69f9ac2c-6398-2d36-5331-354d820cdedc" testName="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;compliance/export/&quot;)" computerName="jesses-mbp" duration="00:00:00.1145040" startTime="2026-10-18T19:51:03.8371700-05:00" endTime="2026-10-18T19:51:03.9516740-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="841dd7e3-7aea-4ca9-bc88-56b0f909faea" />
+    <UnitTestResult executionId="6dd61633-5e57-4d29-adf0-54ff492c35fe" testId="37269020-b63c-8e58-91cf-d992583cec65" testName="UnexpectedStorageFailureIsNotReportedAsAnOperationIdentityConflict" computerName="jesses-mbp" duration="00:00:00.0098050" startTime="2026-10-18T19:51:04.8531760-05:00" endTime="2026-10-18T19:51:04.8629810-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6dd61633-5e57-4d29-adf0-54ff492c35fe" />
+    <UnitTestResult executionId="c7744cf6-e816-41bc-b5de-b6d898fe4e1e" testId="940508fc-8a48-b495-db7c-81f4dc38e5af" testName="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/skip&quot;)" computerName="jesses-mbp" duration="00:00:00.1193970" startTime="2026-10-18T19:51:03.1911620-05:00" endTime="2026-10-18T19:51:03.3105600-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7744cf6-e816-41bc-b5de-b6d898fe4e1e" />
+    <UnitTestResult executionId="627a7bdc-9184-48df-bee9-d3ed94c2b30d" testId="c69152f4-a357-5e9d-1acb-4a8ef4725df2" testName="GetChainStatus_SequentialExecution_CallsServicesInOrder" computerName="jesses-mbp" duration="00:00:00.0046660" startTime="2026-10-18T19:51:04.8028350-05:00" endTime="2026-10-18T19:51:04.8075010-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="627a7bdc-9184-48df-bee9-d3ed94c2b30d" />
+    <UnitTestResult executionId="aaa258a9-6d85-4123-a41d-42cd0fae6837" testId="4a04e944-f040-4520-aa18-d3d2cc404669" testName="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/replay&quot;)" computerName="jesses-mbp" duration="00:00:00.0946760" startTime="2026-10-18T19:51:03.0964560-05:00" endTime="2026-10-18T19:51:03.1911320-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="aaa258a9-6d85-4123-a41d-42cd0fae6837" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="6e64ee32-5536-fb44-e772-f63d88185701">
+      <Execution id="3beb27a4-28f6-44f4-9b9f-5ba794c0882b" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive&quot;)" />
+    </UnitTest>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive/restore/owned&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="6aeb9565-4708-a69d-8e38-352624c21bd8">
+      <Execution id="94425594-49d0-4c2d-82d3-26731d0d00de" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;archive/restore/owned&quot;)" />
+    </UnitTest>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;compliance/anonymize/&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="f6957c1d-a547-ce7c-a2bc-41cbadfc58be">
+      <Execution id="6344a4ef-5c69-45ce-b8a6-5cb7627e0e2e" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;compliance/anonymize/&quot;)" />
+    </UnitTest>
+    <UnitTest name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/cleanup&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="38c4816e-d074-7314-ec79-8f40811e632b">
+      <Execution id="6daa6db5-72f1-4e18-a6f5-861bbc83c1c8" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/cleanup&quot;)" />
+    </UnitTest>
+    <UnitTest name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/replay&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="4a04e944-f040-4520-aa18-d3d2cc404669">
+      <Execution id="aaa258a9-6d85-4123-a41d-42cd0fae6837" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/replay&quot;)" />
+    </UnitTest>
+    <UnitTest name="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(False)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="60a78aa3-e5cd-e9ba-c1ba-c6de90115800">
+      <Execution id="15edc494-a47e-47a9-b829-ebfa9de620b9" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditOutboxRecoveryControllerTests" name="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(False)" />
+    </UnitTest>
+    <UnitTest name="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(True)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="847f1581-0638-1884-6e19-fc209c23d08d">
+      <Execution id="6bec2b72-4104-45b7-a028-1bcd04661c99" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditOutboxRecoveryControllerTests" name="RecoveryFailureResponsePreservesOperationIdentityAndDistinguishesConflictFromUncertainCommit(True)" />
+    </UnitTest>
+    <UnitTest name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event-scope&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="75359f97-563c-81eb-4bef-5c5bbc5a9418">
+      <Execution id="e506cb37-7f81-4220-bf3e-eafbc34ce00d" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event-scope&quot;)" />
+    </UnitTest>
+    <UnitTest name="DestructiveActionRequiresExactUnexpiredReviewAndCurrentAuthority" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1db1531b-71ee-d366-bdb1-923e8371ae9f">
+      <Execution id="0d3c8586-2983-494f-9674-b8af8c5633f6" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="DestructiveActionRequiresExactUnexpiredReviewAndCurrentAuthority" />
+    </UnitTest>
+    <UnitTest name="SearchPostUsesCanonicalSearchAndForwardsCancellation" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="2c7266b3-28fa-e094-d602-f0817f2281a6">
+      <Execution id="66444412-02d5-496c-9497-d9328e9d09bc" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="SearchPostUsesCanonicalSearchAndForwardsCancellation" />
+    </UnitTest>
+    <UnitTest name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/skip&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="940508fc-8a48-b495-db7c-81f4dc38e5af">
+      <Execution id="c7744cf6-e816-41bc-b5de-b6d898fe4e1e" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;POST&quot;,&quot;/skip&quot;)" />
+    </UnitTest>
+    <UnitTest name="GetChainStatus_EmptyData_Returns200WithZeroCounts" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1ed18280-18ad-5a69-51c7-dda088df1e03">
+      <Execution id="066ac7cf-177c-4e1d-baad-397159a05b05" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="GetChainStatus_EmptyData_Returns200WithZeroCounts" />
+    </UnitTest>
+    <UnitTest name="GetChainStatus_SequentialExecution_CallsServicesInOrder" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="c69152f4-a357-5e9d-1acb-4a8ef4725df2">
+      <Execution id="627a7bdc-9184-48df-bee9-d3ed94c2b30d" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="GetChainStatus_SequentialExecution_CallsServicesInOrder" />
+    </UnitTest>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;compliance/export/&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="69f9ac2c-6398-2d36-5331-354d820cdedc">
+      <Execution id="841dd7e3-7aea-4ca9-bc88-56b0f909faea" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;compliance/export/&quot;)" />
+    </UnitTest>
+    <UnitTest name="GetAuditEvents_ForwardsPaginationAndFiltersToSearchService" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="e6d20149-bd2f-125d-8871-ed4557e8ebf6">
+      <Execution id="1253e860-f2ea-47a6-ad2b-1fe3da93c26f" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="GetAuditEvents_ForwardsPaginationAndFiltersToSearchService" />
+    </UnitTest>
+    <UnitTest name="ReviewCannotSurviveRevocationOfActorMembership" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="95a7b533-3f49-f359-b016-38b95445f310">
+      <Execution id="fce1cc9f-ce8e-49ee-b811-c9c9a8036411" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReviewCannotSurviveRevocationOfActorMembership" />
+    </UnitTest>
+    <UnitTest name="GetChainStatus_HealthyChain_Returns200WithStatus" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="1a1e58fb-405b-c31f-4a78-c7c97e658c06">
+      <Execution id="201ac550-b99b-4d49-ac9d-35fa0159d05d" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="GetChainStatus_HealthyChain_Returns200WithStatus" />
+    </UnitTest>
+    <UnitTest name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;GET&quot;,&quot;&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="b2bc7684-91af-5475-df58-1326989d0999">
+      <Execution id="380d6e68-504c-49ab-8c76-59a0a828e9bd" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="OutboxRecoveryRequiresReadAndAdminBeforeAnyRecoveryCall(&quot;GET&quot;,&quot;&quot;)" />
+    </UnitTest>
+    <UnitTest name="InvalidWordSearchReturns400" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="8825174b-9368-b664-78fe-4135f3dd277c">
+      <Execution id="2900f74f-43f3-4ee6-af2d-0a9847faaf61" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="InvalidWordSearchReturns400" />
+    </UnitTest>
+    <UnitTest name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-operation&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="e53bca0f-cfdc-dc82-9c65-5e324c80635f">
+      <Execution id="8bfec3b3-dca3-4f96-ac67-60566a9f32f5" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-operation&quot;)" />
+    </UnitTest>
+    <UnitTest name="CrossTenantSubjectAndSpoofedAmbientTenantAreDenied" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="8eb8f828-c59e-851e-49cc-39abd89a0383">
+      <Execution id="84cc9e64-6bdb-45a0-81eb-5387ff4a8eff" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="CrossTenantSubjectAndSpoofedAmbientTenantAreDenied" />
+    </UnitTest>
+    <UnitTest name="UnexpectedStorageFailureIsNotReportedAsAnOperationIdentityConflict" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="37269020-b63c-8e58-91cf-d992583cec65">
+      <Execution id="6dd61633-5e57-4d29-adf0-54ff492c35fe" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditOutboxRecoveryControllerTests" name="UnexpectedStorageFailureIsNotReportedAsAnOperationIdentityConflict" />
+    </UnitTest>
+    <UnitTest name="ExportRequiresReadAndExportAndDisclosesOnlyTenantSubjectMetadata" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="abc9a58f-b94d-d547-68f6-dd9eb48ca1f4">
+      <Execution id="8614520f-2d1e-4499-9abb-d6b664b2911b" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ExportRequiresReadAndExportAndDisclosesOnlyTenantSubjectMetadata" />
+    </UnitTest>
+    <UnitTest name="UnavailableWordSearchReturns503RatherThanSuccessfulEmpty" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="3ee38e80-e259-7c52-1228-d5b96b5fcfe5">
+      <Execution id="a4691937-9e8e-4265-8837-84f7dd4b5217" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="UnavailableWordSearchReturns503RatherThanSuccessfulEmpty" />
+    </UnitTest>
+    <UnitTest name="LegalHoldAndIntegrityProtectionPreventMutations" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="55c35bd2-5fd0-41de-23e7-21f485f78d7f">
+      <Execution id="75b7ff54-765e-472f-a3c0-21fd6789af64" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="LegalHoldAndIntegrityProtectionPreventMutations" />
+    </UnitTest>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;administration/review&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="b91203e6-42bc-5443-fe3c-c8cce7ea70f8">
+      <Execution id="d7bf7a6c-f47a-4d30-a846-3bc02f6e2186" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;POST&quot;,&quot;administration/review&quot;)" />
+    </UnitTest>
+    <UnitTest name="ConfirmedArchiveAcquiresLegalHoldPermitAndUsesOnlyActorTenant" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="8301a2d4-83bc-c136-e552-680c19a45080">
+      <Execution id="8d7deae8-b311-4eca-ac79-d1a3cd8dabb7" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ConfirmedArchiveAcquiresLegalHoldPermitAndUsesOnlyActorTenant" />
+    </UnitTest>
+    <UnitTest name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="dbedf92c-6266-e6fa-3e53-8e040f998eec">
+      <Execution id="07c657dd-1625-4396-ad1a-9ecad1a636e0" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="SyntheticRoutesAreAbsentEvenForAdministrators(&quot;test-event&quot;)" />
+    </UnitTest>
+    <UnitTest name="GetChainStatus_WithAlerts_ReturnsAlertsInResponse" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="ee11f728-b10c-7da8-d949-a19a60fcc0ec">
+      <Execution id="ea00914d-f068-4646-9f45-b572742798a4" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditChainStatusTests" name="GetChainStatus_WithAlerts_ReturnsAlertsInResponse" />
+    </UnitTest>
+    <UnitTest name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;integrity/export-proof/&quot;)" storage="/users/jesse/riderprojects/millworks/millworks.api.tests/bin/debug/net10.0/millworks.api.tests.dll" id="d85e2225-f278-af28-9c95-56aa3dc9967d">
+      <Execution id="3c615e22-3d4b-49cc-9f22-7eae7cbd7ac6" />
+      <TestMethod codeBase="/Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="MillWorks.Api.Tests.ControllerTests.Audit.AuditAdministrationHttpBoundaryTests" name="ReadOnlyIsDeniedBeforeServicesAndAnonymousIsChallenged(&quot;GET&quot;,&quot;integrity/export-proof/&quot;)" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="e53bca0f-cfdc-dc82-9c65-5e324c80635f" executionId="8bfec3b3-dca3-4f96-ac67-60566a9f32f5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="75359f97-563c-81eb-4bef-5c5bbc5a9418" executionId="e506cb37-7f81-4220-bf3e-eafbc34ce00d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="abc9a58f-b94d-d547-68f6-dd9eb48ca1f4" executionId="8614520f-2d1e-4499-9abb-d6b664b2911b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f6957c1d-a547-ce7c-a2bc-41cbadfc58be" executionId="6344a4ef-5c69-45ce-b8a6-5cb7627e0e2e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8301a2d4-83bc-c136-e552-680c19a45080" executionId="8d7deae8-b311-4eca-ac79-d1a3cd8dabb7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e6d20149-bd2f-125d-8871-ed4557e8ebf6" executionId="1253e860-f2ea-47a6-ad2b-1fe3da93c26f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="847f1581-0638-1884-6e19-fc209c23d08d" executionId="6bec2b72-4104-45b7-a028-1bcd04661c99" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dbedf92c-6266-e6fa-3e53-8e040f998eec" executionId="07c657dd-1625-4396-ad1a-9ecad1a636e0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b91203e6-42bc-5443-fe3c-c8cce7ea70f8" executionId="d7bf7a6c-f47a-4d30-a846-3bc02f6e2186" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8825174b-9368-b664-78fe-4135f3dd277c" executionId="2900f74f-43f3-4ee6-af2d-0a9847faaf61" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d85e2225-f278-af28-9c95-56aa3dc9967d" executionId="3c615e22-3d4b-49cc-9f22-7eae7cbd7ac6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ee11f728-b10c-7da8-d949-a19a60fcc0ec" executionId="ea00914d-f068-4646-9f45-b572742798a4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6e64ee32-5536-fb44-e772-f63d88185701" executionId="3beb27a4-28f6-44f4-9b9f-5ba794c0882b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8eb8f828-c59e-851e-49cc-39abd89a0383" executionId="84cc9e64-6bdb-45a0-81eb-5387ff4a8eff" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="38c4816e-d074-7314-ec79-8f40811e632b" executionId="6daa6db5-72f1-4e18-a6f5-861bbc83c1c8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1db1531b-71ee-d366-bdb1-923e8371ae9f" executionId="0d3c8586-2983-494f-9674-b8af8c5633f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ed18280-18ad-5a69-51c7-dda088df1e03" executionId="066ac7cf-177c-4e1d-baad-397159a05b05" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6aeb9565-4708-a69d-8e38-352624c21bd8" executionId="94425594-49d0-4c2d-82d3-26731d0d00de" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="55c35bd2-5fd0-41de-23e7-21f485f78d7f" executionId="75b7ff54-765e-472f-a3c0-21fd6789af64" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="95a7b533-3f49-f359-b016-38b95445f310" executionId="fce1cc9f-ce8e-49ee-b811-c9c9a8036411" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c7266b3-28fa-e094-d602-f0817f2281a6" executionId="66444412-02d5-496c-9497-d9328e9d09bc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3ee38e80-e259-7c52-1228-d5b96b5fcfe5" executionId="a4691937-9e8e-4265-8837-84f7dd4b5217" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a1e58fb-405b-c31f-4a78-c7c97e658c06" executionId="201ac550-b99b-4d49-ac9d-35fa0159d05d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b2bc7684-91af-5475-df58-1326989d0999" executionId="380d6e68-504c-49ab-8c76-59a0a828e9bd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="60a78aa3-e5cd-e9ba-c1ba-c6de90115800" executionId="15edc494-a47e-47a9-b829-ebfa9de620b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="69f9ac2c-6398-2d36-5331-354d820cdedc" executionId="841dd7e3-7aea-4ca9-bc88-56b0f909faea" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="37269020-b63c-8e58-91cf-d992583cec65" executionId="6dd61633-5e57-4d29-adf0-54ff492c35fe" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="940508fc-8a48-b495-db7c-81f4dc38e5af" executionId="c7744cf6-e816-41bc-b5de-b6d898fe4e1e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c69152f4-a357-5e9d-1acb-4a8ef4725df2" executionId="627a7bdc-9184-48df-bee9-d3ed94c2b30d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4a04e944-f040-4520-aa18-d3d2cc404669" executionId="aaa258a9-6d85-4123-a41d-42cd0fae6837" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="30" executed="30" passed="29" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>NUnit Adapter 6.3.1.0: Test execution started
+Running selected tests in /Users/jesse/RiderProjects/MillWorks/MillWorks.Api.Tests/bin/Debug/net10.0/MillWorks.Api.Tests.dll
+   NUnit3TestExecutor discovered 30 of 30 NUnit test cases using Current Discovery mode, Non-Explicit run
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

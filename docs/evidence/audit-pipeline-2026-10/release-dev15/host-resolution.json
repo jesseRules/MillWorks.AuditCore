@@ -1,0 +1,26 @@
+{
+  "resolved": [
+    {
+      "package": "MillWorks.AuditCore/1.15.4-dev.15",
+      "sha512": "sej81wIPUQ+/NoH8ahvArC2VzxdpaZzIh8UbRHAZaBXtU1OSxwTjB3pERk02rAeQUpTk64FSe90EOlLTz2qTgw=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Abstractions/1.15.4-dev.15",
+      "sha512": "OZ+JrGex7pNl8DLA5+545mj7bARnQJt6XlIyy1Ia03ucvdd+WeRohrjMN7pLkTL7E77GkpsthjYMyEvKa+X7wQ=="
+    },
+    {
+      "package": "MillWorks.AuditCore.EntityFramework/1.15.4-dev.15",
+      "sha512": "zEVibUJWUqyZivAwzRWgYy+aiVkj4tmAszY0IPIqb6AXBKjsjQ6EjHbcQRRW686yGnWxVIQbP08J6ap363MHFw=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Providers/1.15.4-dev.15",
+      "sha512": "uFLthVBzIulFBi8KE5zehoEVDdWzVaY884r2br5rvENVYdfLI1NA7sg6qckBk3tZNfKfwD67I+bAQP/41T6+7w=="
+    },
+    {
+      "package": "MillWorks.AuditCore.Services/1.15.4-dev.15",
+      "sha512": "YslAay6Nfs4lkgz8Uo0YdEWHH5Agadsp326J6vrbLbt5Bw5B9d/WEJesNlItbMLRyeX1LzxyQhBgstzSMwKI+Q=="
+    }
+  ],
+  "api_compiled": false,
+  "restore_exit_code": 0
+}

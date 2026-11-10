@@ -1,0 +1,17 @@
+{
+  "checkedUtc": "2026-10-19T00:50:39.347978+00:00",
+  "userConfirmedRebuiltAndRunning": true,
+  "checks": [
+    {
+      "path": "/health/live",
+      "httpStatus": 200,
+      "body": "Healthy"
+    },
+    {
+      "path": "/health/ready",
+      "httpStatus": 200,
+      "body": "Degraded"
+    }
+  ],
+  "limitation": "Readiness endpoint returns aggregate text only; Degraded cannot be attributed to AuditCore from this response. No authenticated live audit operation or destructive recovery drill was performed."
+}

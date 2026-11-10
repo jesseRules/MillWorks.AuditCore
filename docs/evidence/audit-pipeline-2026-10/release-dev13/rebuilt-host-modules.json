@@ -1,0 +1,22 @@
+[
+  {
+    "module": "MillWorks.AuditCore.AspNetCore.dll",
+    "matchesDeliveredPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.Abstractions.dll",
+    "matchesDeliveredPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.EntityFramework.dll",
+    "matchesDeliveredPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.Providers.dll",
+    "matchesDeliveredPackage": true
+  },
+  {
+    "module": "MillWorks.AuditCore.Services.dll",
+    "matchesDeliveredPackage": true
+  }
+]
