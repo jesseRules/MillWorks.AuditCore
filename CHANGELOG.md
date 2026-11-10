@@ -1,3 +1,8 @@
+## 1.15.4-dev.18 — 2026-11-10
+
+- Update dependencies and fix nullable test predicates and deprecated NUnit ordering attributes.
+- No schema changes relative to dev.17.
+
 ## 1.15.4-dev.17 — 2026-10-23
 
 - Allow in-flight and queued deferred request audit persistence to finish within one shared shutdown grace period; preserve DLQ fallback on timeout or an earlier host shutdown deadline.

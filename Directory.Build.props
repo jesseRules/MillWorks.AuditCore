@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <!-- Default version; synchronize any project-level Version overrides for coordinated releases. -->
-        <Version>1.15.4-dev.17</Version>
+        <Version>1.15.4-dev.18</Version>
         <AssemblyVersion>1.15.4.0</AssemblyVersion>
         <FileVersion>1.15.4.0</FileVersion>
 
@@ -19,7 +19,9 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageTags>audit;logging;compliance;security;tamper-detection;efcore;aspnetcore</PackageTags>
-        <PackageReleaseNotes>v1.15.4-dev.17: gives in-flight and queued deferred request audits one shared shutdown grace period before cancellation, with DLQ recovery on timeout or an earlier host deadline. No schema changes from dev.16.
+        <PackageReleaseNotes>v1.15.4-dev.18: updates dependencies and fixes nullable test predicates and deprecated NUnit test ordering. No schema changes from dev.17.
+
+v1.15.4-dev.17: gives in-flight and queued deferred request audits one shared shutdown grace period before cancellation, with DLQ recovery on timeout or an earlier host deadline. No schema changes from dev.16.
 
 v1.15.4-dev.16: adds the narrow User index and bounded distinct-value seeks for audit filter options, preserving existing limits/order and falling back for high cardinality, missing indexes, scoped EF filters, custom collations and non-SQL providers. Apply AddAuditEventUserIndex before host acceptance; verify matching rebuilt API timing and option results. No full-text activation.
 
