@@ -704,7 +704,7 @@ public class FileBasedAuditDeadLetterQueueTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Failed to index dead letter file")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Failed to index dead letter file")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

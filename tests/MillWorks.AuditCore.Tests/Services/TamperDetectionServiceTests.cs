@@ -489,7 +489,7 @@ public class TamperDetectionServiceTests
         _mockLogger.Verify(static x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("not found")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("not found")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception, string>>()!),
             Times.Once);
@@ -561,7 +561,7 @@ public class TamperDetectionServiceTests
         _mockLogger.Verify(static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Sequence gap")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Sequence gap")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception, string>>()!),
             Times.Once);
@@ -598,7 +598,7 @@ public class TamperDetectionServiceTests
         Assert.That(thrown, Is.SameAs(failure));
         _mockLogger.Verify(x => x.Log(
             LogLevel.Error, It.IsAny<EventId>(),
-            It.Is<It.IsAnyType>((value, _) => value.ToString()!.Contains("Sequence gap")),
+            It.Is<It.IsAnyType>((value, _) => value != null && (value.ToString() ?? string.Empty).Contains("Sequence gap")),
             It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception, string>>()!), Times.Never);
     }
 

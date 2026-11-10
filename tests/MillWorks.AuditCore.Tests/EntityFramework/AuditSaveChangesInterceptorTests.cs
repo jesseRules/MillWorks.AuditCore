@@ -127,7 +127,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -153,7 +153,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Trace,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("bypass flag")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("bypass flag")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -183,7 +183,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -222,7 +222,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -246,7 +246,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -270,7 +270,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Added")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Added")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -299,7 +299,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Modified")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Modified")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -327,7 +327,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Deleted")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Deleted")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -347,7 +347,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -391,7 +391,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error processing auditable entries")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Error processing auditable entries")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -423,7 +423,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -469,7 +469,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -508,7 +508,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);
@@ -532,7 +532,7 @@ public class AuditSaveChangesInterceptorTests
             static x => x.Log(
                 LogLevel.Debug,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Processing audit entry")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Processing audit entry")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Never);

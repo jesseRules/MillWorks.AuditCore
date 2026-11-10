@@ -322,7 +322,7 @@ public class RedisDistributedLockServiceTests
             static x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("already released or expired")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("already released or expired")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -362,7 +362,7 @@ public class RedisDistributedLockServiceTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error releasing")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Error releasing")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

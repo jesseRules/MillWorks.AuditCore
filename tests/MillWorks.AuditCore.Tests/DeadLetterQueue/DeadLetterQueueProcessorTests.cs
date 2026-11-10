@@ -219,7 +219,7 @@ public class DeadLetterQueueProcessorTests
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, _) =>
-                    v.ToString()!.Contains("Success=1") &&
+                    v != null && (v.ToString() ?? string.Empty).Contains("Success=1") &&
                     v.ToString()!.Contains("Failure=2") &&
                     v.ToString()!.Contains("Total=3")),
                 It.IsAny<Exception>(),
@@ -271,7 +271,7 @@ public class DeadLetterQueueProcessorTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("disabled by configuration")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("disabled by configuration")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -533,7 +533,7 @@ public class DeadLetterQueueProcessorTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Purged 5 processed events")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Purged 5 processed events")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
@@ -584,7 +584,7 @@ public class DeadLetterQueueProcessorTests
                 LogLevel.Information,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>(static (v, t) =>
-                    v.ToString()!.Contains("Total=15") &&
+                    v != null && (v.ToString() ?? string.Empty).Contains("Total=15") &&
                     v.ToString()!.Contains("Pending=10") &&
                     v.ToString()!.Contains("Failed=5")),
                 It.IsAny<Exception>(),
@@ -645,7 +645,7 @@ public class DeadLetterQueueProcessorTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Failed to reprocess")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Failed to reprocess")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
@@ -682,7 +682,7 @@ public class DeadLetterQueueProcessorTests
             static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Error processing dead letter queue")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Error processing dead letter queue")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);

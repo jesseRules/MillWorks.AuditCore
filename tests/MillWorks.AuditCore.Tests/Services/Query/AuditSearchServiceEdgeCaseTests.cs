@@ -348,7 +348,7 @@ public class AuditSearchServiceEdgeCaseTests
         // Assert
         Assert.That(result, Is.Not.Null);
         Assert.That(result.TotalItems, Is.EqualTo(5));
-        Assert.That(result.Items, Has.All.Matches<AuditEventDto>(static dto => dto.User == targetUser));
+        Assert.That(result.Items, Has.All.Matches<AuditEventDto>(static dto => dto != null && dto.User == targetUser));
     }
 
     #endregion

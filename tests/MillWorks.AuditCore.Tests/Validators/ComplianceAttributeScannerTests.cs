@@ -63,7 +63,7 @@ public class ComplianceAttributeScannerTests
         Assert.That(properties, Is.Not.Empty);
         Assert.That(properties,
             Has.Some.Matches<SensitivePropertyInfo>(static p =>
-                p.Property.Name == nameof(TestStudentEntity.StudentId)));
+                p != null && p.Property.Name == nameof(TestStudentEntity.StudentId)));
     }
 
     [Test]
@@ -74,7 +74,7 @@ public class ComplianceAttributeScannerTests
 
         Assert.That(hipaaProperties,
             Has.None.Matches<SensitivePropertyInfo>(static p =>
-                p.Property.Name == nameof(TestStudentEntity.GradeValue)));
+                p != null && p.Property.Name == nameof(TestStudentEntity.GradeValue)));
     }
 
     [Test]

@@ -32,18 +32,19 @@ public sealed class DatabaseExtensionsTests
         services.AddSingleton(logger.Object);
         services.AddDbContext<AuditDbContext>(options =>
             options.UseSqlite($"Data Source={_dbPath}")
-                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
+                .ConfigureWarnings(static w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
 
         var ex = await Assert.ThrowsAsync<SqliteException>(async () => await provider.RunAuditMigrationsAsync());
 
         Assert.That(ex!.Message, Does.Contain("syntax error"));
         logger.Verify(
-            x => x.Log(
+            static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Failed to run database migrations")),
+                It.Is<It.IsAnyType>((v, _) =>
+                    v != null && (v.ToString() ?? string.Empty).Contains("Failed to run database migrations")),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -57,7 +58,7 @@ public sealed class DatabaseExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(logger.Object);
-        services.AddDbContext<AuditDbContext>(options =>
+        services.AddDbContext<AuditDbContext>(static options =>
             options.UseInMemoryDatabase($"db-{Guid.NewGuid():N}"));
 
         using var provider = services.BuildServiceProvider();
@@ -66,10 +67,11 @@ public sealed class DatabaseExtensionsTests
 
         Assert.That(ex!.Message, Does.Contain("Relational-specific methods"));
         logger.Verify(
-            x => x.Log(
+            static x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Failed to run database migrations")),
+                It.Is<It.IsAnyType>(static (v, _) =>
+                    v != null && (v.ToString() ?? string.Empty).Contains("Failed to run database migrations")),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

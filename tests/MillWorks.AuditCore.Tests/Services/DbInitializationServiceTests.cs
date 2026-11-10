@@ -121,7 +121,7 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("migration on startup is disabled")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("migration on startup is disabled")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -148,7 +148,7 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("Starting database initialization")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("Starting database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -176,7 +176,7 @@ public class DbInitializationServiceTests
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>(static (v, t) =>
-                    v.ToString()!.Contains("Error occurred during database initialization")),
+                    v != null && (v.ToString() ?? string.Empty).Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -205,7 +205,7 @@ public class DbInitializationServiceTests
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>(static (v, t) =>
-                    v.ToString()!.Contains("Error occurred during database initialization")),
+                    v != null && (v.ToString() ?? string.Empty).Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -293,7 +293,7 @@ public class DbInitializationServiceTests
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>(static (v, t) =>
-                    v.ToString()!.Contains("Error occurred during database initialization")),
+                    v != null && (v.ToString() ?? string.Empty).Contains("Error occurred during database initialization")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -341,7 +341,7 @@ public class DbInitializationServiceTests
             static x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>(static (v, t) => v.ToString()!.Contains("stopped")),
+                It.Is<It.IsAnyType>(static (v, t) => v != null && (v.ToString() ?? string.Empty).Contains("stopped")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

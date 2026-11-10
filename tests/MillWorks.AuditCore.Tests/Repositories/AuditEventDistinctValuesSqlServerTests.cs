@@ -72,7 +72,7 @@ public sealed class AuditEventDistinctValuesSqlServerTests
         return db;
     }
 
-    [Test, Order(1)]
+    [Test]
     public async Task IncrementalIndexAndSeeks_ReduceReads_PreserveValuesAndRollback()
     {
         await using var db = Context();
@@ -106,7 +106,7 @@ public sealed class AuditEventDistinctValuesSqlServerTests
             await Execute(connection, command.CommandText);
     }
 
-    [Test, Order(2)]
+    [Test, DependsOnTest(nameof(IncrementalIndexAndSeeks_ReduceReads_PreserveValuesAndRollback), AllowFailure = true)]
     public async Task HighCardinality_FallsBackWithoutTruncation_AndPreservesLimits()
     {
         await Execute(connection, """
@@ -133,7 +133,7 @@ public sealed class AuditEventDistinctValuesSqlServerTests
         finally { await Execute(connection, "DELETE audit.AuditEvents WHERE EventType LIKE N'High.%';"); }
     }
 
-    [Test, Order(3)]
+    [Test, DependsOnTest(nameof(HighCardinality_FallsBackWithoutTruncation_AndPreservesLimits), AllowFailure = true)]
     public async Task CustomQuotedSchemaAndColumnCollation_KeepDatabaseSemantics()
     {
         await Execute(connection, """
@@ -151,7 +151,7 @@ public sealed class AuditEventDistinctValuesSqlServerTests
         Assert.That(await AuditEventDistinctValues.EventTypesAsync(db), Is.EqualTo(new[] { "", "Created" }));
     }
 
-    [Test, Order(4)]
+    [Test, DependsOnTest(nameof(CustomQuotedSchemaAndColumnCollation_KeepDatabaseSemantics), AllowFailure = true)]
     public async Task GlobalQueryFilterAndCancellation_AreNotBypassed()
     {
         await using var db = new FilteredContext(new DbContextOptionsBuilder<AuditDbContext>().UseSqlServer(connection).Options);

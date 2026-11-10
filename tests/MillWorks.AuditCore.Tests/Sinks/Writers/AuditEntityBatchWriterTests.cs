@@ -162,7 +162,7 @@ public sealed class AuditEntityBatchWriterTests
         Assert.That(links, Has.Count.EqualTo(2));
         Assert.That(links.Select(static link => link.AuditLogId), Is.EquivalentTo(rows.Select(static row => row.Id)));
         Assert.That(links, Has.All.Matches<AuditLogSubjectLinkEntity>(link =>
-            link.TenantId == tenantId && link.Relationship == "PatientId"));
+            link != null && link.TenantId == tenantId && link.Relationship == "PatientId"));
     }
 
     [Test]

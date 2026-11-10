@@ -194,7 +194,7 @@ public class AuditContextMiddlewareEdgeCaseTests
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Malformed X-Correlation-Id")),
+                It.Is<It.IsAnyType>((v, _) => v != null && (v.ToString() ?? string.Empty).Contains("Malformed X-Correlation-Id")),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
